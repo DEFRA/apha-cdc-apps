@@ -3,7 +3,7 @@
     <File Path=".gitignore" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/MyApp.Api/CDC.Api.csproj" />
-    <Project Path="src/MyApp.Web/CDC.Web.csproj" />
+    <Project Path="src/MyApp.Api/MyApp.Api.csproj" />
+    <Project Path="src/MyApp.Web/MyApp.Web.csproj" />
   </Folder>
 </Solution>

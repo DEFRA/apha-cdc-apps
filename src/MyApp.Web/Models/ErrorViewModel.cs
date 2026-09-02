@@ -1,4 +1,4 @@
-namespace CDC.Web.Models;
+namespace MyApp.Web.Models;
 
 public class ErrorViewModel
 {

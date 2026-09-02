@@ -1,15 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using CDC.Web.Features.Account;
+using MyApp.Web.Features.Account;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
-namespace CDC.Web.Features.Account
+namespace MyApp.Web.Features.Account
 {
     public class AccountController : Controller
     {
-        [AllowAnonymous]
         [HttpGet]
         public IActionResult Login(string returnUrl = null)
         {
@@ -18,7 +16,6 @@ namespace CDC.Web.Features.Account
             return View(model);
         }
 
-        [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async System.Threading.Tasks.Task<IActionResult> Login(AccountViewModel model)

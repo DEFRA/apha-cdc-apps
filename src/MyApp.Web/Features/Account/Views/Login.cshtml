@@ -1,4 +1,4 @@
-@model CDC.Web.Features.Account.AccountViewModel
+@model MyApp.Web.Features.Account.AccountViewModel
 @{
     ViewData["Title"] = "Login";
 }
@@ -9,13 +9,13 @@
 <form asp-action="Login" method="post">
     @Html.AntiForgeryToken()
     <div class="form-group mb-3">
-        <label name="Username" class="form-label"></label>
-        <input name="Username" class="form-control" />
+        <label asp-for="Username" class="form-label"></label>
+        <input asp-for="Username" class="form-control" />
         <span asp-validation-for="Username" class="text-danger"></span>
     </div>
     <div class="form-group mb-3">
-        <label name="Password" class="form-label"></label>
-        <input name="Password" class="form-control" type="password" />
+        <label asp-for="Password" class="form-label"></label>
+        <input asp-for="Password" class="form-control" />
         <span asp-validation-for="Password" class="text-danger"></span>
     </div>
     <input type="hidden" asp-for="ReturnUrl" />

@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using CDC.Web.Models;
+using MyApp.Web.Models;
 
-namespace CDC.Web.Features.Home;
+namespace MyApp.Web.Features.Home;
 
 public class HomeController : Controller
 {
