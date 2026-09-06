@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using MyApp.Web.Features.Account;
+using CDC.Web.Features.Account;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
-namespace MyApp.Web.Features.Account
+namespace CDC.Web.Features.Account
 {
     public class AccountController : Controller
     {

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace MyApp.Web.Features.Account
+namespace CDC.Web.Features.Account
 {
     public class AccountViewModel
     {
