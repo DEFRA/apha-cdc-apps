@@ -42,3 +42,8 @@ dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.camel_case_underscore_prefix.capitalization = camel_case
 dotnet_naming_style.camel_case_underscore_prefix.required_prefix = _
+
+[tests/**.cs]
+# CA1707: underscores in test method names are the standard xUnit "Method_Scenario_Expected" convention
+dotnet_diagnostic.CA1707.severity = none
+
