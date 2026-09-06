@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Sign in to D2R2";
+}
+
+<div class="text-center">
+    <h1 class="display-6 mb-3">D2R2</h1>
+    <p class="lead mb-5">Disease Briefing, Decisions Support, Risk Assessment &amp; Ranking</p>
+
+    <h2 class="h4 mb-4">Please select how you would like to sign in</h2>
+
+    <div class="row justify-content-center g-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h3 class="card-title h5">Internal User</h3>
+                    <p class="card-text flex-grow-1">APHA staff signing in from the Defra corporate network.</p>
+                    <a asp-action="Internal" class="btn btn-primary">Continue as Internal User</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h3 class="card-title h5">External User</h3>
+                    <p class="card-text flex-grow-1">External contributors and reviewers.</p>
+                    <a asp-action="External" class="btn btn-outline-primary">Continue as External User</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

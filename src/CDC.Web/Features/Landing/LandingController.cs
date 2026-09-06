@@ -1,17 +1,22 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Mvc;
 
-namespace CDC.Web.Features.Home;
+namespace CDC.Web.Features.Landing;
 
-public class HomeController : Controller
+public class LandingController : Controller
 {
     public IActionResult Index()
     {
         return View();
     }
 
-    public IActionResult Privacy()
+    public IActionResult Internal()
+    {
+        return View();
+    }
+
+    public IActionResult External()
     {
         return View();
     }
