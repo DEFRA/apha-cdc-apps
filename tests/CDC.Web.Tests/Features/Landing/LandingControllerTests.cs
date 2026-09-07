@@ -1,4 +1,5 @@
 using CDC.Web.Features.Landing;
+using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +10,7 @@ public class LandingControllerTests
     [Fact]
     public void Index_ReturnsView()
     {
-        var controller = new LandingController();
+        var controller = new LandingController(new FakeApiClient());
 
         var result = controller.Index();
 
@@ -19,7 +20,7 @@ public class LandingControllerTests
     [Fact]
     public void Internal_ReturnsView()
     {
-        var controller = new LandingController();
+        var controller = new LandingController(new FakeApiClient());
 
         var result = controller.Internal();
 
@@ -29,7 +30,7 @@ public class LandingControllerTests
     [Fact]
     public void External_ReturnsView()
     {
-        var controller = new LandingController();
+        var controller = new LandingController(new FakeApiClient());
 
         var result = controller.External();
 
@@ -37,9 +38,21 @@ public class LandingControllerTests
     }
 
     [Fact]
+    public async Task ApiStatus_ReturnsJsonFromApiClient()
+    {
+        var expected = new ApiHealthResponse("Healthy", 42, DateTime.UtcNow);
+        var controller = new LandingController(new FakeApiClient(expected));
+
+        var result = await controller.ApiStatus(CancellationToken.None);
+
+        var jsonResult = Assert.IsType<JsonResult>(result);
+        Assert.Equal(expected, jsonResult.Value);
+    }
+
+    [Fact]
     public void Error_ReturnsViewWithRequestId()
     {
-        var controller = new LandingController
+        var controller = new LandingController(new FakeApiClient())
         {
             ControllerContext = new ControllerContext
             {

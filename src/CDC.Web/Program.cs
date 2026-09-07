@@ -1,3 +1,4 @@
+using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,6 +7,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 // Also enable Razor Pages (some projects in the solution use Razor Pages)
 builder.Services.AddRazorPages();
+
+// Typed client for calling CDC.Api. Base address comes from config (Api:BaseUrl) so local dev,
+// ECS Service Connect (internal DNS alias) and any other environment just change the one value.
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"]
+    ?? throw new InvalidOperationException("Configuration value 'Api:BaseUrl' is required.");
+builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
+{
+    client.BaseAddress = new Uri(apiBaseUrl);
+})
+    .AddStandardResilienceHandler();
 
 // Allow views to be located under Features/{Controller}/Views and Features/Shared
 builder.Services.Configure<RazorViewEngineOptions>(options =>
