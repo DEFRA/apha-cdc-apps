@@ -14,3 +14,26 @@
 
 # VS Code (if used)
 .vscode/
+
+# JetBrains Rider
+.idea/
+
+# Node (Prettier/Husky tooling)
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
+
+# Test coverage output
+coverage.cobertura.xml
+coverage/
+
+# Environment/secrets
+.env
+.env.local
+appsettings.*.local.json
+
+# OS files
+.DS_Store
+Thumbs.db

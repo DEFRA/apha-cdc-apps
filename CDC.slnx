@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/CDC.Api/CDC.Api.csproj" />
+    <Project Path="src/CDC.Web/CDC.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CDC.Api.Tests/CDC.Api.Tests.csproj" />
+    <Project Path="tests/CDC.Web.Tests/CDC.Web.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,19 @@
+{
+   "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
+   "tasks": [
+      {
+         "name": "dotnet-format-verify",
+         "group": "pre-commit",
+         "command": "dotnet",
+         "args": [ "format", "CDC.slnx", "--verify-no-changes", "--include", "${staged}" ],
+         "include": [ "**/*.cs" ]
+      },
+      {
+         "name": "dotnet-test-coverage",
+         "group": "pre-commit",
+         "command": "dotnet",
+         "args": [ "test", "CDC.slnx" ],
+         "include": [ "**/*.cs" ]
+      }
+   ]
+}

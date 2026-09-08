@@ -1,0 +1,11 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Enables the built-in Roslyn analyzers (the .NET equivalent of an ESLint step) for every project in the solution -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+</Project>
