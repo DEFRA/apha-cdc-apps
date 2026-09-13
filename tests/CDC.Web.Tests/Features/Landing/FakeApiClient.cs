@@ -2,11 +2,13 @@ using CDC.Web.Infrastructure;
 
 namespace CDC.Web.Tests.Features.Landing;
 
-// Test double for IApiClient so controller unit tests don't need a real HTTP call.
-internal sealed class FakeApiClient(ApiHealthResponse? response = null) : IApiClient
+// Test double for IApiClient so controller/health-check unit tests don't need a real HTTP call.
+internal sealed class FakeApiClient(ApiHealthResponse? response = null, Exception? throwOnGetHealth = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(_response);
+        throwOnGetHealth is not null
+            ? Task.FromException<ApiHealthResponse?>(throwOnGetHealth)
+            : Task.FromResult(_response);
 }
