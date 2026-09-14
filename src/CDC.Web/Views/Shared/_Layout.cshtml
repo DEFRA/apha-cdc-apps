@@ -48,18 +48,29 @@
                 </div>
             </div>
         </div>
-        <section class="govuk-service-navigation" data-module="govuk-service-navigation" aria-label="Service information">
+        <!-- Custom "Menu" toggle: intentionally has no data-module="govuk-service-navigation",
+             since the official component only toggles a nav list, not this multi-section panel. -->
+        <section class="govuk-service-navigation" aria-label="Service information">
             <div class="govuk-width-container">
                 <div class="govuk-service-navigation__container">
                     <span class="govuk-service-navigation__service-name">
                         <a asp-area="" asp-controller="Landing" asp-action="Index" class="govuk-service-navigation__link">D2R2</a>
                     </span>
+                    <nav aria-label="Menu" class="govuk-service-navigation__wrapper">
+                        <button type="button" id="app-menu-toggle" class="govuk-service-navigation__toggle app-menu-toggle" aria-expanded="false" aria-controls="app-menu-panel">
+                            Menu
+                        </button>
+                    </nav>
                 </div>
+            </div>
+            <div id="app-menu-panel" class="app-menu-panel" hidden>
+                <partial name="_HeaderMenu" />
             </div>
         </section>
     </header>
 
     <div class="govuk-width-container">
+        @await RenderSectionAsync("Breadcrumbs", required: false)
         <main class="govuk-main-wrapper" id="main-content" role="main">
             @RenderBody()
         </main>
@@ -105,6 +116,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/header-menu.js" asp-append-version="true"></script>
     <script type="module" src="~/js/govuk-frontend-6.5.0.min.js"></script>
     <script type="module">
         import { initAll } from '/js/govuk-frontend-6.5.0.min.js'
