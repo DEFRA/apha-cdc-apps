@@ -2,30 +2,25 @@
     ViewData["Title"] = "Sign in to D2R2";
 }
 
-<div class="text-center">
-    <h1 class="display-6 mb-3">D2R2</h1>
-    <p class="lead mb-5">Disease Briefing, Decisions Support, Risk Assessment &amp; Ranking</p>
+<span class="govuk-caption-l">D2R2</span>
+<h1 class="govuk-heading-l">Disease Briefing, Decisions Support, Risk Assessment &amp; Ranking</h1>
 
-    <h2 class="h4 mb-4">Please select how you would like to sign in</h2>
+<h2 class="govuk-heading-m">Please select how you would like to sign in</h2>
 
-    <div class="row justify-content-center g-4">
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <h3 class="card-title h5">Internal User</h3>
-                    <p class="card-text flex-grow-1">APHA staff signing in from the Defra corporate network.</p>
-                    <a asp-action="Internal" class="btn btn-primary">Continue as Internal User</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <h3 class="card-title h5">External User</h3>
-                    <p class="card-text flex-grow-1">External contributors and reviewers.</p>
-                    <a asp-action="External" class="btn btn-outline-primary">Continue as External User</a>
-                </div>
-            </div>
-        </div>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-one-half">
+        <h3 class="govuk-heading-s">Internal User</h3>
+        <p class="govuk-body">APHA staff signing in from the Defra corporate network.</p>
+        <a asp-action="Internal" role="button" draggable="false" class="govuk-button" data-module="govuk-button">
+            Continue as Internal User
+        </a>
+    </div>
+    <div class="govuk-grid-column-one-half">
+        <h3 class="govuk-heading-s">External User</h3>
+        <p class="govuk-body">External contributors and reviewers.</p>
+        <a asp-action="External" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">
+            Continue as External User
+        </a>
     </div>
 </div>
+
