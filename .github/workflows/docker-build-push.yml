@@ -1,0 +1,177 @@
+﻿name: Build, Test & Publish Images
+
+# Triggers on every PR to main (not just ones touching Docker-relevant paths)
+# and on every push to main, so the `gate` job below always has a real
+# result to report â€” see the `gate` job for why that matters.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # required for AWS OIDC
+  contents: write   # required to push the optional post-deploy git tag
+  pull-requests: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ vars.AWS_OIDC_ROLE_ARN }}
+  ECR_REPOSITORY: alpha/cdc   # single shared ECR repo for this GitHub repo's two projects
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Solution-wide standards gate: formatting + full build (Roslyn analyzers
+  # are already enabled for every project via Directory.Build.props, so a
+  # normal build enforces them). Runs on every PR/push regardless of which
+  # project changed.
+  # ---------------------------------------------------------------------
+  lint:
+    name: Lint & Build - Solution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore CDC.slnx
+
+      - name: Verify formatting
+        run: dotnet format CDC.slnx --verify-no-changes --no-restore
+
+      - name: Build (enforces analyzers + code style)
+        run: dotnet build CDC.slnx -c Release --no-restore
+
+  # ---------------------------------------------------------------------
+  # SonarCloud static analysis. Disabled until the SonarCloud project
+  # exists - create it, then set the SONAR_TOKEN secret and the
+  # SONAR_PROJECT_KEY/SONAR_ORGANIZATION vars in repo settings, and flip
+  # `if: false` to `if: true` below.
+  # ---------------------------------------------------------------------
+  sonarcloud:
+    name: Static Analysis - SonarCloud
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install SonarScanner for .NET
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet sonarscanner begin \
+            /k:"${{ vars.SONAR_PROJECT_KEY }}" \
+            /o:"${{ vars.SONAR_ORGANIZATION }}" \
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.host.url="https://sonarcloud.io"
+          dotnet build CDC.slnx -c Release
+          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+
+  # ---------------------------------------------------------------------
+  # Path-based change detection. Both projects push to ONE ECR repository
+  # (alpha/cdc), so the project name is embedded in the image tag instead
+  # of the repository name (see the build jobs below).
+  # ---------------------------------------------------------------------
+  changes:
+    name: Detect Changed Projects
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          # On push events (post-merge, squash-merge-only history) compare
+          # against the parent commit; pull_request events compare against
+          # the PR base automatically.
+          base: ${{ github.event_name == 'push' && 'HEAD^' || github.event.pull_request.base.sha }}
+          filters: |
+            api:
+              - 'src/CDC.Api/**'
+            web:
+              - 'src/CDC.Web/**'
+
+  # ---------------------------------------------------------------------
+  # CDC.Api
+  # ---------------------------------------------------------------------
+  build-api:
+    name: Build & Publish - CDC.Api
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/build-test-publish
+        with:
+          project-dir: src/CDC.Api
+          test-project: tests/CDC.Api.Tests/CDC.Api.Tests.csproj
+          dockerfile: src/CDC.Api/Dockerfile
+          ecr-repository: ${{ env.ECR_REPOSITORY }}
+          image-tag-prefix: api-
+          git-tag-prefix: api
+          cache-scope: cdc-api
+          aws-region: ${{ env.AWS_REGION }}
+          aws-role-arn: ${{ env.AWS_ROLE_ARN }}
+
+  # ---------------------------------------------------------------------
+  # CDC.Web
+  # ---------------------------------------------------------------------
+  build-web:
+    name: Build & Publish - CDC.Web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/build-test-publish
+        with:
+          project-dir: src/CDC.Web
+          test-project: tests/CDC.Web.Tests/CDC.Web.Tests.csproj
+          dockerfile: src/CDC.Web/Dockerfile
+          ecr-repository: ${{ env.ECR_REPOSITORY }}
+          image-tag-prefix: web-
+          git-tag-prefix: web
+          cache-scope: cdc-web
+          aws-region: ${{ env.AWS_REGION }}
+          aws-role-arn: ${{ env.AWS_ROLE_ARN }}
+
+  # ---------------------------------------------------------------------
+  # Required PR status check. Individual build jobs are legitimately
+  # skipped on PRs that don't touch that project, so `gate` is the only
+  # job branch protection should require â€” it always reports a result.
+  # ---------------------------------------------------------------------
+  gate:
+    name: PR Status Gate
+    needs: [lint, sonarcloud, build-api, build-web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            exit 1
+          fi

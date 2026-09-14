@@ -24,8 +24,19 @@ src/
   CDC.Api/                 # business logic + database access (REST API, called by CDC.Web)
 ```
 
-`CDC.Web` uses a feature-folder convention: each feature lives under `Features/<Name>/` with its own
-controller and a `Views/` subfolder, instead of the default flat `Controllers/`+`Views/` split.
+Both projects use the same feature-folder convention: feature-specific code lives under `Features/<Name>/`
+(in `CDC.Web`, each feature folder has its own controller and `Views/` subfolder; in `CDC.Api`, its own
+Minimal API endpoint-mapping class), instead of the default flat `Controllers/`/`Endpoints/` split.
+Cross-cutting concerns that aren't tied to one feature (the typed `HttpClient` in `CDC.Web`, the DB
+connection factory and startup checks in `CDC.Api`) live under `Infrastructure/` instead:
+
+```
+src/CDC.Api/
+  Features/
+    Health/              # HealthEndpoints, DatabaseHealthCheck, ReadinessKeyFilter
+  Infrastructure/         # StartupChecks, IDbConnectionFactory, SqlConnectionFactory
+  Program.cs
+```
 
 ## Getting started
 

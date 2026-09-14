@@ -1,3 +1,4 @@
+using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
 
@@ -17,6 +18,9 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     client.BaseAddress = new Uri(apiBaseUrl);
 })
     .AddStandardResilienceHandler();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
 // Allow views to be located under Features/{Controller}/Views and Features/Shared
 builder.Services.Configure<RazorViewEngineOptions>(options =>
@@ -40,6 +44,8 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.MapHealthEndpoints();
 
 app.UseAuthorization();
 
