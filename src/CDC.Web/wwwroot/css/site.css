@@ -29,3 +29,37 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* Header "Menu" toggle and panel (GOV.UK Design System has no built-in mega-menu component) */
+.app-menu-toggle {
+  font: inherit;
+  color: var(--govuk-link-colour, #1d70b8);
+  background: none;
+  border: 0;
+  padding: 15px 0;
+  margin: 10px 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.app-menu-toggle[aria-expanded="true"] {
+  font-weight: 700;
+}
+
+.app-menu-panel {
+  border-top: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #f3f2f1;
+}
+
+.app-menu-panel__row {
+  padding-top: 20px;
+  padding-bottom: 10px;
+}
+
+.app-menu-panel__heading {
+  margin-bottom: 10px;
+}
+
+.app-menu-panel__link--active {
+  font-weight: 700;
+}

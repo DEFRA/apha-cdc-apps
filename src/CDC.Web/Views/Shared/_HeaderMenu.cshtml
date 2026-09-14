@@ -1,0 +1,27 @@
+@using CDC.Web.Models
+@{
+    var currentPath = Context.Request.Path.Value ?? string.Empty;
+}
+
+<div class="govuk-width-container">
+    <div class="govuk-grid-row app-menu-panel__row">
+        @foreach (var menuSection in HeaderMenu.Sections)
+        {
+            <div class="govuk-grid-column-one-third">
+                <h2 class="govuk-heading-s app-menu-panel__heading">@menuSection.Title</h2>
+                <ul class="govuk-list app-menu-panel__list">
+                    @foreach (var link in menuSection.Links)
+                    {
+                        var href = Url.Page(link.PagePath);
+                        var isActive = string.Equals(href, currentPath, StringComparison.OrdinalIgnoreCase);
+                        <li>
+                            <a class="govuk-link govuk-link--no-visited-state app-menu-panel__link@(isActive ? " app-menu-panel__link--active" : string.Empty)"
+                               href="@href"
+                               aria-current="@(isActive ? "page" : null)">@link.Text</a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+</div>
