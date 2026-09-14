@@ -17,7 +17,7 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   AWS_ROLE_ARN: ${{ vars.AWS_OIDC_ROLE_ARN }}
-  ECR_REPOSITORY: alpha/cdc   # single shared ECR repo for this GitHub repo's two projects
+  ECR_REPOSITORY: apha/cdc   # single shared ECR repo for this GitHub repo's two projects
 
 jobs:
   # ---------------------------------------------------------------------
