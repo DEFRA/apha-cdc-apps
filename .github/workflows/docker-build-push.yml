@@ -111,6 +111,7 @@ jobs:
   # CDC.Api
   # ---------------------------------------------------------------------
   build-api:
+    name: Build & Publish - CDC.Api
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
@@ -135,6 +136,7 @@ jobs:
   # CDC.Web
   # ---------------------------------------------------------------------
   build-web:
+    name: Build & Publish - CDC.Web
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
