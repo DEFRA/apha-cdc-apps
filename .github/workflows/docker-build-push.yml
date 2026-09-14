@@ -98,14 +98,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: dorny/paths-filter@v4
         id: filter
         with:
           # On push events (post-merge, squash-merge-only history) compare
-          # against the parent commit; pull_request events compare against
-          # the PR base automatically.
-          base: ${{ github.event_name == 'push' && 'HEAD^' || github.event.pull_request.base.sha }}
+          # against the commit before the push; pull_request events compare
+          # against the PR base automatically.
+          base: ${{ github.event_name == 'push' && github.event.before || github.event.pull_request.base.sha }}
           filters: |
             api:
               - 'src/CDC.Api/**'
