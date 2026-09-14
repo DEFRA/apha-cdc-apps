@@ -27,6 +27,7 @@ jobs:
   # project changed.
   # ---------------------------------------------------------------------
   lint:
+    name: Lint & Build - Solution
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -51,6 +52,7 @@ jobs:
   # `if: false` to `if: true` below.
   # ---------------------------------------------------------------------
   sonarcloud:
+    name: Static Analysis - SonarCloud
     if: false
     runs-on: ubuntu-latest
     steps:
@@ -88,6 +90,7 @@ jobs:
   # of the repository name (see the build jobs below).
   # ---------------------------------------------------------------------
   changes:
+    name: Detect Changed Projects
     runs-on: ubuntu-latest
     outputs:
       api: ${{ steps.filter.outputs.api }}
@@ -163,6 +166,7 @@ jobs:
   # job branch protection should require â€” it always reports a result.
   # ---------------------------------------------------------------------
   gate:
+    name: PR Status Gate
     needs: [lint, sonarcloud, build-api, build-web]
     if: always()
     runs-on: ubuntu-latest
