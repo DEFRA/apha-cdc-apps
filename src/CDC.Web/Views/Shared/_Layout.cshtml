@@ -4,7 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1d70b8" />
-    <title>@ViewData["Title"] - D2R2</title>
+    @{
+        var pageTitle = ViewData["Title"] as string;
+        var documentTitle = string.IsNullOrWhiteSpace(pageTitle) || pageTitle == "D2R2" ? "D2R2" : $"{pageTitle} - D2R2";
+    }
+    <title>@documentTitle</title>
 
     <link rel="icon" sizes="48x48" href="~/assets/images/favicon.ico" />
     <link rel="icon" sizes="any" href="~/assets/images/favicon.svg" type="image/svg+xml" />
