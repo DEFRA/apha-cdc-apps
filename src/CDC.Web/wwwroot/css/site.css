@@ -30,25 +30,126 @@ body {
   text-align: start;
 }
 
-/* Header "Menu" toggle and panel (GOV.UK Design System has no built-in mega-menu component) */
-.app-menu-toggle {
-  font: inherit;
-  color: var(--govuk-link-colour, #1d70b8);
-  background: none;
-  border: 0;
-  padding: 15px 0;
-  margin: 10px 0;
-  cursor: pointer;
+/* D2R2 application header: black top bar + light secondary bar (GOV.UK Design System
+   has no built-in equivalent, so this is a bespoke header built from GOV.UK primitives). */
+:root {
+  /* Placeholder brand green - replace with the confirmed APHA brand hex when available. */
+  --app-accent-colour: #85994b;
+}
+
+.app-header__top {
+  position: relative;
+}
+
+.app-top-header {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.app-top-header__container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 110px;
+}
+
+.app-top-header__brand-link {
+  text-decoration: none;
+}
+
+.app-top-header__brand {
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.app-top-header__brand-link:hover .app-top-header__brand {
   text-decoration: underline;
 }
 
-.app-menu-toggle[aria-expanded="true"] {
+.app-top-header__brand-link:focus {
+  outline: 3px solid transparent;
+  background-color: var(--govuk-focus-colour, #fd0);
+}
+
+.app-top-header__brand-link:focus .app-top-header__brand {
+  color: #0b0c0c;
+}
+
+.app-top-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.app-top-header__menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 700;
+  color: #ffffff;
+  background: none;
+  border: 0;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.app-top-header__menu-icon {
+  transition: transform 0.2s ease-in-out;
+}
+
+.app-top-header__menu-toggle[aria-expanded="true"] .app-top-header__menu-icon {
+  transform: rotate(180deg);
+}
+
+.app-top-header__menu-toggle:focus {
+  outline: 3px solid var(--govuk-focus-colour, #fd0);
+  outline-offset: 2px;
+}
+
+.app-top-header__separator {
+  width: 1px;
+  height: 30px;
+  background-color: #ffffff;
+}
+
+.app-top-header__help {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: none;
+  cursor: pointer;
+}
+
+.app-top-header__help-icon {
   font-weight: 700;
 }
 
+.app-top-header__help:focus {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--govuk-focus-colour, #fd0);
+}
+
+/* Overlays the secondary header and page content below, rather than pushing them down. */
 .app-menu-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
   border-top: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: 6px solid var(--app-accent-colour);
   background-color: #f3f2f1;
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.25);
 }
 
 .app-menu-panel__row {
@@ -60,6 +161,114 @@ body {
   margin-bottom: 10px;
 }
 
+.app-menu-panel__link {
+  text-decoration: none;
+}
+
+.app-menu-panel__link:hover {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .app-menu-panel__link--active {
   font-weight: 700;
+}
+
+.app-secondary-header {
+  background-color: #f3f2f1;
+  border-bottom: 1px solid #b1b4b6;
+}
+
+.app-secondary-header__container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.app-secondary-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 15px;
+  border-left: 4px solid var(--app-accent-colour);
+  color: #0b0c0c;
+}
+
+.app-secondary-header__crest {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+.app-secondary-header__org {
+  font-weight: 400;
+  font-size: 1.1875rem;
+}
+
+.app-secondary-header__account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: 5px;
+  font-size: 1rem;
+  color: #0b0c0c;
+}
+
+.app-secondary-header__signed-in {
+  margin: 0;
+}
+
+.app-secondary-header__username {
+  font-weight: 700;
+}
+
+.app-secondary-header__signout {
+  margin-left: 0;
+}
+
+@media (max-width: 40.0625em) {
+  .app-top-header__container {
+    min-height: 80px;
+  }
+
+  .app-top-header__brand {
+    font-size: 1.6875rem;
+  }
+
+  .app-top-header__menu-text {
+    display: none;
+  }
+
+  .app-secondary-header__container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-secondary-header__account {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* Footer: three link sections (User Admin, Cross Profile Admin, Help and Support) + back to top.
+   Layout/spacing use GOV.UK grid rows/columns and govuk-!-* spacing utilities; only the heading
+   underline and back-to-top icon alignment need bespoke rules, since GOV.UK Frontend has no
+   built-in equivalent for either. */
+.app-footer {
+  border-top: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-footer__back-to-top-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.app-footer__heading {
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
 }
