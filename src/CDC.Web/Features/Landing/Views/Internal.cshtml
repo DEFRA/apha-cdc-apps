@@ -1,18 +1,81 @@
 @{
-    ViewData["Title"] = "Internal User";
+    ViewData["Title"] = "D2R2";
 }
 
-<a asp-action="Index" class="govuk-back-link">Back</a>
-
-<span class="govuk-caption-l">D2R2</span>
-<h1 class="govuk-heading-l">Internal User</h1>
-
-<div class="govuk-inset-text">
-    Microsoft Entra ID (SAML 2.0) sign-in for internal users is not yet implemented.
-    This is a placeholder page for the internal user journey.
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        <h1 class="govuk-heading-xl">D2R2</h1>
+        <p class="govuk-body-l">
+            D2R2 is a comprehensive, peer-reviewed animal disease database and risk ranking tool.
+            It is focused on the UK situation. Its standardised approach facilitates a transparent
+            mechanism for making policy decisions.
+        </p>
+    </div>
 </div>
 
-<p class="govuk-body">
-    Once sign-in is complete, internal-user content and services will appear here.
-</p>
+<div class="govuk-grid-row">
+    <section class="govuk-grid-column-two-thirds" aria-labelledby="app-home-popular-heading">
+        <h2 class="govuk-heading-m" id="app-home-popular-heading">Popular on D2R2</h2>
+
+        <nav class="app-home-links" aria-label="Popular pages">
+            <ul class="app-home-links__list">
+                <li class="app-home-links__item">
+                    <a class="app-home-links__link" href="#">
+                        <span class="app-home-links__text">
+                            <span class="app-home-links__title">Search Disease Profiles</span>
+                            <span class="app-home-links__description">Find information about diseases and the species they affect.</span>
+                        </span>
+                        <svg class="app-home-links__chevron" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="12" height="19" viewBox="0 0 12 19">
+                            <path fill="currentColor" d="M0 1.4 1.4 0l9.6 9.5-9.6 9.5L0 17.6l8.1-8.1z"/>
+                        </svg>
+                    </a>
+                </li>
+                <li class="app-home-links__item">
+                    <a class="app-home-links__link" href="#">
+                        <span class="app-home-links__text">
+                            <span class="app-home-links__title">Disease Ranking Report</span>
+                            <span class="app-home-links__description">View Disease ranking report.</span>
+                        </span>
+                        <svg class="app-home-links__chevron" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="12" height="19" viewBox="0 0 12 19">
+                            <path fill="currentColor" d="M0 1.4 1.4 0l9.6 9.5-9.6 9.5L0 17.6l8.1-8.1z"/>
+                        </svg>
+                    </a>
+                </li>
+                <li class="app-home-links__item">
+                    <a class="app-home-links__link" href="#">
+                        <span class="app-home-links__text">
+                            <span class="app-home-links__title">General Reports</span>
+                            <span class="app-home-links__description">View a list of reports.</span>
+                        </span>
+                        <svg class="app-home-links__chevron" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="12" height="19" viewBox="0 0 12 19">
+                            <path fill="currentColor" d="M0 1.4 1.4 0l9.6 9.5-9.6 9.5L0 17.6l8.1-8.1z"/>
+                        </svg>
+                    </a>
+                </li>
+                <li class="app-home-links__item">
+                    <a class="app-home-links__link" href="#">
+                        <span class="app-home-links__text">
+                            <span class="app-home-links__title">View Species Data</span>
+                            <span class="app-home-links__description">Find information about specific species.</span>
+                        </span>
+                        <svg class="app-home-links__chevron" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="12" height="19" viewBox="0 0 12 19">
+                            <path fill="currentColor" d="M0 1.4 1.4 0l9.6 9.5-9.6 9.5L0 17.6l8.1-8.1z"/>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </section>
+
+    <aside class="govuk-grid-column-one-third">
+        <img src="~/assets/images/D2R2LogoSmall.png" alt="D2R2" class="app-home-logo" width="300" />
+
+        <h2 class="govuk-heading-m">Quick Links</h2>
+        <ul class="govuk-list">
+            <li><a class="govuk-link" href="#">Help Using D2R2</a></li>
+            <li><a class="govuk-link" href="#">Compare Profile Versions</a></li>
+            <li><a class="govuk-link" href="#">Create Disease Ranking Filter</a></li>
+        </ul>
+    </aside>
+</div>
 
