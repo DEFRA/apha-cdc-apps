@@ -16,6 +16,15 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/")]
     [InlineData("/Landing/Internal")]
     [InlineData("/Landing/External")]
+    [InlineData("/DiseaseProfiles/Search")]
+    [InlineData("/DiseaseProfiles/Create")]
+    [InlineData("/DiseaseProfiles/CompareVersions")]
+    [InlineData("/DiseaseProfiles/ReviewTimings")]
+    [InlineData("/Reports/General")]
+    [InlineData("/Reports/QuestionsGuidance")]
+    [InlineData("/Reports/DiseaseRanking")]
+    [InlineData("/SpeciesData/View")]
+    [InlineData("/SpeciesData/Maintain")]
     public async Task LandingRoutes_ReturnSuccess(string url)
     {
         var client = _factory.CreateClient();
