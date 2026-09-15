@@ -30,6 +30,73 @@ body {
   text-align: start;
 }
 
+/* D2R2 home page "Popular on D2R2" clickable link rows (no GOV.UK Frontend equivalent component). */
+.app-home-links__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-home-links__item {
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-home-links__item:first-child {
+  border-top: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-home-links__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 20px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-home-links__link:hover .app-home-links__title {
+  text-decoration: underline;
+}
+
+.app-home-links__link:focus {
+  outline: 3px solid transparent;
+  background-color: var(--govuk-focus-colour, #fd0);
+}
+
+.app-home-links__link:focus .app-home-links__title,
+.app-home-links__link:focus .app-home-links__description,
+.app-home-links__link:focus .app-home-links__chevron {
+  color: #0b0c0c;
+}
+
+.app-home-links__title {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--govuk-link-colour, #1d70b8);
+}
+
+.app-home-links__description {
+  display: block;
+  margin-top: 5px;
+  font-size: 1.1875rem;
+  color: var(--govuk-text-colour, #0b0c0c);
+}
+
+.app-home-links__chevron {
+  flex-shrink: 0;
+  color: var(--govuk-link-colour, #1d70b8);
+}
+
+.app-home-logo {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin-bottom: 20px;
+}
+
 /* D2R2 application header: black top bar + light secondary bar (GOV.UK Design System
    has no built-in equivalent, so this is a bespoke header built from GOV.UK primitives). */
 :root {
