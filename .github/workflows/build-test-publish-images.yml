@@ -1,0 +1,493 @@
+name: Build, Test and Publish CDC Images
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Manual "rebuild and publish everything" trigger, independent of what changed -
+  # e.g. to validate a change to this pipeline itself, or to re-publish on demand.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: cdc-images-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  ECR_REPOSITORY: apha/cdc
+
+jobs:
+  changes:
+    name: Detect affected components
+    runs-on: windows-2022
+    timeout-minutes: 5
+    outputs:
+      components: ${{ steps.components.outputs.result }}
+      dockerfiles: ${{ steps.dockerfiles.outputs.map }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed paths
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v4.0.3
+        with:
+          filters: |
+            api:
+              - 'src/CDC.Api/**'
+              - 'tests/CDC.Api.Tests/**'
+              - 'CDC.slnx'
+              - 'Directory.Build.*'
+              - 'Directory.Packages.props'
+              - 'NuGet.config'
+              - 'global.json'
+              - '.github/workflows/build-test-publish-images.yml'
+            web:
+              - 'src/CDC.Web/**'
+              - 'tests/CDC.Web.Tests/**'
+              - 'CDC.slnx'
+              - 'Directory.Build.*'
+              - 'Directory.Packages.props'
+              - 'NuGet.config'
+              - 'global.json'
+              - '.github/workflows/build-test-publish-images.yml'
+
+      - name: Resolve affected components
+        id: components
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'result=["api","web"]' >> "${GITHUB_OUTPUT}"
+          else
+            echo 'result=${{ steps.filter.outputs.changes }}' >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Single source of truth for the component -> Dockerfile mapping, consumed
+      # by container-validation and publish instead of each duplicating it.
+      - name: Map components to their Dockerfiles
+        id: dockerfiles
+        shell: bash
+        run: |
+          echo 'map={"api":"src/CDC.Api/Dockerfile","web":"src/CDC.Web/Dockerfile"}' >> "${GITHUB_OUTPUT}"
+
+  quality:
+    name: Format, build and test solution
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore solution
+        run: dotnet restore CDC.slnx
+
+      - name: Verify formatting
+        run: dotnet format CDC.slnx --verify-no-changes --no-restore
+
+      - name: Build solution
+        run: dotnet build CDC.slnx --configuration Release --no-restore --warnaserror
+
+      - name: Test solution
+        run: >-
+          dotnet test CDC.slnx
+          --configuration Release
+          --no-build
+          --no-restore
+          --logger "trx;LogFilePrefix=cdc-tests"
+          --results-directory "${{ runner.temp }}/test-results"
+
+  sonarcloud:
+    name: SonarCloud analysis
+    if: vars.SONAR_ENABLED == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore repository tools
+        run: dotnet tool restore
+
+      - name: Analyse solution
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${SONAR_TOKEN}"
+          dotnet sonarscanner begin \
+            /k:"${{ vars.SONAR_PROJECT_KEY }}" \
+            /o:"${{ vars.SONAR_ORGANIZATION }}" \
+            /d:sonar.token="${SONAR_TOKEN}" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.qualitygate.wait=true
+          dotnet restore CDC.slnx
+          dotnet build CDC.slnx --configuration Release --no-restore
+          dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+
+  container-validation:
+    name: Validate ${{ matrix.component }} container
+    needs: [changes, quality]
+    if: needs.changes.outputs.components != '[]'
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.changes.outputs.components) }}
+    env:
+      DOCKERFILE: ${{ fromJSON(needs.changes.outputs.dockerfiles)[matrix.component] }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate resolved Dockerfile path
+        if: env.DOCKERFILE == ''
+        shell: bash
+        run: |
+          echo "::error::No Dockerfile mapped for component '${{ matrix.component }}'. Check the 'Map components to their Dockerfiles' step in the changes job."
+          exit 1
+
+      # Compatibility workaround: this job builds with `docker build` (no BuildKit),
+      # which does not support the --mount=type=cache flag used in the Dockerfile.
+      - name: Remove unsupported NuGet cache mounts
+        uses: ./.github/actions/strip-nuget-cache-mount
+        with:
+          dockerfile: ${{ env.DOCKERFILE }}
+
+      # windows-2022 runners don't guarantee the Docker Engine service is already
+      # running - start it and wait for the daemon to accept connections first.
+      - name: Start Docker service
+        shell: pwsh
+        run: |
+          Start-Service -Name Docker -ErrorAction SilentlyContinue
+
+          $maxAttempts = 30
+          $attempt = 0
+          while ($attempt -lt $maxAttempts) {
+            try {
+              docker ps | Out-Null
+              Write-Host "Docker is running"
+              exit 0
+            } catch {
+              $attempt++
+              Start-Sleep -Seconds 1
+            }
+          }
+
+          Write-Error "Docker failed to start after $maxAttempts attempts"
+          exit 1
+
+      - name: Build container without publishing
+        shell: pwsh
+        run: |
+          $dockerArgs = @(
+            "build"
+            "--file"
+            "${{ env.DOCKERFILE }}"
+            "--tag"
+            "cdc-${{ matrix.component }}:$env:GITHUB_SHA"
+            "--label"
+            "org.opencontainers.image.revision=$env:GITHUB_SHA"
+            "--label"
+            "org.opencontainers.image.source=https://github.com/$env:GITHUB_REPOSITORY"
+            "."
+          )
+
+          docker @dockerArgs
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      # On push to main this is the exact image publish later pushes - saving it here
+      # means publish loads it instead of rebuilding, so what's pushed is guaranteed
+      # to be byte-identical to what was just validated (and it's not rebuilt twice).
+      - name: Save built image for reuse by publish
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: docker save "cdc-${{ matrix.component }}:$env:GITHUB_SHA" -o "${{ runner.temp }}/cdc-${{ matrix.component }}.tar"
+
+      - name: Upload built image artifact
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdc-image-${{ matrix.component }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/cdc-${{ matrix.component }}.tar
+          retention-days: 1
+          overwrite: true
+
+  publish:
+    name: Publish ${{ matrix.component }} image
+    needs: [changes, quality, sonarcloud, container-validation]
+    if: >-
+      always() &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      needs.changes.result == 'success' &&
+      needs.quality.result == 'success' &&
+      (vars.SONAR_ENABLED != 'true' || needs.sonarcloud.result == 'success') &&
+      needs.container-validation.result == 'success' &&
+      needs.changes.outputs.components != '[]'
+    runs-on: windows-2022
+    environment: ecr-production
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.changes.outputs.components) }}
+    env:
+      AWS_REGION: ${{ secrets.AWS_ENV_REGION }}
+      AWS_ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ENV_ACCOUNT }}:role/${{ secrets.AWS_ENV_OIDC_ROLE }}
+      EXPECTED_AWS_ACCOUNT_ID: ${{ vars.EXPECTED_AWS_ACCOUNT_ID }}
+      EXPECTED_AWS_REGION: ${{ vars.EXPECTED_AWS_REGION }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve and validate publishing configuration
+        id: component
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${EXPECTED_AWS_ACCOUNT_ID}" || {
+            echo "::error::Repository variable EXPECTED_AWS_ACCOUNT_ID is not configured."
+            exit 1
+          }
+          test -n "${EXPECTED_AWS_REGION}" || {
+            echo "::error::Repository variable EXPECTED_AWS_REGION is not configured."
+            exit 1
+          }
+          [[ "${EXPECTED_AWS_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || {
+            echo "::error::EXPECTED_AWS_ACCOUNT_ID must contain exactly 12 digits."
+            exit 1
+          }
+          [[ "${AWS_REGION}" == "${EXPECTED_AWS_REGION}" ]] || {
+            echo "::error::AWS_REGION does not match EXPECTED_AWS_REGION."
+            exit 1
+          }
+
+          test -n "${ECR_REPOSITORY}" || {
+            echo "::error::ECR_REPOSITORY is not configured."
+            exit 1
+          }
+
+          EXPECTED_ROLE_PREFIX="arn:aws:iam::${EXPECTED_AWS_ACCOUNT_ID}:role/"
+          [[ "${AWS_ROLE_ARN}" == "${EXPECTED_ROLE_PREFIX}"* && "${AWS_ROLE_ARN}" != "${EXPECTED_ROLE_PREFIX}" ]] || {
+            echo "::error::Check AWS_OIDC_ROLE_ARN; the role ARN must reference the expected account and include a role name."
+            exit 1
+          }
+
+      # Reuses the exact image container-validation already built and validated for
+      # this commit, instead of building it again from scratch.
+      - name: Download validated image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cdc-image-${{ matrix.component }}-${{ github.run_id }}
+          path: ${{ runner.temp }}
+
+      # windows-2022 runners don't guarantee the Docker Engine service is already
+      # running - start it and wait for the daemon to accept connections first.
+      - name: Start Docker service
+        shell: pwsh
+        run: |
+          Start-Service -Name Docker -ErrorAction SilentlyContinue
+
+          $maxAttempts = 30
+          $attempt = 0
+          while ($attempt -lt $maxAttempts) {
+            try {
+              docker ps | Out-Null
+              Write-Host "Docker is running"
+              exit 0
+            } catch {
+              $attempt++
+              Start-Sleep -Seconds 1
+            }
+          }
+
+          Write-Error "Docker failed to start after $maxAttempts attempts"
+          exit 1
+
+      - name: Load validated image
+        shell: pwsh
+        run: docker load -i "${{ runner.temp }}/cdc-${{ matrix.component }}.tar"
+
+      - name: Display OIDC claims for troubleshooting
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESPONSE="$(curl --silent --show-error --fail \
+            --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")"
+
+          TOKEN="$(echo "${RESPONSE}" | jq -er '.value')"
+          PAYLOAD="$(echo "${TOKEN}" | cut -d '.' -f 2)"
+
+          TOKEN_PAYLOAD="${PAYLOAD}" python3 - <<'PY'
+          import base64
+          import json
+          import os
+
+          payload = os.environ["TOKEN_PAYLOAD"]
+          payload += "=" * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload))
+
+          for key in [
+              "aud",
+              "sub",
+              "repository",
+              "repository_owner_id",
+              "repository_id",
+              "ref",
+              "event_name",
+              "environment",
+          ]:
+              print(f"{key}={claims.get(key)}")
+          PY
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cdc-${{ github.run_id }}-${{ matrix.component }}
+          audience: sts.amazonaws.com
+
+      - name: Verify assumed AWS account
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          [[ "${ACTUAL_ACCOUNT_ID}" == "${EXPECTED_AWS_ACCOUNT_ID}" ]] || {
+            echo "::error::The assumed AWS account does not match EXPECTED_AWS_ACCOUNT_ID."
+            exit 1
+          }
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2.1.6
+        with:
+          mask-password: true
+
+      - name: Publish immutable image tag
+        id: image
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${{ matrix.component }}-sha-${GITHUB_SHA::12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          IMAGE_URI="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+
+          docker tag "cdc-${{ matrix.component }}:${GITHUB_SHA}" "${IMAGE_URI}"
+          docker push "${IMAGE_URI}"
+
+          IMAGE_DIGEST="$(aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids imageTag="${IMAGE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+
+          {
+            echo "image_uri=${IMAGE_URI}"
+            echo "image_digest=${IMAGE_DIGEST}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Write publishing summary
+        shell: bash
+        run: |
+          {
+            echo "### CDC ${{ matrix.component }} image published"
+            echo
+            echo "- Image: \`${{ steps.image.outputs.image_uri }}\`"
+            echo "- Digest: \`${{ steps.image.outputs.image_digest }}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  gate:
+    name: CI gate
+    needs: [changes, quality, sonarcloud, container-validation, publish]
+    if: always()
+    runs-on: windows-2022
+    timeout-minutes: 5
+    env:
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      QUALITY_RESULT: ${{ needs.quality.result }}
+      SONAR_RESULT: ${{ needs.sonarcloud.result }}
+      CONTAINER_RESULT: ${{ needs.container-validation.result }}
+      PUBLISH_RESULT: ${{ needs.publish.result }}
+      COMPONENTS: ${{ needs.changes.outputs.components }}
+      SONAR_ENABLED: ${{ vars.SONAR_ENABLED }}
+      EVENT_NAME: ${{ github.event_name }}
+    steps:
+      - name: Enforce required results
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          [[ "${CHANGES_RESULT}" == "success" ]] || {
+            echo "::error::Change detection result: ${CHANGES_RESULT}"
+            exit 1
+          }
+
+          [[ "${QUALITY_RESULT}" == "success" ]] || {
+            echo "::error::Quality result: ${QUALITY_RESULT}"
+            exit 1
+          }
+
+          if [[ "${SONAR_ENABLED}" == "true" && "${SONAR_RESULT}" != "success" ]]; then
+            echo "::error::SonarCloud is enabled but result is ${SONAR_RESULT}."
+            exit 1
+          fi
+
+          if [[ "${COMPONENTS}" != "[]" && "${CONTAINER_RESULT}" != "success" ]]; then
+            echo "::error::Container validation result: ${CONTAINER_RESULT}"
+            exit 1
+          fi
+
+          if [[ "${EVENT_NAME}" =~ ^(push|workflow_dispatch)$ && "${COMPONENTS}" != "[]" && "${PUBLISH_RESULT}" != "success" ]]; then
+            echo "::error::Image publishing result: ${PUBLISH_RESULT}"
+            exit 1
+          fi
+
+          echo "All required CI checks passed."

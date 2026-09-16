@@ -13,9 +13,19 @@ builder.Services.AddRazorPages();
 // ECS Service Connect (internal DNS alias) and any other environment just change the one value.
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"]
     ?? throw new InvalidOperationException("Configuration value 'Api:BaseUrl' is required.");
+
+// Fail fast at startup on a malformed value (e.g. a Service Connect DNS name configured
+// without an http(s):// scheme), rather than a confusing failure on the first outgoing request.
+if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
+    (apiBaseUri.Scheme != Uri.UriSchemeHttp && apiBaseUri.Scheme != Uri.UriSchemeHttps))
+{
+    throw new InvalidOperationException(
+        $"Configuration value 'Api:BaseUrl' ('{apiBaseUrl}') must be an absolute http:// or https:// URL, e.g. 'http://cdc-api:8080'.");
+}
+
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {
-    client.BaseAddress = new Uri(apiBaseUrl);
+    client.BaseAddress = apiBaseUri;
 })
     .AddStandardResilienceHandler();
 
