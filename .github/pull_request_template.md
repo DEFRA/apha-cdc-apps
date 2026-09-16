@@ -19,5 +19,4 @@ Closes #
 - [ ] I have self-reviewed my own diff
 - [ ] Tests added/updated and passing locally
 - [ ] Documentation updated (README, docs, code comments) if this change affects setup, behavior, or usage
-- [ ] `VERSION` bumped for each project this PR changes (`src/CDC.Api/VERSION`, `src/CDC.Web/VERSION`) - CI fails the PR otherwise
 
