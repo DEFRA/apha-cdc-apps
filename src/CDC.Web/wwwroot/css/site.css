@@ -35,6 +35,62 @@ body {
   text-align: start;
 }
 
+/* ViewSpeciesData placeholder tree UI, standing in for the legacy Telerik RadTreeView
+   (Telerik UI for ASP.NET Core is not installed/licensed in this project). */
+.app-species-tree {
+  max-width: 70%;
+}
+
+.app-species-tree__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 15px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--govuk-link-colour, #1d70b8);
+  cursor: pointer;
+}
+
+.app-species-tree__toggle[aria-expanded="true"] .govuk-accordion-nav__chevron {
+  transform: rotate(180deg);
+}
+
+.app-species-tree__toggle:focus {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--govuk-focus-colour, #fd0);
+}
+
+.app-species-tree__container {
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  padding: 15px;
+}
+
+.app-species-tree__list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.app-species-tree__list--root {
+  margin-top: 0;
+  padding-left: 0;
+}
+
+.app-species-tree__item {
+  margin-bottom: 10px;
+}
+
+.app-species-tree__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1875rem;
+  cursor: pointer;
+}
+
 /* D2R2 home page "Popular on D2R2" clickable link rows (no GOV.UK Frontend equivalent component). */
 .app-home-links__list {
   margin: 0;
@@ -122,7 +178,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 110px;
+  min-height: 70px;
 }
 
 .app-top-header__brand-link {
@@ -305,7 +361,7 @@ body {
 
 @media (max-width: 40.0625em) {
   .app-top-header__container {
-    min-height: 80px;
+    min-height: 56px;
   }
 
   .app-top-header__brand {

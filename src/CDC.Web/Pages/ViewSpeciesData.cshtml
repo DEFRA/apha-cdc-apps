@@ -1,0 +1,81 @@
+@page
+@model CDC.Web.Pages.ViewSpeciesDataModel
+@{
+    ViewData["Title"] = "View species data";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<h1 class="govuk-heading-l">View species data</h1>
+
+<p class="govuk-body">
+    This page details the species that are used by the D2R2 system. It is presented as a
+    hierarchical list that groups species into groups; a profile can reference an individual
+    species or an entire species group. Click on any species or species group to view the data
+    that is associated with that species or group.
+</p>
+
+<!-- Telerik UI for ASP.NET Core is not installed/licensed in this project, so this reproduces
+     the legacy RadTreeView UI pattern (toggle-all, checkbox tree, selection summary) with native
+     markup using placeholder/mock nodes, ready to be replaced by a real data-bound tree later. -->
+<div class="app-species-tree">
+    <button type="button" id="species-tree-toggle" class="app-species-tree__toggle" aria-expanded="true" aria-controls="species-tree">
+        <span class="govuk-accordion-nav__chevron" aria-hidden="true"></span>
+        <span class="app-species-tree__toggle-text">Collapse all</span>
+    </button>
+
+    <div id="species-tree" class="app-species-tree__container" role="tree" aria-label="Species and species groups">
+        <ul class="app-species-tree__list app-species-tree__list--root">
+            <li class="app-species-tree__item">
+                <label class="app-species-tree__label">
+                    <input type="checkbox" />
+                    Group A (placeholder)
+                </label>
+                <ul class="app-species-tree__list">
+                    <li class="app-species-tree__item">
+                        <label class="app-species-tree__label">
+                            <input type="checkbox" />
+                            Species A1 (placeholder)
+                        </label>
+                    </li>
+                    <li class="app-species-tree__item">
+                        <label class="app-species-tree__label">
+                            <input type="checkbox" />
+                            Species A2 (placeholder)
+                        </label>
+                    </li>
+                </ul>
+            </li>
+            <li class="app-species-tree__item">
+                <label class="app-species-tree__label">
+                    <input type="checkbox" />
+                    Group B (placeholder)
+                </label>
+                <ul class="app-species-tree__list">
+                    <li class="app-species-tree__item">
+                        <label class="app-species-tree__label">
+                            <input type="checkbox" />
+                            Species B1 (placeholder)
+                        </label>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="govuk-!-padding-top-3">
+    <p class="govuk-body" id="species-selection" hidden>
+        Selected: <strong id="species-selection-value"></strong>
+    </p>
+    <button type="button" id="species-tree-remove-selection" class="govuk-button govuk-button--secondary">
+        Remove selection
+    </button>
+</div>
+
+<button type="button" class="govuk-button">View data</button>
+
+@section Scripts {
+    <script src="~/js/species-tree.js" asp-append-version="true"></script>
+}
