@@ -90,6 +90,19 @@ surrounding page structure, route, or breadcrumb.
 - `src/CDC.Web/wwwroot/js/species-tree.js` — toggle-all and selection-summary behaviour for the
   placeholder tree (no data access).
 
+### Superseded (later change)
+
+The placeholder tree above was replaced by the reusable GOV.UK tree picker:
+
+- `src/CDC.Web/Models/TreeViewViewModel.cs` — `TreeViewViewModel`, `TreeNodeViewModel`,
+  `TreeViewNodeViewModel`.
+- `src/CDC.Web/Views/Shared/_TreeView.cshtml` and `_TreeViewNode.cshtml` — recursive partials.
+- `src/CDC.Web/wwwroot/js/tree-view.js` — `TreeView` behaviour (replaces `species-tree.js`,
+  which was deleted).
+
+The page now renders its nodes from `ViewSpeciesDataModel.SpeciesTree`, a placeholder hierarchy
+ready to be swapped for a real data source. Still no API, repository, or database access.
+
 ## Files modified
 
 - `src/CDC.Web/Features/Landing/Views/Internal.cshtml` — the "View Species Data" link's

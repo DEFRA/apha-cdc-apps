@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" class="govuk-template">
+
+<head>
+  <meta charset="utf-8">
+  <title>Select species - Tree picker - GOV.UK</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0c0c">
+  <link rel="icon" sizes="48x48"
+    href="https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/assets/rebrand/images/favicon.ico">
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/govuk-frontend.min.css">
+
+  <style>
+    /* govuk-frontend resolves fonts from /assets/fonts/, which does not exist
+       when the CSS is loaded from a CDN. Point GDS Transport at the CDN copy.
+       When this moves into CDC.Web, serve the assets locally instead. */
+    @font-face {
+      font-family: "GDS Transport";
+      font-style: normal;
+      font-weight: 400;
+      src: url("https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/assets/fonts/light-94a07e06a1-v2.woff2") format("woff2"),
+           url("https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/assets/fonts/light-f591b13f7d-v2.woff") format("woff");
+      font-display: fallback;
+    }
+
+    @font-face {
+      font-family: "GDS Transport";
+      font-style: normal;
+      font-weight: 700;
+      src: url("https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/assets/fonts/bold-b542beb274-v2.woff2") format("woff2"),
+           url("https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/assets/fonts/bold-affa96571d-v2.woff") format("woff");
+      font-display: fallback;
+    }
+
+    /*
+      Tree picker component (app-tree)
+      --------------------------------
+      Built only from GOV.UK Design System tokens so it can be lifted into a
+      Razor partial and compiled against the govuk-frontend Sass instead of the
+      hard-coded values below.
+
+        #0b0c0c  govuk-colour("black")     text / borders
+        #505a5f  govuk-colour("dark-grey")  secondary text
+        #b1b4b6  govuk-colour("mid-grey")   guide lines
+        #f3f2f1  govuk-colour("light-grey") hover
+        #fd0     govuk-colour("yellow")     focus
+        spacing scale: 5px 10px 15px 20px 30px 40px
+    */
+
+    .app-tree,
+    .app-tree__group {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .app-tree__group[hidden] {
+      display: none;
+    }
+
+    /* Depth is set by JavaScript as a custom property, so indentation scales to
+       any nesting level without extra CSS classes. */
+    .app-tree__row {
+      display: flex;
+      align-items: flex-start;
+      min-height: 40px;
+      padding-left: calc(var(--app-tree-depth, 0) * 30px);
+    }
+
+    .app-tree__row:hover {
+      background-color: #f3f2f1;
+    }
+
+    /* Vertical guide line for nested levels. */
+    .app-tree__group .app-tree__row {
+      position: relative;
+    }
+
+    .app-tree__group .app-tree__row::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc((var(--app-tree-depth, 1) - 1) * 30px + 21px);
+      border-left: 1px solid #b1b4b6;
+    }
+
+    /* Icon button: 44x44 hit area, well above the 24px minimum. */
+    .app-tree__toggle {
+      -webkit-appearance: none;
+      appearance: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: #0b0c0c;
+      cursor: pointer;
+    }
+
+    /* Leaf rows keep the checkbox aligned with their expandable siblings. */
+    .app-tree__spacer {
+      flex: 0 0 auto;
+      width: 44px;
+      height: 40px;
+    }
+
+    .app-tree__toggle-icon {
+      display: block;
+      width: 14px;
+      height: 14px;
+      transition: transform 0.1s ease-in-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .app-tree__toggle-icon {
+        transition: none;
+      }
+    }
+
+    .app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon {
+      transform: rotate(90deg);
+    }
+
+    /* GOV.UK focus style: yellow fill plus a solid black underline.
+       The transparent outline keeps the focus visible in forced-colours mode. */
+    .app-tree__toggle:focus-visible {
+      outline: 3px solid transparent;
+      background-color: #fd0;
+      box-shadow: 0 -2px #fd0, 0 4px #0b0c0c;
+    }
+
+    .app-tree__checkbox.govuk-checkboxes__item {
+      margin-bottom: 0;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .app-tree__checkbox .govuk-checkboxes__label {
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+
+    .app-tree__hint {
+      display: block;
+      color: #505a5f;
+      font-size: 16px;
+    }
+
+    .app-tree__panel {
+      border: 1px solid #b1b4b6;
+      padding: 10px 15px 10px 5px;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+
+    .app-tree__actions {
+      margin-bottom: 10px;
+    }
+
+    .app-tree__actions .govuk-button {
+      margin-bottom: 5px;
+    }
+
+    .app-tree__status {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    @media print {
+      .app-tree__group[hidden] {
+        display: block;
+      }
+    }
+  </style>
+</head>
+
+<body class="govuk-template__body">
+  <script>
+    document.body.className += ' js-enabled' + ('noModule' in HTMLScriptElement.prototype ? ' govuk-frontend-supported' : '');
+  </script>
+
+  <a href="#main-content" class="govuk-skip-link" data-module="govuk-skip-link">Skip to main content</a>
+
+  <div class="govuk-width-container">
+    <main class="govuk-main-wrapper" id="main-content" role="main">
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-two-thirds">
+
+          <form action="" method="get" novalidate>
+            <h1 class="govuk-heading-l">Select species</h1>
+
+            <div class="govuk-form-group">
+              <fieldset class="govuk-fieldset" aria-describedby="species-hint species-status">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+                  Which species does this profile cover?
+                </legend>
+
+                <div id="species-hint" class="govuk-hint">
+                  Select a group to select everything inside it. Use the arrow keys to move
+                  through the list, and the left and right arrows to open and close groups.
+                </div>
+
+                <div class="app-tree__actions">
+                  <button type="button" class="govuk-button govuk-button--secondary"
+                    data-module="govuk-button" data-app-tree-action="expand-all">
+                    Expand all
+                  </button>
+                  <button type="button" class="govuk-button govuk-button--secondary"
+                    data-module="govuk-button" data-app-tree-action="collapse-all">
+                    Collapse all
+                  </button>
+                  <button type="button" class="govuk-button govuk-button--secondary"
+                    data-module="govuk-button" data-app-tree-action="clear">
+                    Clear selection
+                  </button>
+                </div>
+
+                <p class="govuk-body app-tree__status" id="species-status" role="status">
+                  No species selected
+                </p>
+
+                <div class="app-tree__panel">
+                  <ul class="app-tree" data-module="app-tree-view" data-app-tree-name="species"
+                    data-app-tree-name-plural="species">
+
+                    <li class="app-tree__item" data-app-tree-expanded="true">
+                      <div class="app-tree__row">
+                        <div class="govuk-checkboxes__item app-tree__checkbox">
+                          <input class="govuk-checkboxes__input" id="sp-mammals" name="species" type="checkbox" value="mammals">
+                          <label class="govuk-label govuk-checkboxes__label" for="sp-mammals">Mammals</label>
+                        </div>
+                      </div>
+                      <ul class="app-tree__group">
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-bovine" name="species" type="checkbox" value="bovine">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-bovine">Bovine</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-cattle" name="species" type="checkbox" value="cattle">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-cattle">Cattle</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-buffalo" name="species" type="checkbox" value="buffalo">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-buffalo">Water buffalo</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-bison" name="species" type="checkbox" value="bison">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-bison">Bison</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-ovine" name="species" type="checkbox" value="ovine">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-ovine">Ovine and caprine</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-sheep" name="species" type="checkbox" value="sheep">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-sheep">Sheep</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-goat" name="species" type="checkbox" value="goat">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-goat">Goat</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-porcine" name="species" type="checkbox" value="porcine">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-porcine">Porcine</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-pig" name="species" type="checkbox" value="pig">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-pig">Farmed pig</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-boar" name="species" type="checkbox" value="wild-boar">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-boar">Wild boar</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+
+                    <li class="app-tree__item">
+                      <div class="app-tree__row">
+                        <div class="govuk-checkboxes__item app-tree__checkbox">
+                          <input class="govuk-checkboxes__input" id="sp-birds" name="species" type="checkbox" value="birds">
+                          <label class="govuk-label govuk-checkboxes__label" for="sp-birds">Birds</label>
+                        </div>
+                      </div>
+                      <ul class="app-tree__group">
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-poultry" name="species" type="checkbox" value="poultry">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-poultry">Poultry</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-chicken" name="species" type="checkbox" value="chicken">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-chicken">Chicken</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-turkey" name="species" type="checkbox" value="turkey">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-turkey">Turkey</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-duck" name="species" type="checkbox" value="duck">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-duck">Duck</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-wild-birds" name="species" type="checkbox" value="wild-birds">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-wild-birds">Wild birds</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-pigeon" name="species" type="checkbox" value="pigeon">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-pigeon">Pigeon</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-gull" name="species" type="checkbox" value="gull">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-gull">Gull</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+
+                    <li class="app-tree__item">
+                      <div class="app-tree__row">
+                        <div class="govuk-checkboxes__item app-tree__checkbox">
+                          <input class="govuk-checkboxes__input" id="sp-aquatic" name="species" type="checkbox" value="aquatic">
+                          <label class="govuk-label govuk-checkboxes__label" for="sp-aquatic">Aquatic animals</label>
+                        </div>
+                      </div>
+                      <ul class="app-tree__group">
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-finfish" name="species" type="checkbox" value="finfish">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-finfish">Finfish</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-salmon" name="species" type="checkbox" value="salmon">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-salmon">Atlantic salmon</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-trout" name="species" type="checkbox" value="trout">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-trout">Rainbow trout</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                        <li class="app-tree__item">
+                          <div class="app-tree__row">
+                            <div class="govuk-checkboxes__item app-tree__checkbox">
+                              <input class="govuk-checkboxes__input" id="sp-molluscs" name="species" type="checkbox" value="molluscs">
+                              <label class="govuk-label govuk-checkboxes__label" for="sp-molluscs">Molluscs</label>
+                            </div>
+                          </div>
+                          <ul class="app-tree__group">
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-oyster" name="species" type="checkbox" value="oyster">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-oyster">Pacific oyster</label>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="app-tree__item">
+                              <div class="app-tree__row">
+                                <div class="govuk-checkboxes__item app-tree__checkbox">
+                                  <input class="govuk-checkboxes__input" id="sp-mussel" name="species" type="checkbox" value="mussel">
+                                  <label class="govuk-label govuk-checkboxes__label" for="sp-mussel">Blue mussel</label>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+
+                  </ul>
+                </div>
+              </fieldset>
+            </div>
+
+            <button type="submit" class="govuk-button" data-module="govuk-button">Continue</button>
+          </form>
+
+          <div class="govuk-inset-text">
+            The indentation scales to any depth, but cap real content at three levels.
+            Deeper hierarchies are hard to scan, hard to describe to a screen reader user,
+            and usually mean the taxonomy needs splitting across pages.
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initAll } from 'https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/govuk-frontend.min.js'
+    initAll()
+  </script>
+
+  <script type="module">
+    /**
+     * TreeView
+     *
+     * Progressive enhancement over a plain nested <ul> of checkboxes, so the
+     * form still works with JavaScript unavailable (every group is visible and
+     * every checkbox submits its own value).
+     *
+     * Reuse: render the same markup from a Razor partial (one <li> per node,
+     * child nodes in a nested <ul class="app-tree__group">) and call
+     * `new TreeView(element)`. No ARIA tree role is used - native checkboxes
+     * and native buttons carry the semantics, and the only ARIA is
+     * aria-expanded plus an aria-controls that points at a real element id.
+     */
+    class TreeView {
+      static ITEM = '.app-tree__item'
+      static GROUP = ':scope > ul.app-tree__group'
+
+      constructor($root) {
+        if (!($root instanceof HTMLElement)) return
+        this.$root = $root
+        this.name = $root.dataset.appTreeName || 'item'
+        this.namePlural = $root.dataset.appTreeNamePlural || `${this.name}s`
+        this.idPrefix = `${this.$root.id || this.name}-tree`
+        this.$status = $root.closest('form')?.querySelector('.app-tree__status') || null
+
+        this.items = Array.from($root.querySelectorAll(TreeView.ITEM))
+        this.items.forEach((item, index) => this.setupItem(item, index))
+
+        $root.addEventListener('click', (event) => this.onClick(event))
+        $root.addEventListener('change', (event) => this.onChange(event))
+        $root.addEventListener('keydown', (event) => this.onKeydown(event))
+
+        const $form = $root.closest('form')
+        if ($form) {
+          $form.querySelectorAll('[data-app-tree-action]').forEach(($button) => {
+            $button.addEventListener('click', () => this.runAction($button.dataset.appTreeAction))
+          })
+        }
+
+        this.refreshAll()
+      }
+
+      /* ---------- structure helpers ---------- */
+
+      group(item) { return item.querySelector(TreeView.GROUP) }
+      checkbox(item) { return item.querySelector(':scope > .app-tree__row input[type="checkbox"]') }
+      toggle(item) { return item.querySelector(':scope > .app-tree__row .app-tree__toggle') }
+      parent(item) { return item.parentElement.closest(TreeView.ITEM) }
+      children(item) {
+        const group = this.group(item)
+        return group ? Array.from(group.children).filter((el) => el.matches(TreeView.ITEM)) : []
+      }
+      siblings(item) {
+        return Array.from(item.parentElement.children).filter((el) => el.matches(TreeView.ITEM))
+      }
+      descendantBoxes(item) {
+        const group = this.group(item)
+        return group ? Array.from(group.querySelectorAll('input[type="checkbox"]')) : []
+      }
+      leafBoxes() {
+        return this.items
+          .filter((item) => !this.group(item))
+          .map((item) => this.checkbox(item))
+      }
+      depth(item) {
+        let depth = 0
+        let current = this.parent(item)
+        while (current) {
+          depth += 1
+          current = this.parent(current)
+        }
+        return depth
+      }
+
+      /* ---------- set up ---------- */
+
+      setupItem(item, index) {
+        const row = item.querySelector(':scope > .app-tree__row')
+        const group = this.group(item)
+        const checkbox = this.checkbox(item)
+
+        row.style.setProperty('--app-tree-depth', this.depth(item))
+
+        if (!group) {
+          const spacer = document.createElement('span')
+          spacer.className = 'app-tree__spacer'
+          spacer.setAttribute('aria-hidden', 'true')
+          row.insertBefore(spacer, row.firstElementChild)
+          return
+        }
+
+        // aria-controls must point at a real id, so guarantee one exists.
+        group.id = group.id || `${this.idPrefix}-group-${index}`
+
+        const label = item.querySelector(':scope > .app-tree__row label')
+        const expanded = item.dataset.appTreeExpanded === 'true'
+
+        const toggle = document.createElement('button')
+        toggle.type = 'button'
+        toggle.className = 'app-tree__toggle'
+        toggle.setAttribute('aria-expanded', String(expanded))
+        toggle.setAttribute('aria-controls', group.id)
+        // Accessible name: the category it opens. State comes from aria-expanded.
+        toggle.innerHTML =
+          `<span class="govuk-visually-hidden">${label ? label.textContent.trim() : checkbox.value}</span>` +
+          '<svg class="app-tree__toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 16" ' +
+          'fill="none" stroke="currentColor" stroke-width="3" focusable="false" aria-hidden="true">' +
+          '<path d="M1.5 1.5 8 8l-6.5 6.5"/></svg>'
+
+        row.insertBefore(toggle, row.firstElementChild)
+        group.hidden = !expanded
+      }
+
+      /* ---------- expand and collapse ---------- */
+
+      setExpanded(item, expanded) {
+        const group = this.group(item)
+        const toggle = this.toggle(item)
+        if (!group || !toggle) return
+        group.hidden = !expanded
+        toggle.setAttribute('aria-expanded', String(expanded))
+        item.dataset.appTreeExpanded = String(expanded)
+      }
+
+      isExpanded(item) {
+        const toggle = this.toggle(item)
+        return !!toggle && toggle.getAttribute('aria-expanded') === 'true'
+      }
+
+      runAction(action) {
+        if (action === 'expand-all' || action === 'collapse-all') {
+          const expanded = action === 'expand-all'
+          this.items.forEach((item) => this.setExpanded(item, expanded))
+          return
+        }
+
+        if (action === 'clear') {
+          this.items.forEach((item) => {
+            const checkbox = this.checkbox(item)
+            checkbox.checked = false
+            checkbox.indeterminate = false
+          })
+          this.updateCount()
+        }
+      }
+
+      /* ---------- selection cascade ---------- */
+
+      onChange(event) {
+        const checkbox = event.target
+        if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== 'checkbox') return
+
+        const item = checkbox.closest(TreeView.ITEM)
+        checkbox.indeterminate = false
+
+        this.descendantBoxes(item).forEach((box) => {
+          box.checked = checkbox.checked
+          box.indeterminate = false
+        })
+
+        let ancestor = this.parent(item)
+        while (ancestor) {
+          this.refreshAncestorState(ancestor)
+          ancestor = this.parent(ancestor)
+        }
+
+        this.updateCount()
+      }
+
+      refreshAncestorState(item) {
+        const checkbox = this.checkbox(item)
+        const children = this.children(item).map((child) => this.checkbox(child))
+        const checked = children.filter((box) => box.checked).length
+        const partial = children.some((box) => box.indeterminate)
+
+        checkbox.checked = checked === children.length && !partial
+        checkbox.indeterminate = partial || (checked > 0 && checked < children.length)
+      }
+
+      refreshAll() {
+        // Bottom-up so parents see settled child state, which matters when the
+        // markup arrives with some checkboxes already checked by the server.
+        for (let i = this.items.length - 1; i >= 0; i -= 1) {
+          const item = this.items[i]
+          if (this.group(item)) this.refreshAncestorState(item)
+        }
+        this.updateCount()
+      }
+
+      updateCount() {
+        if (!this.$status) return
+        const total = this.leafBoxes().filter((box) => box.checked).length
+        this.$status.textContent = total === 0
+          ? `No ${this.namePlural} selected`
+          : `${total} ${total === 1 ? this.name : this.namePlural} selected`
+      }
+
+      /* ---------- keyboard ---------- */
+
+      visibleItems() {
+        return this.items.filter((item) => !item.parentElement.closest('[hidden]'))
+      }
+
+      focusItem(item) {
+        const checkbox = this.checkbox(item)
+        if (checkbox) checkbox.focus()
+      }
+
+      onClick(event) {
+        const toggle = event.target.closest('.app-tree__toggle')
+        if (!toggle || !this.$root.contains(toggle)) return
+        const item = toggle.closest(TreeView.ITEM)
+        this.setExpanded(item, toggle.getAttribute('aria-expanded') !== 'true')
+      }
+
+      onKeydown(event) {
+        const item = event.target.closest(TreeView.ITEM)
+        if (!item) return
+
+        const visible = this.visibleItems()
+        const index = visible.indexOf(item)
+        let handled = true
+
+        switch (event.key) {
+          case 'ArrowDown':
+            if (index > -1 && index < visible.length - 1) this.focusItem(visible[index + 1])
+            break
+          case 'ArrowUp':
+            if (index > 0) this.focusItem(visible[index - 1])
+            break
+          case 'ArrowRight':
+            if (!this.group(item)) break
+            if (this.isExpanded(item)) this.focusItem(this.children(item)[0])
+            else this.setExpanded(item, true)
+            break
+          case 'ArrowLeft':
+            if (this.group(item) && this.isExpanded(item)) {
+              this.setExpanded(item, false)
+            } else {
+              const parent = this.parent(item)
+              if (parent) this.focusItem(parent)
+            }
+            break
+          case 'Home':
+            this.focusItem(visible[0])
+            break
+          case 'End':
+            this.focusItem(visible[visible.length - 1])
+            break
+          case '*':
+            this.siblings(item).forEach((sibling) => this.setExpanded(sibling, true))
+            break
+          default:
+            handled = false
+        }
+
+        if (handled) event.preventDefault()
+      }
+    }
+
+    document.querySelectorAll('[data-module="app-tree-view"]').forEach(($tree) => new TreeView($tree))
+  </script>
+</body>
+
+</html>
