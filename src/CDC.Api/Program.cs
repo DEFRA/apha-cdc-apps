@@ -1,5 +1,8 @@
+using CDC.Api.Application;
 using CDC.Api.Features.Health;
 using CDC.Api.Infrastructure;
+using CDC.Api.Infrastructure.Swagger;
+using CDC.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,17 +18,38 @@ StartupChecks.RequireDatabaseOptions(builder.Configuration);
 // return an identical 404 for "not configured" and "wrong key" alike.
 StartupChecks.RequireReadinessKey(builder.Configuration);
 
-builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure();
+
+builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddSwaggerDocumentation();
+
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
 
+// First in the pipeline so it also catches failures raised by routing and model binding.
+app.UseGlobalExceptionHandling();
+
+// Swagger is enabled in every environment: the API is reachable only from inside the VPC,
+// and the deployed contract is what integrators need to read. Set Swagger:Enabled to false
+// to turn it off without a code change.
+if (app.Configuration.GetValue("Swagger:Enabled", true))
+{
+    app.UseSwaggerDocumentation();
+}
+
 app.MapGet("/", () => "Hello World!");
 
 app.MapHealthEndpoints();
+app.MapControllers();
 
 app.Run();
 
-// Exposes the generated Program class to WebApplicationFactory<Program> in CDC.Api.Tests.
+/// <summary>
+/// Exposes the generated entry-point class to <c>WebApplicationFactory&lt;Program&gt;</c> in
+/// CDC.Api.Tests.
+/// </summary>
 public partial class Program { }

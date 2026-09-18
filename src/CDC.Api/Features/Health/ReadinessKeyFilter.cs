@@ -14,8 +14,13 @@ namespace CDC.Api.Features.Health;
 /// </summary>
 public sealed class ReadinessKeyFilter(IConfiguration configuration) : IEndpointFilter
 {
+    /// <summary>Name of the header carrying the shared secret.</summary>
     public const string HeaderName = "X-Readiness-Key";
 
+    /// <summary>Allows the request through only when the header matches the configured key.</summary>
+    /// <param name="context">The endpoint filter context.</param>
+    /// <param name="next">The next filter in the chain.</param>
+    /// <returns>The endpoint result, or 404 when the key does not match.</returns>
     public ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var expectedKey = configuration["HealthCheck:ReadinessKey"];

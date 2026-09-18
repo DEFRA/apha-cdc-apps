@@ -14,6 +14,10 @@ namespace CDC.Api.Features.Health;
 /// </summary>
 public sealed class DatabaseHealthCheck(IDbConnectionFactory connectionFactory) : IHealthCheck
 {
+    /// <summary>Reports whether a connection to the database can be opened.</summary>
+    /// <param name="context">The health check context.</param>
+    /// <param name="cancellationToken">Cancels the probe.</param>
+    /// <returns>Healthy when the probe succeeds; otherwise unhealthy.</returns>
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
