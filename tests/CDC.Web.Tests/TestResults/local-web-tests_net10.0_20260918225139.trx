@@ -1,0 +1,192 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="8649d113-c225-4455-84a5-291f862d191e" name="@runnervmlun5p 2026-09-18 22:51:36" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-18T22:51:36.3300114+00:00" queuing="2026-09-18T22:51:36.3300115+00:00" start="2026-09-18T22:51:34.7314810+00:00" finish="2026-09-18T22:51:39.8762129+00:00" />
+  <TestSettings name="default" id="f37bc3fa-db48-4e93-95cb-3bd1b9df5353">
+    <Deployment runDeploymentRoot="_runnervmlun5p_2026-09-18_22_51_36" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="70220aba-4d25-4c03-a9a6-9583dc66a1c4" testId="b303f2c8-cfa8-d64f-453d-809eb182bc14" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/SpeciesData/View&quot;)" computerName="runnervmlun5p" duration="00:00:00.0123717" startTime="2026-09-18T22:51:39.7213604+00:00" endTime="2026-09-18T22:51:39.7336518+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="70220aba-4d25-4c03-a9a6-9583dc66a1c4" />
+    <UnitTestResult executionId="ea46276f-2248-497b-ba6a-20b1ea548786" testId="f5684538-2fc2-a941-9abb-341f82687afb" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Reports/General&quot;)" computerName="runnervmlun5p" duration="00:00:00.0130350" startTime="2026-09-18T22:51:39.7727819+00:00" endTime="2026-09-18T22:51:39.7858744+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ea46276f-2248-497b-ba6a-20b1ea548786" />
+    <UnitTestResult executionId="b95d91b9-cf2c-474b-bc09-19f3e8ae15f1" testId="6f006be2-a10b-9d0d-baf8-5bf50917007a" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Landing/Internal&quot;)" computerName="runnervmlun5p" duration="00:00:00.0091512" startTime="2026-09-18T22:51:39.7983531+00:00" endTime="2026-09-18T22:51:39.8076556+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b95d91b9-cf2c-474b-bc09-19f3e8ae15f1" />
+    <UnitTestResult executionId="e72f99e4-83b2-4432-ae00-0c0600a664e8" testId="e3099151-d4bd-cbc2-742d-21660672eca3" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/SpeciesData/Maintain&quot;)" computerName="runnervmlun5p" duration="00:00:00.0130852" startTime="2026-09-18T22:51:39.7594507+00:00" endTime="2026-09-18T22:51:39.7725697+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e72f99e4-83b2-4432-ae00-0c0600a664e8" />
+    <UnitTestResult executionId="fefd8e72-56ba-4b60-a052-13f6abe8c5c8" testId="98bfd9ae-6e37-fef2-5c7b-910be583f056" testName="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests.CheckHealthAsync_ReturnsDegraded_WhenApiIsUnreachable" computerName="runnervmlun5p" duration="00:00:00.0040267" startTime="2026-09-18T22:51:36.2940375+00:00" endTime="2026-09-18T22:51:36.2941164+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fefd8e72-56ba-4b60-a052-13f6abe8c5c8" />
+    <UnitTestResult executionId="8e519dec-0d59-4a2c-a3db-2e3b08f42f90" testId="912e1e73-edf9-028c-368b-400f9dc301fd" testName="CDC.Web.Tests.Features.Health.HealthCheckResponseWriterTests.WriteResponse_WritesJsonWithStatusAndCheckDetails" computerName="runnervmlun5p" duration="00:00:00.3558834" startTime="2026-09-18T22:51:35.9618242+00:00" endTime="2026-09-18T22:51:36.3173875+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8e519dec-0d59-4a2c-a3db-2e3b08f42f90" />
+    <UnitTestResult executionId="88a5ff63-0c88-4ea2-be24-8f9a3302ec7e" testId="fded4754-915f-de6a-a743-50651adb4fff" testName="CDC.Web.Tests.Features.Landing.LandingControllerTests.Index_ReturnsView" computerName="runnervmlun5p" duration="00:00:00.0002299" startTime="2026-09-18T22:51:36.2428432+00:00" endTime="2026-09-18T22:51:36.2429102+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="88a5ff63-0c88-4ea2-be24-8f9a3302ec7e" />
+    <UnitTestResult executionId="6fa1fab7-6b36-41db-8560-e806d38e13d3" testId="686ba57f-14e1-2bf6-261f-e9c1f463dbd6" testName="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests.CheckHealthAsync_ReturnsHealthy_WhenApiReportsHealthy" computerName="runnervmlun5p" duration="00:00:00.0047579" startTime="2026-09-18T22:51:36.2485100+00:00" endTime="2026-09-18T22:51:36.2504116+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6fa1fab7-6b36-41db-8560-e806d38e13d3" />
+    <UnitTestResult executionId="251273fe-0b18-4735-8972-2f8a634ab671" testId="e8a59e3e-c5d8-2f5a-84fd-709e5e5562b6" testName="CDC.Web.Tests.Integration.HealthEndpointsTests.Health_ReturnsHealthyStatus" computerName="runnervmlun5p" duration="00:00:00.1240586" startTime="2026-09-18T22:51:39.4304606+00:00" endTime="2026-09-18T22:51:39.5547374+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="251273fe-0b18-4735-8972-2f8a634ab671" />
+    <UnitTestResult executionId="f3d112cf-22ee-4127-94a9-0ecc911f434b" testId="0eeda465-7b4d-671a-2744-fe2618cf8b22" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/&quot;)" computerName="runnervmlun5p" duration="00:00:00.0088495" startTime="2026-09-18T22:51:39.7123536+00:00" endTime="2026-09-18T22:51:39.7210872+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f3d112cf-22ee-4127-94a9-0ecc911f434b" />
+    <UnitTestResult executionId="1f4fd957-acb5-49aa-9585-c95d533e47b8" testId="4cc52402-232d-7340-9327-f2a9fc69a408" testName="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests.CheckHealthAsync_ReturnsDegraded_WhenApiReportsNonHealthyStatus" computerName="runnervmlun5p" duration="00:00:00.0006209" startTime="2026-09-18T22:51:36.2934379+00:00" endTime="2026-09-18T22:51:36.2935509+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1f4fd957-acb5-49aa-9585-c95d533e47b8" />
+    <UnitTestResult executionId="881e5981-bfde-42b2-9f1d-7edfc21b166b" testId="28194c24-321e-3a22-e1bf-e3cee8dca507" testName="CDC.Web.Tests.Features.Landing.LandingControllerTests.ApiStatus_ReturnsJsonFromApiClient" computerName="runnervmlun5p" duration="00:00:00.0134215" startTime="2026-09-18T22:51:36.2413762+00:00" endTime="2026-09-18T22:51:36.2414871+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="881e5981-bfde-42b2-9f1d-7edfc21b166b" />
+    <UnitTestResult executionId="8ab1ce82-ccab-4649-8ed5-aaa3f083a465" testId="77434d12-60cd-86b7-7b57-43b61947e2db" testName="CDC.Web.Tests.Features.Landing.LandingControllerTests.Error_ReturnsViewWithRequestId" computerName="runnervmlun5p" duration="00:00:00.0047552" startTime="2026-09-18T22:51:36.2424790+00:00" endTime="2026-09-18T22:51:36.2425844+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8ab1ce82-ccab-4649-8ed5-aaa3f083a465" />
+    <UnitTestResult executionId="bd6bbfff-e657-4c98-8f16-8e2fcd5bd14f" testId="ebada91d-17e5-fe78-8007-b1845892f400" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Reports/DiseaseRanking&quot;)" computerName="runnervmlun5p" duration="00:00:03.3788954" startTime="2026-09-18T22:51:36.2448796+00:00" endTime="2026-09-18T22:51:39.6221050+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bd6bbfff-e657-4c98-8f16-8e2fcd5bd14f" />
+    <UnitTestResult executionId="1b63f7ae-6a4f-42a6-b3a2-ff2d0af68b49" testId="33080e78-3a65-4eed-a0f0-f8cb7f26f541" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/Search&quot;)" computerName="runnervmlun5p" duration="00:00:00.0190299" startTime="2026-09-18T22:51:39.6467579+00:00" endTime="2026-09-18T22:51:39.6659398+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1b63f7ae-6a4f-42a6-b3a2-ff2d0af68b49" />
+    <UnitTestResult executionId="1621ad8a-0eca-4f6f-a716-919af130b81b" testId="22409a92-efc4-9667-85b3-d9d5e3d870f6" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/Create&quot;)" computerName="runnervmlun5p" duration="00:00:00.0127516" startTime="2026-09-18T22:51:39.7477800+00:00" endTime="2026-09-18T22:51:39.7591986+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1621ad8a-0eca-4f6f-a716-919af130b81b" />
+    <UnitTestResult executionId="a7a2cf74-d816-4625-924c-334ffe73cb02" testId="8989d862-ce63-94da-623e-a9108b92ea52" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/CompareVersions&quot;)" computerName="runnervmlun5p" duration="00:00:00.0123105" startTime="2026-09-18T22:51:39.7338567+00:00" endTime="2026-09-18T22:51:39.7462305+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a7a2cf74-d816-4625-924c-334ffe73cb02" />
+    <UnitTestResult executionId="52ad67fd-2520-4661-bd6d-310a3118b79d" testId="9b98a749-5440-9068-ce07-050fe4b0d5f6" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/ReviewTimings&quot;)" computerName="runnervmlun5p" duration="00:00:00.0231972" startTime="2026-09-18T22:51:39.6223527+00:00" endTime="2026-09-18T22:51:39.6465445+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="52ad67fd-2520-4661-bd6d-310a3118b79d" />
+    <UnitTestResult executionId="4e0e754b-0639-465f-8f4c-a015a1f0c061" testId="4ede66a9-6ab1-ced2-4f71-96c1d53023e5" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Landing/External&quot;)" computerName="runnervmlun5p" duration="00:00:00.0458219" startTime="2026-09-18T22:51:39.6661728+00:00" endTime="2026-09-18T22:51:39.7120234+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4e0e754b-0639-465f-8f4c-a015a1f0c061" />
+    <UnitTestResult executionId="4eedf27a-3fee-49b4-9521-7bb1484b2c94" testId="992fd9ae-6042-0338-c379-0de6eaf25f19" testName="CDC.Web.Tests.Integration.HealthEndpointsTests.HealthReady_ReturnsNotFound_WhenKeyMissing" computerName="runnervmlun5p" duration="00:00:03.8663641" startTime="2026-09-18T22:51:35.5528080+00:00" endTime="2026-09-18T22:51:39.4213867+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4eedf27a-3fee-49b4-9521-7bb1484b2c94" />
+    <UnitTestResult executionId="6faf9987-c4cb-41b0-82d9-3aa699d40ebb" testId="5b640634-334f-4a80-a26b-0b2c97cbd690" testName="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Reports/QuestionsGuidance&quot;)" computerName="runnervmlun5p" duration="00:00:00.0119659" startTime="2026-09-18T22:51:39.7860882+00:00" endTime="2026-09-18T22:51:39.7981222+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6faf9987-c4cb-41b0-82d9-3aa699d40ebb" />
+    <UnitTestResult executionId="a2ed1316-85d2-4878-8f05-5d356373b1a2" testId="1b9251a8-b907-e4a7-0835-41b9401f7bea" testName="CDC.Web.Tests.Features.Landing.LandingControllerTests.External_ReturnsView" computerName="runnervmlun5p" duration="00:00:00.6646417" startTime="2026-09-18T22:51:35.5467341+00:00" endTime="2026-09-18T22:51:36.2205919+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a2ed1316-85d2-4878-8f05-5d356373b1a2" />
+    <UnitTestResult executionId="841c3c79-fea5-486a-9796-e6367bbbf38c" testId="1e4700af-8d7a-7b61-29b2-9608673675fd" testName="CDC.Web.Tests.Integration.HealthEndpointsTests.HealthReady_ReturnsNotFound_WhenKeyWrong" computerName="runnervmlun5p" duration="00:00:00.0073626" startTime="2026-09-18T22:51:39.4236720+00:00" endTime="2026-09-18T22:51:39.4301848+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="841c3c79-fea5-486a-9796-e6367bbbf38c" />
+    <UnitTestResult executionId="93b153d4-a7ab-4daf-9d0b-3c5cb754674d" testId="dfcbcad6-8774-d8ec-a5cb-a874819cb19f" testName="CDC.Web.Tests.Features.Landing.LandingControllerTests.Internal_ReturnsView" computerName="runnervmlun5p" duration="00:00:00.0002026" startTime="2026-09-18T22:51:36.2430851+00:00" endTime="2026-09-18T22:51:36.2431603+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="93b153d4-a7ab-4daf-9d0b-3c5cb754674d" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="CDC.Web.Tests.Features.Landing.LandingControllerTests.Error_ReturnsViewWithRequestId" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="77434d12-60cd-86b7-7b57-43b61947e2db">
+      <Execution id="8ab1ce82-ccab-4649-8ed5-aaa3f083a465" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Landing.LandingControllerTests" name="Error_ReturnsViewWithRequestId" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/Search&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="33080e78-3a65-4eed-a0f0-f8cb7f26f541">
+      <Execution id="1b63f7ae-6a4f-42a6-b3a2-ff2d0af68b49" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests.CheckHealthAsync_ReturnsDegraded_WhenApiIsUnreachable" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="98bfd9ae-6e37-fef2-5c7b-910be583f056">
+      <Execution id="fefd8e72-56ba-4b60-a052-13f6abe8c5c8" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests" name="CheckHealthAsync_ReturnsDegraded_WhenApiIsUnreachable" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Landing/Internal&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="6f006be2-a10b-9d0d-baf8-5bf50917007a">
+      <Execution id="b95d91b9-cf2c-474b-bc09-19f3e8ae15f1" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.HealthEndpointsTests.Health_ReturnsHealthyStatus" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="e8a59e3e-c5d8-2f5a-84fd-709e5e5562b6">
+      <Execution id="251273fe-0b18-4735-8972-2f8a634ab671" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.HealthEndpointsTests" name="Health_ReturnsHealthyStatus" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Health.HealthCheckResponseWriterTests.WriteResponse_WritesJsonWithStatusAndCheckDetails" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="912e1e73-edf9-028c-368b-400f9dc301fd">
+      <Execution id="8e519dec-0d59-4a2c-a3db-2e3b08f42f90" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Health.HealthCheckResponseWriterTests" name="WriteResponse_WritesJsonWithStatusAndCheckDetails" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/Create&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="22409a92-efc4-9667-85b3-d9d5e3d870f6">
+      <Execution id="1621ad8a-0eca-4f6f-a716-919af130b81b" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/SpeciesData/View&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="b303f2c8-cfa8-d64f-453d-809eb182bc14">
+      <Execution id="70220aba-4d25-4c03-a9a6-9583dc66a1c4" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.HealthEndpointsTests.HealthReady_ReturnsNotFound_WhenKeyWrong" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="1e4700af-8d7a-7b61-29b2-9608673675fd">
+      <Execution id="841c3c79-fea5-486a-9796-e6367bbbf38c" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.HealthEndpointsTests" name="HealthReady_ReturnsNotFound_WhenKeyWrong" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.HealthEndpointsTests.HealthReady_ReturnsNotFound_WhenKeyMissing" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="992fd9ae-6042-0338-c379-0de6eaf25f19">
+      <Execution id="4eedf27a-3fee-49b4-9521-7bb1484b2c94" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.HealthEndpointsTests" name="HealthReady_ReturnsNotFound_WhenKeyMissing" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Landing.LandingControllerTests.Internal_ReturnsView" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="dfcbcad6-8774-d8ec-a5cb-a874819cb19f">
+      <Execution id="93b153d4-a7ab-4daf-9d0b-3c5cb754674d" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Landing.LandingControllerTests" name="Internal_ReturnsView" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Landing.LandingControllerTests.Index_ReturnsView" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="fded4754-915f-de6a-a743-50651adb4fff">
+      <Execution id="88a5ff63-0c88-4ea2-be24-8f9a3302ec7e" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Landing.LandingControllerTests" name="Index_ReturnsView" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Landing/External&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="4ede66a9-6ab1-ced2-4f71-96c1d53023e5">
+      <Execution id="4e0e754b-0639-465f-8f4c-a015a1f0c061" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Reports/DiseaseRanking&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="ebada91d-17e5-fe78-8007-b1845892f400">
+      <Execution id="bd6bbfff-e657-4c98-8f16-8e2fcd5bd14f" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/ReviewTimings&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="9b98a749-5440-9068-ce07-050fe4b0d5f6">
+      <Execution id="52ad67fd-2520-4661-bd6d-310a3118b79d" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Landing.LandingControllerTests.ApiStatus_ReturnsJsonFromApiClient" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="28194c24-321e-3a22-e1bf-e3cee8dca507">
+      <Execution id="881e5981-bfde-42b2-9f1d-7edfc21b166b" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Landing.LandingControllerTests" name="ApiStatus_ReturnsJsonFromApiClient" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Reports/QuestionsGuidance&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="5b640634-334f-4a80-a26b-0b2c97cbd690">
+      <Execution id="6faf9987-c4cb-41b0-82d9-3aa699d40ebb" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Landing.LandingControllerTests.External_ReturnsView" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="1b9251a8-b907-e4a7-0835-41b9401f7bea">
+      <Execution id="a2ed1316-85d2-4878-8f05-5d356373b1a2" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Landing.LandingControllerTests" name="External_ReturnsView" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/SpeciesData/Maintain&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="e3099151-d4bd-cbc2-742d-21660672eca3">
+      <Execution id="e72f99e4-83b2-4432-ae00-0c0600a664e8" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests.CheckHealthAsync_ReturnsHealthy_WhenApiReportsHealthy" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="686ba57f-14e1-2bf6-261f-e9c1f463dbd6">
+      <Execution id="6fa1fab7-6b36-41db-8560-e806d38e13d3" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests" name="CheckHealthAsync_ReturnsHealthy_WhenApiReportsHealthy" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/DiseaseProfiles/CompareVersions&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="8989d862-ce63-94da-623e-a9108b92ea52">
+      <Execution id="a7a2cf74-d816-4625-924c-334ffe73cb02" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests.CheckHealthAsync_ReturnsDegraded_WhenApiReportsNonHealthyStatus" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="4cc52402-232d-7340-9327-f2a9fc69a408">
+      <Execution id="1f4fd957-acb5-49aa-9585-c95d533e47b8" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Features.Health.ApiConnectivityHealthCheckTests" name="CheckHealthAsync_ReturnsDegraded_WhenApiReportsNonHealthyStatus" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/Reports/General&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="f5684538-2fc2-a941-9abb-341f82687afb">
+      <Execution id="ea46276f-2248-497b-ba6a-20b1ea548786" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+    <UnitTest name="CDC.Web.Tests.Integration.LandingPageSmokeTests.LandingRoutes_ReturnSuccess(url: &quot;/&quot;)" storage="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/cdc.web.tests/bin/release/net10.0/cdc.web.tests.dll" id="0eeda465-7b4d-671a-2744-fe2618cf8b22">
+      <Execution id="f3d112cf-22ee-4127-94a9-0ecc911f434b" />
+      <TestMethod codeBase="/home/runner/work/apha-cdc-apps/apha-cdc-apps/tests/CDC.Web.Tests/bin/Release/net10.0/CDC.Web.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="CDC.Web.Tests.Integration.LandingPageSmokeTests" name="LandingRoutes_ReturnSuccess" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="b303f2c8-cfa8-d64f-453d-809eb182bc14" executionId="70220aba-4d25-4c03-a9a6-9583dc66a1c4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f5684538-2fc2-a941-9abb-341f82687afb" executionId="ea46276f-2248-497b-ba6a-20b1ea548786" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6f006be2-a10b-9d0d-baf8-5bf50917007a" executionId="b95d91b9-cf2c-474b-bc09-19f3e8ae15f1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e3099151-d4bd-cbc2-742d-21660672eca3" executionId="e72f99e4-83b2-4432-ae00-0c0600a664e8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="98bfd9ae-6e37-fef2-5c7b-910be583f056" executionId="fefd8e72-56ba-4b60-a052-13f6abe8c5c8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="912e1e73-edf9-028c-368b-400f9dc301fd" executionId="8e519dec-0d59-4a2c-a3db-2e3b08f42f90" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fded4754-915f-de6a-a743-50651adb4fff" executionId="88a5ff63-0c88-4ea2-be24-8f9a3302ec7e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="686ba57f-14e1-2bf6-261f-e9c1f463dbd6" executionId="6fa1fab7-6b36-41db-8560-e806d38e13d3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e8a59e3e-c5d8-2f5a-84fd-709e5e5562b6" executionId="251273fe-0b18-4735-8972-2f8a634ab671" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0eeda465-7b4d-671a-2744-fe2618cf8b22" executionId="f3d112cf-22ee-4127-94a9-0ecc911f434b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4cc52402-232d-7340-9327-f2a9fc69a408" executionId="1f4fd957-acb5-49aa-9585-c95d533e47b8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="28194c24-321e-3a22-e1bf-e3cee8dca507" executionId="881e5981-bfde-42b2-9f1d-7edfc21b166b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="77434d12-60cd-86b7-7b57-43b61947e2db" executionId="8ab1ce82-ccab-4649-8ed5-aaa3f083a465" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ebada91d-17e5-fe78-8007-b1845892f400" executionId="bd6bbfff-e657-4c98-8f16-8e2fcd5bd14f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="33080e78-3a65-4eed-a0f0-f8cb7f26f541" executionId="1b63f7ae-6a4f-42a6-b3a2-ff2d0af68b49" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="22409a92-efc4-9667-85b3-d9d5e3d870f6" executionId="1621ad8a-0eca-4f6f-a716-919af130b81b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8989d862-ce63-94da-623e-a9108b92ea52" executionId="a7a2cf74-d816-4625-924c-334ffe73cb02" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9b98a749-5440-9068-ce07-050fe4b0d5f6" executionId="52ad67fd-2520-4661-bd6d-310a3118b79d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4ede66a9-6ab1-ced2-4f71-96c1d53023e5" executionId="4e0e754b-0639-465f-8f4c-a015a1f0c061" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="992fd9ae-6042-0338-c379-0de6eaf25f19" executionId="4eedf27a-3fee-49b4-9521-7bb1484b2c94" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5b640634-334f-4a80-a26b-0b2c97cbd690" executionId="6faf9987-c4cb-41b0-82d9-3aa699d40ebb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1b9251a8-b907-e4a7-0835-41b9401f7bea" executionId="a2ed1316-85d2-4878-8f05-5d356373b1a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1e4700af-8d7a-7b61-29b2-9608673675fd" executionId="841c3c79-fea5-486a-9796-e6367bbbf38c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dfcbcad6-8774-d8ec-a5cb-a874819cb19f" executionId="93b153d4-a7ab-4daf-9d0b-3c5cb754674d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="24" executed="24" passed="24" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.11)
+[xUnit.net 00:00:00.16]   Discovering: CDC.Web.Tests
+[xUnit.net 00:00:00.23]   Discovered:  CDC.Web.Tests
+[xUnit.net 00:00:00.26]   Starting:    CDC.Web.Tests
+warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[35]
+      No XML encryptor configured. Key {285b4246-4636-4b3d-9174-2124dabf244e} may be persisted to storage in unencrypted form.
+warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[35]
+      No XML encryptor configured. Key {900865ff-6841-435b-9d85-cd71b17b9a7c} may be persisted to storage in unencrypted form.
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /home/runner/work/apha-cdc-apps/apha-cdc-apps/src/CDC.Web
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /home/runner/work/apha-cdc-apps/apha-cdc-apps/src/CDC.Web
+info: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+info: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+[xUnit.net 00:00:04.57]   Finished:    CDC.Web.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
