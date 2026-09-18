@@ -45,7 +45,7 @@ public sealed class GlobalExceptionMiddleware(
             // The status code and headers are already on the wire; all that is left is to make
             // sure the failure is recorded.
             logger.ResponseAlreadyStarted(exception, context.Request.Path);
-            return;
+            throw exception;
         }
 
         var problem = CreateProblemDetails(context, exception);
