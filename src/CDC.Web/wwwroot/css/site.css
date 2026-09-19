@@ -35,6 +35,130 @@ body {
   text-align: start;
 }
 
+/* Tree picker (app-tree): nested checkboxes with expand/collapse, used by ViewSpeciesData and
+   reusable anywhere via Views/Shared/_TreeView.cshtml + wwwroot/js/tree-view.js.
+   Stands in for the legacy Telerik RadTreeView, which is not installed/licensed in this project. */
+.app-tree,
+.app-tree__group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-tree__group[hidden] {
+  display: none;
+}
+
+/* Depth is set by tree-view.js as a custom property, so indentation scales to any nesting
+   level. Cap real content at three levels (GOV.UK content design guidance). */
+.app-tree__row {
+  display: flex;
+  align-items: flex-start;
+  min-height: 40px;
+  padding-left: calc(var(--app-tree-depth, 0) * 30px);
+}
+
+.app-tree__row:hover {
+  background-color: #f3f2f1;
+}
+
+.app-tree__group .app-tree__row {
+  position: relative;
+}
+
+/* Vertical guide line linking nested rows to their parent. */
+.app-tree__group .app-tree__row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 21px);
+  border-left: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+/* Icon button: 44x44 hit area, above the 24px minimum touch target. */
+.app-tree__toggle {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #0b0c0c;
+  cursor: pointer;
+}
+
+/* Keeps leaf checkboxes aligned with their expandable siblings. */
+.app-tree__spacer {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 40px;
+}
+
+.app-tree__toggle-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  transition: transform 0.1s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tree__toggle-icon {
+    transition: none;
+  }
+}
+
+.app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon {
+  transform: rotate(90deg);
+}
+
+/* GOV.UK focus style: yellow fill plus a solid black underline. The transparent
+   outline keeps focus visible in forced-colours mode. */
+.app-tree__toggle:focus-visible {
+  outline: 3px solid transparent;
+  background-color: var(--govuk-focus-colour, #fd0);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+}
+
+.app-tree__checkbox.govuk-checkboxes__item {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.app-tree__checkbox .govuk-checkboxes__label {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.app-tree__panel {
+  max-width: 70%;
+  max-height: 480px;
+  padding: 10px 15px 10px 5px;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  overflow-y: auto;
+}
+
+.app-tree__actions .govuk-button {
+  margin-bottom: 5px;
+}
+
+.app-tree__status {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+@media print {
+  .app-tree__group[hidden] {
+    display: block;
+  }
+}
+
 /* D2R2 home page "Popular on D2R2" clickable link rows (no GOV.UK Frontend equivalent component). */
 .app-home-links__list {
   margin: 0;
@@ -122,7 +246,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 110px;
+  min-height: 70px;
 }
 
 .app-top-header__brand-link {
@@ -305,7 +429,7 @@ body {
 
 @media (max-width: 40.0625em) {
   .app-top-header__container {
-    min-height: 80px;
+    min-height: 56px;
   }
 
   .app-top-header__brand {

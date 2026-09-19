@@ -4,11 +4,20 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Swagger reads these to produce operation summaries and parameter descriptions. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Keeps Database:Password out of the repository during local development. -->
+    <UserSecretsId>cdc-api-surveillance-profiles</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
     <PackageReference Include="Dapper" Version="2.1.66" />
+    <!-- MediatR 12.x is the last Apache-2.0 release; 13+ requires a commercial licence. -->
+    <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
   <ItemGroup>

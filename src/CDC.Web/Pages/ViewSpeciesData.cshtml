@@ -1,0 +1,56 @@
+@page
+@model CDC.Web.Pages.ViewSpeciesDataModel
+@{
+    ViewData["Title"] = "View species data";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<h1 class="govuk-heading-l">View species data</h1>
+
+<p class="govuk-body">
+    This page details the species that are used by the D2R2 system. It is presented as a
+    hierarchical list that groups species into groups; a profile can reference an individual
+    species or an entire species group. Click on any species or species group to view the data
+    that is associated with that species or group.
+</p>
+
+<form method="get">
+    <div class="govuk-form-group">
+        <fieldset class="govuk-fieldset" aria-describedby="species-tree-hint species-tree-status">
+            <legend class="govuk-visually-hidden">Species and species groups</legend>
+
+            <div id="species-tree-hint" class="govuk-hint">
+                Select a group to select everything inside it. Use the arrow keys to move through
+                the list, and the left and right arrows to open and close groups.
+            </div>
+
+            <div class="app-tree__actions">
+                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="expand-all">
+                    Expand all
+                </button>
+                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="collapse-all">
+                    Collapse all
+                </button>
+                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
+                    Remove selection
+                </button>
+            </div>
+
+            <p class="govuk-body app-tree__status" id="species-tree-status" role="status">
+                No species selected
+            </p>
+
+            <div class="app-tree__panel">
+                <partial name="_TreeView" model="Model.SpeciesTree" />
+            </div>
+        </fieldset>
+    </div>
+
+    <button type="submit" class="govuk-button" data-module="govuk-button">View data</button>
+</form>
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+}

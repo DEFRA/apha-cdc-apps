@@ -1,0 +1,12 @@
+@model CDC.Web.Models.TreeViewViewModel
+
+@* Progressive enhancement: without JavaScript every group stays visible and every checkbox posts. *@
+<ul class="app-tree"
+    data-module="app-tree-view"
+    data-app-tree-name="@Model.ItemNameSingular"
+    data-app-tree-name-plural="@Model.ItemNamePlural">
+    @foreach (var node in Model.Nodes)
+    {
+        <partial name="_TreeViewNode" model="new TreeViewNodeViewModel(node, Model.IdPrefix, Model.FieldName)" />
+    }
+</ul>

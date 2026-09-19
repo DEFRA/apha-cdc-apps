@@ -2,8 +2,13 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 namespace CDC.Api.Features.Health;
 
+/// <summary>
+/// Maps the liveness and readiness endpoints.
+/// </summary>
 public static class HealthEndpoints
 {
+    /// <summary>Maps <c>/health</c> (liveness) and <c>/health/ready</c> (key-gated readiness).</summary>
+    /// <param name="app">The application to map the endpoints on.</param>
     public static void MapHealthEndpoints(this WebApplication app)
     {
         // Liveness only - process is responsive, no DB dependency, cheap.

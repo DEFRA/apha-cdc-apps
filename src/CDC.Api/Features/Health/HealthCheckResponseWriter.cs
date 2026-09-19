@@ -12,6 +12,10 @@ namespace CDC.Api.Features.Health;
 /// </summary>
 public static class HealthCheckResponseWriter
 {
+    /// <summary>Writes the full health report as JSON.</summary>
+    /// <param name="context">The current request.</param>
+    /// <param name="report">The health report to serialise.</param>
+    /// <returns>A task that completes when the response has been written.</returns>
     public static Task WriteResponse(HttpContext context, HealthReport report)
     {
         context.Response.ContentType = "application/json";

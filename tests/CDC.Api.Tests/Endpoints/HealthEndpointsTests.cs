@@ -11,6 +11,12 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
     public HealthEndpointsTests(WebApplicationFactory<Program> factory)
     {
+        Environment.SetEnvironmentVariable("Database__Host", "localhost");
+        Environment.SetEnvironmentVariable("Database__Name", "cdc-tests");
+        Environment.SetEnvironmentVariable("Database__User", "cdc-tests");
+        Environment.SetEnvironmentVariable("Database__Password", "cdc-tests-password");
+        Environment.SetEnvironmentVariable("HealthCheck__ReadinessKey", "local-dev-readiness-key");
+
         _factory = factory;
     }
 

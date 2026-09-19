@@ -9,5 +9,7 @@ namespace CDC.Api.Infrastructure;
 /// </summary>
 public interface IDbConnectionFactory
 {
+    /// <summary>Creates a new, unopened connection. The caller owns its lifetime.</summary>
+    /// <returns>A connection to the Surveillance Profiles database.</returns>
     IDbConnection CreateConnection();
 }
