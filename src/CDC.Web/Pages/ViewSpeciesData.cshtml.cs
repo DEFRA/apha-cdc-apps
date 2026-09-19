@@ -1,114 +1,69 @@
+using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 
 namespace CDC.Web.Pages;
 
-public class ViewSpeciesDataModel : BreadcrumbPageModelBase
+/// <summary>
+/// Displays the species and species group hierarchy retrieved from CDC.Api.
+/// </summary>
+/// <param name="speciesApiService">Typed client for the species endpoints on CDC.Api.</param>
+/// <param name="logger">Structured logger.</param>
+public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<ViewSpeciesDataModel> logger)
+    : BreadcrumbPageModelBase("Species Data", "View species data")
 {
     private const string SpeciesKey = "species";
 
-    public ViewSpeciesDataModel() : base("Species Data", "View species data")
+    /// <summary>Gets the species hierarchy, built from every active species returned by the API.</summary>
+    public TreeViewViewModel SpeciesTree { get; private set; } = EmptyTree();
+
+    /// <summary>Gets a value indicating whether the species API call failed.</summary>
+    public bool HasError { get; private set; }
+
+    /// <summary>Gets the message to show the user when <see cref="HasError"/> is <see langword="true"/>.</summary>
+    public string? ErrorMessage { get; private set; }
+
+    /// <summary>Loads the species list and builds the tree shown on the page.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            var species = await speciesApiService.GetAllSpeciesAsync(cancellationToken);
+
+            SpeciesTree = new TreeViewViewModel
+            {
+                IdPrefix = SpeciesKey,
+                FieldName = SpeciesKey,
+                ItemNameSingular = SpeciesKey,
+                ItemNamePlural = SpeciesKey,
+                Nodes = SpeciesTreeBuilder.Build(species)
+            };
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            // HttpRequestException: network/DNS failure or a non-success status code.
+            // TaskCanceledException: the resilience handler's own request timeout expired.
+            // NotSupportedException: the response was not valid JSON for SpeciesDto[].
+            logger.SpeciesLoadFailed(exception);
+
+            HasError = true;
+            ErrorMessage = "We could not load species data. Try again later.";
+        }
     }
 
-    /// Placeholder hierarchy until a species data source is implemented; the shape is what a
-    /// repository or API would project onto.
-    public TreeViewViewModel SpeciesTree { get; } = new()
+    private static TreeViewViewModel EmptyTree() => new()
     {
         IdPrefix = SpeciesKey,
         FieldName = SpeciesKey,
         ItemNameSingular = SpeciesKey,
         ItemNamePlural = SpeciesKey,
-        Nodes =
-        [
-            new TreeNodeViewModel
-            {
-                Value = "mammals",
-                Label = "Mammals (placeholder)",
-                Expanded = true,
-                Children =
-                [
-                    new TreeNodeViewModel
-                    {
-                        Value = "bovine",
-                        Label = "Bovine",
-                        Children =
-                        [
-                            new TreeNodeViewModel { Value = "cattle", Label = "Cattle" },
-                            new TreeNodeViewModel { Value = "water-buffalo", Label = "Water buffalo" }
-                        ]
-                    },
-                    new TreeNodeViewModel
-                    {
-                        Value = "ovine-caprine",
-                        Label = "Ovine and caprine",
-                        Children =
-                        [
-                            new TreeNodeViewModel { Value = "sheep", Label = "Sheep" },
-                            new TreeNodeViewModel { Value = "goat", Label = "Goat" }
-                        ]
-                    }
-                ]
-            },
-            new TreeNodeViewModel
-            {
-                Value = "birds",
-                Label = "Birds (placeholder)",
-                Children =
-                [
-                    new TreeNodeViewModel
-                    {
-                        Value = "poultry",
-                        Label = "Poultry",
-                        Children =
-                        [
-                            new TreeNodeViewModel { Value = "chicken", Label = "Chicken" },
-                            new TreeNodeViewModel { Value = "turkey", Label = "Turkey" }
-                        ]
-                    },
-                    new TreeNodeViewModel
-                    {
-                        Value = "wild-birds",
-                        Label = "Wild birds",
-                        Children =
-                        [
-                            new TreeNodeViewModel { Value = "pigeon", Label = "Pigeon" },
-                            new TreeNodeViewModel { Value = "gull", Label = "Gull" }
-                        ]
-                    }
-                ]
-            },
-            new TreeNodeViewModel
-            {
-                Value = "aquatic",
-                Label = "Aquatic animals (placeholder)",
-                Children =
-                [
-                    new TreeNodeViewModel
-                    {
-                        Value = "finfish",
-                        Label = "Finfish",
-                        Children =
-                        [
-                            new TreeNodeViewModel { Value = "atlantic-salmon", Label = "Atlantic salmon" },
-                            new TreeNodeViewModel { Value = "rainbow-trout", Label = "Rainbow trout" }
-                        ]
-                    },
-                    new TreeNodeViewModel
-                    {
-                        Value = "molluscs",
-                        Label = "Molluscs",
-                        Children =
-                        [
-                            new TreeNodeViewModel { Value = "pacific-oyster", Label = "Pacific oyster" },
-                            new TreeNodeViewModel { Value = "blue-mussel", Label = "Blue mussel" }
-                        ]
-                    }
-                ]
-            }
-        ]
+        Nodes = []
     };
+}
 
-    public void OnGet()
-    {
-    }
+/// <summary>Source-generated structured log messages for <see cref="ViewSpeciesDataModel"/>.</summary>
+internal static partial class ViewSpeciesDataLog
+{
+    [LoggerMessage(EventId = 2000, Level = LogLevel.Error, Message = "Failed to load species data from CDC.Api")]
+    public static partial void SpeciesLoadFailed(this ILogger logger, Exception exception);
 }

@@ -54,7 +54,7 @@ body {
 .app-tree__row {
   display: flex;
   align-items: flex-start;
-  min-height: 40px;
+  min-height: 32px;
   padding-left: calc(var(--app-tree-depth, 0) * 30px);
 }
 
@@ -66,25 +66,25 @@ body {
   position: relative;
 }
 
-/* Vertical guide line linking nested rows to their parent. */
+/* Vertical guide line linking nested rows to their parent. 16px is half the 32px toggle. */
 .app-tree__group .app-tree__row::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 21px);
+  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
   border-left: 1px solid var(--govuk-border-colour, #b1b4b6);
 }
 
-/* Icon button: 44x44 hit area, above the 24px minimum touch target. */
+/* Icon button: 32x32, above the 24px minimum touch target. */
 .app-tree__toggle {
   appearance: none;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -96,25 +96,22 @@ body {
 /* Keeps leaf checkboxes aligned with their expandable siblings. */
 .app-tree__spacer {
   flex: 0 0 auto;
-  width: 44px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 
 .app-tree__toggle-icon {
   display: block;
-  width: 14px;
-  height: 14px;
-  transition: transform 0.1s ease-in-out;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  border: 1.5px solid currentcolor;
+  border-radius: 5px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-tree__toggle-icon {
-    transition: none;
-  }
-}
-
-.app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon {
-  transform: rotate(90deg);
+.app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon-vertical {
+  display: none;
 }
 
 /* GOV.UK focus style: yellow fill plus a solid black underline. The transparent
@@ -132,8 +129,35 @@ body {
 }
 
 .app-tree__checkbox .govuk-checkboxes__label {
-  padding-top: 7px;
-  padding-bottom: 7px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+/* GOV.UK checkboxes reserve a 44px input for touch, with a 40px box drawn via ::before and a
+   23x12px tick via ::after. The input is shrunk to 32px (still above the 24px minimum) to
+   tighten row spacing, and the already-halved 20px box/tick are re-centred within it. */
+.app-tree__checkbox .govuk-checkboxes__input {
+  width: 32px;
+  height: 32px;
+}
+
+.app-tree__checkbox .govuk-checkboxes__label::before {
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+}
+
+.app-tree__checkbox .govuk-checkboxes__label::after {
+  top: 11.5px;
+  left: 10px;
+  width: 11.5px;
+  height: 6px;
+  border-width: 0 0 2.5px 2.5px;
+}
+
+.app-tree__checkbox .govuk-checkboxes__input:focus + .govuk-checkboxes__label::before {
+  border-width: 2px;
 }
 
 .app-tree__panel {

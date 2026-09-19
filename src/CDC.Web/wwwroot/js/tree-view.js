@@ -16,10 +16,13 @@
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 
+    // A plus is a horizontal bar plus a vertical bar; a minus is the horizontal bar alone.
+    // The vertical bar's visibility is driven by [aria-expanded] in CSS, so no JS is needed
+    // to redraw the icon when a branch toggles.
     const TOGGLE_ICON =
-        '<svg class="app-tree__toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 16" ' +
-        'fill="none" stroke="currentColor" stroke-width="3" focusable="false" aria-hidden="true">' +
-        '<path d="M1.5 1.5 8 8l-6.5 6.5"/></svg>';
+        '<svg class="app-tree__toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" ' +
+        'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false" aria-hidden="true">' +
+        '<path d="M2 8h12"/><path class="app-tree__toggle-icon-vertical" d="M8 2v12"/></svg>';
 
     class TreeView {
         constructor($root) {

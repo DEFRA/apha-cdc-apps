@@ -29,6 +29,12 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 

@@ -16,40 +16,61 @@
     that is associated with that species or group.
 </p>
 
-<form method="get">
-    <div class="govuk-form-group">
-        <fieldset class="govuk-fieldset" aria-describedby="species-tree-hint species-tree-status">
-            <legend class="govuk-visually-hidden">Species and species groups</legend>
-
-            <div id="species-tree-hint" class="govuk-hint">
-                Select a group to select everything inside it. Use the arrow keys to move through
-                the list, and the left and right arrows to open and close groups.
+@* Razor Pages render after OnGetAsync completes, so there is no separate client-visible
+   "loading" state for the initial request - only the outcome (data, empty, or error) below. *@
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="species-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="species-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">@Model.ErrorMessage</p>
             </div>
-
-            <div class="app-tree__actions">
-                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="expand-all">
-                    Expand all
-                </button>
-                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="collapse-all">
-                    Collapse all
-                </button>
-                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
-                    Remove selection
-                </button>
-            </div>
-
-            <output class="govuk-body app-tree__status" id="species-tree-status">
-                No species selected
-            </output>
-
-            <div class="app-tree__panel">
-                <partial name="_TreeView" model="Model.SpeciesTree" />
-            </div>
-        </fieldset>
+        </div>
     </div>
+}
+else if (Model.SpeciesTree.Nodes.Count == 0)
+{
+    <p class="govuk-body">No active species data is available.</p>
+}
+else
+{
+    <form method="get">
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset" aria-describedby="species-tree-hint species-tree-status">
+                <legend class="govuk-visually-hidden">Species and species groups</legend>
 
-    <button type="submit" class="govuk-button" data-module="govuk-button">View data</button>
-</form>
+                <div id="species-tree-hint" class="govuk-hint">
+                    Select a group to select everything inside it. Use the arrow keys to move through
+                    the list, and the left and right arrows to open and close groups.
+                </div>
+
+                <div class="app-tree__actions">
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="expand-all">
+                        Expand all
+                    </button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="collapse-all">
+                        Collapse all
+                    </button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
+                        Remove selection
+                    </button>
+                </div>
+
+                <output class="govuk-body app-tree__status" id="species-tree-status">
+                    No species selected
+                </output>
+
+                <div class="app-tree__panel">
+                    <partial name="_TreeView" model="Model.SpeciesTree" />
+                </div>
+            </fieldset>
+        </div>
+
+        <button type="submit" class="govuk-button" data-module="govuk-button">View data</button>
+    </form>
+}
+
 
 @section Scripts {
     <script src="~/js/tree-view.js" asp-append-version="true"></script>

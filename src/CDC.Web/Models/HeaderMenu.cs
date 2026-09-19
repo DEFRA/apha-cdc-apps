@@ -24,7 +24,7 @@ public static class HeaderMenu
         }),
         new("Species Data", new List<HeaderMenuLink>
         {
-            new("View species data", "/SpeciesData/View"),
+            new("View species data", "/ViewSpeciesData"),
             new("Maintain species data", "/SpeciesData/Maintain"),
         }),
     };
