@@ -9,7 +9,7 @@ namespace CDC.Web.Pages;
 /// <param name="speciesApiService">Typed client for the species endpoints on CDC.Api.</param>
 /// <param name="logger">Structured logger.</param>
 public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<ViewSpeciesDataModel> logger)
-    : BreadcrumbPageModelBase("Species Data", "View species data")
+    : BreadcrumbPageModelBase("View species data")
 {
     private const string SpeciesKey = "species";
 
