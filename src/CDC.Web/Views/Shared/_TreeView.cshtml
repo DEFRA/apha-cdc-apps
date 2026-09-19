@@ -1,4 +1,30 @@
 @model CDC.Web.Models.TreeViewViewModel
+@{
+    // Rendered by a recursive local function rather than a partial per node, so that every
+    // <li> is emitted inside its own <ul> in the same file.
+    void RenderNode(TreeNodeViewModel node)
+    {
+        var checkboxId = $"{Model.IdPrefix}-{node.Value}";
+
+        <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
+            <div class="app-tree__row">
+                <div class="govuk-checkboxes__item app-tree__checkbox">
+                    <input class="govuk-checkboxes__input" id="@checkboxId" name="@Model.FieldName" type="checkbox" value="@node.Value" />
+                    <label class="govuk-label govuk-checkboxes__label" for="@checkboxId">@node.Label</label>
+                </div>
+            </div>
+            @if (node.Children.Count > 0)
+            {
+                <ul class="app-tree__group">
+                    @foreach (var child in node.Children)
+                    {
+                        RenderNode(child);
+                    }
+                </ul>
+            }
+        </li>
+    }
+}
 
 @* Progressive enhancement: without JavaScript every group stays visible and every checkbox posts. *@
 <ul class="app-tree"
@@ -7,6 +33,6 @@
     data-app-tree-name-plural="@Model.ItemNamePlural">
     @foreach (var node in Model.Nodes)
     {
-        <partial name="_TreeViewNode" model="new TreeViewNodeViewModel(node, Model.IdPrefix, Model.FieldName)" />
+        RenderNode(node);
     }
 </ul>

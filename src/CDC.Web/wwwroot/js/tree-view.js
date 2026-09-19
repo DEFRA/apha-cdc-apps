@@ -8,321 +8,357 @@
 (function () {
     'use strict';
 
-    var ITEM = '.app-tree__item';
-    var GROUP = ':scope > ul.app-tree__group';
+    const ITEM = '.app-tree__item';
+    const GROUP = ':scope > ul.app-tree__group';
+    const ROW = ':scope > .app-tree__row';
+    const TOGGLE = '.app-tree__toggle';
+    const CHECKBOX = 'input[type="checkbox"]';
+    const EXPANDED = 'aria-expanded';
+    const TRUE = 'true';
 
-    function TreeView($root) {
-        if (!($root instanceof HTMLElement)) {
-            return;
+    const TOGGLE_ICON =
+        '<svg class="app-tree__toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 16" ' +
+        'fill="none" stroke="currentColor" stroke-width="3" focusable="false" aria-hidden="true">' +
+        '<path d="M1.5 1.5 8 8l-6.5 6.5"/></svg>';
+
+    class TreeView {
+        constructor($root) {
+            if (!($root instanceof HTMLElement)) {
+                return;
+            }
+
+            this.$root = $root;
+            this.name = $root.dataset.appTreeName || 'item';
+            this.namePlural = $root.dataset.appTreeNamePlural || `${this.name}s`;
+            this.idPrefix = $root.id || this.name;
+
+            const $form = $root.closest('form');
+            this.$status = $form ? $form.querySelector('.app-tree__status') : null;
+
+            this.items = Array.from($root.querySelectorAll(ITEM));
+            this.items.forEach((item, index) => this.setupItem(item, index));
+
+            $root.addEventListener('click', (event) => this.onClick(event));
+            $root.addEventListener('change', (event) => this.onChange(event));
+            $root.addEventListener('keydown', (event) => this.onKeydown(event));
+
+            if ($form) {
+                $form.querySelectorAll('[data-app-tree-action]').forEach(($button) => {
+                    $button.addEventListener('click', () => this.runAction($button.dataset.appTreeAction));
+                });
+            }
+
+            this.refreshAll();
         }
 
-        this.$root = $root;
-        this.name = $root.dataset.appTreeName || 'item';
-        this.namePlural = $root.dataset.appTreeNamePlural || this.name + 's';
-        this.idPrefix = $root.id || this.name;
+        /* ---------- structure helpers ---------- */
 
-        var $form = $root.closest('form');
-        this.$status = $form ? $form.querySelector('.app-tree__status') : null;
-
-        this.items = Array.prototype.slice.call($root.querySelectorAll(ITEM));
-        this.items.forEach(this.setupItem, this);
-
-        $root.addEventListener('click', this.onClick.bind(this));
-        $root.addEventListener('change', this.onChange.bind(this));
-        $root.addEventListener('keydown', this.onKeydown.bind(this));
-
-        if ($form) {
-            $form.querySelectorAll('[data-app-tree-action]').forEach(function ($button) {
-                $button.addEventListener('click', function () {
-                    this.runAction($button.dataset.appTreeAction);
-                }.bind(this));
-            }, this);
+        group(item) {
+            return item.querySelector(GROUP);
         }
 
-        this.refreshAll();
-    }
-
-    /* ---------- structure helpers ---------- */
-
-    TreeView.prototype.group = function (item) {
-        return item.querySelector(GROUP);
-    };
-
-    TreeView.prototype.checkbox = function (item) {
-        return item.querySelector(':scope > .app-tree__row input[type="checkbox"]');
-    };
-
-    TreeView.prototype.toggle = function (item) {
-        return item.querySelector(':scope > .app-tree__row .app-tree__toggle');
-    };
-
-    TreeView.prototype.parent = function (item) {
-        return item.parentElement.closest(ITEM);
-    };
-
-    TreeView.prototype.children = function (item) {
-        var group = this.group(item);
-        return group
-            ? Array.prototype.slice.call(group.children).filter(function (el) { return el.matches(ITEM); })
-            : [];
-    };
-
-    TreeView.prototype.siblings = function (item) {
-        return Array.prototype.slice.call(item.parentElement.children).filter(function (el) {
-            return el.matches(ITEM);
-        });
-    };
-
-    TreeView.prototype.descendantBoxes = function (item) {
-        var group = this.group(item);
-        return group ? Array.prototype.slice.call(group.querySelectorAll('input[type="checkbox"]')) : [];
-    };
-
-    TreeView.prototype.leafBoxes = function () {
-        return this.items
-            .filter(function (item) { return !this.group(item); }, this)
-            .map(function (item) { return this.checkbox(item); }, this);
-    };
-
-    TreeView.prototype.depth = function (item) {
-        var depth = 0;
-        var current = this.parent(item);
-
-        while (current) {
-            depth += 1;
-            current = this.parent(current);
+        checkbox(item) {
+            return item.querySelector(`${ROW} ${CHECKBOX}`);
         }
 
-        return depth;
-    };
-
-    /* ---------- set up ---------- */
-
-    TreeView.prototype.setupItem = function (item, index) {
-        var row = item.querySelector(':scope > .app-tree__row');
-        var group = this.group(item);
-        var checkbox = this.checkbox(item);
-
-        row.style.setProperty('--app-tree-depth', this.depth(item));
-
-        if (!group) {
-            var spacer = document.createElement('span');
-            spacer.className = 'app-tree__spacer';
-            spacer.setAttribute('aria-hidden', 'true');
-            row.insertBefore(spacer, row.firstElementChild);
-            return;
+        toggle(item) {
+            return item.querySelector(`${ROW} ${TOGGLE}`);
         }
 
-        // aria-controls must point at a real id, so guarantee one exists.
-        group.id = group.id || this.idPrefix + '-group-' + index;
-
-        var label = item.querySelector(':scope > .app-tree__row label');
-        var expanded = item.dataset.appTreeExpanded === 'true';
-
-        var toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'app-tree__toggle';
-        toggle.setAttribute('aria-expanded', String(expanded));
-        toggle.setAttribute('aria-controls', group.id);
-
-        // Accessible name is the category it opens; state comes from aria-expanded.
-        var name = document.createElement('span');
-        name.className = 'govuk-visually-hidden';
-        name.textContent = label ? label.textContent.trim() : checkbox.value;
-        toggle.appendChild(name);
-        toggle.insertAdjacentHTML('beforeend',
-            '<svg class="app-tree__toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 16" ' +
-            'fill="none" stroke="currentColor" stroke-width="3" focusable="false" aria-hidden="true">' +
-            '<path d="M1.5 1.5 8 8l-6.5 6.5"/></svg>');
-
-        row.insertBefore(toggle, row.firstElementChild);
-        group.hidden = !expanded;
-    };
-
-    /* ---------- expand and collapse ---------- */
-
-    TreeView.prototype.setExpanded = function (item, expanded) {
-        var group = this.group(item);
-        var toggle = this.toggle(item);
-
-        if (!group || !toggle) {
-            return;
+        parent(item) {
+            return item.parentElement.closest(ITEM);
         }
 
-        group.hidden = !expanded;
-        toggle.setAttribute('aria-expanded', String(expanded));
-        item.dataset.appTreeExpanded = String(expanded);
-    };
+        children(item) {
+            const group = this.group(item);
 
-    TreeView.prototype.isExpanded = function (item) {
-        var toggle = this.toggle(item);
-        return !!toggle && toggle.getAttribute('aria-expanded') === 'true';
-    };
-
-    TreeView.prototype.runAction = function (action) {
-        if (action === 'expand-all' || action === 'collapse-all') {
-            var expanded = action === 'expand-all';
-            this.items.forEach(function (item) { this.setExpanded(item, expanded); }, this);
-            return;
+            return group ? Array.from(group.children).filter((element) => element.matches(ITEM)) : [];
         }
 
-        if (action === 'clear') {
-            this.items.forEach(function (item) {
-                var checkbox = this.checkbox(item);
-                checkbox.checked = false;
-                checkbox.indeterminate = false;
-            }, this);
-
-            this.updateCount();
-        }
-    };
-
-    /* ---------- selection cascade ---------- */
-
-    TreeView.prototype.onChange = function (event) {
-        var checkbox = event.target;
-
-        if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== 'checkbox') {
-            return;
+        siblings(item) {
+            return Array.from(item.parentElement.children).filter((element) => element.matches(ITEM));
         }
 
-        var item = checkbox.closest(ITEM);
-        checkbox.indeterminate = false;
+        descendantBoxes(item) {
+            const group = this.group(item);
 
-        this.descendantBoxes(item).forEach(function (box) {
-            box.checked = checkbox.checked;
-            box.indeterminate = false;
-        });
-
-        var ancestor = this.parent(item);
-
-        while (ancestor) {
-            this.refreshAncestorState(ancestor);
-            ancestor = this.parent(ancestor);
+            return group ? Array.from(group.querySelectorAll(CHECKBOX)) : [];
         }
 
-        this.updateCount();
-    };
+        leafBoxes() {
+            return this.items
+                .filter((item) => !this.group(item))
+                .map((item) => this.checkbox(item));
+        }
 
-    TreeView.prototype.refreshAncestorState = function (item) {
-        var checkbox = this.checkbox(item);
-        var children = this.children(item).map(function (child) { return this.checkbox(child); }, this);
-        var checked = children.filter(function (box) { return box.checked; }).length;
-        var partial = children.some(function (box) { return box.indeterminate; });
+        depth(item) {
+            let depth = 0;
+            let current = this.parent(item);
 
-        checkbox.checked = checked === children.length && !partial;
-        checkbox.indeterminate = partial || (checked > 0 && checked < children.length);
-    };
+            while (current) {
+                depth += 1;
+                current = this.parent(current);
+            }
 
-    TreeView.prototype.refreshAll = function () {
-        // Bottom-up so parents see settled child state, which matters when the markup
-        // arrives with some checkboxes already checked by the server.
-        for (var i = this.items.length - 1; i >= 0; i -= 1) {
-            if (this.group(this.items[i])) {
-                this.refreshAncestorState(this.items[i]);
+            return depth;
+        }
+
+        /* ---------- set up ---------- */
+
+        setupItem(item, index) {
+            const row = item.querySelector(ROW);
+            const group = this.group(item);
+
+            row.style.setProperty('--app-tree-depth', this.depth(item));
+
+            if (group) {
+                row.insertBefore(this.createToggle(item, group, index), row.firstElementChild);
+                group.hidden = item.dataset.appTreeExpanded !== TRUE;
+            } else {
+                row.insertBefore(TreeView.createSpacer(), row.firstElementChild);
             }
         }
 
-        this.updateCount();
-    };
+        createToggle(item, group, index) {
+            // aria-controls must point at a real id, so guarantee one exists.
+            group.id = group.id || `${this.idPrefix}-group-${index}`;
 
-    TreeView.prototype.updateCount = function () {
-        if (!this.$status) {
-            return;
+            const label = item.querySelector(`${ROW} label`);
+            const expanded = item.dataset.appTreeExpanded === TRUE;
+
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'app-tree__toggle';
+            toggle.setAttribute(EXPANDED, String(expanded));
+            toggle.setAttribute('aria-controls', group.id);
+
+            // Accessible name is the category it opens; state comes from aria-expanded.
+            const name = document.createElement('span');
+            name.className = 'govuk-visually-hidden';
+            name.textContent = label ? label.textContent.trim() : this.checkbox(item).value;
+
+            toggle.appendChild(name);
+            toggle.insertAdjacentHTML('beforeend', TOGGLE_ICON);
+
+            return toggle;
         }
 
-        var total = this.leafBoxes().filter(function (box) { return box.checked; }).length;
+        static createSpacer() {
+            const spacer = document.createElement('span');
+            spacer.className = 'app-tree__spacer';
+            spacer.setAttribute('aria-hidden', TRUE);
 
-        this.$status.textContent = total === 0
-            ? 'No ' + this.namePlural + ' selected'
-            : total + ' ' + (total === 1 ? this.name : this.namePlural) + ' selected';
-    };
-
-    /* ---------- keyboard ---------- */
-
-    TreeView.prototype.visibleItems = function () {
-        return this.items.filter(function (item) { return !item.parentElement.closest('[hidden]'); });
-    };
-
-    TreeView.prototype.focusItem = function (item) {
-        var checkbox = item ? this.checkbox(item) : null;
-
-        if (checkbox) {
-            checkbox.focus();
-        }
-    };
-
-    TreeView.prototype.onClick = function (event) {
-        var toggle = event.target.closest('.app-tree__toggle');
-
-        if (!toggle || !this.$root.contains(toggle)) {
-            return;
+            return spacer;
         }
 
-        var item = toggle.closest(ITEM);
-        this.setExpanded(item, toggle.getAttribute('aria-expanded') !== 'true');
-    };
+        /* ---------- expand and collapse ---------- */
 
-    TreeView.prototype.onKeydown = function (event) {
-        var item = event.target.closest(ITEM);
+        setExpanded(item, expanded) {
+            const group = this.group(item);
+            const toggle = this.toggle(item);
 
-        if (!item) {
-            return;
+            if (!group || !toggle) {
+                return;
+            }
+
+            group.hidden = !expanded;
+            toggle.setAttribute(EXPANDED, String(expanded));
+            item.dataset.appTreeExpanded = String(expanded);
         }
 
-        var visible = this.visibleItems();
-        var index = visible.indexOf(item);
-        var handled = true;
-        var parent;
+        isExpanded(item) {
+            const toggle = this.toggle(item);
 
-        switch (event.key) {
-            case 'ArrowDown':
-                if (index > -1 && index < visible.length - 1) {
-                    this.focusItem(visible[index + 1]);
+            return Boolean(toggle) && toggle.getAttribute(EXPANDED) === TRUE;
+        }
+
+        runAction(action) {
+            if (action === 'expand-all' || action === 'collapse-all') {
+                const expanded = action === 'expand-all';
+                this.items.forEach((item) => this.setExpanded(item, expanded));
+
+                return;
+            }
+
+            if (action === 'clear') {
+                this.items.forEach((item) => {
+                    const checkbox = this.checkbox(item);
+                    checkbox.checked = false;
+                    checkbox.indeterminate = false;
+                });
+
+                this.updateCount();
+            }
+        }
+
+        /* ---------- selection cascade ---------- */
+
+        onChange(event) {
+            const checkbox = event.target;
+
+            if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== 'checkbox') {
+                return;
+            }
+
+            const item = checkbox.closest(ITEM);
+            checkbox.indeterminate = false;
+
+            this.descendantBoxes(item).forEach((box) => {
+                box.checked = checkbox.checked;
+                box.indeterminate = false;
+            });
+
+            let ancestor = this.parent(item);
+
+            while (ancestor) {
+                this.refreshAncestorState(ancestor);
+                ancestor = this.parent(ancestor);
+            }
+
+            this.updateCount();
+        }
+
+        refreshAncestorState(item) {
+            const checkbox = this.checkbox(item);
+            const children = this.children(item).map((child) => this.checkbox(child));
+            const checked = children.filter((box) => box.checked).length;
+            const partial = children.some((box) => box.indeterminate);
+
+            checkbox.checked = checked === children.length && !partial;
+            checkbox.indeterminate = partial || (checked > 0 && checked < children.length);
+        }
+
+        refreshAll() {
+            // Bottom-up so parents see settled child state, which matters when the markup
+            // arrives with some checkboxes already checked by the server.
+            for (let index = this.items.length - 1; index >= 0; index -= 1) {
+                if (this.group(this.items[index])) {
+                    this.refreshAncestorState(this.items[index]);
                 }
-                break;
-            case 'ArrowUp':
-                if (index > 0) {
-                    this.focusItem(visible[index - 1]);
-                }
-                break;
-            case 'ArrowRight':
-                if (!this.group(item)) {
-                    break;
-                }
-                if (this.isExpanded(item)) {
-                    this.focusItem(this.children(item)[0]);
-                } else {
-                    this.setExpanded(item, true);
-                }
-                break;
-            case 'ArrowLeft':
-                if (this.group(item) && this.isExpanded(item)) {
-                    this.setExpanded(item, false);
-                } else {
-                    parent = this.parent(item);
-                    if (parent) {
-                        this.focusItem(parent);
-                    }
-                }
-                break;
-            case 'Home':
+            }
+
+            this.updateCount();
+        }
+
+        updateCount() {
+            if (!this.$status) {
+                return;
+            }
+
+            const total = this.leafBoxes().filter((box) => box.checked).length;
+
+            if (total === 0) {
+                this.$status.textContent = `No ${this.namePlural} selected`;
+
+                return;
+            }
+
+            const noun = total === 1 ? this.name : this.namePlural;
+            this.$status.textContent = `${total} ${noun} selected`;
+        }
+
+        /* ---------- keyboard ---------- */
+
+        visibleItems() {
+            return this.items.filter((item) => !item.parentElement.closest('[hidden]'));
+        }
+
+        focusItem(item) {
+            const checkbox = item ? this.checkbox(item) : null;
+
+            if (checkbox) {
+                checkbox.focus();
+            }
+        }
+
+        onClick(event) {
+            const toggle = event.target.closest(TOGGLE);
+
+            if (!toggle || !this.$root.contains(toggle)) {
+                return;
+            }
+
+            const item = toggle.closest(ITEM);
+            this.setExpanded(item, toggle.getAttribute(EXPANDED) !== TRUE);
+        }
+
+        onKeydown(event) {
+            const item = event.target.closest(ITEM);
+
+            if (item && this.handleKey(event.key, item)) {
+                event.preventDefault();
+            }
+        }
+
+        // Split out of onKeydown, and split again into the four movement helpers below, to
+        // keep every function within the project's complexity budget.
+        handleKey(key, item) {
+            switch (key) {
+                case 'ArrowDown':
+                case 'ArrowUp':
+                case 'Home':
+                case 'End':
+                    this.moveVertically(key, item);
+
+                    return true;
+                case 'ArrowRight':
+                    this.openOrDescend(item);
+
+                    return true;
+                case 'ArrowLeft':
+                    this.closeOrAscend(item);
+
+                    return true;
+                case '*':
+                    this.siblings(item).forEach((sibling) => this.setExpanded(sibling, true));
+
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        moveVertically(key, item) {
+            const visible = this.visibleItems();
+            const index = visible.indexOf(item);
+
+            if (key === 'Home') {
                 this.focusItem(visible[0]);
-                break;
-            case 'End':
+            } else if (key === 'End') {
                 this.focusItem(visible[visible.length - 1]);
-                break;
-            case '*':
-                this.siblings(item).forEach(function (sibling) { this.setExpanded(sibling, true); }, this);
-                break;
-            default:
-                handled = false;
+            } else if (key === 'ArrowDown' && index > -1 && index < visible.length - 1) {
+                this.focusItem(visible[index + 1]);
+            } else if (key === 'ArrowUp' && index > 0) {
+                this.focusItem(visible[index - 1]);
+            }
         }
 
-        if (handled) {
-            event.preventDefault();
+        openOrDescend(item) {
+            if (!this.group(item)) {
+                return;
+            }
+
+            if (this.isExpanded(item)) {
+                this.focusItem(this.children(item)[0]);
+            } else {
+                this.setExpanded(item, true);
+            }
         }
-    };
+
+        closeOrAscend(item) {
+            if (this.group(item) && this.isExpanded(item)) {
+                this.setExpanded(item, false);
+
+                return;
+            }
+
+            const parent = this.parent(item);
+
+            if (parent) {
+                this.focusItem(parent);
+            }
+        }
+    }
 
     window.TreeView = TreeView;
 

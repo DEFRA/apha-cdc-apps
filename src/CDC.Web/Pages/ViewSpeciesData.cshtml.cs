@@ -4,6 +4,8 @@ namespace CDC.Web.Pages;
 
 public class ViewSpeciesDataModel : BreadcrumbPageModelBase
 {
+    private const string SpeciesKey = "species";
+
     public ViewSpeciesDataModel() : base("Species Data", "View species data")
     {
     }
@@ -12,10 +14,10 @@ public class ViewSpeciesDataModel : BreadcrumbPageModelBase
     /// repository or API would project onto.
     public TreeViewViewModel SpeciesTree { get; } = new()
     {
-        IdPrefix = "species",
-        FieldName = "species",
-        ItemNameSingular = "species",
-        ItemNamePlural = "species",
+        IdPrefix = SpeciesKey,
+        FieldName = SpeciesKey,
+        ItemNameSingular = SpeciesKey,
+        ItemNamePlural = SpeciesKey,
         Nodes =
         [
             new TreeNodeViewModel

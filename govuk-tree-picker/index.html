@@ -9,7 +9,9 @@
   <link rel="icon" sizes="48x48"
     href="https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/assets/rebrand/images/favicon.ico">
   <link rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/govuk-frontend.min.css">
+    href="https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/govuk-frontend.min.css"
+    integrity="sha384-My9NeipLNigJ7JqpWTTJRpcMNMdjJS19Sg2wkTicBrjAj+dFAc4vY9q9AlO/+bEC"
+    crossorigin="anonymous">
 
   <style>
     /* govuk-frontend resolves fonts from /assets/fonts/, which does not exist
@@ -169,6 +171,7 @@
     }
 
     .app-tree__status {
+      display: block;
       margin-bottom: 10px;
       font-weight: bold;
     }
@@ -222,9 +225,9 @@
                   </button>
                 </div>
 
-                <p class="govuk-body app-tree__status" id="species-status" role="status">
+                <output class="govuk-body app-tree__status" id="species-status">
                   No species selected
-                </p>
+                </output>
 
                 <div class="app-tree__panel">
                   <ul class="app-tree" data-module="app-tree-view" data-app-tree-name="species"
@@ -480,274 +483,21 @@
     </main>
   </div>
 
+  <script type="module"
+    src="https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/govuk-frontend.min.js"
+    integrity="sha384-yiWXVk5aeU2A9ScXNLYs/6AGcacq549ZYHLXMonbkX6PLNUXL/PWv/o9LZwUpnLC"
+    crossorigin="anonymous"></script>
   <script type="module">
+    // Resolves from the module cache populated by the integrity-checked load above.
     import { initAll } from 'https://cdn.jsdelivr.net/npm/govuk-frontend@6.5.1/dist/govuk/govuk-frontend.min.js'
     initAll()
   </script>
 
-  <script type="module">
-    /**
-     * TreeView
-     *
-     * Progressive enhancement over a plain nested <ul> of checkboxes, so the
-     * form still works with JavaScript unavailable (every group is visible and
-     * every checkbox submits its own value).
-     *
-     * Reuse: render the same markup from a Razor partial (one <li> per node,
-     * child nodes in a nested <ul class="app-tree__group">) and call
-     * `new TreeView(element)`. No ARIA tree role is used - native checkboxes
-     * and native buttons carry the semantics, and the only ARIA is
-     * aria-expanded plus an aria-controls that points at a real element id.
-     */
-    class TreeView {
-      static ITEM = '.app-tree__item'
-      static GROUP = ':scope > ul.app-tree__group'
-
-      constructor($root) {
-        if (!($root instanceof HTMLElement)) return
-        this.$root = $root
-        this.name = $root.dataset.appTreeName || 'item'
-        this.namePlural = $root.dataset.appTreeNamePlural || `${this.name}s`
-        this.idPrefix = `${this.$root.id || this.name}-tree`
-        this.$status = $root.closest('form')?.querySelector('.app-tree__status') || null
-
-        this.items = Array.from($root.querySelectorAll(TreeView.ITEM))
-        this.items.forEach((item, index) => this.setupItem(item, index))
-
-        $root.addEventListener('click', (event) => this.onClick(event))
-        $root.addEventListener('change', (event) => this.onChange(event))
-        $root.addEventListener('keydown', (event) => this.onKeydown(event))
-
-        const $form = $root.closest('form')
-        if ($form) {
-          $form.querySelectorAll('[data-app-tree-action]').forEach(($button) => {
-            $button.addEventListener('click', () => this.runAction($button.dataset.appTreeAction))
-          })
-        }
-
-        this.refreshAll()
-      }
-
-      /* ---------- structure helpers ---------- */
-
-      group(item) { return item.querySelector(TreeView.GROUP) }
-      checkbox(item) { return item.querySelector(':scope > .app-tree__row input[type="checkbox"]') }
-      toggle(item) { return item.querySelector(':scope > .app-tree__row .app-tree__toggle') }
-      parent(item) { return item.parentElement.closest(TreeView.ITEM) }
-      children(item) {
-        const group = this.group(item)
-        return group ? Array.from(group.children).filter((el) => el.matches(TreeView.ITEM)) : []
-      }
-      siblings(item) {
-        return Array.from(item.parentElement.children).filter((el) => el.matches(TreeView.ITEM))
-      }
-      descendantBoxes(item) {
-        const group = this.group(item)
-        return group ? Array.from(group.querySelectorAll('input[type="checkbox"]')) : []
-      }
-      leafBoxes() {
-        return this.items
-          .filter((item) => !this.group(item))
-          .map((item) => this.checkbox(item))
-      }
-      depth(item) {
-        let depth = 0
-        let current = this.parent(item)
-        while (current) {
-          depth += 1
-          current = this.parent(current)
-        }
-        return depth
-      }
-
-      /* ---------- set up ---------- */
-
-      setupItem(item, index) {
-        const row = item.querySelector(':scope > .app-tree__row')
-        const group = this.group(item)
-        const checkbox = this.checkbox(item)
-
-        row.style.setProperty('--app-tree-depth', this.depth(item))
-
-        if (!group) {
-          const spacer = document.createElement('span')
-          spacer.className = 'app-tree__spacer'
-          spacer.setAttribute('aria-hidden', 'true')
-          row.insertBefore(spacer, row.firstElementChild)
-          return
-        }
-
-        // aria-controls must point at a real id, so guarantee one exists.
-        group.id = group.id || `${this.idPrefix}-group-${index}`
-
-        const label = item.querySelector(':scope > .app-tree__row label')
-        const expanded = item.dataset.appTreeExpanded === 'true'
-
-        const toggle = document.createElement('button')
-        toggle.type = 'button'
-        toggle.className = 'app-tree__toggle'
-        toggle.setAttribute('aria-expanded', String(expanded))
-        toggle.setAttribute('aria-controls', group.id)
-        // Accessible name: the category it opens. State comes from aria-expanded.
-        toggle.innerHTML =
-          `<span class="govuk-visually-hidden">${label ? label.textContent.trim() : checkbox.value}</span>` +
-          '<svg class="app-tree__toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 16" ' +
-          'fill="none" stroke="currentColor" stroke-width="3" focusable="false" aria-hidden="true">' +
-          '<path d="M1.5 1.5 8 8l-6.5 6.5"/></svg>'
-
-        row.insertBefore(toggle, row.firstElementChild)
-        group.hidden = !expanded
-      }
-
-      /* ---------- expand and collapse ---------- */
-
-      setExpanded(item, expanded) {
-        const group = this.group(item)
-        const toggle = this.toggle(item)
-        if (!group || !toggle) return
-        group.hidden = !expanded
-        toggle.setAttribute('aria-expanded', String(expanded))
-        item.dataset.appTreeExpanded = String(expanded)
-      }
-
-      isExpanded(item) {
-        const toggle = this.toggle(item)
-        return !!toggle && toggle.getAttribute('aria-expanded') === 'true'
-      }
-
-      runAction(action) {
-        if (action === 'expand-all' || action === 'collapse-all') {
-          const expanded = action === 'expand-all'
-          this.items.forEach((item) => this.setExpanded(item, expanded))
-          return
-        }
-
-        if (action === 'clear') {
-          this.items.forEach((item) => {
-            const checkbox = this.checkbox(item)
-            checkbox.checked = false
-            checkbox.indeterminate = false
-          })
-          this.updateCount()
-        }
-      }
-
-      /* ---------- selection cascade ---------- */
-
-      onChange(event) {
-        const checkbox = event.target
-        if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== 'checkbox') return
-
-        const item = checkbox.closest(TreeView.ITEM)
-        checkbox.indeterminate = false
-
-        this.descendantBoxes(item).forEach((box) => {
-          box.checked = checkbox.checked
-          box.indeterminate = false
-        })
-
-        let ancestor = this.parent(item)
-        while (ancestor) {
-          this.refreshAncestorState(ancestor)
-          ancestor = this.parent(ancestor)
-        }
-
-        this.updateCount()
-      }
-
-      refreshAncestorState(item) {
-        const checkbox = this.checkbox(item)
-        const children = this.children(item).map((child) => this.checkbox(child))
-        const checked = children.filter((box) => box.checked).length
-        const partial = children.some((box) => box.indeterminate)
-
-        checkbox.checked = checked === children.length && !partial
-        checkbox.indeterminate = partial || (checked > 0 && checked < children.length)
-      }
-
-      refreshAll() {
-        // Bottom-up so parents see settled child state, which matters when the
-        // markup arrives with some checkboxes already checked by the server.
-        for (let i = this.items.length - 1; i >= 0; i -= 1) {
-          const item = this.items[i]
-          if (this.group(item)) this.refreshAncestorState(item)
-        }
-        this.updateCount()
-      }
-
-      updateCount() {
-        if (!this.$status) return
-        const total = this.leafBoxes().filter((box) => box.checked).length
-        this.$status.textContent = total === 0
-          ? `No ${this.namePlural} selected`
-          : `${total} ${total === 1 ? this.name : this.namePlural} selected`
-      }
-
-      /* ---------- keyboard ---------- */
-
-      visibleItems() {
-        return this.items.filter((item) => !item.parentElement.closest('[hidden]'))
-      }
-
-      focusItem(item) {
-        const checkbox = this.checkbox(item)
-        if (checkbox) checkbox.focus()
-      }
-
-      onClick(event) {
-        const toggle = event.target.closest('.app-tree__toggle')
-        if (!toggle || !this.$root.contains(toggle)) return
-        const item = toggle.closest(TreeView.ITEM)
-        this.setExpanded(item, toggle.getAttribute('aria-expanded') !== 'true')
-      }
-
-      onKeydown(event) {
-        const item = event.target.closest(TreeView.ITEM)
-        if (!item) return
-
-        const visible = this.visibleItems()
-        const index = visible.indexOf(item)
-        let handled = true
-
-        switch (event.key) {
-          case 'ArrowDown':
-            if (index > -1 && index < visible.length - 1) this.focusItem(visible[index + 1])
-            break
-          case 'ArrowUp':
-            if (index > 0) this.focusItem(visible[index - 1])
-            break
-          case 'ArrowRight':
-            if (!this.group(item)) break
-            if (this.isExpanded(item)) this.focusItem(this.children(item)[0])
-            else this.setExpanded(item, true)
-            break
-          case 'ArrowLeft':
-            if (this.group(item) && this.isExpanded(item)) {
-              this.setExpanded(item, false)
-            } else {
-              const parent = this.parent(item)
-              if (parent) this.focusItem(parent)
-            }
-            break
-          case 'Home':
-            this.focusItem(visible[0])
-            break
-          case 'End':
-            this.focusItem(visible[visible.length - 1])
-            break
-          case '*':
-            this.siblings(item).forEach((sibling) => this.setExpanded(sibling, true))
-            break
-          default:
-            handled = false
-        }
-
-        if (handled) event.preventDefault()
-      }
-    }
-
-    document.querySelectorAll('[data-module="app-tree-view"]').forEach(($tree) => new TreeView($tree))
-  </script>
+  <!--
+    The tree picker behaviour is the same file the application ships, so the prototype and
+    CDC.Web cannot drift apart. It self-initialises on every [data-module="app-tree-view"].
+  -->
+  <script src="../src/CDC.Web/wwwroot/js/tree-view.js"></script>
 </body>
 
 </html>

@@ -1,6 +1,7 @@
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.Species.Dtos;
 using MediatR;
+using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.Species.Commands;
 
@@ -61,6 +62,7 @@ public sealed record SpeciesFieldValueChange
 public sealed record UpdateSpeciesAnswerDataCommand : IRequest<Result<UpdateSpeciesAnswerDataResultDto>>
 {
     /// <summary>Gets the species being updated.</summary>
+    [JsonRequired]
     public Guid SpeciesId { get; init; }
 
     /// <summary>

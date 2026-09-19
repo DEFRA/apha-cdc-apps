@@ -30,6 +30,3 @@ public sealed record TreeViewViewModel
 
     public string ItemNamePlural { get; init; } = "items";
 }
-
-/// Model for the recursive _TreeViewNode partial.
-public sealed record TreeViewNodeViewModel(TreeNodeViewModel Node, string IdPrefix, string FieldName);
