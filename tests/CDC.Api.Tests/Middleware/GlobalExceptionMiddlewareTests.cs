@@ -95,14 +95,14 @@ public class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_DoesNotWrite_WhenTheResponseHasAlreadyStarted()
+    public async Task InvokeAsync_Rethrows_WhenTheResponseHasAlreadyStarted()
     {
         var context = CreateContext();
         context.Features.Set<IHttpResponseFeature>(new StartedResponseFeature());
 
         var act = async () => await CreateMiddleware(_ => throw new InvalidOperationException("Boom")).InvokeAsync(context);
 
-        await act.Should().NotThrowAsync();
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     private static DefaultHttpContext CreateContext()

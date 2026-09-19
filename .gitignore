@@ -28,6 +28,8 @@ npm-debug.log*
 # Test coverage output
 coverage.cobertura.xml
 coverage/
+**/TestResults/
+*.trx
 
 # Environment/secrets
 .env
