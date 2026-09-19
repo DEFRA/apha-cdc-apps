@@ -59,3 +59,27 @@ Formatting and code-style rules are defined in `.editorconfig`; Roslyn analyzers
 project via `Directory.Build.props`. A Husky.Net git hook runs `dotnet format --verify-no-changes` against
 staged `.cs` files before each commit - if it fails, run `dotnet format` to auto-fix, then re-stage and
 commit again.
+
+## Logging & correlation IDs
+
+Both `CDC.Web` and `CDC.Api` log structured JSON to the console only (no file sinks) via Serilog, using
+`CompactJsonFormatter`. Locally, that means one JSON object per line in the terminal running `dotnet run`;
+in a deployed environment, the same stdout stream is what the container's log driver ships onward - just
+follow whatever your environment tails (e.g. `docker logs -f <container>` locally, or the container
+platform's own log viewer/tail command elsewhere).
+
+Each log line includes `MachineName`, `EnvironmentName`, and - for anything logged during a request -
+`CorrelationId`. To follow a single request end-to-end, filter/grep the log stream for its `CorrelationId`
+value.
+
+**Correlation IDs are automatic, not manual.** `CorrelationIdMiddlewareExtensions.UseCorrelationId()`
+(in `CDC.Common`, registered in both `Program.cs` files before `UseSerilogRequestLogging()`) reads the
+`X-Correlation-Id` request header; if it is missing or not a well-formed GUID, a new one is generated. No
+caller is required to supply one, but a caller (e.g. an upstream service, or a manual `curl`/Postman
+request) can supply their own GUID to make a request traceable under a known value. The ID is:
+
+- pushed into the Serilog `LogContext` for the lifetime of the request, so every log line carries it,
+- echoed back on the response's `X-Correlation-Id` header, and
+- forwarded automatically from `CDC.Web` to `CDC.Api` by `CorrelationIdDelegatingHandler`, attached to the
+  typed `HttpClient` used for `IApiClient` - so one user action produces the same `CorrelationId` in both
+  services' logs.
