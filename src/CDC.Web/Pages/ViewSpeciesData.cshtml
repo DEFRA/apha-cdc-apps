@@ -7,7 +7,7 @@
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
-<h1 class="govuk-heading-l">View species data</h1>
+<h1 class="govuk-heading-l" id="view-species-data-heading">View species data</h1>
 
 <p class="govuk-body">
     This page details the species that are used by the D2R2 system. It is presented as a
@@ -36,33 +36,31 @@ else if (Model.SpeciesTree.Nodes.Count == 0)
 else
 {
     <form method="get">
-        <div class="govuk-form-group">
-            <fieldset class="govuk-fieldset" aria-describedby="species-tree-hint species-tree-status">
+        <div class="govuk-form-group app-tree__form-group">
+            <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
                 <legend class="govuk-visually-hidden">Species and species groups</legend>
 
-                <div id="species-tree-hint" class="govuk-hint">
-                    Select a group to select everything inside it. Use the arrow keys to move through
-                    the list, and the left and right arrows to open and close groups.
+                <div class="app-tree__panel">
+                    <div class="app-tree__controls">
+                        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                            <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                    <path d="M1 1l5 5 5-5" />
+                                </svg>
+                            </span>
+                            <span class="app-tree__toggle-all-text">Open all</span>
+                        </button>
+                    </div>
+                    <partial name="_TreeView" model="Model.SpeciesTree" />
                 </div>
 
+                <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+
                 <div class="app-tree__actions">
-                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="expand-all">
-                        Expand all
-                    </button>
-                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="collapse-all">
-                        Collapse all
-                    </button>
                     <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
                         Remove selection
                     </button>
-                </div>
-
-                <output class="govuk-body app-tree__status" id="species-tree-status">
-                    No species selected
-                </output>
-
-                <div class="app-tree__panel">
-                    <partial name="_TreeView" model="Model.SpeciesTree" />
                 </div>
             </fieldset>
         </div>

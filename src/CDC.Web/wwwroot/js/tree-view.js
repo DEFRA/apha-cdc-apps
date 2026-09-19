@@ -1,10 +1,12 @@
-// TreeView: reusable nested-checkbox tree picker.
+// TreeView: reusable single-select tree picker.
 //
 // Enhances the markup rendered by Views/Shared/_TreeView.cshtml. Without JavaScript the
-// markup is still a usable set of nested checkboxes, so nothing is lost.
+// markup is still a usable set of nested radios, so nothing is lost.
 //
-// Semantics come from native checkboxes and native buttons - no ARIA tree role - and the only
-// ARIA used is aria-expanded plus an aria-controls that points at a real element id.
+// Selection uses native radio inputs sharing one "name", so the browser itself enforces that
+// only one node - parent, child or grandchild - can ever be selected. Semantics otherwise come
+// from native buttons - no ARIA tree role - and the only ARIA used is aria-expanded plus an
+// aria-controls that points at a real element id.
 (function () {
     'use strict';
 
@@ -12,7 +14,7 @@
     const GROUP = ':scope > ul.app-tree__group';
     const ROW = ':scope > .app-tree__row';
     const TOGGLE = '.app-tree__toggle';
-    const CHECKBOX = 'input[type="checkbox"]';
+    const RADIO = 'input[type="radio"]';
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 
@@ -31,12 +33,11 @@
             }
 
             this.$root = $root;
-            this.name = $root.dataset.appTreeName || 'item';
-            this.namePlural = $root.dataset.appTreeNamePlural || `${this.name}s`;
-            this.idPrefix = $root.id || this.name;
+            this.idPrefix = $root.id || 'item';
 
             const $form = $root.closest('form');
             this.$status = $form ? $form.querySelector('.app-tree__status') : null;
+            this.$toggleAll = $form ? $form.querySelector('.app-tree__toggle-all') : null;
 
             this.items = Array.from($root.querySelectorAll(ITEM));
             this.items.forEach((item, index) => this.setupItem(item, index));
@@ -60,8 +61,8 @@
             return item.querySelector(GROUP);
         }
 
-        checkbox(item) {
-            return item.querySelector(`${ROW} ${CHECKBOX}`);
+        radio(item) {
+            return item.querySelector(`${ROW} ${RADIO}`);
         }
 
         toggle(item) {
@@ -82,16 +83,12 @@
             return Array.from(item.parentElement.children).filter((element) => element.matches(ITEM));
         }
 
-        descendantBoxes(item) {
-            const group = this.group(item);
+        // The category label shown to screen readers on a branch's toggle, and to everyone in
+        // the "Selected: ..." status once a node is picked.
+        labelFor(item) {
+            const label = item.querySelector(`${ROW} label`);
 
-            return group ? Array.from(group.querySelectorAll(CHECKBOX)) : [];
-        }
-
-        leafBoxes() {
-            return this.items
-                .filter((item) => !this.group(item))
-                .map((item) => this.checkbox(item));
+            return label ? label.textContent.trim() : this.radio(item).value;
         }
 
         depth(item) {
@@ -126,7 +123,6 @@
             // aria-controls must point at a real id, so guarantee one exists.
             group.id = group.id || `${this.idPrefix}-group-${index}`;
 
-            const label = item.querySelector(`${ROW} label`);
             const expanded = item.dataset.appTreeExpanded === TRUE;
 
             const toggle = document.createElement('button');
@@ -138,7 +134,7 @@
             // Accessible name is the category it opens; state comes from aria-expanded.
             const name = document.createElement('span');
             name.className = 'govuk-visually-hidden';
-            name.textContent = label ? label.textContent.trim() : this.checkbox(item).value;
+            name.textContent = this.labelFor(item);
 
             toggle.appendChild(name);
             toggle.insertAdjacentHTML('beforeend', TOGGLE_ICON);
@@ -167,6 +163,7 @@
             group.hidden = !expanded;
             toggle.setAttribute(EXPANDED, String(expanded));
             item.dataset.appTreeExpanded = String(expanded);
+            this.refreshToggleAllControl();
         }
 
         isExpanded(item) {
@@ -176,88 +173,71 @@
         }
 
         runAction(action) {
-            if (action === 'expand-all' || action === 'collapse-all') {
-                const expanded = action === 'expand-all';
-                this.items.forEach((item) => this.setExpanded(item, expanded));
+            if (action === 'toggle-all') {
+                const branches = this.items.filter((item) => this.group(item));
+                const expanded = !this.allExpanded(branches);
+                branches.forEach((item) => this.setExpanded(item, expanded));
 
                 return;
             }
 
             if (action === 'clear') {
                 this.items.forEach((item) => {
-                    const checkbox = this.checkbox(item);
-                    checkbox.checked = false;
-                    checkbox.indeterminate = false;
+                    this.radio(item).checked = false;
                 });
 
-                this.updateCount();
+                this.updateSelectedStatus();
             }
         }
 
-        /* ---------- selection cascade ---------- */
+        allExpanded(branches) {
+            return branches.length > 0 && branches.every((item) => this.isExpanded(item));
+        }
 
-        onChange(event) {
-            const checkbox = event.target;
-
-            if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== 'checkbox') {
+        // Keeps the "Open all"/"Close all" control in sync whenever a branch's state changes,
+        // whether that came from the control itself, a single node's toggle, or the keyboard.
+        refreshToggleAllControl() {
+            if (!this.$toggleAll) {
                 return;
             }
 
-            const item = checkbox.closest(ITEM);
-            checkbox.indeterminate = false;
+            const branches = this.items.filter((item) => this.group(item));
+            const expanded = this.allExpanded(branches);
+            const label = this.$toggleAll.querySelector('.app-tree__toggle-all-text');
 
-            this.descendantBoxes(item).forEach((box) => {
-                box.checked = checkbox.checked;
-                box.indeterminate = false;
-            });
+            this.$toggleAll.setAttribute(EXPANDED, String(expanded));
 
-            let ancestor = this.parent(item);
-
-            while (ancestor) {
-                this.refreshAncestorState(ancestor);
-                ancestor = this.parent(ancestor);
+            if (label) {
+                label.textContent = expanded ? 'Close all' : 'Open all';
             }
-
-            this.updateCount();
         }
 
-        refreshAncestorState(item) {
-            const checkbox = this.checkbox(item);
-            const children = this.children(item).map((child) => this.checkbox(child));
-            const checked = children.filter((box) => box.checked).length;
-            const partial = children.some((box) => box.indeterminate);
+        /* ---------- selection ---------- */
 
-            checkbox.checked = checked === children.length && !partial;
-            checkbox.indeterminate = partial || (checked > 0 && checked < children.length);
-        }
+        onChange(event) {
+            const radio = event.target;
 
-        refreshAll() {
-            // Bottom-up so parents see settled child state, which matters when the markup
-            // arrives with some checkboxes already checked by the server.
-            for (let index = this.items.length - 1; index >= 0; index -= 1) {
-                if (this.group(this.items[index])) {
-                    this.refreshAncestorState(this.items[index]);
-                }
+            if (radio instanceof HTMLInputElement && radio.type === 'radio') {
+                this.updateSelectedStatus();
             }
-
-            this.updateCount();
         }
 
-        updateCount() {
+        // The status output disappears entirely (rather than showing empty text) once nothing
+        // is selected, so it also disappears the moment "Remove selection" is clicked.
+        updateSelectedStatus() {
             if (!this.$status) {
                 return;
             }
 
-            const total = this.leafBoxes().filter((box) => box.checked).length;
+            const selected = this.items.find((item) => this.radio(item).checked);
 
-            if (total === 0) {
-                this.$status.textContent = `No ${this.namePlural} selected`;
+            this.$status.hidden = !selected;
+            this.$status.textContent = selected ? `Selected: ${this.labelFor(selected)}` : '';
+        }
 
-                return;
-            }
-
-            const noun = total === 1 ? this.name : this.namePlural;
-            this.$status.textContent = `${total} ${noun} selected`;
+        refreshAll() {
+            this.updateSelectedStatus();
+            this.refreshToggleAllControl();
         }
 
         /* ---------- keyboard ---------- */
@@ -267,10 +247,10 @@
         }
 
         focusItem(item) {
-            const checkbox = item ? this.checkbox(item) : null;
+            const radio = item ? this.radio(item) : null;
 
-            if (checkbox) {
-                checkbox.focus();
+            if (radio) {
+                radio.focus();
             }
         }
 

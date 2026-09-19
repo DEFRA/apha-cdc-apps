@@ -4,13 +4,13 @@
     // <li> is emitted inside its own <ul> in the same file.
     void RenderNode(TreeNodeViewModel node)
     {
-        var checkboxId = $"{Model.IdPrefix}-{node.Value}";
+        var radioId = $"{Model.IdPrefix}-{node.Value}";
 
         <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
             <div class="app-tree__row">
-                <div class="govuk-checkboxes__item app-tree__checkbox">
-                    <input class="govuk-checkboxes__input" id="@checkboxId" name="@Model.FieldName" type="checkbox" value="@node.Value" />
-                    <label class="govuk-label govuk-checkboxes__label" for="@checkboxId">@node.Label</label>
+                <div class="govuk-radios__item app-tree__radio">
+                    <input class="govuk-radios__input" id="@radioId" name="@Model.FieldName" type="radio" value="@node.Value" />
+                    <label class="govuk-label govuk-radios__label" for="@radioId">@node.Label</label>
                 </div>
             </div>
             @if (node.Children.Count > 0)
@@ -26,7 +26,8 @@
     }
 }
 
-@* Progressive enhancement: without JavaScript every group stays visible and every checkbox posts. *@
+@* Progressive enhancement: without JavaScript every group stays visible and every radio posts.
+   All radios share Model.FieldName, so the browser natively enforces "only one selected". *@
 <ul class="app-tree"
     data-module="app-tree-view"
     data-app-tree-name="@Model.ItemNameSingular"
