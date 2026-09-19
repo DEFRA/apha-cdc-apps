@@ -83,3 +83,38 @@ request) can supply their own GUID to make a request traceable under a known val
 - forwarded automatically from `CDC.Web` to `CDC.Api` by `CorrelationIdDelegatingHandler`, attached to the
   typed `HttpClient` used for `IApiClient` - so one user action produces the same `CorrelationId` in both
   services' logs.
+
+### Example: logging from application code
+
+Inject `ILogger<T>` and log with a structured message template - never string interpolation - so the
+values stay queryable as real JSON fields rather than being flattened into the message text:
+
+```csharp
+public sealed class SpeciesService(ISpeciesRepository repository, ILogger<SpeciesService> logger)
+{
+    public async Task<Result<Species>> UpdateAnswerDataAsync(Guid speciesId, SpeciesAnswerData data)
+    {
+        logger.LogInformation("Updating species {SpeciesId} with {FieldCount} answered fields", speciesId, data.Fields.Count);
+
+        var result = await repository.UpdateAnswerDataAsync(speciesId, data);
+
+        if (result.IsFailure)
+        {
+            logger.LogWarning("Species {SpeciesId} update rejected: {Reason}", speciesId, result.Error);
+        }
+
+        return result;
+    }
+}
+```
+
+Because `CorrelationId` is already in the Serilog `LogContext` for the current request (see above), both
+log lines above are automatically enriched with it - no need to pass it around manually. The resulting
+CloudWatch Logs Insights query to see everything that happened for one update, across both log lines:
+
+```
+fields @timestamp, CorrelationId, SpeciesId, @message
+| filter SpeciesId = "…"
+| sort @timestamp asc
+```
+
