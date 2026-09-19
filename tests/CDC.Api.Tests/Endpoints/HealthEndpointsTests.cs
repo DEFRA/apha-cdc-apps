@@ -69,16 +69,16 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     [Fact]
     public async Task HealthReady_ProbesDatabase_WhenKeyCorrect()
     {
-        // No real SQL Server is available in this test environment, so this
-        // only asserts the key check let the request through to the DB probe
-        // (503 Unhealthy), not that connectivity succeeds - see
-        // DatabaseHealthCheckTests for the health-check logic itself.
+        // Asserts only that the key check let the request through to the DB probe, not the
+        // probe's verdict: a developer machine may or may not have a reachable SQL Server, so
+        // both Healthy (200) and Unhealthy (503) are valid here. The health-check logic itself
+        // is covered by DatabaseHealthCheckTests.
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add(ReadinessKeyFilter.HeaderName, "local-dev-readiness-key");
 
         var response = await client.GetAsync("/health/ready");
 
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains(response.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable });
     }
 
     private sealed class HealthResponse
