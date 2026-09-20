@@ -5,6 +5,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-windowsservercore-ltsc2022 AS build
 WORKDIR /src
 
 COPY ["src/CDC.Api/CDC.Api.csproj", "src/CDC.Api/"]
+COPY ["src/CDC.Common/CDC.Common.csproj", "src/CDC.Common/"]
 
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "src/CDC.Api/CDC.Api.csproj"
