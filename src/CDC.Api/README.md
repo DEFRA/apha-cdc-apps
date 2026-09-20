@@ -105,7 +105,7 @@ Set `Swagger:Enabled` to `false` to turn the UI off without a code change.
 dotnet test tests\CDC.Api.Tests\CDC.Api.Tests.csproj
 ```
 
-xUnit, Moq, FluentAssertions and AutoFixture. Coverlet enforces an 80% line coverage threshold
+xUnit, Moq, FluentAssertions and AutoFixture. Coverlet enforces a 90% line coverage threshold
 (`tests\Directory.Build.props`). The repository is tested against an in-memory fake ADO.NET
 provider (`tests\CDC.Api.Tests\Fakes\FakeDb.cs`), because Dapper extends `DbConnection` rather
 than an interface - this verifies stored procedure names, parameters, transaction commit and

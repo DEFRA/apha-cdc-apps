@@ -31,6 +31,9 @@ coverage/
 **/TestResults/
 *.trx
 
+# SonarCloud scanner working directory
+.sonarqube/
+
 # Environment/secrets
 .env
 .env.local
