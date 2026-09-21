@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/CDC.Api/CDC.Api.csproj" />
+    <Project Path="src/CDC.Common/CDC.Common.csproj" />
     <Project Path="src/CDC.Web/CDC.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">

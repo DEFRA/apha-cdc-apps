@@ -1,8 +1,19 @@
+using CDC.Common.Correlation;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Structured JSON to stdout only - ECS/Fargate storage is ephemeral, so no file sinks. The
+// awslogs driver on the container picks stdout/stderr up and ships it to CloudWatch Logs.
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithEnvironmentName()
+    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter()));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -23,10 +34,16 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
         $"Configuration value 'Api:BaseUrl' ('{apiBaseUrl}') must be an absolute http:// or https:// URL, e.g. 'http://cdc-api:8080'.");
 }
 
+// Forwards this request's correlation ID to CDC.Api, so a single ID traces the action across
+// both services' CloudWatch log groups.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
+
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
@@ -55,6 +72,11 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Landing/Error");
 }
+
+// Correlation ID before request logging so the one-line-per-request log carries it, and so it's
+// available on HttpContext.Items for CorrelationIdDelegatingHandler when Web calls the Api.
+app.UseCorrelationId();
+app.UseSerilogRequestLogging();
 
 // Serve static files from wwwroot
 app.UseStaticFiles();
