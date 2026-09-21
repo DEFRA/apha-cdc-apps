@@ -305,14 +305,20 @@
             const visible = this.visibleItems();
             const index = visible.indexOf(item);
 
+            if (visible.length === 0) {
+                return;
+            }
+
             if (key === 'Home') {
                 this.focusItem(visible[0]);
             } else if (key === 'End') {
-                this.focusItem(visible[visible.length - 1]);
+                this.focusItem(visible.at(-1));
             } else if (key === 'ArrowDown' && index > -1 && index < visible.length - 1) {
                 this.focusItem(visible[index + 1]);
             } else if (key === 'ArrowUp' && index > 0) {
                 this.focusItem(visible[index - 1]);
+            } else {
+                return;
             }
         }
 
