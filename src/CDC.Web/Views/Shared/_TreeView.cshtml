@@ -25,18 +25,6 @@
         </li>
     }
 
-    void RenderTree(IEnumerable<TreeNodeViewModel> nodes)
-    {
-        <ul class="app-tree"
-            data-module="app-tree-view"
-            data-app-tree-name="@Model.ItemNameSingular"
-            data-app-tree-name-plural="@Model.ItemNamePlural">
-            @foreach (var node in nodes)
-            {
-                RenderNode(node);
-            }
-        </ul>
-    }
 }
 
 @* Progressive enhancement: without JavaScript every group stays visible and every radio posts.
