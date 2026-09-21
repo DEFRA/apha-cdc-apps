@@ -50,7 +50,7 @@ public static class SpeciesTreeBuilder
             return new TreeNodeViewModel { Value = species.Id.ToString(), Label = species.Description };
         }
 
-        var ownAncestorIds = new HashSet<Guid>(ancestorIds) { species.Id };
+        HashSet<Guid> ownAncestorIds = [.. ancestorIds, species.Id];
 
         var children = childrenByParentId[species.Id]
             .OrderBy(child => child.Description, StringComparer.OrdinalIgnoreCase)

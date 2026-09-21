@@ -76,6 +76,3 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
-
-// Exposes the generated Program class to WebApplicationFactory<Program> in CDC.Web.Tests.
-public partial class Program { }
