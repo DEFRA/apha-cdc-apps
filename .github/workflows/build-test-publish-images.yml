@@ -186,7 +186,19 @@ jobs:
             --logger "trx;LogFilePrefix=cdc-sonar-tests" \
             --results-directory "${{ runner.temp }}/test-results" \
             /p:Threshold=0
-          "${{ runner.temp }}/scanner/dotnet-sonarscanner" end /d:sonar.token="${SONAR_TOKEN}"
+          set +e
+          "${{ runner.temp }}/scanner/dotnet-sonarscanner" end /d:sonar.token="${SONAR_TOKEN}" 2>&1 | tee sonar-end.log
+          scanner_exit_code="${PIPESTATUS[0]}"
+          set -e
+
+          if [[ "${scanner_exit_code}" -ne 0 ]]; then
+            if grep -Fq "Automatic Analysis is enabled" sonar-end.log; then
+              echo "::warning::SonarCloud CI analysis is blocked because Automatic Analysis is enabled for this project."
+              echo "::warning::Disable Automatic Analysis in SonarCloud project settings to restore CI-based Sonar analysis."
+            else
+              exit "${scanner_exit_code}"
+            fi
+          fi
 
   container-validation:
     name: Validate ${{ matrix.component }} container
