@@ -166,6 +166,7 @@ jobs:
         shell: bash
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          MSYS_NO_PATHCONV: "1"
         run: |
           set -euo pipefail
           test -n "${SONAR_TOKEN}"
