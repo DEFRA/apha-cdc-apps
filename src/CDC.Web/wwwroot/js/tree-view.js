@@ -353,7 +353,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('[data-module="app-tree-view"]').forEach(function ($tree) {
-            new TreeView($tree);
+            $tree.treeView = new TreeView($tree);
         });
     });
 })();
