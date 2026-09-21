@@ -19,7 +19,6 @@ concurrency:
 
 env:
   DOTNET_VERSION: "10.0.x"
-  ECR_REPOSITORY: apha/cdc
 
 jobs:
   changes:
@@ -135,8 +134,33 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Restore repository tools
-        run: dotnet tool restore
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~\sonar\cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # dotnet-sonarscanner is intentionally not in the .config/dotnet-tools.json manifest -
+      # installing it to a cached tool-path (Sonar's own recommended pattern) avoids pinning
+      # to a specific NuGet version that can go stale/incompatible with the scanner engine.
+      - name: Cache SonarCloud scanner
+        id: cache-sonar-scanner
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+
+      - name: Install SonarCloud scanner
+        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -Path "${{ runner.temp }}\scanner" -ItemType Directory -Force | Out-Null
+          dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}\scanner"
+
+      - name: Restore solution
+        run: dotnet restore CDC.slnx
 
       - name: Analyse solution
         shell: bash
@@ -145,15 +169,23 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${SONAR_TOKEN}"
-          dotnet sonarscanner begin \
+          "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin \
             /k:"${{ vars.SONAR_PROJECT_KEY }}" \
             /o:"${{ vars.SONAR_ORGANIZATION }}" \
             /d:sonar.token="${SONAR_TOKEN}" \
             /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.qualitygate.wait=true
-          dotnet restore CDC.slnx
+            /d:sonar.qualitygate.wait=true \
+            /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml" \
+            /d:sonar.cs.vstest.reportsPaths="**/*.trx" \
+            /d:sonar.exclusions="**/wwwroot/lib/**,**/wwwroot/js/*.min.js"
           dotnet build CDC.slnx --configuration Release --no-restore
-          dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+          dotnet test CDC.slnx \
+            --configuration Release \
+            --no-restore \
+            --logger "trx;LogFilePrefix=cdc-sonar-tests" \
+            --results-directory "${{ runner.temp }}/test-results" \
+            /p:Threshold=0
+          "${{ runner.temp }}/scanner/dotnet-sonarscanner" end /d:sonar.token="${SONAR_TOKEN}"
 
   container-validation:
     name: Validate ${{ matrix.component }} container
@@ -275,6 +307,8 @@ jobs:
       AWS_ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ENV_ACCOUNT }}:role/${{ secrets.AWS_ENV_OIDC_ROLE }}
       EXPECTED_AWS_ACCOUNT_ID: ${{ vars.EXPECTED_AWS_ACCOUNT_ID }}
       EXPECTED_AWS_REGION: ${{ vars.EXPECTED_AWS_REGION }}
+      ECR_API_REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
+      ECR_WEB_REPOSITORY: ${{ vars.ECR_WEB_REPOSITORY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -286,6 +320,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          case "${{ matrix.component }}" in
+            api)
+              ECR_REPOSITORY="${ECR_API_REPOSITORY}"
+              ;;
+            web)
+              ECR_REPOSITORY="${ECR_WEB_REPOSITORY}"
+              ;;
+            *)
+              echo "::error::Unsupported component: ${{ matrix.component }}"
+              exit 1
+              ;;
+          esac
 
           test -n "${EXPECTED_AWS_ACCOUNT_ID}" || {
             echo "::error::Repository variable EXPECTED_AWS_ACCOUNT_ID is not configured."
@@ -305,7 +352,7 @@ jobs:
           }
 
           test -n "${ECR_REPOSITORY}" || {
-            echo "::error::ECR_REPOSITORY is not configured."
+            echo "::error::No ECR repository is configured for ${{ matrix.component }}."
             exit 1
           }
 
@@ -314,6 +361,8 @@ jobs:
             echo "::error::Check AWS_OIDC_ROLE_ARN; the role ARN must reference the expected account and include a role name."
             exit 1
           }
+
+          echo "ecr_repository=${ECR_REPOSITORY}" >> "${GITHUB_OUTPUT}"
 
       # Reuses the exact image container-validation already built and validated for
       # this commit, instead of building it again from scratch.
@@ -417,13 +466,13 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE_TAG="${{ matrix.component }}-sha-${GITHUB_SHA::12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          IMAGE_URI="${ECR_REGISTRY}/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+          IMAGE_URI="${ECR_REGISTRY}/${{ steps.component.outputs.ecr_repository }}:${IMAGE_TAG}"
 
           docker tag "cdc-${{ matrix.component }}:${GITHUB_SHA}" "${IMAGE_URI}"
           docker push "${IMAGE_URI}"
 
           IMAGE_DIGEST="$(aws ecr describe-images \
-            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --repository-name "${{ steps.component.outputs.ecr_repository }}" \
             --image-ids imageTag="${IMAGE_TAG}" \
             --query 'imageDetails[0].imageDigest' \
             --output text)"
