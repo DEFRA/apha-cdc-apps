@@ -34,7 +34,7 @@ public static class SpeciesTreeBuilder
         [
             .. roots
                 .OrderBy(item => item.Description, StringComparer.OrdinalIgnoreCase)
-                .Select(item => BuildNode(item, childrenByParentId, expanded: true, ancestorIds: new HashSet<Guid>()))
+                .Select(item => BuildNode(item, childrenByParentId, expanded: true, ancestorIds: []))
         ];
     }
 
