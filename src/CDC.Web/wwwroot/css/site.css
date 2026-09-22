@@ -54,7 +54,7 @@ body {
 .app-tree__row {
   display: flex;
   align-items: flex-start;
-  min-height: 40px;
+  min-height: 32px;
   padding-left: calc(var(--app-tree-depth, 0) * 30px);
 }
 
@@ -66,25 +66,25 @@ body {
   position: relative;
 }
 
-/* Vertical guide line linking nested rows to their parent. */
+/* Vertical guide line linking nested rows to their parent. 16px is half the 32px toggle. */
 .app-tree__group .app-tree__row::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 21px);
+  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
   border-left: 1px solid var(--govuk-border-colour, #b1b4b6);
 }
 
-/* Icon button: 44x44 hit area, above the 24px minimum touch target. */
+/* Icon button: 32x32, above the 24px minimum touch target. */
 .app-tree__toggle {
   appearance: none;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -96,25 +96,22 @@ body {
 /* Keeps leaf checkboxes aligned with their expandable siblings. */
 .app-tree__spacer {
   flex: 0 0 auto;
-  width: 44px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 
 .app-tree__toggle-icon {
   display: block;
-  width: 14px;
-  height: 14px;
-  transition: transform 0.1s ease-in-out;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  border: 1.5px solid currentcolor;
+  border-radius: 5px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-tree__toggle-icon {
-    transition: none;
-  }
-}
-
-.app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon {
-  transform: rotate(90deg);
+.app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon-vertical {
+  display: none;
 }
 
 /* GOV.UK focus style: yellow fill plus a solid black underline. The transparent
@@ -125,15 +122,40 @@ body {
   box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
 }
 
-.app-tree__checkbox.govuk-checkboxes__item {
+.app-tree__radio.govuk-radios__item {
   flex: 1 1 auto;
   min-width: 0;
   margin-bottom: 0;
 }
 
-.app-tree__checkbox .govuk-checkboxes__label {
-  padding-top: 7px;
-  padding-bottom: 7px;
+.app-tree__radio .govuk-radios__label {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+/* GOV.UK radios reserve a 44px input for touch, with a 40px ring drawn via ::before and a
+   20px dot via ::after. The input is shrunk to 32px (still above the 24px minimum) to tighten
+   row spacing, and the ring/dot are halved and re-centred within it. */
+.app-tree__radio .govuk-radios__input {
+  width: 32px;
+  height: 32px;
+}
+
+.app-tree__radio .govuk-radios__label::before {
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+}
+
+.app-tree__radio .govuk-radios__label::after {
+  top: 11px;
+  left: 11px;
+  border-width: 5px;
+}
+
+.app-tree__radio .govuk-radios__input:focus + .govuk-radios__label::before {
+  border-width: 2px;
 }
 
 .app-tree__panel {
@@ -144,14 +166,86 @@ body {
   overflow-y: auto;
 }
 
-.app-tree__actions .govuk-button {
-  margin-bottom: 5px;
+.app-tree__controls {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.app-tree__toggle-all {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 5px 10px 5px 5px;
+  color: var(--govuk-link-colour, #1d70b8);
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.app-tree__toggle-all:hover {
+  color: #003078;
+  text-decoration: underline;
+}
+
+.app-tree__toggle-all:focus-visible {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--govuk-focus-colour, #fd0);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+}
+
+/* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
+   between "Open all" (pointing down) and "Close all" (pointing up). */
+.app-tree__toggle-all-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 2px solid currentcolor;
+  border-radius: 50%;
+}
+
+.app-tree__toggle-all-icon svg {
+  width: 12px;
+  height: 8px;
+  transition: transform 0.1s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tree__toggle-all-icon svg {
+    transition: none;
+  }
+}
+
+.app-tree__toggle-all[aria-expanded="true"] .app-tree__toggle-all-icon svg {
+  transform: rotate(180deg);
 }
 
 .app-tree__status {
   display: block;
   margin-bottom: 10px;
   font-weight: bold;
+}
+
+.app-tree__status[hidden] {
+  display: none;
+}
+
+/* GOV.UK's main-wrapper padding (20px mobile / 40px tablet+) and the default govuk-form-group
+   bottom margin (20px mobile / 30px tablet+) leave a large gap either side of this page's tree
+   picker. Scoped to just this page's own heading/form-group so no other page is affected. */
+.govuk-main-wrapper:has(> #view-species-data-heading) {
+  padding-top: 10px;
+}
+
+.app-tree__form-group {
+  margin-bottom: 10px;
 }
 
 @media print {

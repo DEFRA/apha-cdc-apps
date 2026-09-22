@@ -66,7 +66,7 @@
     .app-tree__row {
       display: flex;
       align-items: flex-start;
-      min-height: 40px;
+      min-height: 32px;
       padding-left: calc(var(--app-tree-depth, 0) * 30px);
     }
 
@@ -74,7 +74,7 @@
       background-color: #f3f2f1;
     }
 
-    /* Vertical guide line for nested levels. */
+    /* Vertical guide line for nested levels. 16px is half the 32px toggle. */
     .app-tree__group .app-tree__row {
       position: relative;
     }
@@ -84,11 +84,11 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      left: calc((var(--app-tree-depth, 1) - 1) * 30px + 21px);
+      left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
       border-left: 1px solid #b1b4b6;
     }
 
-    /* Icon button: 44x44 hit area, well above the 24px minimum. */
+    /* Icon button: 32x32, above the 24px minimum. */
     .app-tree__toggle {
       -webkit-appearance: none;
       appearance: none;
@@ -96,8 +96,8 @@
       align-items: center;
       justify-content: center;
       flex: 0 0 auto;
-      width: 44px;
-      height: 44px;
+      width: 32px;
+      height: 32px;
       margin: 0;
       padding: 0;
       border: 0;
@@ -106,28 +106,25 @@
       cursor: pointer;
     }
 
-    /* Leaf rows keep the checkbox aligned with their expandable siblings. */
+    /* Leaf rows keep the radio aligned with their expandable siblings. */
     .app-tree__spacer {
       flex: 0 0 auto;
-      width: 44px;
-      height: 40px;
+      width: 32px;
+      height: 32px;
     }
 
     .app-tree__toggle-icon {
       display: block;
-      width: 14px;
-      height: 14px;
-      transition: transform 0.1s ease-in-out;
+      box-sizing: border-box;
+      width: 22px;
+      height: 22px;
+      padding: 3px;
+      border: 1.5px solid currentcolor;
+      border-radius: 5px;
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      .app-tree__toggle-icon {
-        transition: none;
-      }
-    }
-
-    .app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon {
-      transform: rotate(90deg);
+    .app-tree__toggle[aria-expanded="true"] .app-tree__toggle-icon-vertical {
+      display: none;
     }
 
     /* GOV.UK focus style: yellow fill plus a solid black underline.
@@ -138,15 +135,40 @@
       box-shadow: 0 -2px #fd0, 0 4px #0b0c0c;
     }
 
-    .app-tree__checkbox.govuk-checkboxes__item {
+    .app-tree__radio.govuk-radios__item {
       margin-bottom: 0;
       flex: 1 1 auto;
       min-width: 0;
     }
 
-    .app-tree__checkbox .govuk-checkboxes__label {
-      padding-top: 7px;
-      padding-bottom: 7px;
+    .app-tree__radio .govuk-radios__label {
+      padding-top: 3px;
+      padding-bottom: 3px;
+    }
+
+    /* GOV.UK radios reserve a 44px input for touch, with a 40px ring drawn via ::before and a
+       20px dot via ::after. The input is shrunk to 32px (still above the 24px minimum) to
+       tighten row spacing, and the ring/dot are halved and re-centred within it. */
+    .app-tree__radio .govuk-radios__input {
+      width: 32px;
+      height: 32px;
+    }
+
+    .app-tree__radio .govuk-radios__label::before {
+      top: 6px;
+      left: 6px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .app-tree__radio .govuk-radios__label::after {
+      top: 11px;
+      left: 11px;
+      border-width: 5px;
+    }
+
+    .app-tree__radio .govuk-radios__input:focus + .govuk-radios__label::before {
+      border-width: 2px;
     }
 
     .app-tree__hint {
@@ -166,14 +188,75 @@
       margin-bottom: 10px;
     }
 
-    .app-tree__actions .govuk-button {
-      margin-bottom: 5px;
+    .app-tree__controls {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .app-tree__toggle-all {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      background: none;
+      padding: 5px 10px 5px 5px;
+      color: #1d70b8;
+      font-family: inherit;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .app-tree__toggle-all:hover {
+      color: #003078;
+      text-decoration: underline;
+    }
+
+    .app-tree__toggle-all:focus-visible {
+      outline: 3px solid transparent;
+      color: #0b0c0c;
+      background-color: #fd0;
+      box-shadow: 0 -2px #fd0, 0 4px #0b0c0c;
+    }
+
+    /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
+       between "Open all" (pointing down) and "Close all" (pointing up). */
+    .app-tree__toggle-all-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      width: 24px;
+      height: 24px;
+      border: 2px solid currentcolor;
+      border-radius: 50%;
+    }
+
+    .app-tree__toggle-all-icon svg {
+      width: 12px;
+      height: 8px;
+      transition: transform 0.1s ease-in-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .app-tree__toggle-all-icon svg {
+        transition: none;
+      }
+    }
+
+    .app-tree__toggle-all[aria-expanded="true"] .app-tree__toggle-all-icon svg {
+      transform: rotate(180deg);
     }
 
     .app-tree__status {
       display: block;
       margin-bottom: 10px;
       font-weight: bold;
+    }
+
+    .app-tree__status[hidden] {
+      display: none;
     }
 
     @media print {
@@ -206,70 +289,63 @@
                 </legend>
 
                 <div id="species-hint" class="govuk-hint">
-                  Select a group to select everything inside it. Use the arrow keys to move
-                  through the list, and the left and right arrows to open and close groups.
+                  Select one species or species group - it can be at any level of the list. Use
+                  the arrow keys to move through the list, and the left and right arrows to open
+                  and close groups.
                 </div>
-
-                <div class="app-tree__actions">
-                  <button type="button" class="govuk-button govuk-button--secondary"
-                    data-module="govuk-button" data-app-tree-action="expand-all">
-                    Expand all
-                  </button>
-                  <button type="button" class="govuk-button govuk-button--secondary"
-                    data-module="govuk-button" data-app-tree-action="collapse-all">
-                    Collapse all
-                  </button>
-                  <button type="button" class="govuk-button govuk-button--secondary"
-                    data-module="govuk-button" data-app-tree-action="clear">
-                    Clear selection
-                  </button>
-                </div>
-
-                <output class="govuk-body app-tree__status" id="species-status">
-                  No species selected
-                </output>
 
                 <div class="app-tree__panel">
+                  <div class="app-tree__controls">
+                    <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                      <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                          <path d="M1 1l5 5 5-5" />
+                        </svg>
+                      </span>
+                      <span class="app-tree__toggle-all-text">Open all</span>
+                    </button>
+                  </div>
                   <ul class="app-tree" data-module="app-tree-view" data-app-tree-name="species"
                     data-app-tree-name-plural="species">
 
                     <li class="app-tree__item" data-app-tree-expanded="true">
                       <div class="app-tree__row">
-                        <div class="govuk-checkboxes__item app-tree__checkbox">
-                          <input class="govuk-checkboxes__input" id="sp-mammals" name="species" type="checkbox" value="mammals">
-                          <label class="govuk-label govuk-checkboxes__label" for="sp-mammals">Mammals</label>
+                        <div class="govuk-radios__item app-tree__radio">
+                          <input class="govuk-radios__input" id="sp-mammals" name="species" type="radio" value="mammals">
+                          <label class="govuk-label govuk-radios__label" for="sp-mammals">Mammals</label>
                         </div>
                       </div>
                       <ul class="app-tree__group">
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-bovine" name="species" type="checkbox" value="bovine">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-bovine">Bovine</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-bovine" name="species" type="radio" value="bovine">
+                              <label class="govuk-label govuk-radios__label" for="sp-bovine">Bovine</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-cattle" name="species" type="checkbox" value="cattle">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-cattle">Cattle</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-cattle" name="species" type="radio" value="cattle">
+                                  <label class="govuk-label govuk-radios__label" for="sp-cattle">Cattle</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-buffalo" name="species" type="checkbox" value="buffalo">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-buffalo">Water buffalo</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-buffalo" name="species" type="radio" value="buffalo">
+                                  <label class="govuk-label govuk-radios__label" for="sp-buffalo">Water buffalo</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-bison" name="species" type="checkbox" value="bison">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-bison">Bison</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-bison" name="species" type="radio" value="bison">
+                                  <label class="govuk-label govuk-radios__label" for="sp-bison">Bison</label>
                                 </div>
                               </div>
                             </li>
@@ -277,25 +353,25 @@
                         </li>
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-ovine" name="species" type="checkbox" value="ovine">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-ovine">Ovine and caprine</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-ovine" name="species" type="radio" value="ovine">
+                              <label class="govuk-label govuk-radios__label" for="sp-ovine">Ovine and caprine</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-sheep" name="species" type="checkbox" value="sheep">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-sheep">Sheep</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-sheep" name="species" type="radio" value="sheep">
+                                  <label class="govuk-label govuk-radios__label" for="sp-sheep">Sheep</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-goat" name="species" type="checkbox" value="goat">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-goat">Goat</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-goat" name="species" type="radio" value="goat">
+                                  <label class="govuk-label govuk-radios__label" for="sp-goat">Goat</label>
                                 </div>
                               </div>
                             </li>
@@ -303,25 +379,25 @@
                         </li>
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-porcine" name="species" type="checkbox" value="porcine">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-porcine">Porcine</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-porcine" name="species" type="radio" value="porcine">
+                              <label class="govuk-label govuk-radios__label" for="sp-porcine">Porcine</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-pig" name="species" type="checkbox" value="pig">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-pig">Farmed pig</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-pig" name="species" type="radio" value="pig">
+                                  <label class="govuk-label govuk-radios__label" for="sp-pig">Farmed pig</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-boar" name="species" type="checkbox" value="wild-boar">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-boar">Wild boar</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-boar" name="species" type="radio" value="wild-boar">
+                                  <label class="govuk-label govuk-radios__label" for="sp-boar">Wild boar</label>
                                 </div>
                               </div>
                             </li>
@@ -332,41 +408,41 @@
 
                     <li class="app-tree__item">
                       <div class="app-tree__row">
-                        <div class="govuk-checkboxes__item app-tree__checkbox">
-                          <input class="govuk-checkboxes__input" id="sp-birds" name="species" type="checkbox" value="birds">
-                          <label class="govuk-label govuk-checkboxes__label" for="sp-birds">Birds</label>
+                        <div class="govuk-radios__item app-tree__radio">
+                          <input class="govuk-radios__input" id="sp-birds" name="species" type="radio" value="birds">
+                          <label class="govuk-label govuk-radios__label" for="sp-birds">Birds</label>
                         </div>
                       </div>
                       <ul class="app-tree__group">
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-poultry" name="species" type="checkbox" value="poultry">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-poultry">Poultry</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-poultry" name="species" type="radio" value="poultry">
+                              <label class="govuk-label govuk-radios__label" for="sp-poultry">Poultry</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-chicken" name="species" type="checkbox" value="chicken">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-chicken">Chicken</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-chicken" name="species" type="radio" value="chicken">
+                                  <label class="govuk-label govuk-radios__label" for="sp-chicken">Chicken</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-turkey" name="species" type="checkbox" value="turkey">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-turkey">Turkey</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-turkey" name="species" type="radio" value="turkey">
+                                  <label class="govuk-label govuk-radios__label" for="sp-turkey">Turkey</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-duck" name="species" type="checkbox" value="duck">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-duck">Duck</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-duck" name="species" type="radio" value="duck">
+                                  <label class="govuk-label govuk-radios__label" for="sp-duck">Duck</label>
                                 </div>
                               </div>
                             </li>
@@ -374,25 +450,25 @@
                         </li>
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-wild-birds" name="species" type="checkbox" value="wild-birds">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-wild-birds">Wild birds</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-wild-birds" name="species" type="radio" value="wild-birds">
+                              <label class="govuk-label govuk-radios__label" for="sp-wild-birds">Wild birds</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-pigeon" name="species" type="checkbox" value="pigeon">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-pigeon">Pigeon</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-pigeon" name="species" type="radio" value="pigeon">
+                                  <label class="govuk-label govuk-radios__label" for="sp-pigeon">Pigeon</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-gull" name="species" type="checkbox" value="gull">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-gull">Gull</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-gull" name="species" type="radio" value="gull">
+                                  <label class="govuk-label govuk-radios__label" for="sp-gull">Gull</label>
                                 </div>
                               </div>
                             </li>
@@ -403,33 +479,33 @@
 
                     <li class="app-tree__item">
                       <div class="app-tree__row">
-                        <div class="govuk-checkboxes__item app-tree__checkbox">
-                          <input class="govuk-checkboxes__input" id="sp-aquatic" name="species" type="checkbox" value="aquatic">
-                          <label class="govuk-label govuk-checkboxes__label" for="sp-aquatic">Aquatic animals</label>
+                        <div class="govuk-radios__item app-tree__radio">
+                          <input class="govuk-radios__input" id="sp-aquatic" name="species" type="radio" value="aquatic">
+                          <label class="govuk-label govuk-radios__label" for="sp-aquatic">Aquatic animals</label>
                         </div>
                       </div>
                       <ul class="app-tree__group">
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-finfish" name="species" type="checkbox" value="finfish">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-finfish">Finfish</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-finfish" name="species" type="radio" value="finfish">
+                              <label class="govuk-label govuk-radios__label" for="sp-finfish">Finfish</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-salmon" name="species" type="checkbox" value="salmon">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-salmon">Atlantic salmon</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-salmon" name="species" type="radio" value="salmon">
+                                  <label class="govuk-label govuk-radios__label" for="sp-salmon">Atlantic salmon</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-trout" name="species" type="checkbox" value="trout">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-trout">Rainbow trout</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-trout" name="species" type="radio" value="trout">
+                                  <label class="govuk-label govuk-radios__label" for="sp-trout">Rainbow trout</label>
                                 </div>
                               </div>
                             </li>
@@ -437,25 +513,25 @@
                         </li>
                         <li class="app-tree__item">
                           <div class="app-tree__row">
-                            <div class="govuk-checkboxes__item app-tree__checkbox">
-                              <input class="govuk-checkboxes__input" id="sp-molluscs" name="species" type="checkbox" value="molluscs">
-                              <label class="govuk-label govuk-checkboxes__label" for="sp-molluscs">Molluscs</label>
+                            <div class="govuk-radios__item app-tree__radio">
+                              <input class="govuk-radios__input" id="sp-molluscs" name="species" type="radio" value="molluscs">
+                              <label class="govuk-label govuk-radios__label" for="sp-molluscs">Molluscs</label>
                             </div>
                           </div>
                           <ul class="app-tree__group">
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-oyster" name="species" type="checkbox" value="oyster">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-oyster">Pacific oyster</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-oyster" name="species" type="radio" value="oyster">
+                                  <label class="govuk-label govuk-radios__label" for="sp-oyster">Pacific oyster</label>
                                 </div>
                               </div>
                             </li>
                             <li class="app-tree__item">
                               <div class="app-tree__row">
-                                <div class="govuk-checkboxes__item app-tree__checkbox">
-                                  <input class="govuk-checkboxes__input" id="sp-mussel" name="species" type="checkbox" value="mussel">
-                                  <label class="govuk-label govuk-checkboxes__label" for="sp-mussel">Blue mussel</label>
+                                <div class="govuk-radios__item app-tree__radio">
+                                  <input class="govuk-radios__input" id="sp-mussel" name="species" type="radio" value="mussel">
+                                  <label class="govuk-label govuk-radios__label" for="sp-mussel">Blue mussel</label>
                                 </div>
                               </div>
                             </li>
@@ -465,6 +541,15 @@
                     </li>
 
                   </ul>
+                </div>
+
+                <output class="govuk-body app-tree__status" id="species-status" hidden></output>
+
+                <div class="app-tree__actions">
+                  <button type="button" class="govuk-button govuk-button--secondary"
+                    data-module="govuk-button" data-app-tree-action="clear">
+                    Clear selection
+                  </button>
                 </div>
               </fieldset>
             </div>

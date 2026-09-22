@@ -23,7 +23,6 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/Reports/General")]
     [InlineData("/Reports/QuestionsGuidance")]
     [InlineData("/Reports/DiseaseRanking")]
-    [InlineData("/SpeciesData/View")]
     [InlineData("/SpeciesData/Maintain")]
     [InlineData("/ViewSpeciesData")]
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]

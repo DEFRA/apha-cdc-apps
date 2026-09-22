@@ -46,6 +46,12 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
@@ -92,6 +98,3 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
-
-// Exposes the generated Program class to WebApplicationFactory<Program> in CDC.Web.Tests.
-public partial class Program { }

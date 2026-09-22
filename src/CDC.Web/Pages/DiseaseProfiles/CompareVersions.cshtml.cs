@@ -2,7 +2,7 @@ namespace CDC.Web.Pages.DiseaseProfiles;
 
 public class CompareVersionsModel : BreadcrumbPageModelBase
 {
-    public CompareVersionsModel() : base("Disease Profiles", "Compare profile versions")
+    public CompareVersionsModel() : base("Compare profile versions")
     {
     }
 

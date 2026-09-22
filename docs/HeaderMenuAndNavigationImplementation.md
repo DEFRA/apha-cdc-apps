@@ -184,7 +184,7 @@ Razor Pages (page + code-behind, 9 pairs):
 | Reports | `/Reports/General` | `Pages/Reports/General.cshtml`, `General.cshtml.cs` |
 | Reports | `/Reports/QuestionsGuidance` | `Pages/Reports/QuestionsGuidance.cshtml`, `QuestionsGuidance.cshtml.cs` |
 | Reports | `/Reports/DiseaseRanking` | `Pages/Reports/DiseaseRanking.cshtml`, `DiseaseRanking.cshtml.cs` |
-| Species Data | `/SpeciesData/View` | `Pages/SpeciesData/View.cshtml`, `View.cshtml.cs` |
+| Species Data | `/ViewSpeciesData` | `Pages/ViewSpeciesData.cshtml`, `ViewSpeciesData.cshtml.cs` |
 | Species Data | `/SpeciesData/Maintain` | `Pages/SpeciesData/Maintain.cshtml`, `Maintain.cshtml.cs` |
 
 Documentation:

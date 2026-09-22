@@ -38,7 +38,11 @@ coverage/
 .env
 .env.local
 appsettings.*.local.json
+appsetting.Development.json
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Prompts
+docs/
