@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <ExcludeByFile>**/wwwroot/js/tree-view.js</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>
