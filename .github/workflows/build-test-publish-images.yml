@@ -165,6 +165,7 @@ jobs:
       - name: Analyse solution
         shell: bash
         env:
+          MSYS_NO_PATHCONV: "1"
           MSYS2_ARG_CONV_EXCL: '*'
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -173,12 +174,10 @@ jobs:
           "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin \
             /k:"${{ vars.SONAR_PROJECT_KEY }}" \
             /o:"${{ vars.SONAR_ORGANIZATION }}" \
+            /s:"${{ github.workspace }}\SonarQube.Analysis.xml" \
             /d:sonar.token="${SONAR_TOKEN}" \
             /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.qualitygate.wait=true \
-            /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml" \
-            /d:sonar.cs.vstest.reportsPaths="**/*.trx" \
-            /d:sonar.exclusions="**/wwwroot/lib/**,**/wwwroot/js/*.min.js,**/wwwroot/js/tree-view.js"
+            /d:sonar.qualitygate.wait=true
           dotnet build CDC.slnx --configuration Release --no-restore
           dotnet test CDC.slnx \
             --configuration Release \
