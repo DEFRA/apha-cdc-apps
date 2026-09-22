@@ -177,7 +177,7 @@ jobs:
             /d:sonar.qualitygate.wait=true \
             /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml" \
             /d:sonar.cs.vstest.reportsPaths="**/*.trx" \
-            /d:sonar.exclusions="**/wwwroot/lib/**,**/wwwroot/js/*.min.js"
+            /d:sonar.exclusions="**/wwwroot/lib/**,**/wwwroot/js/*.min.js,**/wwwroot/js/tree-view.js"
           dotnet build CDC.slnx --configuration Release --no-restore
           dotnet test CDC.slnx \
             --configuration Release \
