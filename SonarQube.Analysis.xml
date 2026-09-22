@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SonarQubeAnalysisProperties xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
+
+  <!-- Vendored/generated assets and build output - never hand-edited, not worth analysing -->
+  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,**/node_modules/**,**/wwwroot/lib/**,**/wwwroot/js/*.min.js,**/wwwroot/js/tree-view.js,govuk-tree-picker/**,docs/**</Property>
+
+  <!-- Entry points and boilerplate with no meaningful branches to cover -->
+  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**</Property>
+
+  <!-- <Property Name="sonar.cpd.exclusions">**/wwwroot/js/tree-view.js</Property> -->
+
+  <!-- Report locations produced by `dotnet test` in the CI pipeline -->
+  <Property Name="sonar.cs.vstest.reportsPaths">**/*.trx</Property>
+  <Property Name="sonar.cs.cobertura.reportsPaths">**/coverage.cobertura.xml</Property>
+
+</SonarQubeAnalysisProperties>
