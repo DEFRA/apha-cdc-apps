@@ -8,4 +8,99 @@
 }
 
 <h1 class="govuk-heading-l">Maintain cross-cutting issue scores</h1>
-<p class="govuk-body">This page is for Maintain cross-cutting issue scores. It will allow administrators to maintain scoring for cross-cutting issues.</p>
+<p class="govuk-body">Select a cross-cutting issue, amend its score and select Update. Updating a score recalculates the weighted score for every cross-cutting issue and the overall combined score.</p>
+
+@if (Model.ShowUpdatedBanner)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="cci-updated-banner-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="cci-updated-banner-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">Cross-cutting issue scores updated and recalculated.</p>
+        </div>
+    </div>
+}
+
+@if (!Model.ModelState.IsValid)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="cci-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="cci-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <ul class="govuk-list govuk-error-summary__list">
+                    @foreach (var error in Model.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <li><a href="#Input_Score">@error.ErrorMessage</a></li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+<form method="get" novalidate>
+    <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="SelectedIssueId">Cross-cutting issue</label>
+        <select class="govuk-select" id="SelectedIssueId" name="SelectedIssueId" asp-items="Model.IssueOptions"></select>
+    </div>
+    <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">View score</button>
+</form>
+
+@if (Model.SelectedIssue is not null)
+{
+    var scoreHasError = Model.ModelState["Input.Score"]?.Errors.Count > 0;
+
+    <form method="post" asp-page-handler="Update" id="update-score-form" novalidate>
+        <input type="hidden" asp-for="Input.IssueId" />
+
+        <div class="govuk-form-group @(scoreHasError ? "govuk-form-group--error" : "")">
+            <h2 class="govuk-heading-m">@Model.SelectedIssue.Name</h2>
+            <label class="govuk-label" for="Input_Score">Score</label>
+            <div class="govuk-hint" id="input-score-hint">Enter a whole number between 1 and 5.</div>
+            @if (scoreHasError)
+            {
+                <p class="govuk-error-message" id="input-score-error">
+                    <span class="govuk-visually-hidden">Error:</span> @Model.ModelState["Input.Score"]!.Errors[0].ErrorMessage
+                </p>
+            }
+            <input class="govuk-input govuk-input--width-2" id="Input_Score" name="Input.Score"
+                   type="number" inputmode="numeric" min="1" max="5"
+                   value="@Model.Input.Score" aria-describedby="input-score-hint @(scoreHasError ? "input-score-error" : "")" />
+        </div>
+
+        <button type="submit" class="govuk-button" data-module="govuk-button">Update</button>
+    </form>
+}
+
+<h2 class="govuk-heading-m">Current cross-cutting issue scores</h2>
+<table class="govuk-table">
+    <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Current cross-cutting issue scores</caption>
+    <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Cross-cutting issue</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Score</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Weighted score</th>
+        </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+        @foreach (var issue in Model.AllIssues)
+        {
+            <tr class="govuk-table__row">
+                <th scope="row" class="govuk-table__header">@issue.Name</th>
+                <td class="govuk-table__cell govuk-table__cell--numeric">@issue.Score</td>
+                <td class="govuk-table__cell govuk-table__cell--numeric">@issue.WeightedScore</td>
+            </tr>
+        }
+        <tr class="govuk-table__row">
+            <th scope="row" class="govuk-table__header">Overall combined score</th>
+            <td class="govuk-table__cell"></td>
+            <td class="govuk-table__cell govuk-table__cell--numeric">@Model.OverallScore</td>
+        </tr>
+    </tbody>
+</table>
+
+@section Scripts {
+    <script src="~/js/cross-cutting-issue-scores.js" asp-append-version="true"></script>
+}
+
