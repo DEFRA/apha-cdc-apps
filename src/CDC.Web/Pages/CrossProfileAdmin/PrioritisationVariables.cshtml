@@ -8,4 +8,92 @@
 }
 
 <h1 class="govuk-heading-l">Maintain prioritisation variables</h1>
-<p class="govuk-body">This page is for Maintain prioritisation variables. It will allow administrators to maintain the variables used in disease prioritisation.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="prioritisation-success-title">
+        <div class="govuk-notification-banner__content">
+            <h2 class="govuk-notification-banner__content-title" id="prioritisation-success-title">Success</h2>
+            <p class="govuk-body">@Model.SuccessMessage</p>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.UpdateResultMessage))
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="prioritisation-update-title">
+        <div class="govuk-notification-banner__content">
+            <h2 class="govuk-notification-banner__content-title" id="prioritisation-update-title">Updated</h2>
+            <p class="govuk-body">@Model.UpdateResultMessage</p>
+        </div>
+    </div>
+}
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="govuk-error-summary" aria-labelledby="error-summary-title" role="alert" data-module="govuk-error-summary">
+        <h2 class="govuk-error-summary__title" id="error-summary-title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <li><a href="#prioritisation-range">@error.ErrorMessage</a></li>
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <form method="post" asp-page-handler="RunDraftPrioritisation">
+            <div class="govuk-form-group">
+                <h2 class="govuk-heading-m">Draft prioritisation</h2>
+                <p class="govuk-body">Run the prioritisation calculation for all draft profiles.</p>
+            </div>
+            <button type="submit" class="govuk-button" data-module="govuk-button">GO</button>
+        </form>
+
+        <form method="post" asp-page-handler="UpdateGlobalVariables" data-confirm-message="Are you sure you want to update the global prioritisation variables?">
+            <div class="govuk-form-group govuk-!-margin-top-7">
+                <h2 class="govuk-heading-m">Update global prioritisation variables</h2>
+                <p class="govuk-body">This will recalculate prioritisation scores for all published profiles and apply the latest values.</p>
+            </div>
+            <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Update</button>
+        </form>
+
+        <form method="post" asp-page-handler="SaveRange" id="prioritisation-range">
+            <div class="govuk-form-group govuk-!-margin-top-7">
+                <h2 class="govuk-heading-m">Ranking range</h2>
+                <div class="govuk-grid-row">
+                    <div class="govuk-grid-column-one-half">
+                        <label class="govuk-label" for="lower-bound">Lower bound</label>
+                        <input asp-for="LowerBound" class="govuk-input" id="lower-bound" inputmode="decimal" />
+                    </div>
+                    <div class="govuk-grid-column-one-half">
+                        <label class="govuk-label" for="upper-bound">Upper bound</label>
+                        <input asp-for="UpperBound" class="govuk-input" id="upper-bound" inputmode="decimal" />
+                    </div>
+                </div>
+            </div>
+
+            <p class="govuk-body">@Model.CategorisationSummary</p>
+            <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form[data-confirm-message]').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    const confirmed = window.confirm(form.dataset.confirmMessage);
+                    if (!confirmed) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        });
+    </script>
+}
