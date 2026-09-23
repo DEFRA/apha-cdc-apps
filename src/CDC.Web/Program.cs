@@ -8,12 +8,22 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Structured JSON to stdout only - ECS/Fargate storage is ephemeral, so no file sinks. The
 // awslogs driver on the container picks stdout/stderr up and ships it to CloudWatch Logs.
+var tempLogPath = Path.Combine("C:\\Temp", "cdc-web-errors.log");
+Directory.CreateDirectory(Path.GetDirectoryName(tempLogPath)!);
+
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
     .Enrich.WithEnvironmentName()
-    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter()));
+    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter())
+    .WriteTo.Logger(loggerConfiguration => loggerConfiguration
+        .MinimumLevel.Error()
+        .WriteTo.File(
+            tempLogPath,
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 7,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();

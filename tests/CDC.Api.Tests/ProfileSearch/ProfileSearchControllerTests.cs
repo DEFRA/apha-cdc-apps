@@ -1,6 +1,7 @@
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileSearch;
 using CDC.Api.Features.ProfileSearch.Dtos;
+using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.ProfileSearch.Queries;
 using FluentAssertions;
 using MediatR;
@@ -14,8 +15,9 @@ namespace CDC.Api.Tests.ProfileSearch;
 public class ProfileSearchControllerTests
 {
     private readonly Mock<ISender> mediator = new(MockBehavior.Strict);
+    private readonly Mock<IProfileSearchService> profileSearchService = new(MockBehavior.Strict);
 
-    private ProfileSearchController CreateController() => new(mediator.Object)
+    private ProfileSearchController CreateController() => new(mediator.Object, profileSearchService.Object)
     {
         ProblemDetailsFactory = new TestProblemDetailsFactory(),
         ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }

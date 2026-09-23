@@ -1,0 +1,281 @@
+@page
+@model CDC.Web.Pages.SurveillanceProfilesSearchModel
+@{
+    ViewData["Title"] = "Search Disease Profiles";
+    var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/Index">Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Search Disease Profiles
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        <h1 class="govuk-heading-l">Search Disease Profiles</h1>
+        <p class="govuk-body">
+            Access disease profiles from this page. Use the filters below to find specific profiles or browse by letter.
+        </p>
+    </div>
+</div>
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        <form method="get" class="app-search-form">
+            <div class="app-search-panel">
+                <div class="govuk-grid-row govuk-!-margin-bottom-3">
+                    <div class="govuk-grid-column-full">
+                        <div class="govuk-form-group govuk-!-margin-bottom-0">
+                            <label class="govuk-label" for="SearchText">
+                                Search for disease profiles
+                            </label>
+                            <div class="app-search-input-group">
+                                <input
+                                    class="govuk-input app-search-input-group__input"
+                                    id="SearchText"
+                                    name="SearchText"
+                                    type="text"
+                                    value="@Model.SearchText"
+                                    maxlength="255"
+                                    placeholder="Enter profile name or keyword" />
+                                <button type="submit" class="app-search-input-group__button" aria-label="Search profiles">
+                                    <svg class="app-search-input-group__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false" aria-hidden="true">
+                                        <circle cx="8.5" cy="8.5" r="6" />
+                                        <path d="M13.5 13.5L18 18" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="govuk-form-group govuk-!-margin-bottom-0 govuk-!-margin-top-3">
+                            <span class="govuk-label">View profiles beginning with</span>
+                            <p class="app-search-alphabet govuk-body govuk-!-margin-top-1 govuk-!-margin-bottom-0">
+                                <a class="govuk-link app-search-letter @(Model.SelectedLetter == "All" ? "app-search-letter--selected" : string.Empty)"
+                                   href="@Model.BuildLetterUrl("All")"
+                                   aria-current="@(Model.SelectedLetter == "All" ? "true" : null)">All</a>
+                                @foreach (var letter in letters)
+                                {
+                                    var letterValue = letter.ToString();
+                                    <text> </text>
+                                    <a class="govuk-link app-search-letter @(Model.SelectedLetter == letterValue ? "app-search-letter--selected" : string.Empty)"
+                                       href="@Model.BuildLetterUrl(letterValue)"
+                                       aria-current="@(Model.SelectedLetter == letterValue ? "true" : null)">@letterValue</a>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <fieldset class="govuk-fieldset govuk-!-margin-top-2">
+                    <legend class="govuk-visually-hidden">Display options</legend>
+
+                    <div class="govuk-checkboxes">
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="DisplayPublished" name="DisplayPublished" type="checkbox" value="true" @(Model.DisplayPublished ? "checked" : null) />
+                            <label class="govuk-label govuk-checkboxes__label" for="DisplayPublished">
+                                Display published versions (content that has been independently reviewed)
+                            </label>
+                        </div>
+
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="DisplayDraft" name="DisplayDraft" type="checkbox" value="true" @(Model.DisplayDraft ? "checked" : null) />
+                            <label class="govuk-label govuk-checkboxes__label" for="DisplayDraft">
+                                Display draft versions (the most up to date information available, although not yet independently reviewed)
+                            </label>
+                        </div>
+
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="DisplayScenarios" name="DisplayScenarios" type="checkbox" value="true" @(Model.DisplayScenarios ? "checked" : null) />
+                            <label class="govuk-label govuk-checkboxes__label" for="DisplayScenarios">
+                                Display scenarios (scenarios can differ radically to the current version of a disease profile)
+                            </label>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="govuk-form-group govuk-!-margin-top-4 govuk-!-margin-bottom-0 app-species-filter" data-module="app-filters-toggle">
+                    <p class="govuk-body govuk-!-margin-bottom-2">
+                        <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link
+                                data-app-filters-expanded-text="Hide filter by affected species"
+                                data-app-filters-collapsed-text="Show filter by affected species"
+                                aria-expanded="false" aria-controls="species-filter-content">
+                            <span data-app-filters-toggle-text>Show filter by affected species</span>
+                            <span class="app-species-filter__icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                    <path d="M1 1l5 5 5-5" />
+                                </svg>
+                            </span>
+                        </button>
+                    </p>
+                    <div id="species-filter-content" class="app-filters__content" hidden>
+                            @if (Model.SpeciesTree.Nodes.Count > 0)
+                            {
+                                <div class="app-tree__panel">
+                                    <div class="app-tree__controls">
+                                        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                                            <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                                    <path d="M1 1l5 5 5-5" />
+                                                </svg>
+                                            </span>
+                                            <span class="app-tree__toggle-all-text">Open all</span>
+                                        </button>
+                                    </div>
+                                    <partial name="_TreeView" model="Model.SpeciesTree" />
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="govuk-body">Species data is currently unavailable.</p>
+                            }
+                    </div>
+                </div>
+
+                <output class="govuk-body app-tree__status" id="species-tree-status">Currently selected: @Model.SelectedSpeciesLabel</output>
+                <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--m govuk-!-margin-top-2" />
+
+                <div class="app-filters" data-module="app-filters-toggle">
+                    <p class="govuk-body govuk-!-margin-bottom-3">
+                        <button type="button" class="govuk-link app-filters__toggle" data-app-filters-toggle-link aria-expanded="false" aria-controls="advanced-filters">
+                            <span data-app-filters-toggle-text>More filters</span>
+                        </button>
+                    </p>
+
+                    <div id="advanced-filters" class="app-filters__content" hidden>
+                        <fieldset class="govuk-fieldset">
+                            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+                                Search for
+                            </legend>
+
+                            <div class="govuk-checkboxes">
+                                <div class="govuk-checkboxes__item">
+                                    <input class="govuk-checkboxes__input" id="SearchForExactPhrase" name="SearchForExactPhrase" type="checkbox" value="true" @(Model.SearchForExactPhrase ? "checked" : null) />
+                                    <label class="govuk-label govuk-checkboxes__label" for="SearchForExactPhrase">
+                                        this exact word or phrase
+                                    </label>
+                                </div>
+
+                                <div class="govuk-checkboxes__item">
+                                    <input class="govuk-checkboxes__input" id="SearchForAllWords" name="SearchForAllWords" type="checkbox" value="true" @(Model.SearchForAllWords ? "checked" : null) />
+                                    <label class="govuk-label govuk-checkboxes__label" for="SearchForAllWords">
+                                        all these words
+                                    </label>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <div class="govuk-form-group govuk-!-margin-top-3 govuk-!-margin-bottom-0">
+                            <label class="govuk-label" for="AppearsIn">Appears in</label>
+                            <select class="govuk-select app-filters__select" id="AppearsIn" name="AppearsIn">
+                                @foreach (var option in CDC.Web.Pages.SurveillanceProfilesSearchModel.AppearsInOptions)
+                                {
+                                    <option value="@option.Value" selected="@(option.Value == Model.AppearsIn ? "selected" : null)">@option.Text</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="govuk-form-group govuk-!-margin-top-4 govuk-!-margin-bottom-0">
+                    <button type="submit" class="govuk-button" data-module="govuk-button">
+                        Search profiles
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="govuk-error-summary govuk-!-margin-top-4" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">
+                        There is a problem
+                    </h2>
+                    <div class="govuk-error-summary__body">
+                        <p>@Model.ErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.IsSearchPerformed)
+        {
+            <div class="govuk-grid-row govuk-!-margin-top-4">
+                <div class="govuk-grid-column-full">
+                    <h2 class="govuk-heading-m govuk-!-margin-bottom-2">
+                        Search Results
+                        <span class="govuk-caption-m">
+                            @if (Model.SearchResults.Count == 0)
+                            {
+                                <span>No profiles found</span>
+                            }
+                            else
+                            {
+                                <span>@Model.SearchResults.Count profile(s) found</span>
+                            }
+                        </span>
+                    </h2>
+
+                    @if (Model.SearchResults.Count == 0)
+                    {
+                        <p class="govuk-body">
+                            No disease profiles match your search criteria. Please try different search terms or filter options.
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="govuk-grid-row">
+                            @foreach (var profile in Model.SearchResults)
+                            {
+                                <div class="govuk-grid-column-full govuk-!-margin-bottom-3">
+                                    <div class="govuk-card">
+                                        <div class="govuk-card__content">
+                                            <h3 class="govuk-heading-s govuk-!-margin-bottom-2">
+                                                @profile.Name
+                                                @if (!profile.IsActive)
+                                                {
+                                                    <span class="govuk-tag govuk-tag--grey govuk-!-margin-left-1">Inactive</span>
+                                                }
+                                            </h3>
+
+                                            <dl class="govuk-summary-list govuk-summary-list--no-border govuk-!-margin-bottom-0">
+                                                <div class="govuk-summary-list__row">
+                                                    <dt class="govuk-summary-list__key">Status</dt>
+                                                    <dd class="govuk-summary-list__value">
+                                                        <strong>@profile.Status</strong>
+                                                    </dd>
+                                                </div>
+                                                <div class="govuk-summary-list__row">
+                                                    <dt class="govuk-summary-list__key">Active</dt>
+                                                    <dd class="govuk-summary-list__value">
+                                                        @(profile.IsActive ? "Yes" : "No")
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script src="~/js/filters-toggle.js" asp-append-version="true"></script>
+}
