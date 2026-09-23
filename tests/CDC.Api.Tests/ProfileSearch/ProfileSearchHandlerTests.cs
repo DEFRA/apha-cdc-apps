@@ -78,11 +78,31 @@ public class ProfileSearchHandlerTests
     [Fact]
     public async Task ProfileSearchService_GetAllProfilesAsync_ReturnsProfiles()
     {
-        var service = new ProfileSearchService();
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)
+            [
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Bovine tuberculosis",
+                    Status = "Published",
+                    CreatedAtUtc = DateTime.UtcNow,
+                    ModifiedAtUtc = DateTime.UtcNow,
+                    IsPublic = true,
+                    AffectedSpecies = [],
+                    PublishedVersions = [],
+                    DraftVersions = [],
+                    Scenarios = []
+                }
+            ]);
+
+        var service = new ProfileSearchService(repository.Object);
 
         var profiles = await service.GetAllProfilesAsync(CancellationToken.None);
 
-        profiles.Should().HaveCount(2);
+        profiles.Should().HaveCount(1);
         profiles[0].Name.Should().Be("Bovine tuberculosis");
     }
 
@@ -90,7 +110,7 @@ public class ProfileSearchHandlerTests
     public async Task ProfileSearchService_GetProfileVersionAsync_ReturnsVersion()
     {
         var profileVersionId = Guid.NewGuid();
-        var service = new ProfileSearchService();
+        var service = new ProfileSearchService(Mock.Of<IProfileRepository>());
 
         var version = await service.GetProfileVersionAsync(profileVersionId, CancellationToken.None);
 

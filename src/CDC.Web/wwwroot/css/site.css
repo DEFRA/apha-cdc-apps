@@ -11,7 +11,6 @@ html {
 .app-search-panel {
   padding: 1.5rem 1.5rem 1rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
-  background: #f3f2f1;
 }
 
 .app-search-form .govuk-details {
@@ -34,7 +33,6 @@ html {
 /* Search input + icon button: width matches the "All A B C ... Z" line below it. */
 .app-search-input-group {
   display: flex;
-  max-width: 32rem;
 }
 
 .app-search-input-group__input {
@@ -72,6 +70,40 @@ html {
 .app-search-input-group__icon {
   width: 18px;
   height: 18px;
+}
+
+/* Search results toolbar: "Sort by" (left) and "Items per page" (right) above the results list. */
+.app-results-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-results-toolbar .govuk-select {
+  min-width: 12rem;
+}
+
+.app-profile-card {
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-profile-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+
+.app-profile-card__sub-card {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #f8f9fa;
 }
 
 /* Widen the GOV.UK container so header, footer and page content use more of the screen. */

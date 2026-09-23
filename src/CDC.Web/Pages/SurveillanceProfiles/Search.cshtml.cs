@@ -11,16 +11,16 @@ namespace CDC.Web.Pages;
 /// </summary>
 public class SurveillanceProfilesSearchModel : PageModel
 {
-    private readonly HttpClient httpClient;
+    private readonly IApiClient apiClient;
     private readonly ISpeciesApiService speciesApiService;
     private readonly ILogger<SurveillanceProfilesSearchModel> logger;
 
     public SurveillanceProfilesSearchModel(
-        HttpClient httpClient,
+        IApiClient apiClient,
         ISpeciesApiService speciesApiService,
         ILogger<SurveillanceProfilesSearchModel> logger)
     {
-        this.httpClient = httpClient;
+        this.apiClient = apiClient;
         this.speciesApiService = speciesApiService;
         this.logger = logger;
     }
@@ -62,6 +62,18 @@ public class SurveillanceProfilesSearchModel : PageModel
     [BindProperty(SupportsGet = true)]
     public bool SearchForAllWords { get; set; }
 
+    /// <summary>Gets or sets how the results list is ordered.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string SortBy { get; set; } = SortByOptions[0].Value;
+
+    /// <summary>Gets or sets the number of results shown per page, or "All" for no paging.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string PageSize { get; set; } = PageSizeOptions[0];
+
+    /// <summary>Gets or sets the current 1-based results page.</summary>
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
     /// <summary>Gets the static, hardcoded options for the <see cref="AppearsIn"/> dropdown.</summary>
     public static IReadOnlyList<AppearsInOption> AppearsInOptions { get; } =
     [
@@ -72,8 +84,29 @@ public class SurveillanceProfilesSearchModel : PageModel
         new AppearsInOption("FurtherInformation", "Further information")
     ];
 
-    /// <summary>Gets the search results returned from the profile list endpoint.</summary>
-    public IReadOnlyList<ProfileSummaryItemDto> SearchResults { get; private set; } = [];
+    /// <summary>Gets the static, hardcoded options for the <see cref="SortBy"/> dropdown.</summary>
+    public static IReadOnlyList<SortByOption> SortByOptions { get; } =
+    [
+        new SortByOption("Az", "A-Z"),
+        new SortByOption("Za", "Z-A"),
+        new SortByOption("MostRecentlyUpdated", "Most recently updated"),
+        new SortByOption("LeastRecentlyUpdated", "Least recently updated")
+    ];
+
+    /// <summary>Gets the static, hardcoded options for the <see cref="PageSize"/> dropdown.</summary>
+    public static IReadOnlyList<string> PageSizeOptions { get; } = ["10", "15", "20", "30", "All"];
+
+    /// <summary>Gets every result matching the current filters, before paging is applied.</summary>
+    public IReadOnlyList<ProfileSearchResultDto> SearchResults { get; private set; } = [];
+
+    /// <summary>Gets the single page of results to render.</summary>
+    public IReadOnlyList<ProfileSearchResultDto> PagedResults { get; private set; } = [];
+
+    /// <summary>Gets the total number of results matching the current filters.</summary>
+    public int TotalResultCount { get; private set; }
+
+    /// <summary>Gets the total number of result pages.</summary>
+    public int TotalPages { get; private set; } = 1;
 
     /// <summary>Gets the species filter tree.</summary>
     public TreeViewViewModel SpeciesTree { get; private set; } = EmptyTree();
@@ -87,32 +120,92 @@ public class SurveillanceProfilesSearchModel : PageModel
     /// <summary>Gets or sets a value indicating whether the search has been performed.</summary>
     public bool IsSearchPerformed { get; set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         await LoadSpeciesTreeAsync(cancellationToken);
-        await PerformSearchAsync();
+        await PerformSearchAsync(cancellationToken);
+
+        // The search filters (Display checkboxes, sort, page size/number, species tree) are
+        // resubmitted via a background fetch rather than a full page reload; that request sends
+        // this header so only the results fragment is rendered back, not the whole page.
+        if (string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.Ordinal))
+        {
+            return Partial("_SearchResults", this);
+        }
+
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
         await LoadSpeciesTreeAsync(cancellationToken);
-        await PerformSearchAsync();
+        await PerformSearchAsync(cancellationToken);
         return Page();
     }
 
     /// <summary>Builds the querystring URL for an alphabet quick-filter link, preserving every
     /// other filter, including the (possibly multi-valued) species selection.</summary>
-    public string? BuildLetterUrl(string letter)
+    public string? BuildLetterUrl(string letter) => BuildSearchUrl(new
     {
-        var url = Url.Page("/SurveillanceProfiles/Search", new
-        {
-            SearchText,
-            DisplayPublished,
-            DisplayDraft,
-            DisplayScenarios,
-            AppearsIn,
-            SelectedLetter = letter
-        });
+        SearchText,
+        DisplayPublished,
+        DisplayDraft,
+        DisplayScenarios,
+        AppearsIn,
+        SortBy,
+        PageSize,
+        SelectedLetter = letter
+    });
+
+    /// <summary>Builds the querystring URL for a results page link, preserving every other filter.</summary>
+    public string? BuildPageUrl(int page) => BuildSearchUrl(new
+    {
+        SearchText,
+        DisplayPublished,
+        DisplayDraft,
+        DisplayScenarios,
+        AppearsIn,
+        SortBy,
+        PageSize,
+        SelectedLetter,
+        PageNumber = page
+    });
+
+    /// <summary>Gets the most relevant version to summarise for a profile: the latest published
+    /// version, falling back to the latest draft, then the latest scenario.</summary>
+    public static ProfileHistoryItemDto? GetCurrentVersion(ProfileSearchResultDto profile) =>
+        profile.PublishedVersions.MaxBy(version => version.VersionNumber)
+        ?? profile.DraftVersions.MaxBy(version => version.VersionNumber)
+        ?? profile.Scenarios.MaxBy(version => version.VersionNumber);
+
+    /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion"/>'s result.</summary>
+    public static string GetCurrentVersionLabel(ProfileSearchResultDto profile) => profile switch
+    {
+        { PublishedVersions.Count: > 0 } => "Published current version",
+        { DraftVersions.Count: > 0 } => "Draft current version",
+        { Scenarios.Count: > 0 } => "Scenario version",
+        _ => "Version"
+    };
+
+    /// <summary>Gets every version other than the one <see cref="GetCurrentVersion"/> returns,
+    /// newest first, for the "Show previous versions" toggle.</summary>
+    public static IReadOnlyList<ProfileHistoryItemDto> GetPreviousVersions(ProfileSearchResultDto profile)
+    {
+        var current = GetCurrentVersion(profile);
+
+        return
+        [
+            .. profile.PublishedVersions
+                .Concat(profile.DraftVersions)
+                .Concat(profile.Scenarios)
+                .Where(version => version.VersionId != current?.VersionId)
+                .OrderByDescending(version => version.VersionNumber)
+        ];
+    }
+
+    private string? BuildSearchUrl(object routeValues)
+    {
+        var url = Url.Page("/SurveillanceProfiles/Search", routeValues);
 
         if (url is null)
         {
@@ -181,58 +274,79 @@ public class SurveillanceProfilesSearchModel : PageModel
         return null;
     }
 
-    /// <summary>Executes the profile search using the actual API response that Swagger has validated.</summary>
-    private async Task PerformSearchAsync()
+    /// <summary>Executes the profile search against the enriched search endpoint, then applies the
+    /// letter filter, sort order and paging - none of which the API endpoint supports itself.</summary>
+    private async Task PerformSearchAsync(CancellationToken cancellationToken)
     {
         try
         {
             IsSearchPerformed = true;
 
-            var response = await httpClient.GetFromJsonAsync<List<ProfileSummaryItemDto>>("/api/profile-search/profiles");
-            var profiles = (response ?? []).AsEnumerable();
-
-            if (!string.IsNullOrWhiteSpace(SearchText))
-            {
-                profiles = profiles.Where(item => item.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (!string.IsNullOrWhiteSpace(SelectedLetter) && !string.Equals(SelectedLetter, "All", StringComparison.OrdinalIgnoreCase))
-            {
-                profiles = profiles.Where(item => item.Name.StartsWith(SelectedLetter, StringComparison.OrdinalIgnoreCase));
-            }
-
-            var includePublished = DisplayPublished;
-            var includeDraft = DisplayDraft;
-            var includeScenario = DisplayScenarios;
-
-            if (!includePublished && !includeDraft && !includeScenario)
+            if (!DisplayPublished && !DisplayDraft && !DisplayScenarios)
             {
                 SearchResults = [];
+                PagedResults = [];
+                TotalResultCount = 0;
+                TotalPages = 1;
                 logger.LogInformation("Profile search completed with 0 results after applying filter selections");
                 return;
             }
 
-            profiles = profiles.Where(item =>
-                (includePublished && string.Equals(item.Status, "Published", StringComparison.OrdinalIgnoreCase)) ||
-                (includeDraft && string.Equals(item.Status, "Draft", StringComparison.OrdinalIgnoreCase)) ||
-                (includeScenario && string.Equals(item.Status, "Scenario", StringComparison.OrdinalIgnoreCase)));
+            var response = await apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, cancellationToken);
+            var profiles = response.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SelectedLetter) && !string.Equals(SelectedLetter, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                profiles = profiles.Where(item => item.Title.StartsWith(SelectedLetter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            profiles = SortBy switch
+            {
+                "Za" => profiles.OrderByDescending(item => item.Title, StringComparer.OrdinalIgnoreCase),
+                "MostRecentlyUpdated" => profiles.OrderByDescending(item => item.ModifiedAtUtc),
+                "LeastRecentlyUpdated" => profiles.OrderBy(item => item.ModifiedAtUtc),
+                _ => profiles.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            };
 
             SearchResults = profiles.ToList();
+            TotalResultCount = SearchResults.Count;
 
-            logger.LogInformation("Profile search completed with {ResultCount} results", SearchResults.Count);
+            var pageSize = ResolvePageSize(PageSize);
+
+            TotalPages = pageSize > 0 ? Math.Max(1, (int)Math.Ceiling(TotalResultCount / (double)pageSize)) : 1;
+            PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
+
+            PagedResults = pageSize > 0
+                ? SearchResults.Skip((PageNumber - 1) * pageSize).Take(pageSize).ToList()
+                : SearchResults;
+
+            logger.LogInformation("Profile search completed with {ResultCount} results", TotalResultCount);
         }
         catch (HttpRequestException ex)
         {
             logger.LogError(ex, "Failed to retrieve profile search results");
             ErrorMessage = "Unable to retrieve profiles. The service may be temporarily unavailable.";
             SearchResults = [];
+            PagedResults = [];
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An unexpected error occurred while searching profiles");
             ErrorMessage = "An unexpected error occurred. Please try again.";
             SearchResults = [];
+            PagedResults = [];
         }
+    }
+
+    /// <summary>Resolves the "Items per page" selection to a page size, where 0 means "All" (no paging).</summary>
+    private static int ResolvePageSize(string pageSize)
+    {
+        if (string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        return int.TryParse(pageSize, out var parsedPageSize) ? parsedPageSize : 10;
     }
 
     private static TreeViewViewModel EmptyTree() => new()
@@ -243,15 +357,4 @@ public class SurveillanceProfilesSearchModel : PageModel
         ItemNamePlural = "species",
         Nodes = []
     };
-}
-
-/// <summary>
-/// DTO matching the actual response returned by the Swagger-validated profile list endpoint.
-/// </summary>
-public record ProfileSummaryItemDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
 }

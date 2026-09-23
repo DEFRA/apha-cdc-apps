@@ -43,9 +43,17 @@
 
     window.FiltersToggle = FiltersToggle;
 
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('[data-module="app-filters-toggle"]').forEach(function ($root) {
-            $root.filtersToggle = new FiltersToggle($root);
+    // Exposed so code that swaps in new markup (e.g. the AJAX results refresh on the Search
+    // page) can (re-)initialise any [data-module="app-filters-toggle"] roots it just inserted.
+    window.initFiltersToggles = function (root) {
+        (root || document).querySelectorAll('[data-module="app-filters-toggle"]').forEach(function ($root) {
+            if (!$root.filtersToggle) {
+                $root.filtersToggle = new FiltersToggle($root);
+            }
         });
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        window.initFiltersToggles();
     });
 })();

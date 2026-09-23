@@ -29,7 +29,8 @@
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-        <form method="get" class="app-search-form">
+        <form method="get" id="search-form" class="app-search-form">
+            <input type="hidden" name="SelectedLetter" value="@Model.SelectedLetter" />
             <div class="app-search-panel">
                 <div class="govuk-grid-row govuk-!-margin-bottom-3">
                     <div class="govuk-grid-column-full">
@@ -80,21 +81,21 @@
 
                     <div class="govuk-checkboxes">
                         <div class="govuk-checkboxes__item">
-                            <input class="govuk-checkboxes__input" id="DisplayPublished" name="DisplayPublished" type="checkbox" value="true" @(Model.DisplayPublished ? "checked" : null) />
+                            <input class="govuk-checkboxes__input" id="DisplayPublished" name="DisplayPublished" type="checkbox" value="true" data-app-search-auto-refresh @(Model.DisplayPublished ? "checked" : null) />
                             <label class="govuk-label govuk-checkboxes__label" for="DisplayPublished">
                                 Display published versions (content that has been independently reviewed)
                             </label>
                         </div>
 
                         <div class="govuk-checkboxes__item">
-                            <input class="govuk-checkboxes__input" id="DisplayDraft" name="DisplayDraft" type="checkbox" value="true" @(Model.DisplayDraft ? "checked" : null) />
+                            <input class="govuk-checkboxes__input" id="DisplayDraft" name="DisplayDraft" type="checkbox" value="true" data-app-search-auto-refresh @(Model.DisplayDraft ? "checked" : null) />
                             <label class="govuk-label govuk-checkboxes__label" for="DisplayDraft">
                                 Display draft versions (the most up to date information available, although not yet independently reviewed)
                             </label>
                         </div>
 
                         <div class="govuk-checkboxes__item">
-                            <input class="govuk-checkboxes__input" id="DisplayScenarios" name="DisplayScenarios" type="checkbox" value="true" @(Model.DisplayScenarios ? "checked" : null) />
+                            <input class="govuk-checkboxes__input" id="DisplayScenarios" name="DisplayScenarios" type="checkbox" value="true" data-app-search-auto-refresh @(Model.DisplayScenarios ? "checked" : null) />
                             <label class="govuk-label govuk-checkboxes__label" for="DisplayScenarios">
                                 Display scenarios (scenarios can differ radically to the current version of a disease profile)
                             </label>
@@ -195,87 +196,14 @@
             </div>
         </form>
 
-        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-        {
-            <div class="govuk-error-summary govuk-!-margin-top-4" data-module="govuk-error-summary">
-                <div role="alert">
-                    <h2 class="govuk-error-summary__title">
-                        There is a problem
-                    </h2>
-                    <div class="govuk-error-summary__body">
-                        <p>@Model.ErrorMessage</p>
-                    </div>
-                </div>
-            </div>
-        }
-
-        @if (Model.IsSearchPerformed)
-        {
-            <div class="govuk-grid-row govuk-!-margin-top-4">
-                <div class="govuk-grid-column-full">
-                    <h2 class="govuk-heading-m govuk-!-margin-bottom-2">
-                        Search Results
-                        <span class="govuk-caption-m">
-                            @if (Model.SearchResults.Count == 0)
-                            {
-                                <span>No profiles found</span>
-                            }
-                            else
-                            {
-                                <span>@Model.SearchResults.Count profile(s) found</span>
-                            }
-                        </span>
-                    </h2>
-
-                    @if (Model.SearchResults.Count == 0)
-                    {
-                        <p class="govuk-body">
-                            No disease profiles match your search criteria. Please try different search terms or filter options.
-                        </p>
-                    }
-                    else
-                    {
-                        <div class="govuk-grid-row">
-                            @foreach (var profile in Model.SearchResults)
-                            {
-                                <div class="govuk-grid-column-full govuk-!-margin-bottom-3">
-                                    <div class="govuk-card">
-                                        <div class="govuk-card__content">
-                                            <h3 class="govuk-heading-s govuk-!-margin-bottom-2">
-                                                @profile.Name
-                                                @if (!profile.IsActive)
-                                                {
-                                                    <span class="govuk-tag govuk-tag--grey govuk-!-margin-left-1">Inactive</span>
-                                                }
-                                            </h3>
-
-                                            <dl class="govuk-summary-list govuk-summary-list--no-border govuk-!-margin-bottom-0">
-                                                <div class="govuk-summary-list__row">
-                                                    <dt class="govuk-summary-list__key">Status</dt>
-                                                    <dd class="govuk-summary-list__value">
-                                                        <strong>@profile.Status</strong>
-                                                    </dd>
-                                                </div>
-                                                <div class="govuk-summary-list__row">
-                                                    <dt class="govuk-summary-list__key">Active</dt>
-                                                    <dd class="govuk-summary-list__value">
-                                                        @(profile.IsActive ? "Yes" : "No")
-                                                    </dd>
-                                                </div>
-                                            </dl>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            </div>
-        }
+        <div id="search-results-container">
+            <partial name="_SearchResults" model="Model" />
+        </div>
     </div>
 </div>
 
 @section Scripts {
     <script src="~/js/tree-view.js" asp-append-version="true"></script>
     <script src="~/js/filters-toggle.js" asp-append-version="true"></script>
+    <script src="~/js/search-filters.js" asp-append-version="true"></script>
 }

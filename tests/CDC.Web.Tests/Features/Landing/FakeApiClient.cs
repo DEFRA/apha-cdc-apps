@@ -1,4 +1,5 @@
 using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 
 namespace CDC.Web.Tests.Features.Landing;
 
@@ -11,4 +12,12 @@ internal sealed class FakeApiClient(ApiHealthResponse? response = null, Exceptio
         throwOnGetHealth is not null
             ? Task.FromException<ApiHealthResponse?>(throwOnGetHealth)
             : Task.FromResult(_response);
+
+    public Task<IReadOnlyList<ProfileSearchResultDto>> SearchProfilesAsync(
+        string? searchText,
+        bool displayPublished,
+        bool displayDraft,
+        bool displayScenarios,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProfileSearchResultDto>>([]);
 }
