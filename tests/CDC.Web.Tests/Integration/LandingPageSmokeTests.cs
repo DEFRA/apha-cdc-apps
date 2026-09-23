@@ -40,4 +40,21 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task QualityStatementDownload_ReturnsPdfDocument()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/HelpSupport/QualityStatement?download=true");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.NotNull(response.Content.Headers.ContentDisposition);
+        Assert.Contains("D2R2-Quality-Statement.pdf", response.Content.Headers.ContentDisposition!.FileName ?? string.Empty);
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.True(bytes.Length > 0);
+        Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString(bytes.Take(4).ToArray()));
+    }
 }
