@@ -1,0 +1,32 @@
+@page
+@model CDC.Web.Pages.HelpSupport.DocumentHistoryModel
+@{
+    ViewData["Title"] = "Document history";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<h1 class="govuk-heading-l">Previous versions</h1>
+
+<p class="govuk-body">This document has previously been published with the versions below. Each version records the date it became effective.</p>
+
+<table class="govuk-table">
+    <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Version</th>
+            <th scope="col" class="govuk-table__header">Effective date</th>
+            <th scope="col" class="govuk-table__header">Title</th>
+        </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+        @foreach (var version in Model.Versions)
+        {
+            <tr class="govuk-table__row">
+                <td class="govuk-table__cell">@version.Version</td>
+                <td class="govuk-table__cell">@version.EffectiveDate</td>
+                <td class="govuk-table__cell">@version.Title</td>
+            </tr>
+        }
+    </tbody>
+</table>
