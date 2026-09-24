@@ -668,17 +668,12 @@ body {
   background-color: var(--govuk-focus-colour, #fd0);
 }
 
-/* Overlays the secondary header and page content below, rather than pushing them down. */
+/* Sits in normal document flow between .app-top-header and .app-secondary-header, so opening
+   it pushes the secondary header and page content down rather than overlaying them. */
 .app-menu-panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 100;
   border-top: 1px solid var(--govuk-border-colour, #b1b4b6);
   border-bottom: 6px solid var(--app-accent-colour);
   background-color: #f3f2f1;
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.25);
 }
 
 .app-menu-panel__row {
