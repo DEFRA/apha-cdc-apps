@@ -390,6 +390,203 @@ public class SpeciesRepositoryTests : IDisposable
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
 
+    [Fact]
+    public async Task GetSpeciesByIdAsync_MapsRow()
+    {
+        connection.Script(SpeciesStoredProcedures.GetSpeciesById, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["Name", "ParentId", "IsActive", "IsInUse", "ChildCount", "ActiveChildCount", "ParentName", "LastUpdated"],
+                    [["Dairy cattle", SpeciesTestData.SectionId, true, true, 0, 0, "Cattle", SpeciesTestData.RowVersion]])
+            ]
+        });
+
+        var detail = await CreateRepository().GetSpeciesByIdAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        detail.Should().NotBeNull();
+        detail!.Name.Should().Be("Dairy cattle");
+        detail.ParentName.Should().Be("Cattle");
+        detail.LastUpdated.Should().Equal(SpeciesTestData.RowVersion);
+    }
+
+    [Fact]
+    public async Task GetSpeciesByIdAsync_ReturnsNull_WhenSpeciesDoesNotExist()
+    {
+        connection.Script(SpeciesStoredProcedures.GetSpeciesById, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty("Name", "ParentId", "IsActive", "IsInUse", "ChildCount", "ActiveChildCount", "ParentName", "LastUpdated")]
+        });
+
+        var detail = await CreateRepository().GetSpeciesByIdAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        detail.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSpeciesByIdAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(SpeciesStoredProcedures.GetSpeciesById, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Timeout expired")
+        });
+
+        var act = async () => await CreateRepository().GetSpeciesByIdAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task GetSpeciesValidParentsAsync_MapsRows()
+    {
+        connection.Script(SpeciesStoredProcedures.GetSpeciesValidParents, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Id", "Name"], [[SpeciesTestData.SectionId, "Cattle"]])]
+        });
+
+        var validParents = await CreateRepository().GetSpeciesValidParentsAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        validParents.Should().ContainSingle();
+        validParents[0].Name.Should().Be("Cattle");
+    }
+
+    [Fact]
+    public async Task GetSpeciesValidParentsAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(SpeciesStoredProcedures.GetSpeciesValidParents, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Timeout expired")
+        });
+
+        var act = async () => await CreateRepository().GetSpeciesValidParentsAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentAsync_ExecutesProcedureThenRereadsTheNewRowVersion()
+    {
+        connection.Script(SpeciesStoredProcedures.UpdateSpecies, new FakeCommandScript());
+        connection.Script(SpeciesStoredProcedures.GetSpeciesById, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["Name", "ParentId", "IsActive", "IsInUse", "ChildCount", "ActiveChildCount", "ParentName", "LastUpdated"],
+                    [["Dairy", SpeciesTestData.SectionId, true, true, 0, 0, "Cattle", SpeciesTestData.NewRowVersion]])
+            ]
+        });
+
+        var command = SpeciesTestData.UpdateNameParentCommand();
+
+        var rowVersion = await CreateRepository().UpdateSpeciesNameParentAsync(command, CancellationToken.None);
+
+        rowVersion.Should().Equal(SpeciesTestData.NewRowVersion);
+
+        connection.Executed.Select(executed => executed.CommandText).Should().Equal(
+            SpeciesStoredProcedures.UpdateSpecies,
+            SpeciesStoredProcedures.GetSpeciesById);
+
+        var update = connection.Executed[0];
+        update.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(command.UserId);
+        update.Parameters.Should().ContainKey("Reason").WhoseValue.Should().Be("Simplifying the name");
+        update.Parameters.Should().NotContainKey("ChangedBy");
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentAsync_SendsNullParentId_ForARootSpecies()
+    {
+        connection.Script(SpeciesStoredProcedures.UpdateSpecies, new FakeCommandScript());
+
+        var command = SpeciesTestData.UpdateNameParentCommand() with { ParentId = Guid.Empty };
+
+        await CreateRepository().UpdateSpeciesNameParentAsync(command, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle(executed => executed.CommandText == SpeciesStoredProcedures.UpdateSpecies).Subject;
+        executed.Parameters.Should().ContainKey("ParentId").WhoseValue.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentAsync_RejectsNullCommand()
+    {
+        var act = async () => await CreateRepository().UpdateSpeciesNameParentAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentAsync_ThrowsConcurrency_WhenRowVersionIsStale()
+    {
+        connection.Script(SpeciesStoredProcedures.UpdateSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("The species has been edited by another user")
+        });
+
+        var act = async () => await CreateRepository()
+            .UpdateSpeciesNameParentAsync(SpeciesTestData.UpdateNameParentCommand(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentAsync_Rethrows_WhenAnotherDatabaseErrorOccurs()
+    {
+        connection.Script(SpeciesStoredProcedures.UpdateSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Deadlock victim")
+        });
+
+        var act = async () => await CreateRepository()
+            .UpdateSpeciesNameParentAsync(SpeciesTestData.UpdateNameParentCommand(), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<FakeDbException>()).WithMessage("Deadlock victim");
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task GetSpeciesAuditTrailAsync_MapsRows_MostRecentFirst()
+    {
+        var earlier = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var later = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        connection.Script(SpeciesStoredProcedures.GetSpeciesAuditTrail, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["Id", "FullName", "LogDate", "Reason", "OldName", "NewName", "OldParent", "NewParent"],
+                    [
+                        [Guid.NewGuid(), "a.user", earlier, "First change", "Old", "Middle", "Cattle", "Cattle"],
+                        [Guid.NewGuid(), "b.user", later, "Second change", "Middle", "New", "Cattle", "Cattle"]
+                    ])
+            ]
+        });
+
+        var entries = await CreateRepository().GetSpeciesAuditTrailAsync(CancellationToken.None);
+
+        entries.Should().HaveCount(2);
+        entries[0].ReasonForChange.Should().Be("Second change");
+        entries[1].ReasonForChange.Should().Be("First change");
+    }
+
+    [Fact]
+    public async Task GetSpeciesAuditTrailAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(SpeciesStoredProcedures.GetSpeciesAuditTrail, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Timeout expired")
+        });
+
+        var act = async () => await CreateRepository().GetSpeciesAuditTrailAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        VerifyErrorLogged();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

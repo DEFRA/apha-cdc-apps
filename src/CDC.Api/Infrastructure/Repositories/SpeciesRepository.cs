@@ -32,6 +32,9 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
 
     private const int RowVersionLength = 8;
 
+    /// <summary><c>spuSpecies</c> declares <c>@Name varchar(50)</c>.</summary>
+    private const int SpeciesNameMaxLength = 50;
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<Domain.Entities.Species>> GetAllSpeciesAsync(CancellationToken cancellationToken)
     {
@@ -258,6 +261,153 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         catch (OperationCanceledException)
         {
             await RollbackAsync(transaction, CancellationToken.None);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Domain.Entities.SpeciesDetail?> GetSpeciesByIdAsync(Guid speciesId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var row = await connection.QuerySingleOrDefaultAsync<SpeciesDetailRow>(new CommandDefinition(
+                SpeciesStoredProcedures.GetSpeciesById,
+                new { SpeciesId = speciesId },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            if (row is null)
+            {
+                return null;
+            }
+
+            return new Domain.Entities.SpeciesDetail
+            {
+                Id = speciesId,
+                Name = row.Name ?? string.Empty,
+                ParentId = row.ParentId ?? Guid.Empty,
+                ParentName = row.ParentName ?? string.Empty,
+                IsActive = row.IsActive,
+                IsInUse = row.IsInUse,
+                ChildCount = row.ChildCount,
+                ActiveChildCount = row.ActiveChildCount,
+                LastUpdated = row.LastUpdated ?? []
+            };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.GetSpeciesById);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SpeciesValidParent>> GetSpeciesValidParentsAsync(Guid speciesId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var rows = await connection.QueryAsync<SpeciesValidParentRow>(new CommandDefinition(
+                SpeciesStoredProcedures.GetSpeciesValidParents,
+                new { SpeciesId = speciesId },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return [.. rows.Select(row => new SpeciesValidParent
+            {
+                Id = row.Id,
+                Name = row.Name ?? string.Empty
+            })];
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.GetSpeciesValidParents);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]> UpdateSpeciesNameParentAsync(
+        UpdateSpeciesNameParentCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        // spuSpecies takes exactly these six parameters and returns nothing: it raises an
+        // error (caught below) for a duplicate name or a stale @LastUpdated, otherwise it
+        // updates the row and inserts the audit entry itself.
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
+        parameters.Add("@UserId", command.UserId, DbType.Guid);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: 255);
+        parameters.Add("@ParentId", command.ParentId == Guid.Empty ? null : command.ParentId, DbType.Guid);
+        parameters.Add("@Name", command.Name, DbType.AnsiString, size: SpeciesNameMaxLength);
+        parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.UpdateSpecies,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.UpdateSpecies);
+
+            // spuSpecies RAISERRORs (error 50000) for both a duplicate name and a stale row
+            // version; its own message text already says which, so it is passed straight
+            // through rather than replaced with a generic one.
+            throw IsConcurrencyViolation(exception)
+                ? new ConcurrencyException(exception.Message, exception)
+                : exception;
+        }
+
+        // The procedure has no output parameter for the new row version, so it is re-read.
+        var updated = await connection.QuerySingleOrDefaultAsync<SpeciesDetailRow>(new CommandDefinition(
+            SpeciesStoredProcedures.GetSpeciesById,
+            new { SpeciesId = command.SpeciesId },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken));
+
+        return updated?.LastUpdated ?? [];
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Domain.Entities.SpeciesAuditTrailEntry>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var rows = await connection.QueryAsync<SpeciesAuditTrailRow>(new CommandDefinition(
+                SpeciesStoredProcedures.GetSpeciesAuditTrail,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return [.. rows
+                .OrderByDescending(row => row.LogDate)
+                .Select(row => new Domain.Entities.SpeciesAuditTrailEntry
+                {
+                    Id = row.Id,
+                    OldName = row.OldName ?? string.Empty,
+                    NewName = row.NewName ?? string.Empty,
+                    OldParent = row.OldParent ?? string.Empty,
+                    NewParent = row.NewParent ?? string.Empty,
+                    ChangedBy = row.FullName ?? string.Empty,
+                    LogDate = row.LogDate,
+                    ReasonForChange = row.Reason ?? string.Empty
+                })];
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.GetSpeciesAuditTrail);
             throw;
         }
     }
@@ -542,21 +692,33 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     private static int ReadInt32(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);
 
-    private sealed record SpeciesRow(Guid Id, Guid? ParentId, string? Name, bool IsActive, bool IsInUse);
+    // Property-initialised (not positional) so Dapper binds columns by name rather than by
+    // ordinal position - the actual stored procedure's column order is not guaranteed to match
+    // declaration order here.
+    private sealed record SpeciesRow
+    {
+        public Guid Id { get; init; }
+        public Guid? ParentId { get; init; }
+        public string? Name { get; init; }
+        public bool IsActive { get; init; }
+        public bool IsInUse { get; init; }
+    }
 
-    private sealed record SelectedSpeciesRow(
-        Guid Id,
-        Guid? ParentId,
-        string? Name,
-        bool IsActive,
-        bool IsInUse,
-        string? DiseaseName,
-        int Disease1,
-        int Disease2,
-        int Disease3,
-        int Disease4,
-        string? Disease5,
-        long FilterNumber);
+    private sealed record SelectedSpeciesRow
+    {
+        public Guid Id { get; init; }
+        public Guid? ParentId { get; init; }
+        public string? Name { get; init; }
+        public bool IsActive { get; init; }
+        public bool IsInUse { get; init; }
+        public string? DiseaseName { get; init; }
+        public int Disease1 { get; init; }
+        public int Disease2 { get; init; }
+        public int Disease3 { get; init; }
+        public int Disease4 { get; init; }
+        public string? Disease5 { get; init; }
+        public long FilterNumber { get; init; }
+    }
 
     private sealed record SectionMetadataRow(Guid Id, string Name, string ShortName, int SectionNumber);
 
@@ -574,4 +736,34 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         Guid ReferenceTableId,
         bool ReferenceTableIsMaintainable,
         int EditorFieldType);
+
+    private sealed record SpeciesDetailRow
+    {
+        public string? Name { get; init; }
+        public Guid? ParentId { get; init; }
+        public bool IsActive { get; init; }
+        public bool IsInUse { get; init; }
+        public int ChildCount { get; init; }
+        public int ActiveChildCount { get; init; }
+        public string? ParentName { get; init; }
+        public byte[]? LastUpdated { get; init; }
+    }
+
+    private sealed record SpeciesValidParentRow
+    {
+        public Guid Id { get; init; }
+        public string? Name { get; init; }
+    }
+
+    private sealed record SpeciesAuditTrailRow
+    {
+        public Guid Id { get; init; }
+        public string? FullName { get; init; }
+        public DateTime LogDate { get; init; }
+        public string? Reason { get; init; }
+        public string? OldName { get; init; }
+        public string? NewName { get; init; }
+        public string? OldParent { get; init; }
+        public string? NewParent { get; init; }
+    }
 }

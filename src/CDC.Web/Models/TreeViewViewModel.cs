@@ -29,4 +29,7 @@ public sealed record TreeViewViewModel
     public string ItemNameSingular { get; init; } = "item";
 
     public string ItemNamePlural { get; init; } = "items";
+
+    /// Value of the node that should render pre-selected (checked), if any.
+    public string? SelectedValue { get; init; }
 }

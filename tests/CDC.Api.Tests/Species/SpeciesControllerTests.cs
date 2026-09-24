@@ -3,6 +3,7 @@ using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Commands;
 using CDC.Api.Features.Species.Dtos;
 using CDC.Api.Features.Species.Queries;
+using CDC.Api.Infrastructure;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -14,9 +15,11 @@ namespace CDC.Api.Tests.Species;
 
 public class SpeciesControllerTests
 {
+    private static readonly Guid AuditUserId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+
     private readonly Mock<ISender> mediator = new(MockBehavior.Strict);
 
-    private SpeciesController CreateController() => new(mediator.Object)
+    private SpeciesController CreateController() => new(mediator.Object, new SpeciesAuditOptions(AuditUserId))
     {
         // ControllerBase.Problem() resolves this from the request services at runtime.
         ProblemDetailsFactory = new TestProblemDetailsFactory(),
@@ -154,6 +157,141 @@ public class SpeciesControllerTests
         var act = async () => await CreateController().UpdateSpeciesAnswerData(command, CancellationToken.None);
 
         await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+    }
+
+    [Fact]
+    public async Task GetSpeciesDetail_ReturnsOk()
+    {
+        var detail = new SpeciesDetailDto { Id = SpeciesTestData.SpeciesId, Name = "Dairy cattle" };
+
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<GetSpeciesDetailQuery>(query => query.SpeciesId == SpeciesTestData.SpeciesId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(detail));
+
+        var response = await CreateController().GetSpeciesDetail(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(detail);
+    }
+
+    [Fact]
+    public async Task GetSpeciesDetail_ReturnsNotFound()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetSpeciesDetailQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<SpeciesDetailDto>("Species not found."));
+
+        var response = await CreateController().GetSpeciesDetail(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        var problem = AssertProblem(response.Result, StatusCodes.Status404NotFound);
+        problem.Detail.Should().Be("Species not found.");
+    }
+
+    [Fact]
+    public async Task GetSpeciesValidParents_ReturnsOk()
+    {
+        IReadOnlyList<SpeciesValidParentDto> validParents = [new SpeciesValidParentDto { Id = SpeciesTestData.SectionId, Name = "Cattle" }];
+
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<GetSpeciesValidParentsQuery>(query => query.SpeciesId == SpeciesTestData.SpeciesId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(validParents));
+
+        var response = await CreateController().GetSpeciesValidParents(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(validParents);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParent_ReturnsOk()
+    {
+        var updateResult = new UpdateSpeciesNameParentResultDto
+        {
+            SpeciesId = SpeciesTestData.SpeciesId,
+            LastUpdated = SpeciesTestData.NewRowVersion
+        };
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<UpdateSpeciesNameParentCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(updateResult));
+
+        var request = new UpdateSpeciesNameParentRequestDto
+        {
+            SpeciesId = SpeciesTestData.SpeciesId,
+            Name = "Dairy",
+            ParentId = SpeciesTestData.SectionId,
+            Reason = "Simplifying the name",
+            LastUpdated = SpeciesTestData.RowVersion
+        };
+
+        var response = await CreateController().UpdateSpeciesNameParent(request, CancellationToken.None);
+
+        var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(updateResult);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParent_SetsUserIdFromConfiguredAuditOptions_NotFromTheRequestBody()
+    {
+        UpdateSpeciesNameParentCommand? capturedCommand = null;
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<UpdateSpeciesNameParentCommand>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((request, _) => capturedCommand = (UpdateSpeciesNameParentCommand)request)
+            .ReturnsAsync(Result.Success(new UpdateSpeciesNameParentResultDto { SpeciesId = SpeciesTestData.SpeciesId }));
+
+        var request = new UpdateSpeciesNameParentRequestDto
+        {
+            SpeciesId = SpeciesTestData.SpeciesId,
+            Name = "Dairy",
+            Reason = "Simplifying the name",
+            LastUpdated = SpeciesTestData.RowVersion
+        };
+
+        await CreateController().UpdateSpeciesNameParent(request, CancellationToken.None);
+
+        capturedCommand.Should().NotBeNull();
+        capturedCommand!.UserId.Should().Be(AuditUserId);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParent_ReturnsConflict_WhenAnotherUserHasSaved()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<UpdateSpeciesNameParentCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Conflict<UpdateSpeciesNameParentResultDto>("Edited by another user."));
+
+        var request = new UpdateSpeciesNameParentRequestDto
+        {
+            SpeciesId = SpeciesTestData.SpeciesId,
+            Name = "Dairy",
+            Reason = "Simplifying the name",
+            LastUpdated = SpeciesTestData.RowVersion
+        };
+
+        var response = await CreateController().UpdateSpeciesNameParent(request, CancellationToken.None);
+
+        var problem = AssertProblem(response.Result, StatusCodes.Status409Conflict);
+        problem.Detail.Should().Be("Edited by another user.");
+    }
+
+    [Fact]
+    public async Task GetSpeciesAuditTrail_ReturnsOk()
+    {
+        IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail = [new SpeciesAuditTrailEntryDto { Id = SpeciesTestData.FieldId }];
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetSpeciesAuditTrailQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(auditTrail));
+
+        var response = await CreateController().GetSpeciesAuditTrail(CancellationToken.None);
+
+        var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(auditTrail);
     }
 
     private static ProblemDetails AssertProblem(ActionResult? result, int expectedStatusCode)

@@ -8,4 +8,210 @@
 }
 
 <h1 class="govuk-heading-l">Maintain species data</h1>
-<p class="govuk-body">This page is for Maintain species data.</p>
+
+<p class="govuk-body">
+    Select a species or species group from the hierarchy, then choose an action. Editing a
+    name or parent requires a reason for change, which is recorded in the audit trail.
+</p>
+
+@if (Model.SuccessMessage is not null)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="maintain-species-success-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="maintain-species-success-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+        </div>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="species-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="species-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">@Model.ErrorMessage</p>
+            </div>
+        </div>
+    </div>
+}
+else if (Model.SpeciesTree.Nodes.Count == 0)
+{
+    <p class="govuk-body">No active species data is available.</p>
+}
+else
+{
+    <form method="post">
+        <div class="govuk-form-group app-tree__form-group">
+            <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
+                <legend class="govuk-visually-hidden">Species and species groups</legend>
+
+                <div class="app-tree__panel">
+                    <div class="app-tree__controls">
+                        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                            <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                    <path d="M1 1l5 5 5-5" />
+                                </svg>
+                            </span>
+                            <span class="app-tree__toggle-all-text">Open all</span>
+                        </button>
+                    </div>
+                    <partial name="_TreeView" model="Model.SpeciesTree" />
+                </div>
+
+                <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+            </fieldset>
+        </div>
+
+        @if (Model.SelectionErrorMessage is not null)
+        {
+            <p class="govuk-error-message" id="species-select-error">
+                <span class="govuk-visually-hidden">Error:</span> @Model.SelectionErrorMessage
+            </p>
+        }
+
+        <div class="govuk-button-group">
+            <button type="submit" asp-page-handler="EditNameParent" class="govuk-button" data-module="govuk-button">
+                Edit name/parent
+            </button>
+            @* A GET submit button loses its formaction query string (the browser replaces it
+               with the serialised form fields), so this is a plain link instead. *@
+            <a asp-page="./Maintain" asp-page-handler="AuditTrail" role="button" draggable="false"
+                class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                View audit trail
+            </a>
+        </div>
+    </form>
+}
+
+@if (Model.ShowEditPanel && Model.SpeciesDetail is not null)
+{
+    <div class="govuk-!-margin-top-6" id="edit-name-parent-panel">
+        <h2 class="govuk-heading-m">Edit name/parent: @Model.SpeciesDetail.Name</h2>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="edit-error-summary-title">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title" id="edit-error-summary-title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            @foreach (var entry in ViewData.ModelState)
+                            {
+                                @foreach (var error in entry.Value!.Errors)
+                                {
+                                    @if (entry.Key.Length == 0)
+                                    {
+                                        <li>@error.ErrorMessage</li>
+                                    }
+                                    else
+                                    {
+                                        <li><a href="#@(entry.Key.Replace('.', '_'))">@error.ErrorMessage</a></li>
+                                    }
+                                }
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <form method="post">
+            <input type="hidden" asp-for="Input.SpeciesId" />
+            <input type="hidden" asp-for="Input.LastUpdatedBase64" />
+
+            <div class="govuk-form-group">
+                <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
+                <p class="govuk-body" id="old-name">@Model.SpeciesDetail.Name</p>
+            </div>
+
+            <div class="govuk-form-group@(ViewData.ModelState["Input.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                <label class="govuk-label" asp-for="Input.Name">New name</label>
+                <span class="govuk-error-message" asp-validation-for="Input.Name"></span>
+                <input class="govuk-input" asp-for="Input.Name" maxlength="50" autocomplete="off" />
+            </div>
+
+            <div class="govuk-form-group">
+                <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
+                <p class="govuk-body" id="old-parent">
+                    @(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
+                </p>
+            </div>
+
+            <div class="govuk-form-group@(ViewData.ModelState["Input.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                <label class="govuk-label" asp-for="Input.ParentId">New parent</label>
+                <span class="govuk-error-message" asp-validation-for="Input.ParentId"></span>
+                <select class="govuk-select" asp-for="Input.ParentId">
+                    <option value="">- root species -</option>
+                    @foreach (var validParent in Model.ValidParents)
+                    {
+                        <option value="@validParent.Id">@validParent.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="govuk-form-group@(ViewData.ModelState["Input.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                <label class="govuk-label" asp-for="Input.Reason">Reason for change</label>
+                <div class="govuk-hint">Explain why the name or parent is changing. Required.</div>
+                <span class="govuk-error-message" asp-validation-for="Input.Reason"></span>
+                <textarea class="govuk-textarea" asp-for="Input.Reason" rows="4" maxlength="255"></textarea>
+            </div>
+
+            <div class="govuk-button-group">
+                <button type="submit" asp-page-handler="Save" class="govuk-button" data-module="govuk-button">Save</button>
+                <button type="submit" asp-page-handler="Cancel" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+            </div>
+        </form>
+    </div>
+}
+
+@if (Model.ShowAuditTrail)
+{
+    <div class="govuk-!-margin-top-6">
+        <h2 class="govuk-heading-m">Species name/parent audit trail</h2>
+
+        @if (Model.AuditTrail.Count == 0)
+        {
+            <p class="govuk-body">No species name or parent changes have been recorded.</p>
+        }
+        else
+        {
+            <table class="govuk-table">
+                <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Species name/parent audit trail</caption>
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Date of change</th>
+                        <th scope="col" class="govuk-table__header">Changed by</th>
+                        <th scope="col" class="govuk-table__header">Old name</th>
+                        <th scope="col" class="govuk-table__header">New name</th>
+                        <th scope="col" class="govuk-table__header">Old parent</th>
+                        <th scope="col" class="govuk-table__header">New parent</th>
+                        <th scope="col" class="govuk-table__header">Reason for change</th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @foreach (var entry in Model.AuditTrail)
+                    {
+                        <tr class="govuk-table__row">
+                            <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm")</td>
+                            <td class="govuk-table__cell">@entry.ChangedBy</td>
+                            <td class="govuk-table__cell">@entry.OldName</td>
+                            <td class="govuk-table__cell">@entry.NewName</td>
+                            <td class="govuk-table__cell">@entry.OldParent</td>
+                            <td class="govuk-table__cell">@entry.NewParent</td>
+                            <td class="govuk-table__cell">@entry.ReasonForChange</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+}

@@ -127,6 +127,100 @@ public class SpeciesHandlerTests
         act.Should().Throw<InvalidOperationException>();
     }
 
+    [Fact]
+    public async Task GetSpeciesDetailQueryHandler_ReturnsSuccess()
+    {
+        var detail = new SpeciesDetailDto { Id = SpeciesTestData.SpeciesId, Name = "Dairy cattle" };
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(SpeciesTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(detail);
+
+        var result = await new GetSpeciesDetailQueryHandler(service.Object)
+            .Handle(new GetSpeciesDetailQuery(SpeciesTestData.SpeciesId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(detail);
+    }
+
+    [Fact]
+    public async Task GetSpeciesDetailQueryHandler_ReturnsNotFound_WhenTheServiceReturnsNull()
+    {
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(SpeciesTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SpeciesDetailDto?)null);
+
+        var result = await new GetSpeciesDetailQueryHandler(service.Object)
+            .Handle(new GetSpeciesDetailQuery(SpeciesTestData.SpeciesId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task GetSpeciesValidParentsQueryHandler_ReturnsSuccess()
+    {
+        IReadOnlyList<SpeciesValidParentDto> validParents = [new SpeciesValidParentDto { Id = SpeciesTestData.SectionId, Name = "Cattle" }];
+        service
+            .Setup(svc => svc.GetSpeciesValidParentsAsync(SpeciesTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(validParents);
+
+        var result = await new GetSpeciesValidParentsQueryHandler(service.Object)
+            .Handle(new GetSpeciesValidParentsQuery(SpeciesTestData.SpeciesId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(validParents);
+    }
+
+    [Fact]
+    public async Task GetSpeciesAuditTrailQueryHandler_ReturnsSuccess()
+    {
+        IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail = [new SpeciesAuditTrailEntryDto { Id = SpeciesTestData.FieldId }];
+        service
+            .Setup(svc => svc.GetSpeciesAuditTrailAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditTrail);
+
+        var result = await new GetSpeciesAuditTrailQueryHandler(service.Object)
+            .Handle(new GetSpeciesAuditTrailQuery(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(auditTrail);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentCommandHandler_ReturnsSuccess()
+    {
+        var command = SpeciesTestData.UpdateNameParentCommand();
+        var updateResult = new UpdateSpeciesNameParentResultDto { SpeciesId = SpeciesTestData.SpeciesId };
+
+        service
+            .Setup(svc => svc.UpdateSpeciesNameParentAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(updateResult);
+
+        var result = await CreateNameParentCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(updateResult);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParentCommandHandler_ReturnsConflict_WhenTheRepositoryDetectsAConcurrentEdit()
+    {
+        var command = SpeciesTestData.UpdateNameParentCommand();
+
+        service
+            .Setup(svc => svc.UpdateSpeciesNameParentAsync(command, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("Edited by another user."));
+
+        var result = await CreateNameParentCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("Edited by another user.");
+    }
+
+    private UpdateSpeciesNameParentCommandHandler CreateNameParentCommandHandler() =>
+        new(service.Object, NullLogger<UpdateSpeciesNameParentCommandHandler>.Instance);
+
     private UpdateSpeciesAnswerDataCommandHandler CreateCommandHandler() =>
         new(service.Object, NullLogger<UpdateSpeciesAnswerDataCommandHandler>.Instance);
 }

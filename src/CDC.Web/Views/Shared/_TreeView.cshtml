@@ -9,7 +9,14 @@
         <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
             <div class="app-tree__row">
                 <div class="govuk-radios__item app-tree__radio">
-                    <input class="govuk-radios__input" id="@radioId" name="@Model.FieldName" type="radio" value="@node.Value" />
+                    @if (node.Value == Model.SelectedValue)
+                    {
+                        <input class="govuk-radios__input" id="@radioId" name="@Model.FieldName" type="radio" value="@node.Value" checked="checked" />
+                    }
+                    else
+                    {
+                        <input class="govuk-radios__input" id="@radioId" name="@Model.FieldName" type="radio" value="@node.Value" />
+                    }
                     <label class="govuk-label govuk-radios__label" for="@radioId">@node.Label</label>
                 </div>
             </div>

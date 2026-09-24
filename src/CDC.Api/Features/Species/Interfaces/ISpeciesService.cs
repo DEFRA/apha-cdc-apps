@@ -36,4 +36,27 @@ public interface ISpeciesService
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The species identifier and its new row version.</returns>
     Task<UpdateSpeciesAnswerDataResultDto> UpdateSpeciesAnswerDataAsync(UpdateSpeciesAnswerDataCommand command, CancellationToken cancellationToken);
+
+    /// <summary>Gets the name/parent detail of one species, for the "Edit name/parent" screen.</summary>
+    /// <param name="speciesId">The species to read.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The species detail, or <see langword="null"/> when the species does not exist.</returns>
+    Task<SpeciesDetailDto?> GetSpeciesDetailAsync(Guid speciesId, CancellationToken cancellationToken);
+
+    /// <summary>Gets the species that are a legal parent choice for another species.</summary>
+    /// <param name="speciesId">The species being re-parented.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The valid parent list.</returns>
+    Task<IReadOnlyList<SpeciesValidParentDto>> GetSpeciesValidParentsAsync(Guid speciesId, CancellationToken cancellationToken);
+
+    /// <summary>Updates the name and/or parent of one species, with an audit trail entry.</summary>
+    /// <param name="command">The change to apply.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The species identifier and its new row version.</returns>
+    Task<UpdateSpeciesNameParentResultDto> UpdateSpeciesNameParentAsync(UpdateSpeciesNameParentCommand command, CancellationToken cancellationToken);
+
+    /// <summary>Gets every recorded species name/parent change, most recent first.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The audit trail.</returns>
+    Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken);
 }
