@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using CDC.Common.Correlation;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
@@ -23,6 +25,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
             tempLogPath,
             rollingInterval: RollingInterval.Day,
             retainedFileCountLimit: 7,
+            formatProvider: CultureInfo.InvariantCulture,
             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")));
 
 // Add services to the container.

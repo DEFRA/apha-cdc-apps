@@ -11,6 +11,32 @@ namespace CDC.Web.Pages;
 /// </summary>
 public class SurveillanceProfilesSearchModel : PageModel
 {
+    private static readonly Action<ILogger, Exception?> LogFailedToLoadSpeciesFilterValuesMessage =
+        LoggerMessage.Define(
+            LogLevel.Error,
+            new EventId(1, nameof(LogFailedToLoadSpeciesFilterValuesMessage)),
+            "Failed to load species filter values");
+    private static readonly Action<ILogger, Exception?> LogFailedToRetrieveProfileSearchResultsMessage =
+        LoggerMessage.Define(
+            LogLevel.Error,
+            new EventId(2, nameof(LogFailedToRetrieveProfileSearchResultsMessage)),
+            "Failed to retrieve profile search results");
+    private static readonly Action<ILogger, Exception?> LogUnexpectedErrorWhileSearchingProfilesMessage =
+        LoggerMessage.Define(
+            LogLevel.Error,
+            new EventId(3, nameof(LogUnexpectedErrorWhileSearchingProfilesMessage)),
+            "An unexpected error occurred while searching profiles");
+    private static readonly Action<ILogger, Exception?> LogSearchCompletedWithNoResultsMessage =
+        LoggerMessage.Define(
+            LogLevel.Information,
+            new EventId(4, nameof(LogSearchCompletedWithNoResultsMessage)),
+            "Profile search completed with 0 results after applying filter selections");
+    private static readonly Action<ILogger, int, Exception?> LogSearchCompletedMessage =
+        LoggerMessage.Define<int>(
+            LogLevel.Information,
+            new EventId(5, nameof(LogSearchCompletedMessage)),
+            "Profile search completed with {ResultCount} results");
+
     private readonly IApiClient apiClient;
     private readonly ISpeciesApiService speciesApiService;
     private readonly ILogger<SurveillanceProfilesSearchModel> logger;
@@ -240,7 +266,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            logger.LogError(exception, "Failed to load species filter values");
+            LogFailedToLoadSpeciesFilterValuesMessage(logger, exception);
             SpeciesTree = EmptyTree();
         }
 
@@ -291,7 +317,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 PagedResults = [];
                 TotalResultCount = 0;
                 TotalPages = 1;
-                logger.LogInformation("Profile search completed with 0 results after applying filter selections");
+                LogSearchCompletedWithNoResultsMessage(logger, null);
                 return;
             }
 
@@ -323,18 +349,18 @@ public class SurveillanceProfilesSearchModel : PageModel
                 ? SearchResults.Skip((PageNumber - 1) * pageSize).Take(pageSize).ToList()
                 : SearchResults;
 
-            logger.LogInformation("Profile search completed with {ResultCount} results", TotalResultCount);
+            LogSearchCompletedMessage(logger, TotalResultCount, null);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogError(ex, "Failed to retrieve profile search results");
+            LogFailedToRetrieveProfileSearchResultsMessage(logger, ex);
             ErrorMessage = "Unable to retrieve profiles. The service may be temporarily unavailable.";
             SearchResults = [];
             PagedResults = [];
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An unexpected error occurred while searching profiles");
+            LogUnexpectedErrorWhileSearchingProfilesMessage(logger, ex);
             ErrorMessage = "An unexpected error occurred. Please try again.";
             SearchResults = [];
             PagedResults = [];
