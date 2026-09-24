@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using CDC.Api.Features.ProfileSearch;
 using CDC.Api.Features.ProfileSearch.Dtos;
 using CDC.Api.Features.ProfileSearch.Interfaces;
@@ -32,6 +33,10 @@ namespace CDC.Api.Infrastructure.Repositories;
 public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, ILogger<ProfileRepository> logger)
     : IProfileRepository
 {
+    private const string PublishedStatus = "Published";
+    private const string DraftStatus = "Draft";
+    private const string ScenarioStatus = "Scenario";
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileSearchResultDto>> GetAllProfilesAsync(CancellationToken cancellationToken)
     {
@@ -93,78 +98,155 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         List<Guid> orderedProfileIds,
         CancellationToken cancellationToken)
     {
-        var publishedByProfile = new Dictionary<Guid, List<ProfileHistoryItemDto>>();
-        var draftByProfile = new Dictionary<Guid, List<ProfileHistoryItemDto>>();
-        var scenariosByProfile = new Dictionary<Guid, List<ProfileHistoryItemDto>>();
-        var earliestByProfile = new Dictionary<Guid, DateTime>();
-        var latestByProfile = new Dictionary<Guid, DateTime>();
-        var isPublicByProfile = new Dictionary<Guid, bool>();
+        var accumulator = new ProfileVersionAccumulator();
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            var scenarioId = reader.GetGuid(1);
-            var rootProfileId = reader.GetGuid(2);
-
-            // A version whose root profile is not in result set 1 cannot be displayed.
-            if (!titles.TryGetValue(rootProfileId, out var title))
-            {
-                continue;
-            }
-
-            var effectiveDate = ReadNullableDateTime(reader, 6) ?? DateTime.UtcNow;
-            var isPublic = ReadBoolean(reader, 8);
-            var lastUpdated = ReadNullableDateTime(reader, 9) ?? effectiveDate;
-
-            var historyItem = new ProfileHistoryItemDto
-            {
-                VersionId = reader.GetGuid(0),
-                VersionNumber = ReadInt32(reader, 3),
-                Title = title,
-                CreatedAtUtc = effectiveDate,
-                IsScenario = scenarioId != rootProfileId
-            };
-
-            var bucket = historyItem.IsScenario
-                ? GetOrAddBucket(scenariosByProfile, rootProfileId)
-                : GetOrAddBucket(ReadNullableString(reader, 5) == "Published" ? publishedByProfile : draftByProfile, rootProfileId);
-
-            bucket.Add(historyItem);
-
-            earliestByProfile[rootProfileId] = earliestByProfile.TryGetValue(rootProfileId, out var earliest)
-                ? (effectiveDate < earliest ? effectiveDate : earliest)
-                : effectiveDate;
-
-            latestByProfile[rootProfileId] = latestByProfile.TryGetValue(rootProfileId, out var latest)
-                ? (lastUpdated > latest ? lastUpdated : latest)
-                : lastUpdated;
-
-            isPublicByProfile[rootProfileId] = isPublicByProfile.GetValueOrDefault(rootProfileId) || isPublic;
+            ProcessVersionRow(reader, titles, accumulator);
         }
 
-        return
-        [
-            .. orderedProfileIds.Select(profileId =>
-            {
-                var published = publishedByProfile.GetValueOrDefault(profileId, []);
-                var draft = draftByProfile.GetValueOrDefault(profileId, []);
-                var scenarios = scenariosByProfile.GetValueOrDefault(profileId, []);
-                var createdAtUtc = earliestByProfile.GetValueOrDefault(profileId, DateTime.UtcNow);
+        return BuildProfileResults(titles, orderedProfileIds, accumulator);
+    }
 
-                return new ProfileSearchResultDto
-                {
-                    Id = profileId,
-                    Title = titles[profileId],
-                    Status = published.Count > 0 ? "Published" : draft.Count > 0 ? "Draft" : scenarios.Count > 0 ? "Scenario" : "Draft",
-                    CreatedAtUtc = createdAtUtc,
-                    ModifiedAtUtc = latestByProfile.GetValueOrDefault(profileId, createdAtUtc),
-                    IsPublic = isPublicByProfile.GetValueOrDefault(profileId),
-                    AffectedSpecies = [],
-                    PublishedVersions = published,
-                    DraftVersions = draft,
-                    Scenarios = scenarios
-                };
-            })
-        ];
+    /// <summary>Reads one result-set-3 row and files its version under the right profile/bucket.</summary>
+    private static void ProcessVersionRow(
+        DbDataReader reader,
+        Dictionary<Guid, string> titles,
+        ProfileVersionAccumulator accumulator)
+    {
+        var row = ReadVersionRow(reader);
+
+        // A version whose root profile is not in result set 1 cannot be displayed.
+        if (!titles.TryGetValue(row.RootProfileId, out var title))
+        {
+            return;
+        }
+
+        var historyItem = new ProfileHistoryItemDto
+        {
+            VersionId = row.VersionId,
+            VersionNumber = row.VersionNumber,
+            Title = title,
+            CreatedAtUtc = row.EffectiveDate,
+            IsScenario = row.ScenarioId != row.RootProfileId
+        };
+
+        GetBucket(accumulator, row.RootProfileId, historyItem.IsScenario, row.StateName).Add(historyItem);
+
+        UpdateEarliest(accumulator, row.RootProfileId, row.EffectiveDate);
+        UpdateLatest(accumulator, row.RootProfileId, row.LastUpdated);
+        UpdateIsPublic(accumulator, row.RootProfileId, row.IsPublic);
+    }
+
+    private static VersionRow ReadVersionRow(DbDataReader reader)
+    {
+        var effectiveDate = ReadNullableDateTime(reader, 6) ?? DateTime.UtcNow;
+
+        return new VersionRow(
+            VersionId: reader.GetGuid(0),
+            ScenarioId: reader.GetGuid(1),
+            RootProfileId: reader.GetGuid(2),
+            VersionNumber: ReadInt32(reader, 3),
+            StateName: ReadNullableString(reader, 5),
+            EffectiveDate: effectiveDate,
+            IsPublic: ReadBoolean(reader, 8),
+            LastUpdated: ReadNullableDateTime(reader, 9) ?? effectiveDate);
+    }
+
+    /// <summary>Picks which per-profile bucket (scenario/published/draft) a version belongs in.</summary>
+    private static List<ProfileHistoryItemDto> GetBucket(
+        ProfileVersionAccumulator accumulator,
+        Guid profileId,
+        bool isScenario,
+        string? stateName)
+    {
+        if (isScenario)
+        {
+            return GetOrAddBucket(accumulator.Scenarios, profileId);
+        }
+
+        if (string.Equals(stateName, PublishedStatus, StringComparison.Ordinal))
+        {
+            return GetOrAddBucket(accumulator.Published, profileId);
+        }
+
+        return GetOrAddBucket(accumulator.Draft, profileId);
+    }
+
+    private static void UpdateEarliest(ProfileVersionAccumulator accumulator, Guid profileId, DateTime effectiveDate)
+    {
+        if (!accumulator.Earliest.TryGetValue(profileId, out var earliest) || effectiveDate < earliest)
+        {
+            accumulator.Earliest[profileId] = effectiveDate;
+        }
+    }
+
+    private static void UpdateLatest(ProfileVersionAccumulator accumulator, Guid profileId, DateTime lastUpdated)
+    {
+        if (!accumulator.Latest.TryGetValue(profileId, out var latest) || lastUpdated > latest)
+        {
+            accumulator.Latest[profileId] = lastUpdated;
+        }
+    }
+
+    private static void UpdateIsPublic(ProfileVersionAccumulator accumulator, Guid profileId, bool isPublic)
+    {
+        accumulator.IsPublic[profileId] = accumulator.IsPublic.GetValueOrDefault(profileId) || isPublic;
+    }
+
+    private static List<ProfileSearchResultDto> BuildProfileResults(
+        Dictionary<Guid, string> titles,
+        List<Guid> orderedProfileIds,
+        ProfileVersionAccumulator accumulator)
+    {
+        return [.. orderedProfileIds.Select(profileId => BuildProfileResult(profileId, titles, accumulator))];
+    }
+
+    private static ProfileSearchResultDto BuildProfileResult(
+        Guid profileId,
+        Dictionary<Guid, string> titles,
+        ProfileVersionAccumulator accumulator)
+    {
+        var published = accumulator.Published.GetValueOrDefault(profileId, []);
+        var draft = accumulator.Draft.GetValueOrDefault(profileId, []);
+        var scenarios = accumulator.Scenarios.GetValueOrDefault(profileId, []);
+        var createdAtUtc = accumulator.Earliest.GetValueOrDefault(profileId, DateTime.UtcNow);
+
+        return new ProfileSearchResultDto
+        {
+            Id = profileId,
+            Title = titles[profileId],
+            Status = DetermineOverallStatus(published.Count, draft.Count, scenarios.Count),
+            CreatedAtUtc = createdAtUtc,
+            ModifiedAtUtc = accumulator.Latest.GetValueOrDefault(profileId, createdAtUtc),
+            IsPublic = accumulator.IsPublic.GetValueOrDefault(profileId),
+            AffectedSpecies = [],
+            PublishedVersions = published,
+            DraftVersions = draft,
+            Scenarios = scenarios
+        };
+    }
+
+    /// <summary>The profile-level status is the "best" version state it has: Published, else
+    /// Draft, else Scenario, else Draft as a safe default for a profile with no versions.</summary>
+    private static string DetermineOverallStatus(int publishedCount, int draftCount, int scenarioCount)
+    {
+        if (publishedCount > 0)
+        {
+            return PublishedStatus;
+        }
+
+        if (draftCount > 0)
+        {
+            return DraftStatus;
+        }
+
+        if (scenarioCount > 0)
+        {
+            return ScenarioStatus;
+        }
+
+        return DraftStatus;
     }
 
     private static List<ProfileHistoryItemDto> GetOrAddBucket(Dictionary<Guid, List<ProfileHistoryItemDto>> buckets, Guid profileId)
@@ -212,8 +294,35 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         !reader.IsDBNull(ordinal) && reader.GetBoolean(ordinal);
 
     private static int ReadInt32(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? 0 : Convert.ToInt32(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
+        reader.IsDBNull(ordinal) ? 0 : Convert.ToInt32(reader.GetValue(ordinal), CultureInfo.InvariantCulture);
 
     private static DateTime? ReadNullableDateTime(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
+
+    /// <summary>One row read from result set 3 (every profile version).</summary>
+    private readonly record struct VersionRow(
+        Guid VersionId,
+        Guid ScenarioId,
+        Guid RootProfileId,
+        int VersionNumber,
+        string? StateName,
+        DateTime EffectiveDate,
+        bool IsPublic,
+        DateTime LastUpdated);
+
+    /// <summary>Per-profile accumulators built up while result set 3 is read row by row.</summary>
+    private sealed class ProfileVersionAccumulator
+    {
+        public Dictionary<Guid, List<ProfileHistoryItemDto>> Published { get; } = [];
+
+        public Dictionary<Guid, List<ProfileHistoryItemDto>> Draft { get; } = [];
+
+        public Dictionary<Guid, List<ProfileHistoryItemDto>> Scenarios { get; } = [];
+
+        public Dictionary<Guid, DateTime> Earliest { get; } = [];
+
+        public Dictionary<Guid, DateTime> Latest { get; } = [];
+
+        public Dictionary<Guid, bool> IsPublic { get; } = [];
+    }
 }

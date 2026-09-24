@@ -25,10 +25,13 @@ public sealed class ProfileSearchService(IProfileRepository repository) : IProfi
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Not yet backed by the database: <c>spgaProfile</c> does not return version content, so a
+    /// dedicated stored procedure is required before this can read real data. Returns a
+    /// placeholder version until that procedure exists.
+    /// </remarks>
     public Task<ProfileVersionDto?> GetProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
-        // TODO: not yet backed by the database - spgaProfile doesn't return version content.
-        // A dedicated stored procedure call is needed here; left as a stub for now.
         var version = new ProfileVersionDto
         {
             Id = profileVersionId,

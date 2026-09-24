@@ -128,7 +128,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         // The search filters (Display checkboxes, sort, page size/number, species tree) are
         // resubmitted via a background fetch rather than a full page reload; that request sends
         // this header so only the results fragment is rendered back, not the whole page.
-        if (string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.Ordinal))
+        if (string.Equals(Request.Headers.XRequestedWith, "XMLHttpRequest", StringComparison.Ordinal))
         {
             return Partial("_SearchResults", this);
         }
@@ -219,6 +219,7 @@ public class SurveillanceProfilesSearchModel : PageModel
     }
 
     private const string AnySpeciesLabel = "Any species";
+    private const string SpeciesKey = "species";
 
     private async Task LoadSpeciesTreeAsync(CancellationToken cancellationToken)
     {
@@ -230,8 +231,8 @@ public class SurveillanceProfilesSearchModel : PageModel
             {
                 IdPrefix = "species-filter",
                 FieldName = nameof(SelectedSpecies),
-                ItemNameSingular = "species",
-                ItemNamePlural = "species",
+                ItemNameSingular = SpeciesKey,
+                ItemNamePlural = SpeciesKey,
                 Nodes = SpeciesTreeBuilder.Build(species),
                 EmptySelectionLabel = AnySpeciesLabel,
                 AllowMultipleSelection = true,
@@ -240,7 +241,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            logger.LogError(exception, "Failed to load species filter values");
+            logger.SpeciesFilterLoadFailed(exception);
             SpeciesTree = EmptyTree();
         }
 
@@ -291,7 +292,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 PagedResults = [];
                 TotalResultCount = 0;
                 TotalPages = 1;
-                logger.LogInformation("Profile search completed with 0 results after applying filter selections");
+                logger.ProfileSearchExcludedAllStatuses();
                 return;
             }
 
@@ -323,18 +324,18 @@ public class SurveillanceProfilesSearchModel : PageModel
                 ? SearchResults.Skip((PageNumber - 1) * pageSize).Take(pageSize).ToList()
                 : SearchResults;
 
-            logger.LogInformation("Profile search completed with {ResultCount} results", TotalResultCount);
+            logger.ProfileSearchCompleted(TotalResultCount);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogError(ex, "Failed to retrieve profile search results");
+            logger.ProfileSearchRequestFailed(ex);
             ErrorMessage = "Unable to retrieve profiles. The service may be temporarily unavailable.";
             SearchResults = [];
             PagedResults = [];
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An unexpected error occurred while searching profiles");
+            logger.ProfileSearchUnexpectedError(ex);
             ErrorMessage = "An unexpected error occurred. Please try again.";
             SearchResults = [];
             PagedResults = [];
@@ -356,8 +357,8 @@ public class SurveillanceProfilesSearchModel : PageModel
     {
         IdPrefix = "species-filter",
         FieldName = nameof(SelectedSpecies),
-        ItemNameSingular = "species",
-        ItemNamePlural = "species",
+        ItemNameSingular = SpeciesKey,
+        ItemNamePlural = SpeciesKey,
         Nodes = []
     };
 }
