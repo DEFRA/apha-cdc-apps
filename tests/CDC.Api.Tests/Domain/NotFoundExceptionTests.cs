@@ -46,4 +46,63 @@ public class NotFoundExceptionTests
 
         ex.Message.Should().Be("Profile '42' was not found.");
     }
+
+    [Fact]
+    public void For_WithGuidKey_FormatsKeyCorrectly()
+    {
+        var id = Guid.NewGuid();
+        var ex = NotFoundException.For("Disease", id);
+
+        ex.Message.Should().Be($"Disease '{id}' was not found.");
+    }
+
+    [Fact]
+    public void For_WithSpecialCharactersInEntityName_FormatsCorrectly()
+    {
+        var ex = NotFoundException.For("User Profile", "john.doe@example.com");
+
+        ex.Message.Should().Be("User Profile 'john.doe@example.com' was not found.");
+    }
+
+    [Fact]
+    public void For_WithNullableKey_FormatsAsEmptyString()
+    {
+        object? nullKey = null;
+        var ex = NotFoundException.For("Record", nullKey!);
+
+        ex.Message.Should().Be("Record '' was not found.");
+    }
+
+    [Fact]
+    public void Exception_InheritsFromException()
+    {
+        var ex = new NotFoundException("Test");
+
+        ex.Should().BeAssignableTo<Exception>();
+    }
+
+    [Fact]
+    public void Exception_CanBeThrowAndCaught()
+    {
+        Action action = () => throw new NotFoundException("Item not found");
+
+        action.Should().Throw<NotFoundException>().WithMessage("Item not found");
+    }
+
+    [Fact]
+    public void Exception_PreservesStackTrace()
+    {
+        NotFoundException? caughtException = null;
+        try
+        {
+            throw new NotFoundException("Test error");
+        }
+        catch (NotFoundException ex)
+        {
+            caughtException = ex;
+        }
+
+        caughtException.Should().NotBeNull();
+        caughtException!.StackTrace.Should().NotBeNullOrEmpty();
+    }
 }
