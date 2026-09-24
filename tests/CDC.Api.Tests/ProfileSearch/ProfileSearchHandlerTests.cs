@@ -117,4 +117,87 @@ public class ProfileSearchHandlerTests
         version.Should().NotBeNull();
         version!.Id.Should().Be(profileVersionId);
     }
+
+    [Theory]
+    [InlineData(true, false, false, "Published", true)]
+    [InlineData(false, true, false, "Draft", true)]
+    [InlineData(false, false, true, "Scenario", true)]
+    [InlineData(false, false, false, "Published", false)]
+    public async Task GetProfileSearchResultsAsync_FiltersByStatusFlags(
+        bool displayPublished,
+        bool displayDraft,
+        bool displayScenarios,
+        string profileStatus,
+        bool expectedIncluded)
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>) [CreateProfile("Bovine tuberculosis", profileStatus)]);
+
+        var service = new ProfileSearchService(repository.Object);
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: displayPublished,
+            displayDraft: displayDraft,
+            displayScenarios: displayScenarios,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().HaveCount(expectedIncluded ? 1 : 0);
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_FiltersByTitleContainingSearchText()
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)
+            [
+                CreateProfile("Bovine tuberculosis", "Published"),
+                CreateProfile("Avian influenza", "Published")
+            ]);
+
+        var service = new ProfileSearchService(repository.Object);
+
+        var results = await service.GetProfileSearchResultsAsync(searchText: "bovine", cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle().Which.Title.Should().Be("Bovine tuberculosis");
+    }
+
+    [Theory]
+    [InlineData("All", 2)]
+    [InlineData("B", 1)]
+    [InlineData("Z", 0)]
+    public async Task GetProfilesByLetterAsync_FiltersByStartingLetter(string letter, int expectedCount)
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)
+            [
+                CreateProfile("Bovine tuberculosis", "Published"),
+                CreateProfile("Avian influenza", "Published")
+            ]);
+
+        var service = new ProfileSearchService(repository.Object);
+
+        var results = await service.GetProfilesByLetterAsync(letter, CancellationToken.None);
+
+        results.Should().HaveCount(expectedCount);
+    }
+
+    private static ProfileSearchResultDto CreateProfile(string title, string status) => new()
+    {
+        Id = Guid.NewGuid(),
+        Title = title,
+        Status = status,
+        CreatedAtUtc = DateTime.UtcNow,
+        ModifiedAtUtc = DateTime.UtcNow,
+        IsPublic = true,
+        AffectedSpecies = [],
+        PublishedVersions = [],
+        DraftVersions = [],
+        Scenarios = []
+    };
 }
