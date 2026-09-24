@@ -1,4 +1,5 @@
 using System.Globalization;
+
 using CDC.Common.Correlation;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
@@ -8,10 +9,8 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 // Structured JSON to stdout only - ECS/Fargate storage is ephemeral, so no file sinks. The
-// awslogs driver on the container picks stdout/stderr up and ships it to CloudWatch Logs. The
-// error-only file sink below is a local development aid, written under the app's own content
-// root (not a shared/writable system directory) so it works the same on any machine.
-var tempLogPath = Path.Combine(builder.Environment.ContentRootPath, "Logs", "cdc-web-errors.log");
+// awslogs driver on the container picks stdout/stderr up and ships it to CloudWatch Logs.
+var tempLogPath = Path.Combine("C:\\Temp", "cdc-web-errors.log");
 Directory.CreateDirectory(Path.GetDirectoryName(tempLogPath)!);
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -26,8 +25,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
             tempLogPath,
             rollingInterval: RollingInterval.Day,
             retainedFileCountLimit: 7,
-            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-            formatProvider: CultureInfo.InvariantCulture)));
+            formatProvider: CultureInfo.InvariantCulture,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
