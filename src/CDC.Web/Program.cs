@@ -2,6 +2,7 @@ using CDC.Common.Correlation;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,11 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
     client.BaseAddress = apiBaseUri;
 })
     .AddStandardResilienceHandler();
+
+// Reference data is served from an in-process store until the reference data endpoints exist on
+// CDC.Api; swap this registration for a typed HttpClient when they do.
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IReferenceDataService, InMemoryReferenceDataService>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
