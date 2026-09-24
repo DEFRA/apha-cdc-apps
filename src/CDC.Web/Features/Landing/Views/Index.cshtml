@@ -1,26 +1,36 @@
 @{
     ViewData["Title"] = "Sign in to D2R2";
+    ViewData["HideAccountBar"] = true;
 }
 
-<span class="govuk-caption-l">D2R2</span>
-<h1 class="govuk-heading-l">Disease Briefing, Decisions Support, Risk Assessment &amp; Ranking</h1>
-
-<h2 class="govuk-heading-m">Please select how you would like to sign in</h2>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <h1 class="govuk-heading-l">Sign in to D2R2</h1>
+        <p class="govuk-body">Disease Briefing, Decisions Support, Risk Assessment &amp; Ranking.</p>
+        <p class="govuk-body">Choose how you want to sign in.</p>
+    </div>
+</div>
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-one-half">
-        <h3 class="govuk-heading-s">Internal User</h3>
-        <p class="govuk-body">APHA staff signing in from the Defra corporate network.</p>
-        <a asp-action="Internal" class="govuk-button">
-            Continue as Internal User
-        </a>
+        <div class="app-signin-option govuk-!-padding-6">
+            <h2 class="govuk-heading-m">Internal user</h2>
+            <p class="govuk-body">APHA and Defra staff signing in from the corporate network.</p>
+            <p class="govuk-body">You will sign in with <strong>Defra Credentials</strong>.</p>
+            <a asp-action="Internal" class="govuk-button app-signin-option__button">
+                Continue as internal user
+            </a>
+        </div>
     </div>
     <div class="govuk-grid-column-one-half">
-        <h3 class="govuk-heading-s">External User</h3>
-        <p class="govuk-body">External contributors and reviewers.</p>
-        <a asp-action="External" class="govuk-button govuk-button--secondary">
-            Continue as External User
-        </a>
+        <div class="app-signin-option govuk-!-padding-6">
+            <h2 class="govuk-heading-m">External user</h2>
+            <p class="govuk-body">Contributors and reviewers from outside APHA.</p>
+            <p class="govuk-body">You will sign in with <strong>GOV.UK One Login</strong>.</p>
+            <a asp-action="External" class="govuk-button govuk-button--secondary app-signin-option__button">
+                Continue as external user
+            </a>
+        </div>
     </div>
 </div>
 
