@@ -175,8 +175,8 @@ jobs:
                 grep -E "^release:${component}:(patch|minor|major)$" || true
             )
 
-            if [[ "${changed}" == "true" && "${#labels[@]}" -gt 1 ]]; then
-              echo "::error::Changed ${component} allows at most one release:${component}:patch, release:${component}:minor or release:${component}:major label."
+            if [[ "${changed}" == "true" && "${#labels[@]}" -ne 1 ]]; then
+              echo "::error::Changed ${component} requires exactly one release:${component}:patch, release:${component}:minor or release:${component}:major label."
               return 1
             fi
 
@@ -505,8 +505,8 @@ jobs:
                   grep -E "^release:${component}:(patch|minor|major)$" || true
               )
 
-              if [[ "${changed}" == "true" && "${#labels[@]}" -gt 1 ]]; then
-                echo "::error::PR #${PR_NUMBER} must not have more than one release:${component}:* label because ${component} changed." >&2
+              if [[ "${changed}" == "true" && "${#labels[@]}" -ne 1 ]]; then
+                echo "::error::PR #${PR_NUMBER} must have exactly one release:${component}:* label because ${component} changed." >&2
                 return 1
               fi
 
@@ -516,12 +516,7 @@ jobs:
               fi
 
               if [[ "${changed}" == "true" ]]; then
-                if [[ "${#labels[@]}" -eq 1 ]]; then
-                  release_type="${labels[0]#release:${component}:}"
-                else
-                  release_type="patch"
-                  echo "::notice::PR #${PR_NUMBER} has no release:${component}:* label; defaulting ${component} release type to patch."
-                fi
+                release_type="${labels[0]#release:${component}:}"
               else
                 release_type="none"
               fi
