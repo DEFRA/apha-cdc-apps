@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using CDC.Web.Features.Health;
+using CDC.Common.Health;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CDC.Web.Tests.Integration;
