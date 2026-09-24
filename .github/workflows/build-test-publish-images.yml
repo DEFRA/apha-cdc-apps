@@ -881,27 +881,14 @@ jobs:
 
             echo "${RELEASE_TAG} already points to the expected digest; continuing safely."
           else
-            IMAGE_MANIFEST="$(aws ecr batch-get-image \
-              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-              --repository-name "${ECR_REPOSITORY}" \
-              --image-ids imageDigest="${IMAGE_DIGEST}" \
-              --accepted-media-types \
-                application/vnd.docker.distribution.manifest.v2+json \
-                application/vnd.oci.image.manifest.v1+json \
-              --query 'images[0].imageManifest' \
-              --output text)"
-
-            test -n "${IMAGE_MANIFEST}" || {
-              echo "::error::Unable to retrieve the ECR image manifest."
-              exit 1
-            }
-
-            aws ecr put-image \
-              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-              --repository-name "${ECR_REPOSITORY}" \
-              --image-tag "${RELEASE_TAG}" \
-              --image-manifest "${IMAGE_MANIFEST}" \
-              >/dev/null
+            # Push the same local image again under the release tag, rather than copying the
+            # manifest via `aws ecr batch-get-image`/`put-image`: ECR's --accepted-media-types
+            # negotiation can transcode the manifest (e.g. Docker v2 schema2 <-> OCI v1), which
+            # changes its serialised bytes - and therefore its digest - even though the image
+            # content is identical. Re-pushing from Docker avoids that transcoding entirely, so
+            # the release tag is guaranteed to resolve to the exact same digest as the candidate.
+            docker tag "${LOCAL_IMAGE}" "${RELEASE_URI}"
+            docker push "${RELEASE_URI}"
           fi
 
           RELEASE_DIGEST="$(aws ecr describe-images \

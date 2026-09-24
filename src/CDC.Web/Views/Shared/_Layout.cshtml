@@ -27,96 +27,93 @@
     <script>document.body.className += ' js-enabled' + ('noModule' in HTMLScriptElement.prototype ? ' govuk-frontend-supported' : '');</script>
     <a href="#main-content" class="govuk-skip-link" data-module="govuk-skip-link">Skip to main content</a>
 
-    <header class="govuk-template__header app-header">
-        <!-- Positioned wrapper so the menu panel can overlay the content below it, rather than pushing it down. -->
-        <div class="app-header__top">
-            <!-- Top bar: application brand (left) and menu/help actions (right). -->
-            <div class="app-top-header">
-                <div class="app-top-header__container govuk-width-container">
-                    <a asp-area="" asp-controller="Landing" asp-action="Internal" class="app-top-header__brand-link">
-                        <span class="app-top-header__brand">D2R2</span>
-                    </a>
-                    <div class="app-top-header__actions">
-                        <button type="button" id="app-menu-toggle" class="app-top-header__menu-toggle" aria-expanded="false" aria-controls="app-menu-panel">
-                            <span class="app-top-header__menu-text">Menu</span>
-                            <svg class="app-top-header__menu-icon" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14" height="8" viewBox="0 0 14 8">
-                                <path fill="currentcolor" d="M7 8 0 1l1.4-1.4L7 5.2 12.6-.4 14 1z"/>
-                            </svg>
-                        </button>
-                        <span class="app-top-header__separator" aria-hidden="true"></span>
-                        <button type="button" class="app-top-header__help" aria-label="Help">
-                            <span class="app-top-header__help-icon" aria-hidden="true">?</span>
-                        </button>
-                    </div>
-                </div>
+    <header class="govuk-header" data-module="govuk-header">
+        <div class="govuk-header__container govuk-width-container">
+            <div class="govuk-header__logo">
+                <a asp-area="" asp-controller="Landing" asp-action="Internal" class="govuk-header__homepage-link">
+                    <span class="govuk-header__product-name">D2R2</span>
+                </a>
             </div>
-
-            <!-- Custom "Menu" toggle panel: intentionally has no data-module="govuk-service-navigation",
-                 since the official component only toggles a nav list, not this multi-section panel.
-                 Positioned absolutely so it overlays the secondary header and page content instead of pushing them down. -->
-            <div id="app-menu-panel" class="app-menu-panel" hidden>
+            @if (!(ViewData["HideAccountBar"] as bool? ?? false))
+            {
+                <div class="app-header__actions">
+                    <nav aria-label="Menu" class="app-header__menu">
+                        <button type="button" id="app-menu-toggle" class="govuk-service-navigation__toggle" aria-controls="app-menu-panel" aria-expanded="false" aria-label="Show or hide menu" data-app-menu-toggle>Menu</button>
+                    </nav>
+                    <span class="app-header__divider" aria-hidden="true"></span>
+                    <a class="app-header__help-link" asp-page="/HelpSupport/HelpUsingD2R2" aria-label="Help using D2R2">
+                        <img class="app-header__help-icon" src="~/assets/images/icon-questionMark.svg" alt="" />
+                    </a>
+                </div>
+            }
+        </div>
+        @if (!(ViewData["HideAccountBar"] as bool? ?? false))
+        {
+            <div id="app-menu-panel" class="app-header__menu-panel" hidden>
                 <partial name="_HeaderMenu" />
             </div>
-        </div>
-
-        <!-- Secondary bar: GOV.UK crest + organisation name (left), signed-in user (right). -->
-        <div class="app-secondary-header">
-            <div class="app-secondary-header__container govuk-width-container">
-                <div class="app-secondary-header__brand">
-                    <img src="~/assets/images/govuk-crest.svg" alt="GOV.UK" class="app-secondary-header__crest" />
-                    <span class="app-secondary-header__org">Animal &amp; Plant Health Agency</span>
-                </div>
-                <!-- Placeholder until Entra ID sign-in is implemented; username will come from the authenticated user's claims. -->
-                <div class="app-secondary-header__account">
-                    <p class="app-secondary-header__signed-in">
-                        Signed in as: <span class="app-secondary-header__username">Srinivas Bharadwaj Dodla</span>
-                    </p>
-                    <a href="#" class="app-secondary-header__signout govuk-link govuk-link--no-visited-state">Sign out</a>
-                </div>
-            </div>
-        </div>
+        }
     </header>
 
     <div class="govuk-width-container">
+        <div class="app-banner-row">
+            <img class="app-banner-row__logo" src="~/assets/images/apha-logo-dark.png" alt="Animal and Plant Health Agency" />
+            @if (!(ViewData["HideAccountBar"] as bool? ?? false))
+            {
+                <!-- Placeholder until Entra ID sign-in is implemented; username will come from the authenticated user's claims. -->
+                <p class="govuk-body-s app-banner-row__account">
+                    Signed in as <strong>Srinivas Bharadwaj Dodla</strong> &middot; <a class="govuk-link" asp-action="Index">Sign out</a>
+                </p>
+            }
+        </div>
+
         @await RenderSectionAsync("Breadcrumbs", required: false)
         <main class="govuk-main-wrapper" id="main-content" role="main">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="govuk-template__footer app-footer">
-        <div class="govuk-width-container govuk-!-padding-top-4 govuk-!-padding-bottom-8">
-            <div class="govuk-!-margin-top-2">
-                <a class="govuk-link govuk-link--no-visited-state app-footer__back-to-top-link" href="#top">
-                    <svg class="app-footer__back-to-top-icon" role="presentation" focusable="false" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="13" height="17" viewBox="0 0 13 17">
-                        <path fill="currentColor" d="M6.5 0L0 6.5 1.4 8l4-4v12.7h2V4l4.3 4L13 6.4z"></path>
-                    </svg>
-                    Back to top
-                </a>
+    <footer class="govuk-footer">
+        <div class="govuk-width-container">
+            <div class="govuk-footer__navigation">
+                <div class="govuk-footer__section govuk-grid-column-one-third">
+                    <h2 class="govuk-footer__heading govuk-heading-m">User admin</h2>
+                    <ul class="govuk-footer__list">
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/UserAdmin/GlobalUsers">Global users</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/UserAdmin/ExternalUsers">External users</a></li>
+                    </ul>
+                </div>
+                <div class="govuk-footer__section govuk-grid-column-one-third">
+                    <h2 class="govuk-footer__heading govuk-heading-m">Cross profile admin</h2>
+                    <ul class="govuk-footer__list">
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/CrossProfileAdmin/ReferenceData">Maintain reference data</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/CrossProfileAdmin/PrioritisationVariables">Maintain prioritisation variables</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/CrossProfileAdmin/CrossCuttingIssueScores">Maintain cross-cutting issue scores</a></li>
+                    </ul>
+                </div>
+                <div class="govuk-footer__section govuk-grid-column-one-third">
+                    <h2 class="govuk-footer__heading govuk-heading-m">Help and support</h2>
+                    <ul class="govuk-footer__list">
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/HelpUsingD2R2">Help using D2R2</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/QualityStatement">D2R2 quality statement</a></li>
+                    </ul>
+                </div>
             </div>
-
-            <div class="govuk-grid-row">
-                <div class="govuk-grid-column-one-third">
-                    <h2 class="govuk-heading-m app-footer__heading govuk-!-margin-top-3 govuk-!-margin-bottom-3 govuk-!-padding-bottom-1">User Admin</h2>
-                    <ul class="govuk-list">
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/UserAdmin/GlobalUsers">Global users</a></li>
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/UserAdmin/ExternalUsers">External users</a></li>
+            <hr class="govuk-footer__section-break">
+            <div class="govuk-footer__meta">
+                <div class="govuk-footer__meta-item govuk-footer__meta-item--grow">
+                    <h2 class="govuk-visually-hidden">Support links</h2>
+                    <ul class="govuk-footer__inline-list">
+                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" href="#">Cookies</a></li>
+                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" href="#">Accessibility statement</a></li>
+                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" href="#">Privacy notice</a></li>
                     </ul>
+                    <span class="govuk-footer__licence-description">
+                        All content is available under the <a class="govuk-footer__link" href="#" rel="license">Open Government Licence v3.0</a>, except where otherwise stated
+                    </span>
                 </div>
-                <div class="govuk-grid-column-one-third">
-                    <h2 class="govuk-heading-m app-footer__heading govuk-!-margin-top-3 govuk-!-margin-bottom-3 govuk-!-padding-bottom-1">Cross Profile Admin</h2>
-                    <ul class="govuk-list">
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/CrossProfileAdmin/ReferenceData">Maintain reference data</a></li>
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/CrossProfileAdmin/PrioritisationVariables">Maintain prioritisation variables</a></li>
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/CrossProfileAdmin/CrossCuttingIssueScores">Maintain cross-cutting issue scores</a></li>
-                    </ul>
-                </div>
-                <div class="govuk-grid-column-one-third">
-                    <h2 class="govuk-heading-m app-footer__heading govuk-!-margin-top-3 govuk-!-margin-bottom-3 govuk-!-padding-bottom-1">Help and Support</h2>
-                    <ul class="govuk-list">
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/HelpSupport/HelpUsingD2R2">Help using D2R2</a></li>
-                        <li><a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline" asp-page="/HelpSupport/QualityStatement">D2R2 Quality Statement</a></li>
-                    </ul>
+                <div class="govuk-footer__meta-item">
+                    <a class="govuk-footer__link govuk-footer__copyright-logo" href="#">&copy; Crown copyright</a>
                 </div>
             </div>
         </div>
