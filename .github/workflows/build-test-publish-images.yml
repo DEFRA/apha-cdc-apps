@@ -81,7 +81,7 @@ jobs:
               - 'Directory.Packages.props'
               - 'NuGet.config'
               - 'global.json'
-              - '.github/workflows/build-test-publish.yml'
+              - '.github/workflows/build-test-publish-images.yml'
             web:
               - 'src/CDC.Web/**'
               - 'tests/CDC.Web.Tests/**'
@@ -90,7 +90,7 @@ jobs:
               - 'Directory.Packages.props'
               - 'NuGet.config'
               - 'global.json'
-              - '.github/workflows/build-test-publish.yml'
+              - '.github/workflows/build-test-publish-images.yml'
 
       - name: Resolve affected components
         id: components
