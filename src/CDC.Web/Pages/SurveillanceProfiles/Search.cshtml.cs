@@ -189,17 +189,20 @@ public class SurveillanceProfilesSearchModel : PageModel
 
     /// <summary>Gets every version other than the one <see cref="GetCurrentVersion"/> returns,
     /// newest first, for the "Show previous versions" toggle.</summary>
-    public static IReadOnlyList<ProfileHistoryItemDto> GetPreviousVersions(ProfileSearchResultDto profile)
+    public static IReadOnlyList<PreviousVersionRow> GetPreviousVersions(ProfileSearchResultDto profile)
     {
         var current = GetCurrentVersion(profile);
 
+        IEnumerable<PreviousVersionRow> Labelled(IReadOnlyList<ProfileHistoryItemDto> versions, string status) =>
+            versions.Select(version => new PreviousVersionRow(version, status));
+
         return
         [
-            .. profile.PublishedVersions
-                .Concat(profile.DraftVersions)
-                .Concat(profile.Scenarios)
-                .Where(version => version.VersionId != current?.VersionId)
-                .OrderByDescending(version => version.VersionNumber)
+            .. Labelled(profile.PublishedVersions, "Published")
+                .Concat(Labelled(profile.DraftVersions, "Draft"))
+                .Concat(Labelled(profile.Scenarios, "Scenario"))
+                .Where(row => row.Version.VersionId != current?.VersionId)
+                .OrderByDescending(row => row.Version.VersionNumber)
         ];
     }
 
@@ -358,3 +361,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         Nodes = []
     };
 }
+
+/// <summary>A previous version row for the "Show previous versions" panel, paired with the
+/// bucket (Published/Draft/Scenario) it came from.</summary>
+public sealed record PreviousVersionRow(ProfileHistoryItemDto Version, string Status);

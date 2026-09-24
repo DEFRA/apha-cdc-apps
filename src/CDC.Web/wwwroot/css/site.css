@@ -106,6 +106,26 @@ html {
   background: #f8f9fa;
 }
 
+/* Second sub-card ("Show previous versions" panel): same border, no background fill. */
+.app-profile-card__sub-card--secondary {
+  background: none;
+}
+
+.app-profile-card__version-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-profile-card__version-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 /* Widen the GOV.UK container so header, footer and page content use more of the screen. */
 .govuk-width-container {
   max-width: 1200px;

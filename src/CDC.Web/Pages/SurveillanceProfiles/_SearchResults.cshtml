@@ -111,22 +111,32 @@
                                     </button>
 
                                     <div id="@previousVersionsId" class="app-filters__content govuk-!-margin-top-2" hidden>
-                                        @if (previousVersions.Count == 0)
-                                        {
-                                            <p class="govuk-body govuk-!-margin-bottom-0">No previous versions.</p>
-                                        }
-                                        else
-                                        {
-                                            <ul class="govuk-list govuk-!-margin-bottom-0">
-                                                @foreach (var version in previousVersions)
+                                        <div class="app-profile-card__sub-card app-profile-card__sub-card--secondary">
+                                            @if (previousVersions.Count == 0)
+                                            {
+                                                <p class="govuk-body govuk-!-margin-bottom-0">No previous versions.</p>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var row in previousVersions)
                                                 {
-                                                    <li>
-                                                        Version @($"{version.VersionNumber}.0")
-                                                        <span class="govuk-!-margin-left-2">@version.CreatedAtUtc.ToString("dd/MM/yyyy")</span>
-                                                    </li>
+                                                    <div class="app-profile-card__version-row">
+                                                        <p class="govuk-body govuk-!-margin-bottom-0">
+                                                            Version @($"{row.Version.VersionNumber}.0")
+                                                            <span class="govuk-!-margin-left-2">@row.Status</span>
+                                                            <span class="govuk-!-margin-left-2">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy")</span>
+                                                        </p>
+                                                        <p class="govuk-body govuk-!-margin-bottom-0">
+                                                            <a class="govuk-link" href="#">Clone profile</a>
+                                                            <span aria-hidden="true"> | </span>
+                                                            <a class="govuk-link" href="#">Browse profile</a>
+                                                            <span aria-hidden="true"> | </span>
+                                                            <a class="govuk-link" href="#">Clone scenario</a>
+                                                        </p>
+                                                    </div>
                                                 }
-                                            </ul>
-                                        }
+                                            }
+                                        </div>
                                     </div>
                                 </div>
                             </div>
