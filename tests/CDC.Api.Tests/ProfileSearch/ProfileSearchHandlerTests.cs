@@ -133,7 +133,7 @@ public class ProfileSearchHandlerTests
         var repository = new Mock<IProfileRepository>();
         repository
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>) [CreateProfile("Bovine tuberculosis", profileStatus)]);
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", profileStatus)]);
 
         var service = new ProfileSearchService(repository.Object);
 
