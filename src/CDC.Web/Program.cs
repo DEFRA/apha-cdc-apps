@@ -1,4 +1,5 @@
 using CDC.Common.Correlation;
+using CDC.Common.Health;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -97,4 +98,4 @@ app.MapControllerRoute(
 // Ensure Razor Pages are available if any exist in the project
 app.MapRazorPages();
 
-app.Run();
+await app.RunAsync();
