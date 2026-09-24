@@ -10,17 +10,19 @@
             return;
         }
 
+        var ARIA_EXPANDED = 'aria-expanded';
+
         function closeMenu() {
-            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute(ARIA_EXPANDED, 'false');
             panel.hidden = true;
         }
 
         toggle.addEventListener('click', function (event) {
-            var isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+            var isExpanded = toggle.getAttribute(ARIA_EXPANDED) === 'true';
 
             // Stop this click reaching the document listener below, which would immediately re-close the panel.
             event.stopPropagation();
-            toggle.setAttribute('aria-expanded', String(!isExpanded));
+            toggle.setAttribute(ARIA_EXPANDED, String(!isExpanded));
             panel.hidden = isExpanded;
         });
 
