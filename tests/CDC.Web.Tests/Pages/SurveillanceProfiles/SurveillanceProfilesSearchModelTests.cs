@@ -83,7 +83,7 @@ public class SurveillanceProfilesSearchModelTests
     public async Task OnGetAsync_ReturnsResultsPartial_WhenRequestedByAjax()
     {
         var pageModel = CreatePageModel([Profile("Bovine tuberculosis")]);
-        pageModel.HttpContext.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
+        pageModel.HttpContext.Request.Headers.XRequestedWith = "XMLHttpRequest";
 
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
@@ -351,7 +351,7 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Null(url);
     }
 
-    private static IUrlHelper CreateUrlHelper() => new FakeUrlHelper(values =>
+    private static FakeUrlHelper CreateUrlHelper() => new(values =>
     {
         var query = string.Join("&", values.Select(pair => $"{pair.Key}={pair.Value}"));
 
