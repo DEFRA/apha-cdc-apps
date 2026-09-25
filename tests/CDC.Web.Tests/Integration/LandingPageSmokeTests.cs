@@ -16,7 +16,7 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/")]
     [InlineData("/Landing/Internal")]
     [InlineData("/Landing/External")]
-    [InlineData("/DiseaseProfiles/Search")]
+    [InlineData("/SurveillanceProfiles/Search")]
     [InlineData("/DiseaseProfiles/Create")]
     [InlineData("/DiseaseProfiles/CompareVersions")]
     [InlineData("/DiseaseProfiles/ReviewTimings")]

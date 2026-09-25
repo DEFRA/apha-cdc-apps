@@ -1,4 +1,6 @@
+using System.Globalization;
 using CDC.Common.Correlation;
+using CDC.Common.Health;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -8,13 +10,26 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 // Structured JSON to stdout only - ECS/Fargate storage is ephemeral, so no file sinks. The
-// awslogs driver on the container picks stdout/stderr up and ships it to CloudWatch Logs.
+// awslogs driver on the container picks stdout/stderr up and ships it to CloudWatch Logs. The
+// error-only file sink below is a local development aid, written under the app's own content
+// root (not a shared/writable system directory) so it works the same on any machine.
+var tempLogPath = Path.Combine(builder.Environment.ContentRootPath, "Logs", "cdc-web-errors.log");
+Directory.CreateDirectory(Path.GetDirectoryName(tempLogPath)!);
+
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
     .Enrich.WithEnvironmentName()
-    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter()));
+    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter())
+    .WriteTo.Logger(loggerConfiguration => loggerConfiguration
+        .MinimumLevel.Error()
+        .WriteTo.File(
+            tempLogPath,
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 7,
+            formatProvider: CultureInfo.InvariantCulture,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -103,4 +118,4 @@ app.MapControllerRoute(
 // Ensure Razor Pages are available if any exist in the project
 app.MapRazorPages();
 
-app.Run();
+await app.RunAsync();

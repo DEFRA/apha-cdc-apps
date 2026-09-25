@@ -1,0 +1,187 @@
+@model CDC.Web.Pages.SurveillanceProfilesSearchModel
+@* Rendered both by the full page and, via SurveillanceProfilesSearchModel.OnGetAsync, as an
+   AJAX fragment so filter changes can repopulate this section without a full page reload. *@
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="govuk-error-summary govuk-!-margin-top-4" data-module="govuk-error-summary">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title">
+                There is a problem
+            </h2>
+            <div class="govuk-error-summary__body">
+                <p>@Model.ErrorMessage</p>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.IsSearchPerformed)
+{
+    <div class="govuk-grid-row govuk-!-margin-top-4">
+        <div class="govuk-grid-column-full">
+            <p class="govuk-body govuk-!-margin-bottom-2">
+                <strong>@Model.TotalResultCount</strong> disease profile(s) found containing the search words (phrase) you entered
+            </p>
+            <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--m govuk-!-margin-top-0" />
+
+            @if (Model.SearchResults.Count == 0)
+            {
+                <p class="govuk-body">
+                    No disease profiles match your search criteria. Please try different search terms or filter options.
+                </p>
+            }
+            else
+            {
+                <div class="app-results-toolbar govuk-!-margin-bottom-3">
+                    <div class="govuk-form-group govuk-!-margin-bottom-0">
+                        <label class="govuk-label" for="SortBy">Sort by:</label>
+                        <select class="govuk-select" id="SortBy" name="SortBy" form="search-form" onchange="this.form.requestSubmit()">
+                            @foreach (var option in CDC.Web.Pages.SurveillanceProfilesSearchModel.SortByOptions)
+                            {
+                                <option value="@option.Value" selected="@(option.Value == Model.SortBy ? "selected" : null)">@option.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="govuk-form-group govuk-!-margin-bottom-0">
+                        <label class="govuk-label" for="PageSize">Items per page:</label>
+                        <select class="govuk-select" id="PageSize" name="PageSize" form="search-form" onchange="this.form.requestSubmit()">
+                            @foreach (var option in CDC.Web.Pages.SurveillanceProfilesSearchModel.PageSizeOptions)
+                            {
+                                <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="app-profile-list">
+                    @foreach (var profile in Model.PagedResults)
+                    {
+                        var currentVersion = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetCurrentVersion(profile);
+                        var currentVersionLabel = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetCurrentVersionLabel(profile);
+                        var previousVersions = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetPreviousVersions(profile);
+                        var previousVersionsId = $"previous-versions-{profile.Id}";
+
+                        <div class="app-profile-card govuk-!-margin-bottom-3">
+                            <div class="app-profile-card__header">
+                                <h3 class="govuk-heading-s govuk-!-margin-bottom-0">@profile.Title</h3>
+                                <p class="govuk-body govuk-!-margin-bottom-0">
+                                    <a class="govuk-link" href="#">Edit Title</a>
+                                    <span aria-hidden="true"> | </span>
+                                    <a class="govuk-link" href="#">Manage</a>
+                                    <span aria-hidden="true"> | </span>
+                                    <a class="govuk-link" href="#">Contributions</a>
+                                </p>
+                            </div>
+
+                            <div class="app-profile-card__sub-card">
+                                @if (currentVersion is not null)
+                                {
+                                    <p class="govuk-body govuk-!-margin-bottom-1">
+                                        <strong>@currentVersionLabel: @($"{currentVersion.VersionNumber}.0")</strong>
+                                        <span class="govuk-!-margin-left-2">@currentVersion.CreatedAtUtc.ToString("dd/MM/yyyy")</span> -
+                                    </p>
+                                }
+
+                                <p class="govuk-body govuk-!-margin-bottom-1">
+                                    <a class="govuk-link" href="#">View reports</a>
+                                    <span aria-hidden="true"> | </span>
+                                    <a class="govuk-link" href="#">Clone profile</a>
+                                    <span aria-hidden="true"> | </span>
+                                    <a class="govuk-link" href="#">Browse profile</a>
+                                    <span aria-hidden="true"> | </span>
+                                    <a class="govuk-link" href="#">Clone scenario</a>
+                                </p>
+
+                                <p class="govuk-body govuk-!-margin-bottom-1">Profile Status: @profile.Status</p>
+
+                                <div data-module="app-filters-toggle">
+                                    <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link
+                                            data-app-filters-expanded-text="Hide previous versions"
+                                            data-app-filters-collapsed-text="Show previous versions"
+                                            aria-expanded="false" aria-controls="@previousVersionsId">
+                                        <span data-app-filters-toggle-text>Show previous versions</span>
+                                        <span class="app-species-filter__icon" aria-hidden="true">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                                <path d="M1 1l5 5 5-5" />
+                                            </svg>
+                                        </span>
+                                    </button>
+
+                                    <div id="@previousVersionsId" class="app-filters__content govuk-!-margin-top-2" hidden>
+                                        <div class="app-profile-card__sub-card app-profile-card__sub-card--secondary">
+                                            @if (previousVersions.Count == 0)
+                                            {
+                                                <p class="govuk-body govuk-!-margin-bottom-0">No previous versions.</p>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var row in previousVersions)
+                                                {
+                                                    <div class="app-profile-card__version-row">
+                                                        <p class="govuk-body govuk-!-margin-bottom-0">
+                                                            Version @($"{row.Version.VersionNumber}.0")
+                                                            <span class="govuk-!-margin-left-2">@row.Status</span>
+                                                            <span class="govuk-!-margin-left-2">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy")</span>
+                                                        </p>
+                                                        <p class="govuk-body govuk-!-margin-bottom-0">
+                                                            <a class="govuk-link" href="#">Clone profile</a>
+                                                            <span aria-hidden="true"> | </span>
+                                                            <a class="govuk-link" href="#">Browse profile</a>
+                                                            <span aria-hidden="true"> | </span>
+                                                            <a class="govuk-link" href="#">Clone scenario</a>
+                                                        </p>
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (Model.TotalPages > 1)
+                {
+                    <nav class="govuk-pagination" aria-label="Search results pages">
+                        @if (Model.PageNumber > 1)
+                        {
+                            <div class="govuk-pagination__prev">
+                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                                    <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                        <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                                    </svg>
+                                    <span class="govuk-pagination__link-title">Previous</span>
+                                </a>
+                            </div>
+                        }
+
+                        <ul class="govuk-pagination__list">
+                            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                            {
+                                <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                </li>
+                            }
+                        </ul>
+
+                        @if (Model.PageNumber < Model.TotalPages)
+                        {
+                            <div class="govuk-pagination__next">
+                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                                    <span class="govuk-pagination__link-title">Next</span>
+                                    <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                        <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                        }
+                    </nav>
+                }
+            }
+        </div>
+    </div>
+}

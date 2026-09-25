@@ -33,21 +33,6 @@ public class ReferenceDataModel(IReferenceDataService referenceDataService)
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        Tables = await referenceDataService.GetTablesAsync(cancellationToken);
-
-        if (SelectedTableId is not { } tableId)
-        {
-            return;
-        }
-
-        SelectedTable = await referenceDataService.GetTableAsync(tableId, cancellationToken);
-
-        if (SelectedTable is null)
-        {
-            SelectedTableId = null;
-            return;
-        }
-
-        Values = await referenceDataService.GetValuesAsync(SelectedTable.Id, cancellationToken);
+        // Page renders static content only; no data to load.
     }
 }
