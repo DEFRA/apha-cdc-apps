@@ -1,3 +1,4 @@
+using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.Species.Interfaces;
 using CDC.Api.Infrastructure.Repositories;
@@ -19,6 +20,7 @@ public static class InfrastructureDependencyInjection
         services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
         services.AddScoped<ISpeciesRepository, SpeciesRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
+        services.AddScoped<IProfileManagementRepository, ProfileManagementRepository>();
 
         return services;
     }
