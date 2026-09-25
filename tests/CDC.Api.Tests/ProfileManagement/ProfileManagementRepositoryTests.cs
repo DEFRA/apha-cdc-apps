@@ -402,6 +402,9 @@ public class ProfileManagementRepositoryTests : IDisposable
             Id = ProfileManagementTestData.ProfileId,
             CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
             Title = "Anthrax",
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId,
             AffectedSpeciesInsertList =
             [
                 new AffectedSpeciesInsertDto
@@ -550,7 +553,10 @@ public class ProfileManagementRepositoryTests : IDisposable
         {
             Id = ProfileManagementTestData.ProfileId,
             CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
-            Title = "Anthrax"
+            Title = "Anthrax",
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
         };
 
         var act = () => CreateRepository().CreateProfileAsync(command, CancellationToken.None);

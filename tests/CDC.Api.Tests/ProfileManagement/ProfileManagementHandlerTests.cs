@@ -18,7 +18,15 @@ public class ProfileManagementHandlerTests
     [Fact]
     public async Task CreateProfileCommandHandler_ReturnsSuccess()
     {
-        var command = new CreateProfileCommand { Id = ProfileManagementTestData.ProfileId, Title = "Anthrax" };
+        var command = new CreateProfileCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Anthrax",
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
         var resultDto = new CreateProfileResultDto { NewProfileId = command.Id, NewLastUpdated = ProfileManagementTestData.RowVersion };
 
         service

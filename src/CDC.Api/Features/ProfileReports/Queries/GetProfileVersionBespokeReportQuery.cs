@@ -3,6 +3,7 @@ using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using FluentValidation;
 using MediatR;
+using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.ProfileReports.Queries;
 
@@ -13,7 +14,7 @@ namespace CDC.Api.Features.ProfileReports.Queries;
 /// <param name="SelectedGuidance">The guidance to include.</param>
 /// <param name="TemplateTitle">The template's display title.</param>
 public sealed record GetProfileVersionBespokeReportQuery(
-    Guid ProfileVersionId,
+    [property: JsonRequired] Guid ProfileVersionId,
     IReadOnlyList<string> SelectedSections,
     IReadOnlyList<string> SelectedQuestions,
     IReadOnlyList<string> SelectedGuidance,

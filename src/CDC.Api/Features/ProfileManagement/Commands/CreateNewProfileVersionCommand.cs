@@ -1,6 +1,7 @@
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using MediatR;
+using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.ProfileManagement.Commands;
 
@@ -18,5 +19,8 @@ namespace CDC.Api.Features.ProfileManagement.Commands;
 /// Whether the new version is publicly visible. Only valid when <paramref name="IsPublished"/>
 /// is <see langword="true"/>.
 /// </param>
-public sealed record CreateNewProfileVersionCommand(Guid ProfileVersionId, bool IsPublished, bool IsPublic)
+public sealed record CreateNewProfileVersionCommand(
+    [property: JsonRequired] Guid ProfileVersionId,
+    [property: JsonRequired] bool IsPublished,
+    [property: JsonRequired] bool IsPublic)
     : IRequest<Result<NewProfileVersionResultDto>>;

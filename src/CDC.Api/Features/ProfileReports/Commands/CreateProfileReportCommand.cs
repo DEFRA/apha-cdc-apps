@@ -18,10 +18,10 @@ namespace CDC.Api.Features.ProfileReports.Commands;
 public sealed record CreateProfileReportCommand : IRequest<Result<CreateProfileReportResultDto>>
 {
     /// <summary>Gets the profile version the report covers.</summary>
-    public Guid ProfileVersionId { get; init; }
+    public required Guid ProfileVersionId { get; init; }
 
     /// <summary>Gets the report definition being generated (see <c>GET /api/profile-reports/profile-version/{profileVersionId}</c>).</summary>
-    public Guid ProfileReportId { get; init; }
+    public required Guid ProfileReportId { get; init; }
 
     /// <summary>Gets the internal report name that was used to render <see cref="ReportData"/>.</summary>
     public string ReportName { get; init; } = string.Empty;

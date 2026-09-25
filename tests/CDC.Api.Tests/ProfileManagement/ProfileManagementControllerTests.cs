@@ -53,7 +53,15 @@ public class ProfileManagementControllerTests
     [Fact]
     public async Task CreateProfile_ReturnsCreated()
     {
-        var command = new CreateProfileCommand { Id = ProfileManagementTestData.ProfileId, Title = "Anthrax" };
+        var command = new CreateProfileCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Anthrax",
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
         var resultDto = new CreateProfileResultDto { NewProfileId = command.Id, NewLastUpdated = ProfileManagementTestData.RowVersion };
 
         mediator
@@ -69,7 +77,7 @@ public class ProfileManagementControllerTests
     [Fact]
     public async Task UpdateProfileAttributes_ReturnsNoContent()
     {
-        var command = new UpdateProfileAttributesCommand { LastUpdated = ProfileManagementTestData.RowVersion };
+        var command = new UpdateProfileAttributesCommand { Id = Guid.Empty, LastUpdated = ProfileManagementTestData.RowVersion };
         var resultDto = new UpdateProfileAttributesResultDto { NewLastUpdated = ProfileManagementTestData.NewRowVersion };
 
         mediator
@@ -86,7 +94,7 @@ public class ProfileManagementControllerTests
     [Fact]
     public async Task UpdateProfileAttributes_ReturnsConflict()
     {
-        var command = new UpdateProfileAttributesCommand { LastUpdated = ProfileManagementTestData.RowVersion };
+        var command = new UpdateProfileAttributesCommand { Id = Guid.Empty, LastUpdated = ProfileManagementTestData.RowVersion };
 
         mediator
             .Setup(sender => sender.Send(

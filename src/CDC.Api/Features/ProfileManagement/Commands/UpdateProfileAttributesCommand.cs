@@ -11,7 +11,7 @@ namespace CDC.Api.Features.ProfileManagement.Commands;
 public sealed record UpdateProfileAttributesCommand : IRequest<Result<UpdateProfileAttributesResultDto>>
 {
     /// <summary>Gets the profile identifier.</summary>
-    public Guid Id { get; init; }
+    public required Guid Id { get; init; }
 
     /// <summary>Gets the new title, or empty to leave it unchanged.</summary>
     public string Title { get; init; } = string.Empty;

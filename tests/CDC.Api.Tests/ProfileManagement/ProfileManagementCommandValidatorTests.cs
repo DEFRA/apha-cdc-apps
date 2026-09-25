@@ -9,7 +9,15 @@ public class ProfileManagementCommandValidatorTests
     [Fact]
     public void CreateProfileCommandValidator_RequiresId()
     {
-        var command = new CreateProfileCommand { Id = Guid.Empty, Title = "Anthrax" };
+        var command = new CreateProfileCommand
+        {
+            Id = Guid.Empty,
+            Title = "Anthrax",
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
 
         var result = new CreateProfileCommandValidator().Validate(command);
 
@@ -24,7 +32,10 @@ public class ProfileManagementCommandValidatorTests
         {
             Id = ProfileManagementTestData.ProfileId,
             CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
-            Title = string.Empty
+            Title = string.Empty,
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
         };
 
         var result = new CreateProfileCommandValidator().Validate(command);
@@ -41,7 +52,9 @@ public class ProfileManagementCommandValidatorTests
             Id = ProfileManagementTestData.ProfileId,
             CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
             ParentId = ProfileManagementTestData.ProfileId,
-            ParentTitle = string.Empty
+            ParentTitle = string.Empty,
+            CloneProfileVersionId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
         };
 
         var result = new CreateProfileCommandValidator().Validate(command);
@@ -58,6 +71,9 @@ public class ProfileManagementCommandValidatorTests
             Id = ProfileManagementTestData.ProfileId,
             CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
             Title = "Anthrax",
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId,
             AffectedSpeciesInsertList =
             [
                 new AffectedSpeciesInsertDto
@@ -82,6 +98,9 @@ public class ProfileManagementCommandValidatorTests
             Id = ProfileManagementTestData.ProfileId,
             CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
             Title = "Anthrax",
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId,
             AffectedSpeciesInsertList =
             [
                 new AffectedSpeciesInsertDto

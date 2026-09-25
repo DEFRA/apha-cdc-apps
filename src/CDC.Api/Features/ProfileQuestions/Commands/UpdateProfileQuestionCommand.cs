@@ -9,14 +9,14 @@ namespace CDC.Api.Features.ProfileQuestions.Commands;
 /// <c>UpdateProfileQuestionRequest</c> data contract.
 /// </summary>
 /// <remarks>
-/// <see cref="ShortName"/> and <c>QuestionNumber</c> are deliberately not part of this command:
+/// <c>ShortName</c> and <c>QuestionNumber</c> are deliberately not part of this command:
 /// the legacy <c>spuProfileQuestion</c> call never passed them either, so they were never
 /// actually persisted despite appearing on the legacy WCF request.
 /// </remarks>
 public sealed record UpdateProfileQuestionCommand : IRequest<Result<ProfileQuestionDto>>
 {
     /// <summary>Gets the question being updated.</summary>
-    public Guid Id { get; init; }
+    public required Guid Id { get; init; }
 
     /// <summary>Gets the question's new full display name.</summary>
     public string Name { get; init; } = string.Empty;

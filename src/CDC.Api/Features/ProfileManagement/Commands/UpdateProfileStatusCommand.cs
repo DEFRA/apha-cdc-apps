@@ -1,5 +1,6 @@
 using CDC.Api.Domain.Common;
 using MediatR;
+using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.ProfileManagement.Commands;
 
@@ -10,4 +11,6 @@ namespace CDC.Api.Features.ProfileManagement.Commands;
 /// </summary>
 /// <param name="ProfileId">The profile to update.</param>
 /// <param name="ProfileStatusId">The status to set.</param>
-public sealed record UpdateProfileStatusCommand(Guid ProfileId, Guid ProfileStatusId) : IRequest<Result<Unit>>;
+public sealed record UpdateProfileStatusCommand(
+    [property: JsonRequired] Guid ProfileId,
+    [property: JsonRequired] Guid ProfileStatusId) : IRequest<Result<Unit>>;

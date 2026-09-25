@@ -93,7 +93,7 @@ public class ProfileQuestionsControllerTests
     [Fact]
     public async Task UpdateProfileQuestion_ReturnsOk()
     {
-        var command = new UpdateProfileQuestionCommand { LastUpdated = ProfileQuestionTestData.RowVersion };
+        var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };
         var dto = ProfileQuestionTestData.ProfileQuestionDto();
 
         mediator
@@ -113,7 +113,7 @@ public class ProfileQuestionsControllerTests
         // 400 is produced by the FluentValidation pipeline before the handler runs (see
         // ProfileQuestionValidatorTests), so at the controller level this is exercised via a
         // NotFound-shaped Result standing in for any non-success mapping through ToActionResult.
-        var command = new UpdateProfileQuestionCommand { LastUpdated = ProfileQuestionTestData.RowVersion };
+        var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };
 
         mediator
             .Setup(sender => sender.Send(
@@ -129,7 +129,7 @@ public class ProfileQuestionsControllerTests
     [Fact]
     public async Task UpdateProfileQuestion_ReturnsConflict()
     {
-        var command = new UpdateProfileQuestionCommand { LastUpdated = ProfileQuestionTestData.RowVersion };
+        var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };
 
         mediator
             .Setup(sender => sender.Send(

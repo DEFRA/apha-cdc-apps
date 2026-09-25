@@ -13,10 +13,10 @@ namespace CDC.Api.Features.ProfileNotes.Commands;
 public sealed record UpdateNotesCommand : IRequest<Result<ProfileNoteChangesetResultDto>>
 {
     /// <summary>Gets the profile version the notes belong to.</summary>
-    public Guid ProfileVersionId { get; init; }
+    public required Guid ProfileVersionId { get; init; }
 
     /// <summary>Gets the note type being changed.</summary>
-    public Guid NoteTypeId { get; init; }
+    public required Guid NoteTypeId { get; init; }
 
     /// <summary>Gets the notes to insert.</summary>
     public IReadOnlyList<ProfileNoteInsertDto> Inserts { get; init; } = [];

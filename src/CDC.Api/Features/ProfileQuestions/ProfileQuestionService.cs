@@ -17,7 +17,7 @@ public sealed class ProfileQuestionService(IProfileQuestionRepository repository
     : IProfileQuestionService
 {
     /// <summary>Report titles shown alongside <see cref="ProfileGuidanceReportDto"/>.</summary>
-    private static readonly IReadOnlyDictionary<ProfileGuidanceReportType, string> ReportTitles = new Dictionary<ProfileGuidanceReportType, string>
+    private static readonly Dictionary<ProfileGuidanceReportType, string> ReportTitles = new()
     {
         [ProfileGuidanceReportType.All] = "Full Guidance Report",
         [ProfileGuidanceReportType.SummaryProfile] = "Summary Profile Guidance Report",
