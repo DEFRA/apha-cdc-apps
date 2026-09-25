@@ -380,7 +380,7 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Domain.Entities.SpeciesAuditTrailEntry>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SpeciesAuditTrailEntry>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
 
@@ -393,7 +393,7 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
 
             return [.. rows
                 .OrderByDescending(row => row.LogDate)
-                .Select(row => new Domain.Entities.SpeciesAuditTrailEntry
+                .Select(row => new SpeciesAuditTrailEntry
                 {
                     Id = row.Id,
                     OldName = row.OldName ?? string.Empty,
@@ -694,30 +694,31 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
 
     // Property-initialised (not positional) so Dapper binds columns by name rather than by
     // ordinal position - the actual stored procedure's column order is not guaranteed to match
-    // declaration order here.
+    // declaration order here. Dapper sets these via reflection, which static analysis can't see,
+    // so the init accessors below are intentionally kept despite looking "unused".
     private sealed record SpeciesRow
     {
-        public Guid Id { get; init; }
-        public Guid? ParentId { get; init; }
-        public string? Name { get; init; }
-        public bool IsActive { get; init; }
-        public bool IsInUse { get; init; }
+        public Guid Id { get; init; } // NOSONAR
+        public Guid? ParentId { get; init; } // NOSONAR
+        public string? Name { get; init; } // NOSONAR
+        public bool IsActive { get; init; } // NOSONAR
+        public bool IsInUse { get; init; } // NOSONAR
     }
 
     private sealed record SelectedSpeciesRow
     {
-        public Guid Id { get; init; }
-        public Guid? ParentId { get; init; }
-        public string? Name { get; init; }
-        public bool IsActive { get; init; }
-        public bool IsInUse { get; init; }
-        public string? DiseaseName { get; init; }
-        public int Disease1 { get; init; }
-        public int Disease2 { get; init; }
-        public int Disease3 { get; init; }
-        public int Disease4 { get; init; }
-        public string? Disease5 { get; init; }
-        public long FilterNumber { get; init; }
+        public Guid Id { get; init; } // NOSONAR
+        public Guid? ParentId { get; init; } // NOSONAR
+        public string? Name { get; init; } // NOSONAR
+        public bool IsActive { get; init; } // NOSONAR
+        public bool IsInUse { get; init; } // NOSONAR
+        public string? DiseaseName { get; init; } // NOSONAR
+        public int Disease1 { get; init; } // NOSONAR
+        public int Disease2 { get; init; } // NOSONAR
+        public int Disease3 { get; init; } // NOSONAR
+        public int Disease4 { get; init; } // NOSONAR
+        public string? Disease5 { get; init; } // NOSONAR
+        public long FilterNumber { get; init; } // NOSONAR
     }
 
     private sealed record SectionMetadataRow(Guid Id, string Name, string ShortName, int SectionNumber);
@@ -739,31 +740,31 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
 
     private sealed record SpeciesDetailRow
     {
-        public string? Name { get; init; }
-        public Guid? ParentId { get; init; }
-        public bool IsActive { get; init; }
-        public bool IsInUse { get; init; }
-        public int ChildCount { get; init; }
-        public int ActiveChildCount { get; init; }
-        public string? ParentName { get; init; }
-        public byte[]? LastUpdated { get; init; }
+        public string? Name { get; init; } // NOSONAR
+        public Guid? ParentId { get; init; } // NOSONAR
+        public bool IsActive { get; init; } // NOSONAR
+        public bool IsInUse { get; init; } // NOSONAR
+        public int ChildCount { get; init; } // NOSONAR
+        public int ActiveChildCount { get; init; } // NOSONAR
+        public string? ParentName { get; init; } // NOSONAR
+        public byte[]? LastUpdated { get; init; } // NOSONAR
     }
 
     private sealed record SpeciesValidParentRow
     {
-        public Guid Id { get; init; }
-        public string? Name { get; init; }
+        public Guid Id { get; init; } // NOSONAR
+        public string? Name { get; init; } // NOSONAR
     }
 
     private sealed record SpeciesAuditTrailRow
     {
-        public Guid Id { get; init; }
-        public string? FullName { get; init; }
-        public DateTime LogDate { get; init; }
-        public string? Reason { get; init; }
-        public string? OldName { get; init; }
-        public string? NewName { get; init; }
-        public string? OldParent { get; init; }
-        public string? NewParent { get; init; }
+        public Guid Id { get; init; } // NOSONAR
+        public string? FullName { get; init; } // NOSONAR
+        public DateTime LogDate { get; init; } // NOSONAR
+        public string? Reason { get; init; } // NOSONAR
+        public string? OldName { get; init; } // NOSONAR
+        public string? NewName { get; init; } // NOSONAR
+        public string? OldParent { get; init; } // NOSONAR
+        public string? NewParent { get; init; } // NOSONAR
     }
 }

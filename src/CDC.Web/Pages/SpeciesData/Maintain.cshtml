@@ -79,8 +79,9 @@ else
                 Edit name/parent
             </button>
             @* A GET submit button loses its formaction query string (the browser replaces it
-               with the serialised form fields), so this is a plain link instead. *@
-            <a asp-page="./Maintain" asp-page-handler="AuditTrail" role="button" draggable="false"
+               with the serialised form fields), so this is a plain link instead. It has a real
+               href and behaves like ordinary navigation, so no button role or JS is needed. *@
+            <a asp-page="./Maintain" asp-page-handler="AuditTrail"
                 class="govuk-button govuk-button--secondary" data-module="govuk-button">
                 View audit trail
             </a>
@@ -100,18 +101,15 @@ else
                     <h2 class="govuk-error-summary__title" id="edit-error-summary-title">There is a problem</h2>
                     <div class="govuk-error-summary__body">
                         <ul class="govuk-list govuk-error-summary__list">
-                            @foreach (var entry in ViewData.ModelState)
+                            @foreach (var (key, message) in ViewData.ModelState.SelectMany(entry => entry.Value!.Errors.Select(error => (entry.Key, error.ErrorMessage))))
                             {
-                                @foreach (var error in entry.Value!.Errors)
+                                @if (key.Length == 0)
                                 {
-                                    @if (entry.Key.Length == 0)
-                                    {
-                                        <li>@error.ErrorMessage</li>
-                                    }
-                                    else
-                                    {
-                                        <li><a href="#@(entry.Key.Replace('.', '_'))">@error.ErrorMessage</a></li>
-                                    }
+                                    <li>@message</li>
+                                }
+                                else
+                                {
+                                    <li><a href="#@(key.Replace('.', '_'))">@message</a></li>
                                 }
                             }
                         </ul>

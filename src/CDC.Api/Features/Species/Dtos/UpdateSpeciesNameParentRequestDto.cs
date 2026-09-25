@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace CDC.Api.Features.Species.Dtos;
 
 /// <summary>
@@ -7,12 +9,14 @@ namespace CDC.Api.Features.Species.Dtos;
 public sealed record UpdateSpeciesNameParentRequestDto
 {
     /// <summary>Gets the species being updated.</summary>
+    [JsonRequired]
     public Guid SpeciesId { get; init; }
 
     /// <summary>Gets the new display name.</summary>
     public string Name { get; init; } = string.Empty;
 
     /// <summary>Gets the new parent identifier; <see cref="Guid.Empty"/> for a root species.</summary>
+    [JsonRequired]
     public Guid ParentId { get; init; }
 
     /// <summary>Gets the reason given for the change. Mandatory.</summary>
