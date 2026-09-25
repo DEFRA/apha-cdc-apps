@@ -1,5 +1,6 @@
 using System.Globalization;
 using CDC.Common.Correlation;
+using CDC.Common.Health;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;

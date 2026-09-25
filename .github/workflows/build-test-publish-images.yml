@@ -33,7 +33,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 # Pull-request release-label contract:
 # - API: release:api:patch, release:api:minor or release:api:major
@@ -70,7 +69,7 @@ jobs:
       - name: Detect changed paths
         id: filter
         if: github.event_name != 'workflow_dispatch'
-        uses: dorny/paths-filter@v4.0.3
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
             api:
@@ -808,7 +807,7 @@ jobs:
           PY
 
       - name: Configure AWS credentials through OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -829,7 +828,7 @@ jobs:
 
       - name: Log in to Amazon ECR
         id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2.1.6
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           mask-password: true
 
@@ -882,27 +881,14 @@ jobs:
 
             echo "${RELEASE_TAG} already points to the expected digest; continuing safely."
           else
-            IMAGE_MANIFEST="$(aws ecr batch-get-image \
-              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-              --repository-name "${ECR_REPOSITORY}" \
-              --image-ids imageDigest="${IMAGE_DIGEST}" \
-              --accepted-media-types \
-                application/vnd.docker.distribution.manifest.v2+json \
-                application/vnd.oci.image.manifest.v1+json \
-              --query 'images[0].imageManifest' \
-              --output text)"
-
-            test -n "${IMAGE_MANIFEST}" || {
-              echo "::error::Unable to retrieve the ECR image manifest."
-              exit 1
-            }
-
-            aws ecr put-image \
-              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-              --repository-name "${ECR_REPOSITORY}" \
-              --image-tag "${RELEASE_TAG}" \
-              --image-manifest "${IMAGE_MANIFEST}" \
-              >/dev/null
+            # Push the same local image again under the release tag, rather than copying the
+            # manifest via `aws ecr batch-get-image`/`put-image`: ECR's --accepted-media-types
+            # negotiation can transcode the manifest (e.g. Docker v2 schema2 <-> OCI v1), which
+            # changes its serialised bytes - and therefore its digest - even though the image
+            # content is identical. Re-pushing from Docker avoids that transcoding entirely, so
+            # the release tag is guaranteed to resolve to the exact same digest as the candidate.
+            docker tag "${LOCAL_IMAGE}" "${RELEASE_URI}"
+            docker push "${RELEASE_URI}"
           fi
 
           RELEASE_DIGEST="$(aws ecr describe-images \
