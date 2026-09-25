@@ -30,6 +30,15 @@ public sealed record TreeViewViewModel
 
     public string ItemNamePlural { get; init; } = "items";
 
-    /// Value of the node that should render pre-selected (checked), if any.
-    public string? SelectedValue { get; init; }
+    /// Shown by the live selection status when nothing is selected. When null, the status
+    /// stays hidden until a selection is made.
+    public string? EmptySelectionLabel { get; init; }
+
+    /// When true, nodes render as checkboxes and any number can be selected. When false
+    /// (the default), nodes render as radios sharing <see cref="FieldName"/>, so the browser
+    /// itself enforces a single selection.
+    public bool AllowMultipleSelection { get; init; }
+
+    /// Values that should render pre-checked, for example after a GET postback.
+    public IReadOnlySet<string> SelectedValues { get; init; } = new HashSet<string>();
 }

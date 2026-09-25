@@ -1,4 +1,6 @@
 using CDC.Api.Application.Behaviours;
+using CDC.Api.Features.ProfileSearch;
+using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
 using FluentValidation;
@@ -26,6 +28,7 @@ public static class ApplicationDependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
 
         services.AddScoped<ISpeciesService, SpeciesService>();
+        services.AddScoped<IProfileSearchService, ProfileSearchService>();
 
         return services;
     }

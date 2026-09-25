@@ -4,6 +4,7 @@ using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Swagger;
 using CDC.Api.Middleware;
 using CDC.Common.Correlation;
+using CDC.Common.Health;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,10 +68,14 @@ app.MapGet("/", () => "Hello World!");
 app.MapHealthEndpoints();
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 
 /// <summary>
 /// Exposes the generated entry-point class to <c>WebApplicationFactory&lt;Program&gt;</c> in
 /// CDC.Api.Tests.
 /// </summary>
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>Prevents direct instantiation; the class exists only as a type marker.</summary>
+    protected Program() { }
+}
