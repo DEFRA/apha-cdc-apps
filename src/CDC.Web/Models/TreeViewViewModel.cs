@@ -29,4 +29,8 @@ public sealed record TreeViewViewModel
     public string ItemNameSingular { get; init; } = "item";
 
     public string ItemNamePlural { get; init; } = "items";
+
+    /// Value of the node that should render pre-checked, for example when re-displaying a
+    /// saved selection. Null means no node is pre-checked.
+    public string? SelectedValue { get; init; }
 }

@@ -5,11 +5,12 @@
     void RenderNode(TreeNodeViewModel node)
     {
         var radioId = $"{Model.IdPrefix}-{node.Value}";
+        var isSelected = node.Value == Model.SelectedValue;
 
         <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
             <div class="app-tree__row">
                 <div class="govuk-radios__item app-tree__radio">
-                    <input class="govuk-radios__input" id="@radioId" name="@Model.FieldName" type="radio" value="@node.Value" />
+                    <input class="govuk-radios__input" id="@radioId" name="@Model.FieldName" type="radio" value="@node.Value" checked="@isSelected" />
                     <label class="govuk-label govuk-radios__label" for="@radioId">@node.Label</label>
                 </div>
             </div>

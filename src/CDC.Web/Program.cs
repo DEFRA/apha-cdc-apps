@@ -52,6 +52,10 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 })
     .AddStandardResilienceHandler();
 
+// In-memory placeholder store for disease ranking filters - see IDiseaseRankingFilterStore
+// remarks for why this is not yet a call to CDC.Api.
+builder.Services.AddSingleton<IDiseaseRankingFilterStore, InMemoryDiseaseRankingFilterStore>();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 

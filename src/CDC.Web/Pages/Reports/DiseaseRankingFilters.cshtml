@@ -1,0 +1,258 @@
+@page
+@model CDC.Web.Pages.Reports.DiseaseRankingFiltersModel
+@{
+    ViewData["Title"] = "Create and maintain disease ranking filters";
+    var isUpdating = Model.Input.Id is not null;
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<a href="/Reports/DiseaseRanking" class="govuk-back-link">Back</a>
+
+<h1 class="govuk-heading-l">Create and maintain disease ranking filters</h1>
+
+@if (Model.ShowSavedConfirmation)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert"
+         aria-labelledby="filter-saved-banner-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="filter-saved-banner-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">Filter value successfully updated</p>
+        </div>
+    </div>
+}
+
+@if (Model.ShowDeletedConfirmation)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert"
+         aria-labelledby="filter-deleted-banner-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="filter-deleted-banner-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">Filter successfully deleted</p>
+        </div>
+    </div>
+}
+
+@if (Model.Errors.Count > 0)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="filter-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="filter-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <ul class="govuk-list govuk-error-summary__list">
+                    @foreach (var error in Model.Errors)
+                    {
+                        <li><a href="#@error.FieldId">@error.Message</a></li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.HasSpeciesLoadError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="species-load-error-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="species-load-error-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">We could not load species data. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+
+<form method="get">
+    <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="filterId">Select filter</label>
+        <select class="govuk-select" id="filterId" name="filterId">
+            <option value="">Choose a filter</option>
+            @foreach (var filter in Model.Filters)
+            {
+                <option value="@filter.Id" selected="@(Model.Input.Id == filter.Id)">@filter.Name</option>
+            }
+        </select>
+    </div>
+    <div class="govuk-button-group">
+        <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">View filter</button>
+        <a href="?created=true" class="govuk-button" data-module="govuk-button">Create new filter</a>
+    </div>
+</form>
+
+@if (Model.ShowFilterForm)
+{
+    <form method="post">
+        <input type="hidden" asp-for="Input.Id" />
+
+        <div class="govuk-form-group">
+            <label class="govuk-label govuk-label--s" for="Input_Name">Filter name</label>
+            <input class="govuk-input" id="Input_Name" asp-for="Input.Name" type="text" autocomplete="off" />
+        </div>
+
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Species selection</legend>
+
+                <div class="app-tree__panel">
+                    <div class="app-tree__controls">
+                        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                            <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                    <path d="M1 1l5 5 5-5" />
+                                </svg>
+                            </span>
+                            <span class="app-tree__toggle-all-text">Open all</span>
+                        </button>
+                    </div>
+                    <partial name="_TreeView" model="Model.SpeciesTree" />
+                </div>
+
+                <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+
+                <div class="app-tree__actions">
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
+                        Remove selection
+                    </button>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Endemic or exotic diseases</legend>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_DiseaseType" asp-for="Input.DiseaseType" type="radio" value="endemic diseases" />
+                        <label class="govuk-label govuk-radios__label" for="Input_DiseaseType">Endemic diseases</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_DiseaseType-exotic" asp-for="Input.DiseaseType" type="radio" value="exotic diseases" />
+                        <label class="govuk-label govuk-radios__label" for="Input_DiseaseType-exotic">Exotic diseases</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_DiseaseType-both" asp-for="Input.DiseaseType" type="radio" value="both" />
+                        <label class="govuk-label govuk-radios__label" for="Input_DiseaseType-both">Both</label>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Zoonotic status</legend>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_ZoonoticStatus" asp-for="Input.ZoonoticStatus" type="radio" value="zoonotic" />
+                        <label class="govuk-label govuk-radios__label" for="Input_ZoonoticStatus">Zoonotic</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_ZoonoticStatus-non" asp-for="Input.ZoonoticStatus" type="radio" value="non-zoonotic" />
+                        <label class="govuk-label govuk-radios__label" for="Input_ZoonoticStatus-non">Non-zoonotic</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_ZoonoticStatus-both" asp-for="Input.ZoonoticStatus" type="radio" value="both" />
+                        <label class="govuk-label govuk-radios__label" for="Input_ZoonoticStatus-both">Both</label>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Notifiable status</legend>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_NotifiableStatus" asp-for="Input.NotifiableStatus" type="radio" value="notifiable" />
+                        <label class="govuk-label govuk-radios__label" for="Input_NotifiableStatus">Notifiable</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_NotifiableStatus-non" asp-for="Input.NotifiableStatus" type="radio" value="non-notifiable" />
+                        <label class="govuk-label govuk-radios__label" for="Input_NotifiableStatus-non">Non-notifiable</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_NotifiableStatus-both" asp-for="Input.NotifiableStatus" type="radio" value="both" />
+                        <label class="govuk-label govuk-radios__label" for="Input_NotifiableStatus-both">Both</label>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Infectious status</legend>
+                <div class="govuk-radios" data-module="govuk-radios">
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_InfectiousStatus" asp-for="Input.InfectiousStatus" type="radio"
+                               value="infectious" data-aria-controls="conditional-infectious-agents" />
+                        <label class="govuk-label govuk-radios__label" for="Input_InfectiousStatus">Infectious</label>
+                    </div>
+                    <div class="govuk-radios__conditional" id="conditional-infectious-agents">
+                        <div class="govuk-form-group" id="Input_InfectiousAgents">
+                            <fieldset class="govuk-fieldset" aria-describedby="Input_InfectiousAgents-hint">
+                                <legend class="govuk-fieldset__legend govuk-fieldset__legend--xs">Type of infectious agent</legend>
+                                <div id="Input_InfectiousAgents-hint" class="govuk-hint">Select every type that applies.</div>
+                                <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+                                    @foreach (var agent in new[] { "bacteria", "virus", "fungus", "parasite", "other transmissible agent" })
+                                    {
+                                        var checkboxId = $"Input_InfectiousAgents-{agent.Replace(' ', '-')}";
+                                        <div class="govuk-checkboxes__item">
+                                            <input class="govuk-checkboxes__input" id="@checkboxId" name="Input.InfectiousAgents" type="checkbox"
+                                                   value="@agent" checked="@Model.Input.InfectiousAgents.Contains(agent)" />
+                                            <label class="govuk-label govuk-checkboxes__label" for="@checkboxId">@agent</label>
+                                        </div>
+                                    }
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_InfectiousStatus-non" asp-for="Input.InfectiousStatus" type="radio" value="non-infectious" />
+                        <label class="govuk-label govuk-radios__label" for="Input_InfectiousStatus-non">Non-infectious</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="Input_InfectiousStatus-both" asp-for="Input.InfectiousStatus" type="radio"
+                               value="both" data-aria-controls="conditional-infectious-agents-both" />
+                        <label class="govuk-label govuk-radios__label" for="Input_InfectiousStatus-both">Both</label>
+                    </div>
+                    <div class="govuk-radios__conditional" id="conditional-infectious-agents-both">
+                        <div class="govuk-hint">Every type of infectious agent is included when both is selected.</div>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-button-group">
+            <button type="submit" asp-page-handler="Save" class="govuk-button" data-module="govuk-button">
+                @(isUpdating ? "Update" : "Save filter")
+            </button>
+            @if (isUpdating)
+            {
+                <button type="submit" asp-page-handler="Delete" formnovalidate class="govuk-button govuk-button--warning"
+                        data-module="govuk-button" data-confirm-message="Are you sure you want to delete this filter?">
+                    Delete filter
+                </button>
+            }
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script>
+        // Progressive enhancement only: without JavaScript, Delete filter submits without
+        // a confirmation step.
+        document.querySelectorAll('[data-confirm-message]').forEach(function ($button) {
+            $button.addEventListener('click', function (event) {
+                if (!window.confirm($button.dataset.confirmMessage)) {
+                    event.preventDefault();
+                }
+            });
+        });
+    </script>
+}
