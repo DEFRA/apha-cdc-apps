@@ -86,10 +86,188 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
     public async Task<IActionResult> OnPostEditNameParentAsync(CancellationToken cancellationToken)
     {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to edit.";
+            return Page();
+        }
+
+        var detail = await speciesApiService.GetSpeciesDetailAsync(SelectedSpeciesId.Value, cancellationToken);
+
+        if (detail is null)
+        {
+            SelectionErrorMessage = "The selected species could not be found. It may have been removed.";
+            return Page();
+        }
+
+        await OpenEditPanelAsync(detail, cancellationToken);
+
+        return Page();
     }
 
-    public void OnGet()
+    /// <summary>Validates and applies a name/parent change.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostSaveAsync(CancellationToken cancellationToken)
     {
-        // Page renders static content only; no data to load.
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        ValidateInput();
+
+        if (!ModelState.IsValid)
+        {
+            await RedisplayEditPanelAsync(cancellationToken);
+            return Page();
+        }
+
+        byte[] lastUpdated;
+        try
+        {
+            lastUpdated = Convert.FromBase64String(Input.LastUpdatedBase64);
+        }
+        catch (FormatException)
+        {
+            ModelState.AddModelError(string.Empty, "The species could not be saved. Reload and try again.");
+            await RedisplayEditPanelAsync(cancellationToken);
+            return Page();
+        }
+
+        var result = await speciesApiService.UpdateSpeciesNameParentAsync(
+            new UpdateSpeciesNameParentRequestDto
+            {
+                SpeciesId = Input.SpeciesId,
+                Name = Input.Name!.Trim(),
+                ParentId = Input.ParentId ?? Guid.Empty,
+                Reason = Input.Reason!.Trim(),
+                LastUpdated = lastUpdated
+            },
+            cancellationToken);
+
+        if (result.Outcome != SpeciesUpdateOutcome.Success)
+        {
+            logger.SaveFailed(Input.SpeciesId, result.Outcome);
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "We could not save this change. Try again later.");
+            await RedisplayEditPanelAsync(cancellationToken);
+            return Page();
+        }
+
+        logger.Saved(Input.SpeciesId);
+
+        // Post-redirect-get: re-selects the species and shows the confirmation banner without
+        // resubmitting the form on refresh.
+        return RedirectToPage(new { species = Input.SpeciesId, saved = true });
     }
+
+    /// <summary>Closes the "Edit name/parent" section without applying any change.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostCancelAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        ShowEditPanel = false;
+
+        return Page();
+    }
+
+    private async Task OpenEditPanelAsync(SpeciesDetailDto detail, CancellationToken cancellationToken)
+    {
+        SpeciesDetail = detail;
+        ValidParents = await speciesApiService.GetSpeciesValidParentsAsync(detail.Id, cancellationToken);
+        ShowEditPanel = true;
+
+        Input = new EditNameParentInput
+        {
+            SpeciesId = detail.Id,
+            Name = detail.Name,
+            ParentId = detail.ParentId == Guid.Empty ? null : detail.ParentId,
+            LastUpdatedBase64 = Convert.ToBase64String(detail.LastUpdated)
+        };
+    }
+
+    private async Task RedisplayEditPanelAsync(CancellationToken cancellationToken)
+    {
+        ShowEditPanel = true;
+        SpeciesDetail = await speciesApiService.GetSpeciesDetailAsync(Input.SpeciesId, cancellationToken);
+        ValidParents = await speciesApiService.GetSpeciesValidParentsAsync(Input.SpeciesId, cancellationToken);
+    }
+
+    private void ValidateInput()
+    {
+        if (string.IsNullOrWhiteSpace(Input.Name))
+        {
+            ModelState.AddModelError("Input.Name", "You need to provide a new name for this species.");
+        }
+        else if (Input.Name.Trim().Length > 50)
+        {
+            ModelState.AddModelError("Input.Name", "The name must be no longer than 50 characters.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Reason))
+        {
+            ModelState.AddModelError("Input.Reason", "You need to provide a reason for this change.");
+        }
+        else if (Input.Reason.Trim().Length > 255)
+        {
+            ModelState.AddModelError("Input.Reason", "The reason for change must be no longer than 255 characters.");
+        }
+    }
+
+    private async Task LoadTreeAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var species = await speciesApiService.GetAllSpeciesAsync(cancellationToken);
+
+            SpeciesTree = new TreeViewViewModel
+            {
+                IdPrefix = SpeciesKey,
+                FieldName = SpeciesKey,
+                ItemNameSingular = SpeciesKey,
+                ItemNamePlural = SpeciesKey,
+                SelectedValue = SelectedSpeciesId?.ToString(),
+                Nodes = SpeciesTreeBuilder.Build(species)
+            };
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            logger.SpeciesLoadFailed(exception);
+
+            HasError = true;
+            ErrorMessage = "We could not load species data. Try again later.";
+        }
+    }
+
+    private static TreeViewViewModel EmptyTree() => new()
+    {
+        IdPrefix = SpeciesKey,
+        FieldName = SpeciesKey,
+        ItemNameSingular = SpeciesKey,
+        ItemNamePlural = SpeciesKey,
+        Nodes = []
+    };
 }
+
+/// <summary>Source-generated structured log messages for <see cref="MaintainModel"/>.</summary>
+internal static partial class MaintainLog
+{
+    [LoggerMessage(EventId = 2100, Level = LogLevel.Error, Message = "Failed to load species data from CDC.Api")]
+    public static partial void SpeciesLoadFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 2101, Level = LogLevel.Warning, Message = "Failed to save name/parent change for species {SpeciesId}: {Outcome}")]
+    public static partial void SaveFailed(this ILogger logger, Guid speciesId, SpeciesUpdateOutcome outcome);
+
+    [LoggerMessage(EventId = 2102, Level = LogLevel.Information, Message = "Saved name/parent change for species {SpeciesId}")]
+    public static partial void Saved(this ILogger logger, Guid speciesId);
+}
+
