@@ -16,6 +16,7 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Database__User", "cdc-tests");
         Environment.SetEnvironmentVariable("Database__Password", "cdc-tests-password");
         Environment.SetEnvironmentVariable("HealthCheck__ReadinessKey", "local-dev-readiness-key");
+        Environment.SetEnvironmentVariable("Species__AuditUserId", "11111111-1111-1111-1111-111111111111");
 
         _factory = factory;
     }

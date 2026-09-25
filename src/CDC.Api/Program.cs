@@ -30,6 +30,11 @@ StartupChecks.RequireDatabaseOptions(builder.Configuration);
 // return an identical 404 for "not configured" and "wrong key" alike.
 StartupChecks.RequireReadinessKey(builder.Configuration);
 
+// Species__AuditUserId - temporary placeholder acting user for the species audit trail until
+// Entra ID authentication supplies a real per-request caller. See SpeciesAuditOptions.
+var speciesAuditUserId = StartupChecks.RequireSpeciesAuditUserId(builder.Configuration);
+builder.Services.AddSingleton(new SpeciesAuditOptions(speciesAuditUserId));
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 

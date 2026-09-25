@@ -118,4 +118,45 @@ internal static class SpeciesTestData
             ? changes
             : [new SpeciesFieldValueChange { FieldId = FieldId, Kind = SpeciesFieldValueKind.Boolean, BooleanValue = true }]
     };
+
+    public static SpeciesDetail SpeciesDetail() => new()
+    {
+        Id = SpeciesId,
+        Name = "Dairy cattle",
+        ParentId = SectionId,
+        ParentName = "Cattle",
+        IsActive = true,
+        IsInUse = true,
+        ChildCount = 0,
+        ActiveChildCount = 0,
+        LastUpdated = RowVersion
+    };
+
+    public static SpeciesValidParent ValidParent() => new()
+    {
+        Id = SectionId,
+        Name = "Cattle"
+    };
+
+    public static SpeciesAuditTrailEntry AuditTrailEntry() => new()
+    {
+        Id = FieldId,
+        OldName = "Dairy cattle",
+        NewName = "Dairy",
+        OldParent = "Cattle",
+        NewParent = "Cattle",
+        ChangedBy = "a.user",
+        LogDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        ReasonForChange = "Simplifying the name"
+    };
+
+    public static UpdateSpeciesNameParentCommand UpdateNameParentCommand() => new()
+    {
+        SpeciesId = SpeciesId,
+        Name = "Dairy",
+        ParentId = SectionId,
+        Reason = "Simplifying the name",
+        UserId = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+        LastUpdated = RowVersion
+    };
 }
