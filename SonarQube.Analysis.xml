@@ -7,7 +7,8 @@
   <!-- Entry points and boilerplate with no meaningful branches to cover -->
   <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js</Property>
 
-  <!-- <Property Name="sonar.cpd.exclusions">**/wwwroot/js/tree-view.js</Property> -->
+  <!-- Intentional API/Web contract mirrors; exclude from duplication detection only -->
+  <Property Name="sonar.cpd.exclusions">src/CDC.Api/Features/Species/Dtos/SpeciesAuditTrailEntryDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesDetailDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesValidParentDto.cs,src/CDC.Web/Models/SpeciesAuditTrailEntryDto.cs,src/CDC.Web/Models/SpeciesDetailDto.cs,src/CDC.Web/Models/SpeciesValidParentDto.cs</Property>
 
   <!-- Report locations produced by `dotnet test` in the CI pipeline -->
   <Property Name="sonar.cs.vstest.reportsPaths">**/*.trx</Property>
