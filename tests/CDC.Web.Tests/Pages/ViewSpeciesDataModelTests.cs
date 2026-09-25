@@ -1,6 +1,5 @@
 using CDC.Web.Models;
 using CDC.Web.Pages;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CDC.Web.Tests.Pages;
 
@@ -60,5 +59,5 @@ public class ViewSpeciesDataModelTests
     }
 
     private static ViewSpeciesDataModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>
-        new(speciesApiService, NullLogger<ViewSpeciesDataModel>.Instance);
+        new(speciesApiService, new AlwaysEnabledLogger<ViewSpeciesDataModel>());
 }
