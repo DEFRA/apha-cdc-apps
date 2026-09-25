@@ -1,9 +1,9 @@
+using System.Text.Json.Serialization;
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using FluentValidation;
 using MediatR;
-using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.ProfileReports.Queries;
 

@@ -1,6 +1,6 @@
+using System.Text.Json.Serialization;
 using CDC.Api.Domain.Common;
 using MediatR;
-using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.ProfileManagement.Commands;
 

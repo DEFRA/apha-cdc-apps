@@ -1,7 +1,7 @@
+using System.Text.Json.Serialization;
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using MediatR;
-using System.Text.Json.Serialization;
 
 namespace CDC.Api.Features.ProfileManagement.Commands;
 
