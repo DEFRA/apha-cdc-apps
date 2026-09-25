@@ -15,6 +15,124 @@ html {
   max-width: 1200px;
 }
 
+.app-search-panel {
+  padding: 1.5rem 1.5rem 1rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-search-form .govuk-details {
+  margin-bottom: 0;
+}
+
+.app-search-alphabet {
+  white-space: normal;
+}
+
+.app-search-letter {
+  margin-right: .5rem;
+}
+
+.app-search-letter--selected {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Search input + icon button: width matches the "All A B C ... Z" line below it. */
+.app-search-input-group {
+  display: flex;
+}
+
+.app-search-input-group__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-right: 0;
+}
+
+.app-search-input-group__button {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 45px;
+  border: 2px solid var(--govuk-brand-colour, #1d70b8);
+  background: var(--govuk-brand-colour, #1d70b8);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.app-search-input-group__button:hover {
+  background: #003078;
+  border-color: #003078;
+}
+
+.app-search-input-group__button:focus-visible {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--govuk-focus-colour, #fd0);
+  border-color: #0b0c0c;
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+}
+
+.app-search-input-group__icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Search results toolbar: "Sort by" (left) and "Items per page" (right) above the results list. */
+.app-results-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-results-toolbar .govuk-select {
+  min-width: 12rem;
+}
+
+.app-profile-card {
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-profile-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+
+.app-profile-card__sub-card {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #f8f9fa;
+}
+
+/* Second sub-card ("Show previous versions" panel): same border, no background fill. */
+.app-profile-card__sub-card--secondary {
+  background: none;
+}
+
+.app-profile-card__version-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-profile-card__version-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
@@ -232,6 +350,114 @@ body {
 
 .app-tree__status[hidden] {
   display: none;
+}
+
+/* Species filter toggle: same button-as-link reset as .app-filters__toggle, plus a circular
+   chevron icon that rotates and inverts to black/white on hover, matching app-tree__toggle-all. */
+.app-species-filter__toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--govuk-link-colour, #1d70b8);
+  font-family: inherit;
+  font-size: 1rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.app-species-filter__toggle:focus-visible {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--govuk-focus-colour, #fd0);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+  text-decoration: none;
+}
+
+.app-species-filter__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--govuk-link-colour, #1d70b8);
+  border-radius: 50%;
+  color: var(--govuk-link-colour, #1d70b8);
+}
+
+.app-species-filter__icon svg {
+  width: 12px;
+  height: 8px;
+  transition: transform 0.1s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-species-filter__icon svg {
+    transition: none;
+  }
+}
+
+.app-species-filter__toggle[aria-expanded="true"] .app-species-filter__icon svg {
+  transform: rotate(180deg);
+}
+
+.app-species-filter__toggle:hover .app-species-filter__icon {
+  background-color: #0b0c0c;
+  border-color: #0b0c0c;
+  color: #fff;
+}
+
+/* Filters toggle ("More filters" / "Hide filters"): shows/hides the advanced search filters
+   without a page reload. Reuses the app-tree__toggle-all button reset/focus styling. */
+.app-filters__toggle {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--govuk-link-colour, #1d70b8);
+  font-family: inherit;
+  font-size: 1rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.app-filters__toggle:hover {
+  color: #003078;
+}
+
+.app-filters__toggle:focus-visible {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--govuk-focus-colour, #fd0);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+  text-decoration: none;
+}
+
+.app-filters__content {
+  max-height: 3000px;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height .3s ease, opacity .2s ease;
+}
+
+.app-filters__content[hidden] {
+  display: block;
+  max-height: 0;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-filters__content {
+    transition: none;
+  }
+}
+
+.app-filters__select {
+  max-width: 300px;
 }
 
 /* GOV.UK's main-wrapper padding (20px mobile / 40px tablet+) and the default govuk-form-group
