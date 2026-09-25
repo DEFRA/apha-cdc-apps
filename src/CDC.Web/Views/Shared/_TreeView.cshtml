@@ -4,33 +4,6 @@
     var itemClass = Model.AllowMultipleSelection ? "govuk-checkboxes__item" : "govuk-radios__item";
     var inputClass = Model.AllowMultipleSelection ? "govuk-checkboxes__input" : "govuk-radios__input";
     var labelClass = Model.AllowMultipleSelection ? "govuk-checkboxes__label" : "govuk-radios__label";
-
-    // Rendered by a recursive local function rather than a partial per node, so that every
-    // <li> is emitted inside a parent <ul> in the same file.
-    void RenderNode(TreeNodeViewModel node)
-    {
-        var radioId = $"{Model.IdPrefix}-{node.Value}";
-        var isChecked = Model.SelectedValues.Contains(node.Value);
-
-        <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
-            <div class="app-tree__row">
-                <div class="@itemClass app-tree__radio">
-                    <input class="@inputClass" id="@radioId" name="@Model.FieldName" type="@inputType" value="@node.Value" checked="@(isChecked ? "checked" : null)" />
-                    <label class="govuk-label @labelClass" for="@radioId">@node.Label</label>
-                </div>
-            </div>
-            @if (node.Children.Count > 0)
-            {
-                <ul class="app-tree__group">
-                    @foreach (var child in node.Children)
-                    {
-                        RenderNode(child);
-                    }
-                </ul>
-            }
-        </li>
-    }
-
 }
 
 @* Progressive enhancement: without JavaScript every group stays visible and every input posts.
@@ -41,8 +14,36 @@
     data-app-tree-name="@Model.ItemNameSingular"
     data-app-tree-name-plural="@Model.ItemNamePlural"
     data-app-tree-empty-label="@Model.EmptySelectionLabel">
+    @{
+        // Rendered by a recursive local function rather than a partial per node, so that every
+        // <li> is emitted inside a parent <ul> in the same file.
+        void RenderNode(TreeNodeViewModel node)
+        {
+            var radioId = $"{Model.IdPrefix}-{node.Value}";
+            var isChecked = Model.SelectedValues.Contains(node.Value);
+
+            <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
+                <div class="app-tree__row">
+                    <div class="@itemClass app-tree__radio">
+                        <input class="@inputClass" id="@radioId" name="@Model.FieldName" type="@inputType" value="@node.Value" checked="@(isChecked ? "checked" : null)" />
+                        <label class="govuk-label @labelClass" for="@radioId">@node.Label</label>
+                    </div>
+                </div>
+                @if (node.Children.Count > 0)
+                {
+                    <ul class="app-tree__group">
+                        @foreach (var child in node.Children)
+                        {
+                            RenderNode(child);
+                        }
+                    </ul>
+                }
+            </li>
+        }
+    }
     @foreach (var node in Model.Nodes)
     {
         RenderNode(node);
     }
 </ul>
+

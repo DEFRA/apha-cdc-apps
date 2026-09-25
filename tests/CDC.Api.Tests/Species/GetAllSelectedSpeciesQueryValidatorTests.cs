@@ -111,7 +111,7 @@ public class GetAllSelectedSpeciesQueryHandlerTests
         var mockService = new Mock<ISpeciesService>();
         mockService
             .Setup(s => s.GetAllSelectedSpeciesAsync("Unknown Disease", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<SelectedSpeciesDto>());
+            .ReturnsAsync([]);
 
         var handler = new GetAllSelectedSpeciesQueryHandler(mockService.Object);
         var query = new GetAllSelectedSpeciesQuery("Unknown Disease");
@@ -139,7 +139,7 @@ public class GetAllSelectedSpeciesQueryHandlerTests
         var mockService = new Mock<ISpeciesService>();
         mockService
             .Setup(s => s.GetAllSelectedSpeciesAsync("Test", cts.Token))
-            .ReturnsAsync(new List<SelectedSpeciesDto>());
+            .ReturnsAsync([]);
 
         var handler = new GetAllSelectedSpeciesQueryHandler(mockService.Object);
         var query = new GetAllSelectedSpeciesQuery("Test");
@@ -156,7 +156,7 @@ public class GetAllSelectedSpeciesQueryHandlerTests
         var mockService = new Mock<ISpeciesService>();
         mockService
             .Setup(s => s.GetAllSelectedSpeciesAsync(diseaseName, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<SelectedSpeciesDto>());
+            .ReturnsAsync([]);
 
         var handler = new GetAllSelectedSpeciesQueryHandler(mockService.Object);
         var query = new GetAllSelectedSpeciesQuery(diseaseName);
