@@ -1,12 +1,12 @@
 using System.Net;
 using System.Text.Json;
+using CDC.Auth.Cidm.Options;
+using CDC.Auth.Cidm.TokenRefresh;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using CDC.Auth.Cidm.Options;
-using CDC.Auth.Cidm.TokenRefresh;
 
 namespace CDC.Auth.Cidm.Tests.TokenRefresh;
 

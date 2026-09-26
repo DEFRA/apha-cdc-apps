@@ -1,12 +1,12 @@
 using System.Security.Claims;
 using System.Text.Json;
+using CDC.Auth.Cidm.Claims;
+using CDC.Auth.Cidm.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using CDC.Auth.Cidm.Claims;
-using CDC.Auth.Cidm.Options;
 
 namespace CDC.Auth.Cidm.Events;
 

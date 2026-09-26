@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using CDC.Auth.Cidm.Options;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.Options;
-using CDC.Auth.Cidm.Options;
 
 namespace CDC.Auth.Cidm.TokenRefresh;
 

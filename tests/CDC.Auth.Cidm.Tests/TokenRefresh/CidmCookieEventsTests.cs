@@ -1,11 +1,11 @@
+using CDC.Auth.Cidm.Options;
+using CDC.Auth.Cidm.TokenRefresh;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using CDC.Auth.Cidm.Options;
-using CDC.Auth.Cidm.TokenRefresh;
 
 namespace CDC.Auth.Cidm.Tests.TokenRefresh;
 

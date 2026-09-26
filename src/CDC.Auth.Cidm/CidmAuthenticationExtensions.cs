@@ -1,3 +1,6 @@
+using CDC.Auth.Cidm.Events;
+using CDC.Auth.Cidm.Options;
+using CDC.Auth.Cidm.TokenRefresh;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
@@ -6,9 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
-using CDC.Auth.Cidm.Events;
-using CDC.Auth.Cidm.Options;
-using CDC.Auth.Cidm.TokenRefresh;
 
 namespace CDC.Auth.Cidm;
 
