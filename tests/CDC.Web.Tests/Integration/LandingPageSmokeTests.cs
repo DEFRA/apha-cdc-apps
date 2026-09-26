@@ -18,6 +18,31 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
     [Theory]
     [InlineData("/")]
     [InlineData("/Landing/Internal")]
+    [InlineData("/HelpSupport/HelpUsingD2R2")]
+    [InlineData("/HelpSupport/QualityStatement")]
+    public async Task LandingRoutes_ReturnSuccess(string url)
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+}
+
+// These pages are business/admin functionality with no anonymous exemption - the app's default
+// authorization policy (RequireAuthenticatedUser) must redirect anonymous requests to CIDM rather
+// than rendering them.
+public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
+{
+    private readonly CdcWebTestFactory _factory;
+
+    public ProtectedPagesSmokeTests(CdcWebTestFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Theory]
     [InlineData("/SurveillanceProfiles/Search")]
     [InlineData("/DiseaseProfiles/Create")]
     [InlineData("/DiseaseProfiles/CompareVersions")]
@@ -30,13 +55,39 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
-    [InlineData("/HelpSupport/HelpUsingD2R2")]
-    [InlineData("/HelpSupport/QualityStatement")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
-    public async Task LandingRoutes_ReturnSuccess(string url)
+    public async Task ProtectedRoutes_Anonymous_RedirectToCidmRatherThanRenderingView(string url)
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(CdcWebTestFactory.FakeAuthorizationEndpoint, response.Headers.Location!.ToString());
+    }
+
+    [Theory]
+    [InlineData("/SurveillanceProfiles/Search")]
+    [InlineData("/DiseaseProfiles/Create")]
+    [InlineData("/DiseaseProfiles/CompareVersions")]
+    [InlineData("/DiseaseProfiles/ReviewTimings")]
+    [InlineData("/Reports/General")]
+    [InlineData("/Reports/QuestionsGuidance")]
+    [InlineData("/Reports/DiseaseRanking")]
+    [InlineData("/SpeciesData/Maintain")]
+    [InlineData("/ViewSpeciesData")]
+    [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
+    [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
+    [InlineData("/CrossProfileAdmin/ReferenceData")]
+    [InlineData("/UserAdmin/ExternalUsers")]
+    [InlineData("/UserAdmin/GlobalUsers")]
+    public async Task ProtectedRoutes_AuthenticatedSession_ReturnSuccess(string url)
     {
         var client = _factory.CreateClient();
+
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
 
         var response = await client.GetAsync(url);
 

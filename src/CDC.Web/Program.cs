@@ -4,6 +4,7 @@ using CDC.Common.Correlation;
 using CDC.Common.Health;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Serilog;
 
@@ -82,6 +83,14 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
 // AddCidmAuthentication registers its own Cookie + "cidm" OIDC schemes additively, so adding an
 // "entra" OIDC scheme later does not require reworking this.
 builder.AddCidmAuthentication();
+
+// Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
+// page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
+// the only pages so far explicitly marked anonymous.
+builder.Services.AddAuthorization(options =>
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 var app = builder.Build();
 

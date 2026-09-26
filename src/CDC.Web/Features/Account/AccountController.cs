@@ -1,12 +1,14 @@
 using CDC.Auth.Cidm;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Features.Account;
 
 public class AccountController : Controller
 {
+    [AllowAnonymous]
     public IActionResult Login()
     {
         if (User.Identity?.IsAuthenticated == true)
@@ -22,6 +24,7 @@ public class AccountController : Controller
         return Challenge(properties, CidmAuthenticationDefaults.AuthenticationScheme);
     }
 
+    [AllowAnonymous]
     public async Task<IActionResult> Logout()
     {
         // The Cookie scheme's SignOutAsync also honors AuthenticationProperties.RedirectUri and would
@@ -37,6 +40,7 @@ public class AccountController : Controller
         return SignOut(properties, CidmAuthenticationDefaults.AuthenticationScheme);
     }
 
+    [AllowAnonymous]
     public IActionResult SignedOut()
     {
         return View();

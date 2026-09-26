@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
+
 namespace CDC.Web.Pages.HelpSupport;
 
+[AllowAnonymous]
 public class QualityStatementModel : BreadcrumbPageModelBase
 {
     public QualityStatementModel() : base("D2R2 Quality Statement")
