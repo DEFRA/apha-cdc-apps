@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <ExcludeByFile>**/wwwroot/js/tree-view.js</ExcludeByFile>
+    <!-- CDC.Auth.Cidm has its own dedicated test project (CDC.Auth.Cidm.Tests) with a 90% gate
+         already; only exercising it indirectly here via DI wiring would otherwise drag this
+         project's own coverage total down. -->
+    <Exclude>[CDC.Auth.Cidm]*</Exclude>
   </PropertyGroup>
 
   <ItemGroup>
