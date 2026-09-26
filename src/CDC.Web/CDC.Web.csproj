@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>cdc-web-8f3a2c6e-9d41-4b7a-9c2f-5e6a1d0b7c44</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CDC.Common\CDC.Common.csproj" />
+    <ProjectReference Include="..\CDC.Auth.Cidm\CDC.Auth.Cidm.csproj" />
   </ItemGroup>
 
 </Project>

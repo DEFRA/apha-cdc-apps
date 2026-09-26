@@ -1,4 +1,5 @@
 using System.Globalization;
+using CDC.Auth.Cidm;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
 using CDC.Web.Features.Health;
@@ -77,8 +78,10 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
     options.ViewLocationFormats.Insert(1, "/Features/Shared/{0}.cshtml");
 });
 
-// NOTE: real authentication (Entra ID SAML for internal users, CIDM/GOV.UK One Login OIDC for
-// external users) is not wired up yet. It will replace this placeholder Landing selection screen.
+// External-user auth (CIDM OIDC). Internal-user auth (Entra ID, also OIDC) is future work -
+// AddCidmAuthentication registers its own Cookie + "cidm" OIDC schemes additively, so adding an
+// "entra" OIDC scheme later does not require reworking this.
+builder.AddCidmAuthentication();
 
 var app = builder.Build();
 
@@ -100,6 +103,7 @@ app.UseRouting();
 
 app.MapHealthEndpoints();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

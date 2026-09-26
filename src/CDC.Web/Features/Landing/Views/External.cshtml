@@ -1,11 +1,13 @@
 @{
     ViewData["Title"] = "External User Sign In";
-    ViewData["HideAccountBar"] = true;
 }
 
-<div class="text-center">
-    <h2 class="mb-4">External User Sign In</h2>
-    <p class="lead">You will be redirected to <strong>GOV.UK One Login</strong> (via Defra CIDM) to sign in.</p>
-    <p class="text-muted">CIDM (OIDC/OAuth2) integration is not yet implemented - this is a placeholder screen.</p>
-    <a asp-action="Index" class="btn btn-link">&larr; Back</a>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <h1 class="govuk-heading-l">You are signed in</h1>
+        <p class="govuk-body">You are signed in as an external user.</p>
+        <a asp-controller="Account" asp-action="Logout" class="govuk-button govuk-button--secondary">
+            Sign out
+        </a>
+    </div>
 </div>

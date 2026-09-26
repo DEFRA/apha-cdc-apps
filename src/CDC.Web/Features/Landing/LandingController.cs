@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Features.Landing;
@@ -17,6 +18,7 @@ public class LandingController(IApiClient apiClient) : Controller
         return View();
     }
 
+    [Authorize]
     public IActionResult External()
     {
         return View();
