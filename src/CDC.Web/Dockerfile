@@ -6,6 +6,7 @@ WORKDIR /src
 
 COPY ["src/CDC.Web/CDC.Web.csproj", "src/CDC.Web/"]
 COPY ["src/CDC.Common/CDC.Common.csproj", "src/CDC.Common/"]
+COPY ["src/CDC.Auth.Cidm/CDC.Auth.Cidm.csproj", "src/CDC.Auth.Cidm/"]
 
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "src/CDC.Web/CDC.Web.csproj"
