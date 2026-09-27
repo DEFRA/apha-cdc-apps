@@ -327,7 +327,8 @@ public class SurveillanceProfilesSearchModel : PageModel
 
             if (!string.IsNullOrWhiteSpace(SelectedLetter) && !string.Equals(SelectedLetter, "All", StringComparison.OrdinalIgnoreCase))
             {
-                profiles = profiles.Where(item => item.Title.StartsWith(SelectedLetter, StringComparison.OrdinalIgnoreCase));
+                profiles = profiles.Where(item =>
+                    ProfileTitleHtmlFormatter.ToPlainText(item.Title).StartsWith(SelectedLetter, StringComparison.OrdinalIgnoreCase));
             }
 
             profiles = SortBy switch

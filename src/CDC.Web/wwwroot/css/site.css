@@ -98,6 +98,72 @@ html {
   background: #fff;
 }
 
+/* Edit profile title: label, textbox and Save button on a single row. */
+.app-edit-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.app-edit-title-row__label {
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+
+.app-edit-title-row__input-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-edit-title-row__input {
+  width: 100%;
+}
+
+.app-edit-title-row__button {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+/* Edit profile title: formatting toolbar shown above the title textbox. */
+.app-title-toolbar {
+  display: inline-flex;
+  margin-bottom: 4px;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-title-toolbar__button {
+  appearance: none;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--govuk-border-colour, #b1b4b6);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #0b0c0c;
+}
+
+.app-title-toolbar__button:last-child {
+  border-right: none;
+}
+
+.app-title-toolbar__button:hover:not(:disabled) {
+  background: #f3f2f1;
+}
+
+.app-title-toolbar__button:disabled {
+  color: var(--govuk-secondary-text-colour, #505a5f);
+  cursor: not-allowed;
+}
+
+.app-title-toolbar__button--italic {
+  font-style: italic;
+  font-weight: 700;
+  min-width: 2.5rem;
+}
+
 .app-profile-card__header {
   display: flex;
   align-items: baseline;

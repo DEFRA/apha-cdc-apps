@@ -34,6 +34,9 @@ public static partial class ProfileTitleHtmlFormatter
     [GeneratedRegex(@"&lt;/?span\b(?:(?!&gt;).)*&gt;", RegexOptions.IgnoreCase)]
     private static partial Regex SpanTagRegex();
 
+    [GeneratedRegex(@"<[^>]*>")]
+    private static partial Regex AnyTagRegex();
+
     /// <summary>Encodes <paramref name="title"/> and selectively restores only the allowed formatting tags.</summary>
     public static IHtmlContent Format(string? title)
     {
@@ -62,5 +65,19 @@ public static partial class ProfileTitleHtmlFormatter
         }
 
         return new HtmlString(encoded);
+    }
+
+    /// <summary>Strips every markup tag from <paramref name="title"/> and decodes entities, leaving
+    /// only the text a user would actually read - for matching/sorting/filtering, never for display.</summary>
+    public static string ToPlainText(string? title)
+    {
+        if (string.IsNullOrEmpty(title))
+        {
+            return string.Empty;
+        }
+
+        var withoutTags = AnyTagRegex().Replace(title, string.Empty);
+
+        return WebUtility.HtmlDecode(withoutTags).Trim();
     }
 }
