@@ -98,16 +98,25 @@ html {
   background: #fff;
 }
 
-/* Edit profile title: label, textbox and Save button on a single row. */
+/* Centres the pagination nav as a whole below the results list; govuk-pagination's own
+   space-between layout only spaces prev/list/next apart, it doesn't centre the nav itself. */
+.app-pagination-center {
+  display: flex;
+  justify-content: center;
+}
+
+/* Edit profile title: label, textbox and Save button on a single row. The toolbar and any
+   validation message sit above the textbox inside the wrapper, so the row is bottom-aligned to
+   keep the label and Save button level with the textbox itself, not the wrapper's top. */
 .app-edit-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 1rem;
 }
 
 .app-edit-title-row__label {
   flex: 0 0 auto;
-  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
 .app-edit-title-row__input-wrapper {

@@ -333,10 +333,10 @@ public class SurveillanceProfilesSearchModel : PageModel
 
             profiles = SortBy switch
             {
-                "Za" => profiles.OrderByDescending(item => item.Title, StringComparer.OrdinalIgnoreCase),
+                "Za" => profiles.OrderByDescending(item => ProfileTitleHtmlFormatter.ToPlainText(item.Title), StringComparer.OrdinalIgnoreCase),
                 "MostRecentlyUpdated" => profiles.OrderByDescending(item => item.ModifiedAtUtc),
                 "LeastRecentlyUpdated" => profiles.OrderBy(item => item.ModifiedAtUtc),
-                _ => profiles.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                _ => profiles.OrderBy(item => ProfileTitleHtmlFormatter.ToPlainText(item.Title), StringComparer.OrdinalIgnoreCase)
             };
 
             SearchResults = profiles.ToList();
