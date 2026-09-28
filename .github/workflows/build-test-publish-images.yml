@@ -29,9 +29,8 @@ on:
           - minor
           - major
 
-permissions:
-  contents: read
-  pull-requests: read
+# Deny GitHub token access by default. Each job grants only what it needs.
+permissions: {}
 
 # Pull-request release-label contract:
 # - API: release:api:patch, release:api:minor or release:api:major
@@ -61,6 +60,9 @@ jobs:
     name: Detect affected components
     runs-on: windows-2022
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       components: ${{ steps.components.outputs.result }}
       dockerfiles: ${{ steps.dockerfiles.outputs.map }}
@@ -142,6 +144,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      pull-requests: read
     env:
       COMPONENTS_JSON: ${{ needs.changes.outputs.components }}
       LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
@@ -198,6 +202,8 @@ jobs:
     name: Format, build and test solution
     runs-on: windows-2022
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -232,6 +238,8 @@ jobs:
     if: vars.SONAR_ENABLED == 'true'
     runs-on: windows-2022
     timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
       - name: Checkout full history
         uses: actions/checkout@v7.0.1
@@ -251,7 +259,7 @@ jobs:
           java-version: "17"
 
       - name: Cache SonarCloud packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~\sonar\cache
           key: ${{ runner.os }}-sonar
@@ -259,7 +267,7 @@ jobs:
 
       - name: Cache SonarCloud scanner
         id: cache-sonar-scanner
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ runner.temp }}\scanner
           key: ${{ runner.os }}-sonar-scanner
@@ -311,6 +319,8 @@ jobs:
     if: needs.changes.outputs.components != '[]'
     runs-on: windows-2022
     timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -850,7 +860,7 @@ jobs:
           PY
 
       - name: Configure AWS credentials through OIDC
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -870,7 +880,7 @@ jobs:
 
       - name: Log in to Amazon ECR
         id: ecr-login
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        uses: aws-actions/amazon-ecr-login@v2.1.6
         with:
           mask-password: true
 
@@ -998,6 +1008,7 @@ jobs:
     if: always()
     runs-on: windows-2022
     timeout-minutes: 5
+    permissions: {}
     env:
       CHANGES_RESULT: ${{ needs.changes.result }}
       LABEL_RESULT: ${{ needs.release-label-validation.result }}
