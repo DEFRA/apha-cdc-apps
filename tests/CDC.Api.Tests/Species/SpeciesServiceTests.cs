@@ -111,4 +111,79 @@ public class SpeciesServiceTests
 
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
+
+    [Fact]
+    public async Task GetSpeciesDetail_ShouldReturnDetail()
+    {
+        repository
+            .Setup(repo => repo.GetSpeciesByIdAsync(SpeciesTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpeciesTestData.SpeciesDetail());
+
+        var result = await CreateService().GetSpeciesDetailAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Name.Should().Be("Dairy cattle");
+        result.ParentName.Should().Be("Cattle");
+    }
+
+    [Fact]
+    public async Task GetSpeciesDetail_ShouldReturnNull_WhenSpeciesDoesNotExist()
+    {
+        repository
+            .Setup(repo => repo.GetSpeciesByIdAsync(SpeciesTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CDC.Api.Domain.Entities.SpeciesDetail?)null);
+
+        var result = await CreateService().GetSpeciesDetailAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSpeciesValidParents_ShouldReturnValidParents()
+    {
+        repository
+            .Setup(repo => repo.GetSpeciesValidParentsAsync(SpeciesTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([SpeciesTestData.ValidParent()]);
+
+        var result = await CreateService().GetSpeciesValidParentsAsync(SpeciesTestData.SpeciesId, CancellationToken.None);
+
+        result.Should().ContainSingle();
+        result[0].Name.Should().Be("Cattle");
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParent_ShouldCallRepository()
+    {
+        var command = SpeciesTestData.UpdateNameParentCommand();
+
+        repository
+            .Setup(repo => repo.UpdateSpeciesNameParentAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpeciesTestData.NewRowVersion);
+
+        var result = await CreateService().UpdateSpeciesNameParentAsync(command, CancellationToken.None);
+
+        result.SpeciesId.Should().Be(SpeciesTestData.SpeciesId);
+        result.LastUpdated.Should().Equal(SpeciesTestData.NewRowVersion);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesNameParent_ShouldRejectNullCommand()
+    {
+        var act = async () => await CreateService().UpdateSpeciesNameParentAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task GetSpeciesAuditTrail_ShouldReturnEntries()
+    {
+        repository
+            .Setup(repo => repo.GetSpeciesAuditTrailAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([SpeciesTestData.AuditTrailEntry()]);
+
+        var result = await CreateService().GetSpeciesAuditTrailAsync(CancellationToken.None);
+
+        result.Should().ContainSingle();
+        result[0].ReasonForChange.Should().Be("Simplifying the name");
+    }
 }
