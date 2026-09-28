@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using CDC.Api.Features.Health;
+using CDC.Common.Health;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CDC.Api.Tests.Endpoints;
@@ -16,6 +16,7 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Database__User", "cdc-tests");
         Environment.SetEnvironmentVariable("Database__Password", "cdc-tests-password");
         Environment.SetEnvironmentVariable("HealthCheck__ReadinessKey", "local-dev-readiness-key");
+        Environment.SetEnvironmentVariable("Species__AuditUserId", "11111111-1111-1111-1111-111111111111");
 
         _factory = factory;
     }

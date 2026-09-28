@@ -28,39 +28,6 @@ public class PrioritisationVariablesModel : BreadcrumbPageModelBase
 
     public void OnGet()
     {
-        UpdateCategorisationSummary();
-    }
-
-    public PageResult OnPostRunDraftPrioritisation()
-    {
-        SuccessMessage = "Prioritisation of draft profiles was successful";
-        UpdateResultMessage = null;
-        PublishedProfileScoresRecalculated = false;
-        return Page();
-    }
-
-    public PageResult OnPostUpdateGlobalVariables()
-    {
-        PublishedProfileScoresRecalculated = true;
-        UpdateResultMessage = "Published profile scores were recalculated successfully.";
-        SuccessMessage = null;
-        return Page();
-    }
-
-    public PageResult OnPostSaveRange()
-    {
-        if (LowerBound > UpperBound)
-        {
-            ModelState.AddModelError(string.Empty, "Lower bound cannot be greater than upper bound.");
-            return Page();
-        }
-
-        UpdateCategorisationSummary();
-        return Page();
-    }
-
-    private void UpdateCategorisationSummary()
-    {
-        CategorisationSummary = $"Current categorisation range is {LowerBound} to {UpperBound}. Profiles within this band are grouped together for prioritisation reporting.";
+        // Page renders static content only; no data to load.
     }
 }

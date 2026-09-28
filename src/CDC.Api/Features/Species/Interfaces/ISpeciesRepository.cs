@@ -45,4 +45,33 @@ public interface ISpeciesRepository
     /// Thrown when the supplied row version no longer matches the stored value.
     /// </exception>
     Task<byte[]> UpdateSpeciesAnswerDataAsync(UpdateSpeciesAnswerDataCommand command, CancellationToken cancellationToken);
+
+    /// <summary>Reads one species' name/parent detail via <c>spgSpeciesById</c>.</summary>
+    /// <param name="speciesId">The species to read.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The species detail, or <see langword="null"/> when the species does not exist.</returns>
+    Task<SpeciesDetail?> GetSpeciesByIdAsync(Guid speciesId, CancellationToken cancellationToken);
+
+    /// <summary>Reads the legal parent choices for a species via <c>spgSpeciesValidParents</c>.</summary>
+    /// <param name="speciesId">The species being re-parented.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The valid parent list.</returns>
+    Task<IReadOnlyList<SpeciesValidParent>> GetSpeciesValidParentsAsync(Guid speciesId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Updates a species' name and parent via <c>spuSpecies</c>, which also writes the audit
+    /// trail entry, and returns the new row version.
+    /// </summary>
+    /// <param name="command">The change to apply.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The new row version of the species record.</returns>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when the supplied row version no longer matches the stored value.
+    /// </exception>
+    Task<byte[]> UpdateSpeciesNameParentAsync(UpdateSpeciesNameParentCommand command, CancellationToken cancellationToken);
+
+    /// <summary>Reads every recorded species name/parent change via <c>spgaSpeciesTableAuditLog</c>.</summary>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The audit trail, most recent entry first.</returns>
+    Task<IReadOnlyList<SpeciesAuditTrailEntry>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken);
 }
