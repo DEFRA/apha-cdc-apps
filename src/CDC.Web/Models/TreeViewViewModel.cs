@@ -30,15 +30,18 @@ public sealed record TreeViewViewModel
 
     public string ItemNamePlural { get; init; } = "items";
 
-    /// Shown by the live selection status when nothing is selected. When null, the status
-    /// stays hidden until a selection is made.
-    public string? EmptySelectionLabel { get; init; }
+    /// Value of the node that should render pre-checked, for example when re-displaying a
+    /// saved selection. Null means no node is pre-checked. Ignored when
+    /// <see cref="AllowMultipleSelection"/> is true; use <see cref="SelectedValues"/> instead.
+    public string? SelectedValue { get; init; }
 
-    /// When true, nodes render as checkboxes and any number can be selected. When false
-    /// (the default), nodes render as radios sharing <see cref="FieldName"/>, so the browser
-    /// itself enforces a single selection.
+    /// Whether more than one node may be checked at once (checkboxes) rather than exactly one
+    /// (radios, the default).
     public bool AllowMultipleSelection { get; init; }
 
-    /// Values that should render pre-checked, for example after a GET postback.
+    /// Values that should render pre-checked when <see cref="AllowMultipleSelection"/> is true.
     public IReadOnlySet<string> SelectedValues { get; init; } = new HashSet<string>();
+
+    /// Label describing the empty/no-selection state, for example "Any species".
+    public string? EmptySelectionLabel { get; init; }
 }

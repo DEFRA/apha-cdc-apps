@@ -4,10 +4,8 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
-
   push:
     branches: [main]
-
   workflow_dispatch:
     inputs:
       api_release_type:
@@ -31,15 +29,20 @@ on:
           - minor
           - major
 
-permissions:
-  contents: read
-
 # Pull-request release-label contract:
 # - API: release:api:patch, release:api:minor or release:api:major
 # - Web: release:web:patch, release:web:minor or release:web:major
 # A changed component requires exactly one matching label. An unchanged
 # component must not have a release label.
-
+#
+# Dynamic semantic-version rules:
+# - No existing tag + patch = 0.0.1
+# - No existing tag + minor = 0.1.0
+# - api-v0.1.0 + patch = api-v0.1.1
+# - api-v0.1.0 + minor = api-v0.2.0
+# - api-v0.2.0 + patch = api-v0.2.1
+# - web follows the same independent sequence.
+#
 # Production releases are serialized so two merges cannot calculate the same
 # next semantic version. Pull-request validation remains independently cancellable.
 concurrency:
@@ -54,11 +57,12 @@ jobs:
     name: Detect affected components
     runs-on: windows-2022
     timeout-minutes: 5
-
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       components: ${{ steps.components.outputs.result }}
       dockerfiles: ${{ steps.dockerfiles.outputs.map }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -81,6 +85,7 @@ jobs:
               - 'NuGet.config'
               - 'global.json'
               - '.github/workflows/build-test-publish-images.yml'
+              - '.github/actions/strip-nuget-cache-mount/**'
             web:
               - 'src/CDC.Web/**'
               - 'tests/CDC.Web.Tests/**'
@@ -92,6 +97,7 @@ jobs:
               - 'NuGet.config'
               - 'global.json'
               - '.github/workflows/build-test-publish-images.yml'
+              - '.github/actions/strip-nuget-cache-mount/**'
 
       - name: Resolve affected components
         id: components
@@ -108,11 +114,11 @@ jobs:
             COMPONENTS='[]'
 
             if [[ "${{ inputs.api_release_type }}" != "none" ]]; then
-              COMPONENTS="$(jq -c '. + [\"api\"]' <<< "${COMPONENTS}")"
+              COMPONENTS="$(jq -c '. + ["api"]' <<< "${COMPONENTS}")"
             fi
 
             if [[ "${{ inputs.web_release_type }}" != "none" ]]; then
-              COMPONENTS="$(jq -c '. + [\"web\"]' <<< "${COMPONENTS}")"
+              COMPONENTS="$(jq -c '. + ["web"]' <<< "${COMPONENTS}")"
             fi
 
             if [[ "${COMPONENTS}" == "[]" ]]; then
@@ -137,11 +143,11 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
+    permissions:
+      pull-requests: read
     env:
       COMPONENTS_JSON: ${{ needs.changes.outputs.components }}
       LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-
     steps:
       - name: Enforce component-specific release labels
         shell: bash
@@ -189,14 +195,14 @@ jobs:
 
           validate_component api
           validate_component web
-
           echo "Component release labels match the changed paths."
 
   quality:
     name: Format, build and test solution
     runs-on: windows-2022
     timeout-minutes: 20
-
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -231,7 +237,8 @@ jobs:
     if: vars.SONAR_ENABLED == 'true'
     runs-on: windows-2022
     timeout-minutes: 25
-
+    permissions:
+      contents: read
     steps:
       - name: Checkout full history
         uses: actions/checkout@v7.0.1
@@ -251,7 +258,7 @@ jobs:
           java-version: "17"
 
       - name: Cache SonarCloud packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~\sonar\cache
           key: ${{ runner.os }}-sonar
@@ -259,7 +266,7 @@ jobs:
 
       - name: Cache SonarCloud scanner
         id: cache-sonar-scanner
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ runner.temp }}\scanner
           key: ${{ runner.os }}-sonar-scanner
@@ -279,7 +286,7 @@ jobs:
         shell: bash
         env:
           MSYS_NO_PATHCONV: "1"
-          MSYS2_ARG_CONV_EXCL: "*"
+          MSYS2_ARG_CONV_EXCL: ""
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           set -euo pipefail
@@ -311,15 +318,14 @@ jobs:
     if: needs.changes.outputs.components != '[]'
     runs-on: windows-2022
     timeout-minutes: 20
-
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         component: ${{ fromJSON(needs.changes.outputs.components) }}
-
     env:
       DOCKERFILE: ${{ fromJSON(needs.changes.outputs.dockerfiles)[matrix.component] }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -377,7 +383,6 @@ jobs:
           )
 
           docker @dockerArgs
-
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
@@ -404,20 +409,17 @@ jobs:
     if: >-
       needs.changes.outputs.components != '[]' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     permissions:
       contents: read
       pull-requests: read
-
     outputs:
       versions: ${{ steps.version.outputs.versions }}
       git_tags: ${{ steps.version.outputs.git_tags }}
       release_types: ${{ steps.version.outputs.release_types }}
       pull_request: ${{ steps.version.outputs.pull_request }}
-
     steps:
       - name: Checkout full history
         uses: actions/checkout@v7.0.1
@@ -451,7 +453,8 @@ jobs:
               exit 1
             fi
 
-            LABELS_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            LABELS_JSON="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
               --jq '[.labels[].name]')"
           fi
 
@@ -476,9 +479,15 @@ jobs:
 
           manual_release_type() {
             case "$1" in
-              api) printf '%s\n' "${MANUAL_API_RELEASE_TYPE}" ;;
-              web) printf '%s\n' "${MANUAL_WEB_RELEASE_TYPE}" ;;
-              *) return 1 ;;
+              api)
+                printf '%s\n' "${MANUAL_API_RELEASE_TYPE}"
+                ;;
+              web)
+                printf '%s\n' "${MANUAL_WEB_RELEASE_TYPE}"
+                ;;
+              *)
+                return 1
+                ;;
             esac
           }
 
@@ -526,27 +535,18 @@ jobs:
             printf '%s\n' "${release_type}"
           }
 
-          calculate_version() {
-            local component="$1"
+          bump_version() {
+            local current_version="$1"
             local release_type="$2"
-            local latest_tag
-            local current_version
             local major
             local minor
             local patch
 
-            latest_tag="$(
-              git tag --list "${component}-v*" |
-                grep -E "^${component}-v[0-9]+\.[0-9]+\.[0-9]+$" |
-                sort -t v -k 2,2V |
-                tail -1 || true
-            )"
-
-            if [[ -z "${latest_tag}" ]]; then
-              latest_tag="${component}-v0.0.0"
+            if [[ ! "${current_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Invalid current semantic version '${current_version}'." >&2
+              return 1
             fi
 
-            current_version="${latest_tag#${component}-v}"
             IFS='.' read -r major minor patch <<< "${current_version}"
 
             case "${release_type}" in
@@ -563,13 +563,69 @@ jobs:
                 patch=$((patch + 1))
                 ;;
               *)
-                echo "::error::Unsupported ${component} release type '${release_type}'." >&2
+                echo "::error::Unsupported release type '${release_type}'." >&2
                 return 1
                 ;;
             esac
 
-            printf '%s\n' "${major}.${minor}.${patch}"
+            printf '%s.%s.%s\n' "${major}" "${minor}" "${patch}"
           }
+
+          assert_version_sequence() {
+            local current
+            local sequence_number
+            local expected
+            local actual
+
+            current="0.0.0"
+            for sequence_number in $(seq 1 10); do
+              expected="0.0.${sequence_number}"
+              actual="$(bump_version "${current}" "patch")"
+              [[ "${actual}" == "${expected}" ]] || {
+                echo "::error::Patch assertion failed: ${current} must produce ${expected}, received ${actual}."
+                return 1
+              }
+              current="${actual}"
+            done
+
+            current="0.0.0"
+            for sequence_number in $(seq 1 10); do
+              expected="0.${sequence_number}.0"
+              actual="$(bump_version "${current}" "minor")"
+              [[ "${actual}" == "${expected}" ]] || {
+                echo "::error::Minor assertion failed: ${current} must produce ${expected}, received ${actual}."
+                return 1
+              }
+              current="${actual}"
+            done
+
+            echo "Semantic-version patch and minor sequence validation passed."
+          }
+
+          calculate_version() {
+            local component="$1"
+            local release_type="$2"
+            local latest_tag
+            local current_version
+
+            latest_tag="$(
+              git tag --list "${component}-v*" |
+                grep -E "^${component}-v[0-9]+\.[0-9]+\.[0-9]+$" |
+                sort -V |
+                tail -1 || true
+            )"
+
+            if [[ -z "${latest_tag}" ]]; then
+              current_version="0.0.0"
+              echo "::notice::No release tag found for ${component}; using the initial 0.0.0 baseline." >&2
+            else
+              current_version="${latest_tag#${component}-v}"
+            fi
+
+            bump_version "${current_version}" "${release_type}"
+          }
+
+          assert_version_sequence
 
           for COMPONENT in api web; do
             CHANGED="false"
@@ -654,16 +710,13 @@ jobs:
     runs-on: windows-2022
     environment: ecr-production
     timeout-minutes: 25
-
     permissions:
       contents: read
       id-token: write
-
     strategy:
       fail-fast: false
       matrix:
         component: ${{ fromJSON(needs.changes.outputs.components) }}
-
     env:
       AWS_REGION: ${{ secrets.AWS_ENV_REGION }}
       AWS_ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ENV_ACCOUNT }}:role/${{ secrets.AWS_ENV_OIDC_ROLE }}
@@ -672,7 +725,6 @@ jobs:
       ECR_API_REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
       ECR_WEB_REPOSITORY: ${{ vars.ECR_WEB_REPOSITORY }}
       VERSIONS_JSON: ${{ needs.release-version.outputs.versions }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -732,7 +784,6 @@ jobs:
           }
 
           EXPECTED_ROLE_PREFIX="arn:aws:iam::${EXPECTED_AWS_ACCOUNT_ID}:role/"
-
           [[ "${AWS_ROLE_ARN}" == "${EXPECTED_ROLE_PREFIX}"* && "${AWS_ROLE_ARN}" != "${EXPECTED_ROLE_PREFIX}" ]] || {
             echo "::error::The OIDC role ARN must reference the expected AWS account and include a role name."
             exit 1
@@ -782,7 +833,6 @@ jobs:
           RESPONSE="$(curl --silent --show-error --fail \
             --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")"
-
           TOKEN="$(echo "${RESPONSE}" | jq -er '.value')"
           PAYLOAD="$(echo "${TOKEN}" | cut -d '.' -f 2)"
 
@@ -820,7 +870,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           ACTUAL_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 
           [[ "${ACTUAL_ACCOUNT_ID}" == "${EXPECTED_AWS_ACCOUNT_ID}" ]] || {
@@ -877,31 +926,37 @@ jobs:
 
           if [[ -n "${EXISTING_DIGEST}" && "${EXISTING_DIGEST}" != "None" ]]; then
             if [[ "${EXISTING_DIGEST}" != "${IMAGE_DIGEST}" ]]; then
-              echo "::error::Immutable tag ${RELEASE_TAG} already points to another digest."
+              echo "::error::Immutable tag ${RELEASE_TAG} already points to ${EXISTING_DIGEST}; expected ${IMAGE_DIGEST}."
               exit 1
             fi
-
             echo "${RELEASE_TAG} already points to the expected digest; continuing safely."
           else
-            # Push the same local image again under the release tag, rather than copying the
-            # manifest via `aws ecr batch-get-image`/`put-image`: ECR's --accepted-media-types
-            # negotiation can transcode the manifest (e.g. Docker v2 schema2 <-> OCI v1), which
-            # changes its serialised bytes - and therefore its digest - even though the image
-            # content is identical. Re-pushing from Docker avoids that transcoding entirely, so
-            # the release tag is guaranteed to resolve to the exact same digest as the candidate.
-            docker tag "${LOCAL_IMAGE}" "${RELEASE_URI}"
+            # Promote the exact local image that produced CANDIDATE_TAG. This
+            # avoids retrieving or translating the manifest before retagging.
+            docker tag "${CANDIDATE_URI}" "${RELEASE_URI}"
             docker push "${RELEASE_URI}"
           fi
 
-          RELEASE_DIGEST="$(aws ecr describe-images \
-            --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-            --repository-name "${ECR_REPOSITORY}" \
-            --image-ids imageTag="${RELEASE_TAG}" \
-            --query 'imageDetails[0].imageDigest' \
-            --output text)"
+          RELEASE_DIGEST=""
+          for ATTEMPT in $(seq 1 10); do
+            RELEASE_DIGEST="$(aws ecr describe-images \
+              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
+              --repository-name "${ECR_REPOSITORY}" \
+              --image-ids imageTag="${RELEASE_TAG}" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null || true)"
+
+            if [[ "${RELEASE_DIGEST}" == "${IMAGE_DIGEST}" ]]; then
+              break
+            fi
+
+            if (( ATTEMPT < 10 )); then
+              sleep 2
+            fi
+          done
 
           if [[ "${RELEASE_DIGEST}" != "${IMAGE_DIGEST}" ]]; then
-            echo "::error::Release tag digest does not match the validated candidate digest."
+            echo "::error::Release tag ${RELEASE_TAG} points to '${RELEASE_DIGEST:-missing}', but validated candidate ${CANDIDATE_TAG} points to '${IMAGE_DIGEST}'."
             exit 1
           fi
 
@@ -946,7 +1001,7 @@ jobs:
     if: always()
     runs-on: windows-2022
     timeout-minutes: 5
-
+    permissions: {}
     env:
       CHANGES_RESULT: ${{ needs.changes.result }}
       LABEL_RESULT: ${{ needs.release-label-validation.result }}
@@ -959,7 +1014,6 @@ jobs:
       SONAR_ENABLED: ${{ vars.SONAR_ENABLED }}
       EVENT_NAME: ${{ github.event_name }}
       GIT_REF: ${{ github.ref }}
-
     steps:
       - name: Enforce required results
         shell: bash
@@ -992,8 +1046,8 @@ jobs:
           fi
 
           if [[ "${EVENT_NAME}" =~ ^(push|workflow_dispatch)$ && \
-                "${GIT_REF}" == "refs/heads/main" && \
-                "${COMPONENTS}" != "[]" ]]; then
+            "${GIT_REF}" == "refs/heads/main" && \
+            "${COMPONENTS}" != "[]" ]]; then
             [[ "${VERSION_RESULT}" == "success" ]] || {
               echo "::error::Release-version result: ${VERSION_RESULT}"
               exit 1
@@ -1023,10 +1077,8 @@ jobs:
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     permissions:
       contents: write
-
     steps:
       - name: Checkout full history
         uses: actions/checkout@v7.0.1
@@ -1064,11 +1116,9 @@ jobs:
                 echo "::error::${RELEASE_TAG} already points to ${EXISTING_COMMIT}."
                 exit 1
               fi
-
               echo "${RELEASE_TAG} already points to this release commit."
             else
               MESSAGE="CDC ${COMPONENT} production release ${RELEASE_TAG}; increment=${RELEASE_TYPE}"
-
               if [[ -n "${PR_NUMBER}" ]]; then
                 MESSAGE="${MESSAGE}; PR #${PR_NUMBER}"
               fi

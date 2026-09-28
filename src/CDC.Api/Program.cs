@@ -1,5 +1,6 @@
 using CDC.Api.Application;
 using CDC.Api.Features.Health;
+using CDC.Api.Features.ReviewNotifications;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Swagger;
 using CDC.Api.Middleware;
@@ -30,6 +31,11 @@ StartupChecks.RequireDatabaseOptions(builder.Configuration);
 // return an identical 404 for "not configured" and "wrong key" alike.
 StartupChecks.RequireReadinessKey(builder.Configuration);
 
+// Species__AuditUserId - temporary placeholder acting user for the species audit trail until
+// Entra ID authentication supplies a real per-request caller. See SpeciesAuditOptions.
+var speciesAuditUserId = StartupChecks.RequireSpeciesAuditUserId(builder.Configuration);
+builder.Services.AddSingleton(new SpeciesAuditOptions(speciesAuditUserId));
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 
@@ -40,7 +46,24 @@ builder.Services.AddSwaggerDocumentation();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
+// Scaffold for the review-due notification scheduled job (see ReviewNotificationsJob) -
+// registered here rather than in AddApplication/AddInfrastructure since it has no feature
+// service/repository pair yet, just a single job-mode entry point.
+builder.Services.AddScoped<ReviewNotificationsJob>();
+
 var app = builder.Build();
+
+// Job mode: the review-notifications ECS Scheduled Task runs this same image with
+// "review-notifications" as the container command override (see the D2R2 LLD Scheduling
+// section) instead of starting Kestrel. Checked before any web-hosting middleware runs.
+if (args.Length > 0 && args[0] == "review-notifications")
+{
+    using var jobScope = app.Services.CreateScope();
+    var job = jobScope.ServiceProvider.GetRequiredService<ReviewNotificationsJob>();
+    var succeeded = await job.RunAsync(CancellationToken.None);
+    Environment.ExitCode = succeeded ? 0 : 1;
+    return;
+}
 
 // First in the pipeline so it also catches failures raised by routing and model binding.
 app.UseGlobalExceptionHandling();
