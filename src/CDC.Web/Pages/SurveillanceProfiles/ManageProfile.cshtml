@@ -1,0 +1,111 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.ManageProfileModel
+@{
+    ViewData["Title"] = "Manage Profile";
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Manage
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        <h1 class="govuk-heading-l">Manage Profile</h1>
+
+        @if (Model.HasError)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">Unable to load this profile. Please try again.</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.Profile is not null)
+        {
+            <dl class="govuk-summary-list">
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Profile title</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.ProfileTitle</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Scenario title</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.ScenarioTitle</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Latest published version (public)</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.LatestPublishedVersionPublic</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Latest published version (DefraNet only)</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.LatestPublishedVersionDefraNetOnly</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Latest draft version</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.LatestDraftVersion</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Profile status</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.ProfileStatus</dd>
+                </div>
+            </dl>
+
+            <ul class="govuk-list">
+                <li>
+                    <!-- TODO: implement making the DefraNet-only published version public -->
+                    <a class="govuk-link" href="#">Allow public access</a>
+                </li>
+                <li>
+                    <!-- TODO: implement navigation to Edit properties -->
+                    <a class="govuk-link" href="#">Edit properties</a>
+                </li>
+                <li>
+                    <!-- TODO: implement navigation to Maintain contributors and reviewers -->
+                    <a class="govuk-link" href="#">Maintain contributors and reviewers</a>
+                </li>
+                <li>
+                    <!-- TODO: implement navigation to the contributions report -->
+                    <a class="govuk-link" href="#">View contributions report</a>
+                </li>
+                <li>
+                    <!-- TODO: implement creating a new draft version -->
+                    <a class="govuk-link" href="#">Create new draft version</a>
+                </li>
+                <li>
+                    <!-- TODO: implement deleting the current profile version -->
+                    <a class="govuk-link" href="#">Delete current version</a>
+                </li>
+                <li>
+                    <!-- TODO: implement cloning a new profile -->
+                    <a class="govuk-link" href="#">Clone new profile</a>
+                </li>
+                <li>
+                    <!-- TODO: implement cloning a new scenario -->
+                    <a class="govuk-link" href="#">Clone new scenario</a>
+                </li>
+                <li>
+                    <!-- TODO: implement publishing the profile publicly -->
+                    <a class="govuk-link" href="#">Publish (public)</a>
+                </li>
+                <li>
+                    <!-- TODO: implement publishing the profile for DefraNet only -->
+                    <a class="govuk-link" href="#">Publish (Defranet only)</a>
+                </li>
+            </ul>
+        }
+    </div>
+</div>

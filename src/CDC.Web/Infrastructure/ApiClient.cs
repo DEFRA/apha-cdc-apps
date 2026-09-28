@@ -30,6 +30,10 @@ public interface IApiClient
         string title,
         byte[] lastUpdated,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Gets the details shown on the "Manage profile" page from
+    /// <c>GET /api/profiles/{profileId}/manage</c>.</summary>
+    Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -106,6 +110,20 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         }
 
         return new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Error, "The profile title could not be saved. Please try again.");
+    }
+
+    public async Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.GetAsync($"/api/profiles/{profileId}/manage", cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<ManageProfileViewModel>(cancellationToken);
     }
 }
 

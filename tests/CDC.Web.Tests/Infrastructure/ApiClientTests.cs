@@ -122,6 +122,50 @@ public class ApiClientTests
     }
 
     [Fact]
+    public async Task GetManageProfileAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "profileId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "profileTitle": "Bovine Tuberculosis",
+              "scenarioTitle": "Default Scenario",
+              "latestPublishedVersionPublic": "Version 5",
+              "latestPublishedVersionDefraNetOnly": "Version 7",
+              "latestDraftVersion": "Version 8",
+              "profileStatus": "Draft"
+            }
+            """;
+        var profileId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var profile = await client.GetManageProfileAsync(profileId);
+
+        Assert.NotNull(profile);
+        Assert.Equal("Bovine Tuberculosis", profile!.ProfileTitle);
+        Assert.Equal("Draft", profile.ProfileStatus);
+        Assert.Equal($"/api/profiles/{profileId}/manage", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_ReturnsNull_WhenTheProfileDoesNotExist()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var profile = await client.GetManageProfileAsync(Guid.NewGuid());
+
+        Assert.Null(profile);
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_Throws_OnANonSuccessNonNotFoundStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetManageProfileAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
     public async Task UpdateProfileTitleAsync_ReturnsSuccess_OnNoContent()
     {
         var profileId = Guid.NewGuid();

@@ -11,7 +11,9 @@ internal sealed class FakeApiClient(
     Exception? throwOnSearchProfiles = null,
     ProfileAttributesDto? profileAttributes = null,
     Exception? throwOnGetProfileAttributes = null,
-    UpdateProfileTitleResult? updateProfileTitleResult = null) : IApiClient
+    UpdateProfileTitleResult? updateProfileTitleResult = null,
+    ManageProfileViewModel? manageProfile = null,
+    Exception? throwOnGetManageProfile = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -44,4 +46,9 @@ internal sealed class FakeApiClient(
         byte[] lastUpdated,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(_updateProfileTitleResult);
+
+    public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        throwOnGetManageProfile is not null
+            ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
+            : Task.FromResult(manageProfile);
 }

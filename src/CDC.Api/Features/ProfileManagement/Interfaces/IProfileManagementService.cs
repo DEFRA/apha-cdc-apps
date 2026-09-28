@@ -74,4 +74,11 @@ public interface IProfileManagementService
     /// <param name="profileStatusId">The status to set.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task UpdateProfileStatusAsync(Guid profileId, Guid profileStatusId, CancellationToken cancellationToken);
+
+    /// <summary>Gets the details shown on the "Manage profile" page: titles, version display
+    /// labels and status name.</summary>
+    /// <param name="profileId">The profile to read.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The profile's "Manage profile" details, or <see langword="null"/> when it does not exist.</returns>
+    Task<GetManageProfileResponse?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken);
 }
