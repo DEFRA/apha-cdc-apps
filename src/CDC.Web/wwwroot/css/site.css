@@ -40,6 +40,25 @@ html {
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
 }
 
+/* Visual loading state while the results fragment is refreshed asynchronously
+   (see wwwroot/js/search-filters.js); the fragment stays visible but is dimmed
+   and un-clickable rather than disappearing, so the page stays responsive. */
+#search-results-container[aria-busy="true"] {
+  position: relative;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+#search-results-container[aria-busy="true"]::after {
+  content: "Loading results\2026";
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--govuk-text-colour, #0b0c0c);
+}
+
 .app-search-form .govuk-details {
   margin-bottom: 0;
 }

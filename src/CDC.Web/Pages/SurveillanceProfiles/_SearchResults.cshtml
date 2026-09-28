@@ -2,6 +2,8 @@
 @* Rendered both by the full page and, via SurveillanceProfilesSearchModel.OnGetAsync, as an
    AJAX fragment so filter changes can repopulate this section without a full page reload. *@
 
+<input type="hidden" id="PageNumber" name="PageNumber" value="@Model.PageNumber" form="search-form" />
+
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
     <div class="govuk-error-summary govuk-!-margin-top-4" data-module="govuk-error-summary">
