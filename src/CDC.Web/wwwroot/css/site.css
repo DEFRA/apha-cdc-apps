@@ -193,6 +193,16 @@ html {
   min-width: 2.5rem;
 }
 
+/* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
+   (<i>, <strong>, etc.) render live instead of showing as raw text. */
+.app-title-editor {
+  display: block;
+  min-height: 2.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
 .app-profile-card__header {
   display: flex;
   align-items: baseline;

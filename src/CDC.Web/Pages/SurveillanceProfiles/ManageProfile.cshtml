@@ -1,7 +1,7 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.ManageProfileModel
 @{
-    ViewData["Title"] = "Manage Profile";
+    ViewData["Title"] = Model.Profile is not null ? $"Manage profile: {Model.Profile.ProfileTitle}" : "Manage profile";
 }
 
 @section Breadcrumbs {
@@ -22,7 +22,14 @@
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-        <h1 class="govuk-heading-l">Manage Profile</h1>
+        @if (Model.Profile is not null)
+        {
+            <h1 class="govuk-heading-l">Manage profile:<br />@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.Profile.ProfileTitle)</h1>
+        }
+        else
+        {
+            <h1 class="govuk-heading-l">Manage profile</h1>
+        }
 
         @if (Model.HasError)
         {
@@ -40,7 +47,7 @@
             <dl class="govuk-summary-list">
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Profile title</dt>
-                    <dd class="govuk-summary-list__value">@Model.Profile.ProfileTitle</dd>
+                    <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.Profile.ProfileTitle)</dd>
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Scenario title</dt>

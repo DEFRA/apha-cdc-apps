@@ -1,4 +1,6 @@
-// Formatting toolbar (undo/redo/italic) above the profile title textbox on EditProfileTitle.
+// Formatting toolbar (undo/redo/italic) above the profile title editor on EditProfileTitle.
+// The title is edited in a contenteditable div (so HTML formatting renders as the user types)
+// and mirrored into a hidden input on every change, which is what actually gets posted.
 (function () {
     'use strict';
 
@@ -8,20 +10,25 @@
             return;
         }
 
-        var input = document.getElementById(toolbar.getAttribute('data-app-title-toolbar'));
+        var editor = document.getElementById(toolbar.dataset.appTitleToolbar);
+        var hiddenInput = editor ? document.getElementById(editor.dataset.appTitleHiddenInput) : null;
         var undoButton = toolbar.querySelector('[data-app-title-action="undo"]');
         var redoButton = toolbar.querySelector('[data-app-title-action="redo"]');
         var italicButton = toolbar.querySelector('[data-app-title-action="italic"]');
 
-        if (!input || !undoButton || !redoButton || !italicButton) {
+        if (!editor || !hiddenInput || !undoButton || !redoButton || !italicButton) {
             return;
         }
 
-        // Text inputs have no native, reliable undo/redo API, so history is tracked manually.
-        var history = [input.value];
+        // contenteditable has no native, reliable undo/redo API, so history is tracked manually.
+        var history = [editor.innerHTML];
         var historyIndex = 0;
         var isApplyingHistory = false;
         var debounceTimer;
+
+        function syncHiddenInput() {
+            hiddenInput.value = editor.innerHTML;
+        }
 
         function updateButtonStates() {
             undoButton.disabled = historyIndex <= 0;
@@ -29,12 +36,12 @@
         }
 
         function pushHistory() {
-            if (isApplyingHistory || input.value === history[historyIndex]) {
+            if (isApplyingHistory || editor.innerHTML === history[historyIndex]) {
                 return;
             }
 
             history = history.slice(0, historyIndex + 1);
-            history.push(input.value);
+            history.push(editor.innerHTML);
             historyIndex = history.length - 1;
             updateButtonStates();
         }
@@ -42,13 +49,15 @@
         function applyHistory(index) {
             isApplyingHistory = true;
             historyIndex = index;
-            input.value = history[historyIndex];
-            input.focus();
+            editor.innerHTML = history[historyIndex];
+            syncHiddenInput();
+            editor.focus();
             isApplyingHistory = false;
             updateButtonStates();
         }
 
-        input.addEventListener('input', function () {
+        editor.addEventListener('input', function () {
+            syncHiddenInput();
             window.clearTimeout(debounceTimer);
             debounceTimer = window.setTimeout(pushHistory, 300);
         });
@@ -69,15 +78,33 @@
         });
 
         italicButton.addEventListener('click', function () {
-            var start = input.selectionStart || 0;
-            var end = input.selectionEnd || 0;
-            var selected = input.value.slice(start, end) || 'italic text';
+            editor.focus();
 
-            input.focus();
-            input.setRangeText('<i>' + selected + '</i>', start, end, 'end');
+            var selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                return;
+            }
+
+            var range = selection.getRangeAt(0);
+            if (!editor.contains(range.commonAncestorContainer)) {
+                return;
+            }
+
+            var italic = document.createElement('i');
+            italic.appendChild(range.extractContents());
+            range.insertNode(italic);
+
+            selection.removeAllRanges();
+            var newRange = document.createRange();
+            newRange.selectNodeContents(italic);
+            selection.addRange(newRange);
+
+            syncHiddenInput();
             pushHistory();
         });
 
+        syncHiddenInput();
         updateButtonStates();
     });
 })();
+
