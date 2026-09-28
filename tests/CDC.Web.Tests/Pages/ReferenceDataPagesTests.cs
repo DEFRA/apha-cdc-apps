@@ -62,6 +62,46 @@ public class ReferenceDataPagesTests
     }
 
     [Fact]
+    public async Task EditReferenceValue_OnGetAsync_PopulatesTheExistingValue()
+    {
+        var service = CreateService();
+        var existing = (await service.GetValuesAsync(ControlMechanismId))[0];
+        var pageModel = CreateEditPageModel(service, existing);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(existing.LookupValue, pageModel.NewLookupValue);
+        Assert.Equal(existing.LookupValue, pageModel.ExistingValue!.LookupValue);
+    }
+
+    [Fact]
+    public async Task EditReferenceValue_OnGetAsync_ReturnsNotFound_WhenValueDoesNotExist()
+    {
+        var service = CreateService();
+        var existing = (await service.GetValuesAsync(ControlMechanismId))[0];
+        var pageModel = CreateEditPageModel(service, existing);
+        pageModel.ValueId = Guid.NewGuid();
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task EditReferenceValue_OnGetAsync_ReturnsNotFound_WhenTableDoesNotExist()
+    {
+        var service = CreateService();
+        var existing = (await service.GetValuesAsync(ControlMechanismId))[0];
+        var pageModel = CreateEditPageModel(service, existing);
+        pageModel.TableId = Guid.NewGuid();
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
     public async Task EditReferenceValue_OnPostAsync_UpdatesValue_AndRecordsAuditEntry()
     {
         var service = CreateService();
@@ -86,6 +126,21 @@ public class ReferenceDataPagesTests
         Assert.Equal("Aligned with the 2026 border operating model", audit.Reason);
         Assert.Equal("Control Mechanism", audit.TableName);
         Assert.False(string.IsNullOrWhiteSpace(audit.UserFullName));
+    }
+
+    [Fact]
+    public async Task EditReferenceValue_OnPostAsync_ReturnsNotFound_WhenValueNoLongerExists()
+    {
+        var service = CreateService();
+        var existing = (await service.GetValuesAsync(ControlMechanismId))[0];
+        var pageModel = CreateEditPageModel(service, existing);
+        pageModel.ValueId = Guid.NewGuid();
+        pageModel.NewLookupValue = "New value";
+        pageModel.Reason = "Valid reason";
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
@@ -121,6 +176,22 @@ public class ReferenceDataPagesTests
         Assert.IsType<PageResult>(result);
         Assert.Equal("There is already a reference value with this name", pageModel.ErrorFor(nameof(pageModel.NewLookupValue)));
         Assert.Empty(await service.GetAuditTrailAsync(ControlMechanismId));
+    }
+
+    [Fact]
+    public async Task EditReferenceValue_OnPostAsync_RejectsBlankValuesAndOverlongReasons()
+    {
+        var service = CreateService();
+        var existing = (await service.GetValuesAsync(ControlMechanismId))[0];
+        var pageModel = CreateEditPageModel(service, existing);
+        pageModel.NewLookupValue = string.Empty;
+        pageModel.Reason = new string('x', EditReferenceValueModel.ReasonMaxLength + 1);
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Enter a new value", pageModel.ErrorFor(nameof(pageModel.NewLookupValue)));
+        Assert.Equal($"Reason for change must be {EditReferenceValueModel.ReasonMaxLength} characters or fewer", pageModel.ErrorFor(nameof(pageModel.Reason)));
     }
 
     [Fact]
