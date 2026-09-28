@@ -115,6 +115,18 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Equal("Bovine tuberculosis", pageModel.SearchResults[0].Title);
     }
 
+    [Fact]
+    public async Task PerformSearchAsync_FiltersBySelectedLetter_IgnoringLeadingHtmlMarkup()
+    {
+        var pageModel = CreatePageModel([Profile("<p>Leptospirosis (Weil's Disease)</p>"), Profile("Avian influenza")]);
+        pageModel.SelectedLetter = "L";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.TotalResultCount);
+        Assert.Equal("<p>Leptospirosis (Weil's Disease)</p>", pageModel.SearchResults[0].Title);
+    }
+
     [Theory]
     [InlineData("Az", "Avian influenza", "Bovine tuberculosis")]
     [InlineData("Za", "Bovine tuberculosis", "Avian influenza")]
@@ -122,6 +134,20 @@ public class SurveillanceProfilesSearchModelTests
     public async Task PerformSearchAsync_SortsByTitle(string sortBy, string expectedFirst, string expectedSecond)
     {
         var pageModel = CreatePageModel([Profile("Bovine tuberculosis"), Profile("Avian influenza")]);
+        pageModel.SortBy = sortBy;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedFirst, pageModel.SearchResults[0].Title);
+        Assert.Equal(expectedSecond, pageModel.SearchResults[1].Title);
+    }
+
+    [Theory]
+    [InlineData("Az", "<p>Leptospirosis (Weil's Disease)</p>", "<em>Zika virus</em>")]
+    [InlineData("Za", "<em>Zika virus</em>", "<p>Leptospirosis (Weil's Disease)</p>")]
+    public async Task PerformSearchAsync_SortsByTitle_IgnoringHtmlMarkup(string sortBy, string expectedFirst, string expectedSecond)
+    {
+        var pageModel = CreatePageModel([Profile("<em>Zika virus</em>"), Profile("<p>Leptospirosis (Weil's Disease)</p>")]);
         pageModel.SortBy = sortBy;
 
         await pageModel.OnGetAsync(CancellationToken.None);

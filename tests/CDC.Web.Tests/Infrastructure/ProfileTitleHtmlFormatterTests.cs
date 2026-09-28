@@ -73,4 +73,42 @@ public class ProfileTitleHtmlFormatterTests
         Assert.Contains("&lt;script&gt;", rendered);
         Assert.Contains("&lt;em onclick=", rendered);
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void ToPlainText_ReturnsEmpty_ForNullOrEmptyTitle(string? title)
+    {
+        Assert.Equal(string.Empty, ProfileTitleHtmlFormatter.ToPlainText(title));
+    }
+
+    [Fact]
+    public void ToPlainText_ReturnsTitle_Unchanged_WhenItHasNoMarkup()
+    {
+        Assert.Equal("Bovine tuberculosis", ProfileTitleHtmlFormatter.ToPlainText("Bovine tuberculosis"));
+    }
+
+    [Fact]
+    public void ToPlainText_StripsWrappingParagraphTag()
+    {
+        Assert.Equal(
+            "Leptospirosis (Weil's Disease)",
+            ProfileTitleHtmlFormatter.ToPlainText("<p>Leptospirosis (Weil's Disease)</p>"));
+    }
+
+    [Fact]
+    public void ToPlainText_StripsEveryTag_IncludingNestedInlineFormatting()
+    {
+        Assert.Equal(
+            "E. coli (ESBLs)",
+            ProfileTitleHtmlFormatter.ToPlainText("<p><em>E. coli </em>(ESBLs)</p>"));
+    }
+
+    [Fact]
+    public void ToPlainText_DecodesHtmlEntities()
+    {
+        Assert.Equal(
+            "Fasciola hepatica\u00A0(Liver Fluke)",
+            ProfileTitleHtmlFormatter.ToPlainText("Fasciola hepatica&nbsp;(Liver Fluke)"));
+    }
 }

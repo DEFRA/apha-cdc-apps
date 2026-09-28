@@ -8,10 +8,15 @@ internal sealed class FakeApiClient(
     ApiHealthResponse? response = null,
     Exception? throwOnGetHealth = null,
     IReadOnlyList<ProfileSearchResultDto>? searchResults = null,
-    Exception? throwOnSearchProfiles = null) : IApiClient
+    Exception? throwOnSearchProfiles = null,
+    ProfileAttributesDto? profileAttributes = null,
+    Exception? throwOnGetProfileAttributes = null,
+    UpdateProfileTitleResult? updateProfileTitleResult = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
+    private readonly UpdateProfileTitleResult _updateProfileTitleResult =
+        updateProfileTitleResult ?? new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null);
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         throwOnGetHealth is not null
@@ -27,4 +32,16 @@ internal sealed class FakeApiClient(
         throwOnSearchProfiles is not null
             ? Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(throwOnSearchProfiles)
             : Task.FromResult(_searchResults);
+
+    public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        throwOnGetProfileAttributes is not null
+            ? Task.FromException<ProfileAttributesDto?>(throwOnGetProfileAttributes)
+            : Task.FromResult(profileAttributes);
+
+    public Task<UpdateProfileTitleResult> UpdateProfileTitleAsync(
+        Guid profileId,
+        string title,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_updateProfileTitleResult);
 }
