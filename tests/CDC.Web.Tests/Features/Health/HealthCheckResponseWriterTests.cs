@@ -1,5 +1,5 @@
 using System.Text.Json;
-using CDC.Web.Features.Health;
+using CDC.Common.Health;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
