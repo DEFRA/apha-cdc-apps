@@ -35,4 +35,22 @@ internal static partial class SpeciesLog
 
     [LoggerMessage(EventId = 1009, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
+
+    [LoggerMessage(EventId = 1010, Level = LogLevel.Information, Message = "Retrieved detail for species {SpeciesId}")]
+    public static partial void RetrievedSpeciesDetail(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1011, Level = LogLevel.Information, Message = "No species found with id {SpeciesId}")]
+    public static partial void SpeciesDetailNotFound(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1012, Level = LogLevel.Information, Message = "Retrieved {ValidParentCount} valid parents for species {SpeciesId}")]
+    public static partial void RetrievedSpeciesValidParents(this ILogger logger, int validParentCount, Guid speciesId);
+
+    [LoggerMessage(EventId = 1013, Level = LogLevel.Information, Message = "Updating name/parent for species {SpeciesId}")]
+    public static partial void UpdatingSpeciesNameParent(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1014, Level = LogLevel.Information, Message = "Updated name/parent for species {SpeciesId}")]
+    public static partial void UpdatedSpeciesNameParent(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1015, Level = LogLevel.Information, Message = "Retrieved {EntryCount} species audit trail entries")]
+    public static partial void RetrievedSpeciesAuditTrail(this ILogger logger, int entryCount);
 }
