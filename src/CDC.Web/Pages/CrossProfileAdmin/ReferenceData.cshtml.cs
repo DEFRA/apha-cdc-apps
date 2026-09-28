@@ -35,22 +35,17 @@ public class ReferenceDataModel(IReferenceDataService referenceDataService)
     {
         Tables = await referenceDataService.GetTablesAsync(cancellationToken);
 
-        if (SelectedTableId is not Guid selectedTableId)
+        if (SelectedTableId is not { } selectedTableId)
         {
-            SelectedTable = null;
-            Values = [];
             return;
         }
 
         SelectedTable = Tables.FirstOrDefault(table => table.Id == selectedTableId);
+        SelectedTableId = SelectedTable?.Id;
 
-        if (SelectedTable is null)
+        if (SelectedTable is not null)
         {
-            SelectedTableId = null;
-            Values = [];
-            return;
+            Values = await referenceDataService.GetValuesAsync(SelectedTable.Id, cancellationToken);
         }
-
-        Values = await referenceDataService.GetValuesAsync(SelectedTable.Id, cancellationToken);
     }
 }
