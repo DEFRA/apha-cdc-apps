@@ -29,9 +29,6 @@ on:
           - minor
           - major
 
-# Deny GitHub token access by default. Each job grants only what it needs.
-permissions: {}
-
 # Pull-request release-label contract:
 # - API: release:api:patch, release:api:minor or release:api:major
 # - Web: release:web:patch, release:web:minor or release:web:major
@@ -860,7 +857,7 @@ jobs:
           PY
 
       - name: Configure AWS credentials through OIDC
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -927,43 +924,37 @@ jobs:
 
           if [[ -n "${EXISTING_DIGEST}" && "${EXISTING_DIGEST}" != "None" ]]; then
             if [[ "${EXISTING_DIGEST}" != "${IMAGE_DIGEST}" ]]; then
-              echo "::error::Immutable tag ${RELEASE_TAG} already points to another digest."
+              echo "::error::Immutable tag ${RELEASE_TAG} already points to ${EXISTING_DIGEST}; expected ${IMAGE_DIGEST}."
               exit 1
             fi
             echo "${RELEASE_TAG} already points to the expected digest; continuing safely."
           else
-            IMAGE_MANIFEST="$(aws ecr batch-get-image \
-              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-              --repository-name "${ECR_REPOSITORY}" \
-              --image-ids imageDigest="${IMAGE_DIGEST}" \
-              --accepted-media-types \
-                application/vnd.docker.distribution.manifest.v2+json \
-                application/vnd.oci.image.manifest.v1+json \
-              --query 'images[0].imageManifest' \
-              --output text)"
-
-            test -n "${IMAGE_MANIFEST}" || {
-              echo "::error::Unable to retrieve the ECR image manifest."
-              exit 1
-            }
-
-            aws ecr put-image \
-              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-              --repository-name "${ECR_REPOSITORY}" \
-              --image-tag "${RELEASE_TAG}" \
-              --image-manifest "${IMAGE_MANIFEST}" \
-              >/dev/null
+            # Promote the exact local image that produced CANDIDATE_TAG. This
+            # avoids retrieving or translating the manifest before retagging.
+            docker tag "${CANDIDATE_URI}" "${RELEASE_URI}"
+            docker push "${RELEASE_URI}"
           fi
 
-          RELEASE_DIGEST="$(aws ecr describe-images \
-            --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
-            --repository-name "${ECR_REPOSITORY}" \
-            --image-ids imageTag="${RELEASE_TAG}" \
-            --query 'imageDetails[0].imageDigest' \
-            --output text)"
+          RELEASE_DIGEST=""
+          for ATTEMPT in $(seq 1 10); do
+            RELEASE_DIGEST="$(aws ecr describe-images \
+              --registry-id "${EXPECTED_AWS_ACCOUNT_ID}" \
+              --repository-name "${ECR_REPOSITORY}" \
+              --image-ids imageTag="${RELEASE_TAG}" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null || true)"
+
+            if [[ "${RELEASE_DIGEST}" == "${IMAGE_DIGEST}" ]]; then
+              break
+            fi
+
+            if (( ATTEMPT < 10 )); then
+              sleep 2
+            fi
+          done
 
           if [[ "${RELEASE_DIGEST}" != "${IMAGE_DIGEST}" ]]; then
-            echo "::error::Release tag digest does not match the validated candidate digest."
+            echo "::error::Release tag ${RELEASE_TAG} points to '${RELEASE_DIGEST:-missing}', but validated candidate ${CANDIDATE_TAG} points to '${IMAGE_DIGEST}'."
             exit 1
           fi
 
