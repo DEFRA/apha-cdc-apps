@@ -2,12 +2,13 @@
 <SonarQubeAnalysisProperties xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
 
   <!-- Vendored/generated assets and build output - never hand-edited, not worth analysing -->
-  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,**/node_modules/**,**/wwwroot/lib/**,**/wwwroot/js/*.min.js,**/wwwroot/js/tree-view.js,govuk-tree-picker/**,docs/**,src/CDC.Api/Domain/Exceptions/NotFoundException.cs,src/CDC.Api/Features/Species/Queries/GetAllSelectedSpeciesQuery.cs,src/CDC.Api/Application/Extensions/ResultExtensions.cs,src/CDC.Web/wwwroot/js/filters-toggle.js,src/CDC.Web/wwwroot/js/search-filters.js</Property>
+  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,**/node_modules/**,**/wwwroot/lib/**,**/wwwroot/js/*.min.js,**/wwwroot/js/tree-view.js,govuk-tree-picker/**,docs/**,tests/**,src/CDC.Web/wwwroot/assets/**,src/CDC.Web/wwwroot/favicon.ico,src/CDC.Api/Domain/Exceptions/NotFoundException.cs,src/CDC.Api/Features/Species/Queries/GetAllSelectedSpeciesQuery.cs,src/CDC.Api/Application/Extensions/ResultExtensions.cs,src/CDC.Web/wwwroot/js/filters-toggle.js,src/CDC.Web/wwwroot/js/search-filters.js</Property>
 
   <!-- Entry points and boilerplate with no meaningful branches to cover -->
   <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js</Property>
 
-  <!-- <Property Name="sonar.cpd.exclusions">**/wwwroot/js/tree-view.js</Property> -->
+  <!-- Intentional API/Web contract mirrors; exclude from duplication detection only -->
+  <Property Name="sonar.cpd.exclusions">src/CDC.Api/Features/Species/Dtos/SpeciesAuditTrailEntryDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesDetailDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesValidParentDto.cs,src/CDC.Web/Models/SpeciesAuditTrailEntryDto.cs,src/CDC.Web/Models/SpeciesDetailDto.cs,src/CDC.Web/Models/SpeciesValidParentDto.cs</Property>
 
   <!-- Report locations produced by `dotnet test` in the CI pipeline -->
   <Property Name="sonar.cs.vstest.reportsPaths">**/*.trx</Property>

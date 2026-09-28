@@ -2,6 +2,7 @@ using CDC.Api.Application.Extensions;
 using CDC.Api.Features.Species.Commands;
 using CDC.Api.Features.Species.Dtos;
 using CDC.Api.Features.Species.Queries;
+using CDC.Api.Infrastructure;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +13,12 @@ namespace CDC.Api.Features.Species;
 /// <c>ISpeciesDataService</c> WCF endpoint.
 /// </summary>
 /// <param name="mediator">Dispatches queries and commands to their handlers.</param>
+/// <param name="speciesAuditOptions">Placeholder acting user for the species audit trail.</param>
 [ApiController]
 [Route("api/species")]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-public sealed class SpeciesController(ISender mediator) : ControllerBase
+public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions speciesAuditOptions) : ControllerBase
 {
     /// <summary>
     /// Gets every species and species group.
@@ -196,6 +198,114 @@ public sealed class SpeciesController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets the name/parent detail of one species, for the "Edit name/parent" screen.
+    /// </summary>
+    /// <param name="speciesId">The species to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The species detail, including the row version needed to update it.</returns>
+    /// <response code="200">The species detail was retrieved.</response>
+    /// <response code="404">No species exists with the supplied identifier.</response>
+    [HttpGet("{speciesId:guid}/detail")]
+    [ProducesResponseType(typeof(SpeciesDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SpeciesDetailDto>> GetSpeciesDetail(Guid speciesId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetSpeciesDetailQuery(speciesId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets the species that are a legal parent choice for the given species.
+    /// </summary>
+    /// <remarks>
+    /// Excludes the species itself and its own descendants, so the hierarchy cannot form a
+    /// cycle.
+    /// </remarks>
+    /// <param name="speciesId">The species being re-parented.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The valid parent list.</returns>
+    /// <response code="200">The valid parent list was retrieved.</response>
+    [HttpGet("{speciesId:guid}/valid-parents")]
+    [ProducesResponseType(typeof(IReadOnlyList<SpeciesValidParentDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<SpeciesValidParentDto>>> GetSpeciesValidParents(
+        Guid speciesId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetSpeciesValidParentsQuery(speciesId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Updates the name and/or parent of one species.
+    /// </summary>
+    /// <remarks>
+    /// Records an audit trail entry recording the old and new name, the old and new parent,
+    /// who made the change, when, and the mandatory reason for change. Supply the
+    /// <c>lastUpdated</c> row version returned by <c>GET /api/species/{speciesId}/detail</c>;
+    /// if another user has saved in the meantime the request is rejected with 409 and nothing
+    /// is written.
+    ///
+    /// Sample request:
+    ///
+    ///     PUT /api/species/name-parent
+    ///     {
+    ///       "speciesId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+    ///       "name": "Cattle",
+    ///       "parentId": "00000000-0000-0000-0000-000000000000",
+    ///       "reason": "Corrected spelling",
+    ///       "lastUpdated": "AAAAAAAAB9E="
+    ///     }
+    /// </remarks>
+    /// <param name="request">The change to apply.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The species identifier and its new row version.</returns>
+    /// <response code="200">The change was committed.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="409">Another user has saved this species since it was read.</response>
+    [HttpPut("name-parent")]
+    [ProducesResponseType(typeof(UpdateSpeciesNameParentResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpdateSpeciesNameParentResultDto>> UpdateSpeciesNameParent(
+        [FromBody] UpdateSpeciesNameParentRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        // UserId is set here from the configured placeholder audit user, never taken from the
+        // request body, so the audit trail cannot be spoofed by the client. Replace with the
+        // authenticated caller's id once Entra ID authentication is wired up.
+        var command = new UpdateSpeciesNameParentCommand
+        {
+            SpeciesId = request.SpeciesId,
+            Name = request.Name,
+            ParentId = request.ParentId,
+            Reason = request.Reason,
+            LastUpdated = request.LastUpdated,
+            UserId = speciesAuditOptions.AuditUserId
+        };
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets every recorded species name/parent change.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The audit trail, most recent entry first.</returns>
+    /// <response code="200">The audit trail was retrieved.</response>
+    [HttpGet("audit-trail")]
+    [ProducesResponseType(typeof(IReadOnlyList<SpeciesAuditTrailEntryDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<SpeciesAuditTrailEntryDto>>> GetSpeciesAuditTrail(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetSpeciesAuditTrailQuery(), cancellationToken);
 
         return result.ToActionResult(this);
     }

@@ -75,4 +75,58 @@ public sealed class SpeciesService(ISpeciesRepository repository, ILogger<Specie
             LastUpdated = lastUpdated
         };
     }
+
+    /// <inheritdoc />
+    public async Task<SpeciesDetailDto?> GetSpeciesDetailAsync(Guid speciesId, CancellationToken cancellationToken)
+    {
+        var detail = await repository.GetSpeciesByIdAsync(speciesId, cancellationToken);
+
+        if (detail is null)
+        {
+            logger.SpeciesDetailNotFound(speciesId);
+            return null;
+        }
+
+        logger.RetrievedSpeciesDetail(speciesId);
+
+        return detail.ToDto();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SpeciesValidParentDto>> GetSpeciesValidParentsAsync(Guid speciesId, CancellationToken cancellationToken)
+    {
+        var validParents = await repository.GetSpeciesValidParentsAsync(speciesId, cancellationToken);
+        logger.RetrievedSpeciesValidParents(validParents.Count, speciesId);
+
+        return [.. validParents.Select(item => item.ToDto())];
+    }
+
+    /// <inheritdoc />
+    public async Task<UpdateSpeciesNameParentResultDto> UpdateSpeciesNameParentAsync(
+        UpdateSpeciesNameParentCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.UpdatingSpeciesNameParent(command.SpeciesId);
+
+        var lastUpdated = await repository.UpdateSpeciesNameParentAsync(command, cancellationToken);
+
+        logger.UpdatedSpeciesNameParent(command.SpeciesId);
+
+        return new UpdateSpeciesNameParentResultDto
+        {
+            SpeciesId = command.SpeciesId,
+            LastUpdated = lastUpdated
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken)
+    {
+        var entries = await repository.GetSpeciesAuditTrailAsync(cancellationToken);
+        logger.RetrievedSpeciesAuditTrail(entries.Count);
+
+        return [.. entries.Select(item => item.ToDto())];
+    }
 }
