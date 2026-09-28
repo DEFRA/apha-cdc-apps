@@ -15,6 +15,26 @@ html {
   max-width: 1200px;
 }
 
+/* GOV.UK Design System "Back to top" footer link; not bundled in this govuk-frontend CSS build. */
+.govuk-back-to-top-link {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 15px;
+  padding-bottom: 20px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--govuk-link-colour, #1d70b8);
+  text-decoration: underline;
+}
+
+.govuk-back-to-top-link:hover {
+  color: #003078;
+}
+
+.govuk-back-to-top-link__icon {
+  margin-right: 5px;
+}
+
 .app-search-panel {
   padding: 1.5rem 1.5rem 1rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
