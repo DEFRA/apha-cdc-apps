@@ -1,6 +1,7 @@
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,7 +10,9 @@ namespace CDC.Web.Tests.Integration;
 
 // The default WebApplicationFactory<Program> has no live CDC.Api, so the search results partial
 // only ever renders its empty-results path. This swaps in fakes with real data so the results
-// table (and its version-history rendering) actually executes.
+// table (and its version-history rendering) actually executes. Uses CdcWebTestFactory (not the
+// plain WebApplicationFactory<Program>) since this route requires authentication, and signs in
+// via the test-only endpoint before the actual request.
 public class SurveillanceProfilesSearchIntegrationTests
 {
     private static readonly Guid ProfileId = Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f");
@@ -45,7 +48,7 @@ public class SurveillanceProfilesSearchIntegrationTests
     [Fact]
     public async Task Search_RendersResultsPartial_ForAjaxRequest()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -54,6 +57,7 @@ public class SurveillanceProfilesSearchIntegrationTests
                 services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
             }));
         var client = factory.CreateClient();
+        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
         using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
         request.Headers.Add("X-Requested-With", "XMLHttpRequest");
 
