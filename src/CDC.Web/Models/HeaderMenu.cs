@@ -11,7 +11,7 @@ public static class HeaderMenu
     [
         new("Disease Profiles",
         [
-            new("Search disease profiles", "/DiseaseProfiles/Search"),
+            new("Search disease profiles", "/SurveillanceProfiles/Search"),
             new("Create profile", "/DiseaseProfiles/Create"),
             new("Compare profile versions", "/DiseaseProfiles/CompareVersions"),
             new("Review Timings", "/DiseaseProfiles/ReviewTimings"),

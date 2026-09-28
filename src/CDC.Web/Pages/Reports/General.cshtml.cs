@@ -8,5 +8,6 @@ public class GeneralModel : BreadcrumbPageModelBase
 
     public void OnGet()
     {
+        // Page renders static content only; no data to load.
     }
 }
