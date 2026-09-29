@@ -47,11 +47,11 @@ public class SurveillanceProfilesSearchModelTests
     private static ProfileScenarioDto Scenario(
         IReadOnlyList<ProfileHistoryItemDto>? published = null,
         IReadOnlyList<ProfileHistoryItemDto>? draft = null) => new()
-    {
-        ScenarioId = Guid.NewGuid(),
-        PublishedVersions = published ?? [],
-        DraftVersions = draft ?? []
-    };
+        {
+            ScenarioId = Guid.NewGuid(),
+            PublishedVersions = published ?? [],
+            DraftVersions = draft ?? []
+        };
 
     private static SurveillanceProfilesSearchModel CreatePageModel(
         IReadOnlyList<ProfileSearchResultDto>? searchResults = null,

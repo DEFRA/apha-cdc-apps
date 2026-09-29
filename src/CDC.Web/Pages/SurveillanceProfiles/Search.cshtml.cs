@@ -214,11 +214,11 @@ public class SurveillanceProfilesSearchModel : PageModel
     public static string GetCurrentVersionLabel(
         IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
         IReadOnlyList<ProfileHistoryItemDto> draftVersions) => (publishedVersions.Count, draftVersions.Count) switch
-    {
-        ( > 0, _) => "Published current version",
-        (_, > 0) => "Draft current version",
-        _ => "Version"
-    };
+        {
+            ( > 0, _) => "Published current version",
+            (_, > 0) => "Draft current version",
+            _ => "Version"
+        };
 
     /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion(ProfileScenarioDto)"/>'s result.</summary>
     public static string GetCurrentVersionLabel(ProfileScenarioDto scenario) =>
