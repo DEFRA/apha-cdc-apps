@@ -1,4 +1,4 @@
-using System.Text;
+using System.Globalization;
 using System.Text.Json;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -167,7 +167,7 @@ public class CrossCuttingIssueScoresModelTests
         // Every value in the open panel posts back, not just the amended one.
         return criterion.Values.ToDictionary(
             value => value.Id,
-            value => value.Id == valueId ? score : value.Score.ToString())!;
+            value => value.Id == valueId ? score : value.Score.ToString(CultureInfo.InvariantCulture))!;
     }
 
     private static Dictionary<Guid, int> ReadPending(CrossCuttingIssueScoresModel pageModel)
