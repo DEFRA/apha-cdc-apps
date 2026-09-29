@@ -573,3 +573,13 @@ body {
   max-width: 220px;
   height: auto;
 }
+
+/* Right-aligned actions, matching the legacy maintenance screens. Modifies the
+   Design System button group rather than restyling the buttons themselves. */
+.app-button-group--right {
+  justify-content: flex-end;
+}
+
+.app-button-group--right.govuk-button-group {
+  display: flex;
+}

@@ -3,7 +3,7 @@
 (function () {
   'use strict';
 
-  var form = document.getElementById('update-score-form');
+  var form = document.getElementById('update-scores-form');
   if (!form) {
     return;
   }

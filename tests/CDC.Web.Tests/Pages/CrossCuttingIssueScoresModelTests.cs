@@ -1,8 +1,10 @@
+using System.Text;
+using System.Text.Json;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Pages.CrossProfileAdmin;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -10,120 +12,226 @@ namespace CDC.Web.Tests.Pages;
 
 public class CrossCuttingIssueScoresModelTests
 {
+    private static readonly Guid BioSecurityId = Guid.Parse("E0C3A33E-CFAC-4033-83C0-A88AD53417B7");
+    private static readonly Guid LivestockContactsId = Guid.Parse("10F04FB1-FEFA-49B6-B1C0-BA204C12B1B4");
+    private static readonly Guid RegularlyMixId = Guid.Parse("88AD7510-9D77-474A-B3C5-5FC32B98F380");
+    private static readonly Guid MovementsId = Guid.Parse("5B1A65EA-A19A-4239-8A32-DCC06E518598");
+
     [Fact]
-    public async Task OnGetAsync_LoadsIssuesAndPreselectsChosenIssue()
+    public async Task OnGetAsync_OffersEveryCrossCuttingIssueForSelection()
     {
-        var service = new FakeCrossCuttingIssueScoreService();
-        var pageModel = new CrossCuttingIssueScoresModel(service, NullLogger<CrossCuttingIssueScoresModel>.Instance)
-        {
-            SelectedIssueId = 2
-        };
+        var pageModel = CreatePageModel();
 
-        await pageModel.OnGetAsync(updated: true, CancellationToken.None);
+        await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(5, pageModel.AllIssues.Count);
-        Assert.Equal(2, pageModel.SelectedIssueId);
-        Assert.Equal("Public health significance", pageModel.SelectedIssue!.Name);
-        Assert.Equal(4, pageModel.Input.Score);
-        Assert.True(pageModel.ShowUpdatedBanner);
-        Assert.Contains(pageModel.IssueOptions, option => option.Value == "2" && option.Selected);
+        Assert.Equal(4, pageModel.Categories.Count);
+        Assert.Equal(
+            ["Animal identification", "Movements", "Animal locations and number", "Bio-security"],
+            pageModel.Categories.Select(category => category.Name));
+        Assert.Equal("Please select...", pageModel.CategoryOptions[0].Text);
+        Assert.Null(pageModel.SelectedCategory);
     }
 
     [Fact]
-    public async Task OnPostUpdateAsync_WithValidData_UpdatesScoreAndRedirects()
+    public async Task OnGetAsync_AutoExpandsTheOnlyCriterion()
     {
-        var service = new FakeCrossCuttingIssueScoreService();
-        var pageModel = new CrossCuttingIssueScoresModel(service, NullLogger<CrossCuttingIssueScoresModel>.Instance)
-        {
-            Input = new CrossCuttingIssueScoresModel.ScoreInputModel { IssueId = 3, Score = 5 }
-        };
+        var pageModel = CreatePageModel();
+        pageModel.CategoryId = MovementsId;
 
-        var result = await pageModel.OnPostUpdateAsync(CancellationToken.None);
+        await pageModel.OnGetAsync(CancellationToken.None);
 
-        var redirect = Assert.IsType<RedirectToPageResult>(result);
-        Assert.Equal(3, redirect.RouteValues!["SelectedIssueId"]);
-        Assert.True((bool)redirect.RouteValues["updated"]!);
-        Assert.Equal(5, (await service.GetByIdAsync(3)).Score);
+        Assert.NotNull(pageModel.SelectedCriterion);
+        Assert.Equal("Ease of movement investigation", pageModel.SelectedCriterion!.Name);
     }
 
     [Fact]
-    public async Task OnPostUpdateAsync_WithInvalidSelection_ReturnsPageAndModelErrors()
+    public async Task OnPostApplyAsync_HoldsAmendedScoreAsPendingWithoutSaving()
     {
         var service = new FakeCrossCuttingIssueScoreService();
-        var pageModel = new CrossCuttingIssueScoresModel(service, NullLogger<CrossCuttingIssueScoresModel>.Instance)
-        {
-            Input = new CrossCuttingIssueScoresModel.ScoreInputModel { IssueId = 99, Score = 6 }
-        };
+        var pageModel = CreatePageModel(service);
+        pageModel.CategoryId = BioSecurityId;
+        pageModel.CriterionId = LivestockContactsId;
+        pageModel.Scores = ScoresFor(service, LivestockContactsId, RegularlyMixId, "75");
 
-        var result = await pageModel.OnPostUpdateAsync(CancellationToken.None);
+        var result = await pageModel.OnPostApplyAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.False(service.SaveCalled);
+        Assert.Equal(75, ReadPending(pageModel)[RegularlyMixId]);
+    }
+
+    [Fact]
+    public async Task PendingChanges_SurviveSwitchingToAnotherCategory()
+    {
+        var service = new FakeCrossCuttingIssueScoreService();
+        var pageModel = CreatePageModel(service);
+        pageModel.CategoryId = BioSecurityId;
+        pageModel.CriterionId = LivestockContactsId;
+        pageModel.Scores = ScoresFor(service, LivestockContactsId, RegularlyMixId, "75");
+        await pageModel.OnPostApplyAsync(CancellationToken.None);
+
+        // Same session, different category selected.
+        var next = CreatePageModel(service, pageModel.HttpContext.Session);
+        next.CategoryId = MovementsId;
+        await next.OnGetAsync(CancellationToken.None);
+
+        Assert.True(next.HasPendingChanges);
+        Assert.False(service.SaveCalled);
+    }
+
+    [Theory]
+    [InlineData("101")]
+    [InlineData("-1")]
+    [InlineData("")]
+    [InlineData("abc")]
+    public async Task OnPostApplyAsync_RejectsScoreOutsideZeroToOneHundred(string score)
+    {
+        var service = new FakeCrossCuttingIssueScoreService();
+        var pageModel = CreatePageModel(service);
+        pageModel.CategoryId = BioSecurityId;
+        pageModel.CriterionId = LivestockContactsId;
+        pageModel.Scores = ScoresFor(service, LivestockContactsId, RegularlyMixId, score);
+
+        var result = await pageModel.OnPostApplyAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.True(pageModel.ModelState.ContainsKey(nameof(CrossCuttingIssueScoresModel.ScoreInputModel.IssueId)));
-        Assert.Contains(pageModel.ModelState.Values.SelectMany(v => v.Errors), error => error.ErrorMessage.Contains("Select a cross-cutting issue"));
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.Empty(ReadPending(pageModel));
     }
 
     [Fact]
-    public async Task CrossCuttingIssueService_RecalculatesScoresAndRejectsBadInput()
+    public async Task OnPostUpdateAsync_CommitsPendingScoresAndTriggersRecalculation()
     {
         var service = new FakeCrossCuttingIssueScoreService();
-        var allIssues = await service.GetAllAsync();
+        var pageModel = CreatePageModel(service);
+        pageModel.CategoryId = BioSecurityId;
+        pageModel.CriterionId = LivestockContactsId;
+        pageModel.Scores = ScoresFor(service, LivestockContactsId, RegularlyMixId, "80");
+        await pageModel.OnPostApplyAsync(CancellationToken.None);
 
-        Assert.Equal(5, allIssues.Count);
-        Assert.Equal("Public health significance", allIssues.Single(issue => issue.Id == 2).Name);
+        var committed = CreatePageModel(service, pageModel.HttpContext.Session);
+        await committed.OnPostUpdateAsync(CancellationToken.None);
 
-        var recalculated = await service.UpdateScoreAsync(4, 5);
-        Assert.Equal(5, recalculated.Issues.Single(issue => issue.Id == 4).Score);
-        Assert.Equal(5m, recalculated.Issues.Single(issue => issue.Id == 4).WeightedScore);
-        Assert.True(recalculated.OverallScore > 0m);
+        Assert.True(service.SaveCalled);
+        Assert.Equal(80, service.SavedScores[RegularlyMixId]);
+        Assert.Equal("Your changes were successfully saved", committed.StatusMessage);
+        Assert.False(committed.HasPendingChanges);
+    }
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.UpdateScoreAsync(1, 0));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.UpdateScoreAsync(99, 3));
+    [Fact]
+    public async Task OnPostUpdateAsync_WithNoPendingChanges_DoesNotSave()
+    {
+        var service = new FakeCrossCuttingIssueScoreService();
+        var pageModel = CreatePageModel(service);
+
+        await pageModel.OnPostUpdateAsync(CancellationToken.None);
+
+        Assert.False(service.SaveCalled);
+        Assert.Equal("There are no changes to save", pageModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task CancellingACriterion_LeavesScoresUnchangedAndTriggersNoRecalculation()
+    {
+        var service = new FakeCrossCuttingIssueScoreService();
+
+        // Cancel is a plain link back to the category, so no Apply ever runs.
+        var pageModel = CreatePageModel(service);
+        pageModel.CategoryId = BioSecurityId;
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasPendingChanges);
+        Assert.False(service.SaveCalled);
+        Assert.Empty(ReadPending(pageModel));
+    }
+
+    [Fact]
+    public async Task SeededScores_AreZeroToOneHundredScale()
+    {
+        var service = new FakeCrossCuttingIssueScoreService();
+
+        var categories = await service.GetMetadataAsync();
+        var allScores = categories.SelectMany(c => c.Criteria).SelectMany(c => c.Values).Select(v => v.Score).ToList();
+
+        Assert.NotEmpty(allScores);
+        Assert.All(allScores, score => Assert.InRange(score, 0, 100));
+    }
+
+    private static Dictionary<Guid, string?> ScoresFor(
+        FakeCrossCuttingIssueScoreService service, Guid criterionId, Guid valueId, string score)
+    {
+        var criterion = service.GetMetadataAsync().Result
+            .SelectMany(category => category.Criteria)
+            .Single(item => item.Id == criterionId);
+
+        // Every value in the open panel posts back, not just the amended one.
+        return criterion.Values.ToDictionary(
+            value => value.Id,
+            value => value.Id == valueId ? score : value.Score.ToString())!;
+    }
+
+    private static Dictionary<Guid, int> ReadPending(CrossCuttingIssueScoresModel pageModel)
+    {
+        var json = pageModel.HttpContext.Session.GetString("CrossCuttingIssuePendingScores");
+        return string.IsNullOrEmpty(json) ? [] : JsonSerializer.Deserialize<Dictionary<Guid, int>>(json)!;
+    }
+
+    private static CrossCuttingIssueScoresModel CreatePageModel(
+        FakeCrossCuttingIssueScoreService? service = null, ISession? session = null)
+    {
+        var httpContext = new DefaultHttpContext { Session = session ?? new FakeSession() };
+
+        return new CrossCuttingIssueScoresModel(
+            service ?? new FakeCrossCuttingIssueScoreService(),
+            NullLogger<CrossCuttingIssueScoresModel>.Instance)
+        {
+            PageContext = new PageContext { HttpContext = httpContext }
+        };
     }
 
     private sealed class FakeCrossCuttingIssueScoreService : ICrossCuttingIssueScoreService
     {
-        private readonly Dictionary<int, (string Name, decimal Weight, int Score)> _issues = new()
-        {
-            [1] = ("Trade sensitivity", 1.2m, 3),
-            [2] = ("Public health significance", 1.5m, 4),
-            [3] = ("Zoonotic potential", 1.5m, 3),
-            [4] = ("International reporting obligations", 1.0m, 2),
-            [5] = ("Reputational risk", 0.8m, 2)
-        };
+        private readonly InMemoryCrossCuttingIssueScoreService _inner = new();
 
-        public Task<IReadOnlyList<CrossCuttingIssueScoreDto>> GetAllAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<IReadOnlyList<CrossCuttingIssueScoreDto>>(
-                _issues.Select(pair => new CrossCuttingIssueScoreDto(pair.Key, pair.Value.Name, pair.Value.Score, Math.Round(pair.Value.Score * pair.Value.Weight, 1)))
-                    .OrderBy(issue => issue.Name)
-                    .ToList());
-        }
+        public bool SaveCalled { get; private set; }
 
-        public Task<CrossCuttingIssueScoreDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-        {
-            var issue = _issues.GetValueOrDefault(id);
-            if (issue == default) return Task.FromResult<CrossCuttingIssueScoreDto?>(null);
-            return Task.FromResult<CrossCuttingIssueScoreDto?>(new CrossCuttingIssueScoreDto(id, issue.Name, issue.Score, Math.Round(issue.Score * issue.Weight, 1)));
-        }
+        public Dictionary<Guid, int> SavedScores { get; } = [];
 
-        public Task<CrossCuttingIssueRecalculationResultDto> UpdateScoreAsync(int id, int score, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<CrossCuttingIssueCategory>> GetMetadataAsync(CancellationToken cancellationToken = default) =>
+            _inner.GetMetadataAsync(cancellationToken);
+
+        public Task SaveAsync(IReadOnlyDictionary<Guid, int> scores, CancellationToken cancellationToken = default)
         {
-            if (score is < 1 or > 5)
+            SaveCalled = true;
+            foreach (var (id, score) in scores)
             {
-                throw new ArgumentOutOfRangeException(nameof(score));
+                SavedScores[id] = score;
             }
 
-            if (!_issues.TryGetValue(id, out var issue))
-            {
-                throw new KeyNotFoundException($"Cross-cutting issue {id} was not found.");
-            }
-
-            _issues[id] = (issue.Name, issue.Weight, score);
-            var refreshed = _issues.Select(pair => new CrossCuttingIssueScoreDto(pair.Key, pair.Value.Name, pair.Value.Score, Math.Round(pair.Value.Score * pair.Value.Weight, 1)))
-                .OrderBy(item => item.Name)
-                .ToList();
-            var overall = Math.Round(refreshed.Average(item => item.WeightedScore), 1);
-            return Task.FromResult(new CrossCuttingIssueRecalculationResultDto(refreshed, overall, DateTimeOffset.UtcNow));
+            return _inner.SaveAsync(scores, cancellationToken);
         }
+    }
+
+    private sealed class FakeSession : ISession
+    {
+        private readonly Dictionary<string, byte[]> _store = [];
+
+        public bool IsAvailable => true;
+
+        public string Id => "test-session";
+
+        public IEnumerable<string> Keys => _store.Keys;
+
+        public void Clear() => _store.Clear();
+
+        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void Remove(string key) => _store.Remove(key);
+
+        public void Set(string key, byte[] value) => _store[key] = value;
+
+        public bool TryGetValue(string key, out byte[] value) => _store.TryGetValue(key, out value!);
     }
 }

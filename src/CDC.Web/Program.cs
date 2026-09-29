@@ -71,6 +71,16 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 // persist across requests for the lifetime of the process.
 builder.Services.AddSingleton<ICrossCuttingIssueScoreService, InMemoryCrossCuttingIssueScoreService>();
 
+// Holds uncommitted cross-cutting issue score edits until the user selects Update.
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+});
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
@@ -101,6 +111,8 @@ app.UseSerilogRequestLogging();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseSession();
 
 app.MapHealthEndpoints();
 
