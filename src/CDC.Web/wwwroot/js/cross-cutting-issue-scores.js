@@ -3,13 +3,13 @@
 (function () {
   'use strict';
 
-  var form = document.getElementById('update-scores-form');
+  const form = document.getElementById('update-scores-form');
   if (!form) {
     return;
   }
 
   form.addEventListener('submit', function (event) {
-    var confirmed = window.confirm('Are you sure you want to update the cross-cutting issue scores?');
+    const confirmed = window.confirm('Are you sure you want to update the cross-cutting issue scores?');
     if (!confirmed) {
       event.preventDefault();
     }
