@@ -89,6 +89,8 @@ jobs:
             web:
               - 'src/CDC.Web/**'
               - 'tests/CDC.Web.Tests/**'
+              - 'src/CDC.Auth.Cidm/**'
+              - 'tests/CDC.Auth.Cidm.Tests/**'
               - 'CDC.slnx'
               - 'Directory.Build.*'
               - 'Directory.Packages.props'

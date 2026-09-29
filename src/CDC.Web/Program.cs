@@ -1,8 +1,10 @@
 using System.Globalization;
+using CDC.Auth.Cidm;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Serilog;
 
@@ -77,8 +79,18 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
     options.ViewLocationFormats.Insert(1, "/Features/Shared/{0}.cshtml");
 });
 
-// NOTE: real authentication (Entra ID SAML for internal users, CIDM/GOV.UK One Login OIDC for
-// external users) is not wired up yet. It will replace this placeholder Landing selection screen.
+// External-user auth (CIDM OIDC). Internal-user auth (Entra ID, also OIDC) is future work -
+// AddCidmAuthentication registers its own Cookie + "cidm" OIDC schemes additively, so adding an
+// "entra" OIDC scheme later does not require reworking this.
+builder.AddCidmAuthentication();
+
+// Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
+// page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
+// the only pages so far explicitly marked anonymous.
+builder.Services.AddAuthorization(options =>
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 var app = builder.Build();
 
@@ -100,6 +112,7 @@ app.UseRouting();
 
 app.MapHealthEndpoints();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

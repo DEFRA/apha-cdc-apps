@@ -2,6 +2,7 @@ using System.Net;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,7 +11,9 @@ namespace CDC.Web.Tests.Integration;
 
 // The default WebApplicationFactory<Program> has no live CDC.Api to call, so every species page
 // only ever renders its error-banner path. These tests swap in a fake ISpeciesApiService with
-// real data, so the tree/audit-trail/edit-panel views actually render their success paths.
+// real data, so the tree/audit-trail/edit-panel views actually render their success paths. Uses
+// CdcWebTestFactory (not the plain WebApplicationFactory<Program>) since these routes require
+// authentication, and signs in via the test-only endpoint before each request.
 public class SpeciesDataIntegrationTests
 {
     private static readonly Guid CattleId = Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f");
@@ -26,7 +29,7 @@ public class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -54,7 +57,7 @@ public class SpeciesDataIntegrationTests
             }
         ];
         using var factory = CreateFactory(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain?handler=AuditTrail");
         var body = await response.Content.ReadAsStringAsync();
@@ -68,7 +71,7 @@ public class SpeciesDataIntegrationTests
     public async Task ViewSpeciesData_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/ViewSpeciesData");
         var body = await response.Content.ReadAsStringAsync();
@@ -78,10 +81,18 @@ public class SpeciesDataIntegrationTests
     }
 
     private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton(fakeService);
             }));
+
+    // Every page is authenticated by default, so sign in via the test-only endpoint first.
+    private static async Task<HttpClient> SignedInClientAsync(WebApplicationFactory<Program> factory)
+    {
+        var client = factory.CreateClient();
+        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        return client;
+    }
 }
