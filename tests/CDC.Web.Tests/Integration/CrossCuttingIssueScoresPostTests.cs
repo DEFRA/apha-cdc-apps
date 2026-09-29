@@ -8,10 +8,17 @@ namespace CDC.Web.Tests.Integration;
 /// Drives the real HTTP request pipeline so model binding runs. The page-model unit tests invoke
 /// handlers directly and therefore cannot catch binding-level faults.
 /// </summary>
-public class CrossCuttingIssueScoresPostTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class CrossCuttingIssueScoresPostTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string PagePath = "/CrossProfileAdmin/CrossCuttingIssueScores";
+
+    private readonly WebApplicationFactory<Program> factory;
+
+    public CrossCuttingIssueScoresPostTests(WebApplicationFactory<Program> factory)
+    {
+        WebTestEnvironment.EnsureConfigured();
+        this.factory = factory;
+    }
 
     // The session cookie is marked Secure, so it is only returned over HTTPS. Browsers make an
     // exception for localhost; HttpClient does not.

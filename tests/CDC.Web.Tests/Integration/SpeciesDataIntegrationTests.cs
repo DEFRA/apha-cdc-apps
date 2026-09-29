@@ -77,11 +77,15 @@ public class SpeciesDataIntegrationTests
         Assert.Contains("Cattle", body);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+    private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService)
+    {
+        WebTestEnvironment.EnsureConfigured();
+
+        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton(fakeService);
             }));
+    }
 }
