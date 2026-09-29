@@ -4,6 +4,8 @@
 (function () {
     'use strict';
 
+    var HISTORY_DEBOUNCE_MS = 300;
+
     document.addEventListener('DOMContentLoaded', function () {
         var toolbar = document.querySelector('[data-app-title-toolbar]');
         if (!toolbar) {
@@ -59,7 +61,7 @@
         editor.addEventListener('input', function () {
             syncHiddenInput();
             window.clearTimeout(debounceTimer);
-            debounceTimer = window.setTimeout(pushHistory, 300);
+            debounceTimer = window.setTimeout(pushHistory, HISTORY_DEBOUNCE_MS);
         });
 
         undoButton.addEventListener('click', function () {

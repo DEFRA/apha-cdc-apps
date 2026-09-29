@@ -35,7 +35,7 @@ public class ApiClientTests
                 "affectedSpecies": [],
                 "publishedVersions": [],
                 "draftVersions": [],
-                "scenarios": []
+                "whatIfScenarios": []
               }
             ]
             """;

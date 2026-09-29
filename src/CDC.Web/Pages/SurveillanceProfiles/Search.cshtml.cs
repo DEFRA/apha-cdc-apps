@@ -197,39 +197,111 @@ public class SurveillanceProfilesSearchModel : PageModel
         PageNumber = page
     });
 
-    /// <summary>Gets the most relevant version to summarise for a profile: the latest published
-    /// version, falling back to the latest draft, then the latest scenario.</summary>
-    public static ProfileHistoryItemDto? GetCurrentVersion(ProfileSearchResultDto profile) =>
-        profile.PublishedVersions.MaxBy(version => version.VersionNumber)
-        ?? profile.DraftVersions.MaxBy(version => version.VersionNumber)
-        ?? profile.Scenarios.MaxBy(version => version.VersionNumber);
+    /// <summary>Gets the most relevant version to summarise for a version lineage (a profile's own
+    /// current-situation history, or one of its "what-if" scenarios): the latest published
+    /// version, falling back to the latest draft.</summary>
+    public static ProfileHistoryItemDto? GetCurrentVersion(
+        IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
+        IReadOnlyList<ProfileHistoryItemDto> draftVersions) =>
+        publishedVersions.MaxBy(version => version.VersionNumber)
+        ?? draftVersions.MaxBy(version => version.VersionNumber);
 
-    /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion"/>'s result.</summary>
-    public static string GetCurrentVersionLabel(ProfileSearchResultDto profile) => profile switch
+    /// <summary>Gets the most relevant version for one "what-if" scenario's own, independent history.</summary>
+    public static ProfileHistoryItemDto? GetCurrentVersion(ProfileScenarioDto scenario) =>
+        GetCurrentVersion(scenario.PublishedVersions, scenario.DraftVersions);
+
+    /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion(IReadOnlyList{ProfileHistoryItemDto},IReadOnlyList{ProfileHistoryItemDto})"/>'s result.</summary>
+    public static string GetCurrentVersionLabel(
+        IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
+        IReadOnlyList<ProfileHistoryItemDto> draftVersions) => (publishedVersions.Count, draftVersions.Count) switch
     {
-        { PublishedVersions.Count: > 0 } => "Published current version",
-        { DraftVersions.Count: > 0 } => "Draft current version",
-        { Scenarios.Count: > 0 } => "Scenario version",
+        ( > 0, _) => "Published current version",
+        (_, > 0) => "Draft current version",
         _ => "Version"
     };
 
-    /// <summary>Gets every version other than the one <see cref="GetCurrentVersion"/> returns,
-    /// newest first, for the "Show previous versions" toggle.</summary>
-    public static IReadOnlyList<PreviousVersionRow> GetPreviousVersions(ProfileSearchResultDto profile)
+    /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion(ProfileScenarioDto)"/>'s result.</summary>
+    public static string GetCurrentVersionLabel(ProfileScenarioDto scenario) =>
+        GetCurrentVersionLabel(scenario.PublishedVersions, scenario.DraftVersions);
+
+    /// <summary>Gets every version other than the one <see cref="GetCurrentVersion(IReadOnlyList{ProfileHistoryItemDto},IReadOnlyList{ProfileHistoryItemDto})"/>
+    /// returns, newest first, for the "Show previous versions" toggle.</summary>
+    public static IReadOnlyList<PreviousVersionRow> GetPreviousVersions(
+        IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
+        IReadOnlyList<ProfileHistoryItemDto> draftVersions)
     {
-        var current = GetCurrentVersion(profile);
+        var current = GetCurrentVersion(publishedVersions, draftVersions);
 
         IEnumerable<PreviousVersionRow> Labelled(IReadOnlyList<ProfileHistoryItemDto> versions, string status) =>
             versions.Select(version => new PreviousVersionRow(version, status));
 
         return
         [
-            .. Labelled(profile.PublishedVersions, "Published")
-                .Concat(Labelled(profile.DraftVersions, "Draft"))
-                .Concat(Labelled(profile.Scenarios, "Scenario"))
+            .. Labelled(publishedVersions, "Published")
+                .Concat(Labelled(draftVersions, "Draft"))
                 .Where(row => row.Version.VersionId != current?.VersionId)
                 .OrderByDescending(row => row.Version.VersionNumber)
         ];
+    }
+
+    /// <summary>Gets every version other than the one <see cref="GetCurrentVersion(ProfileScenarioDto)"/>
+    /// returns, for that scenario's own "Show previous versions" toggle.</summary>
+    public static IReadOnlyList<PreviousVersionRow> GetPreviousVersions(ProfileScenarioDto scenario) =>
+        GetPreviousVersions(scenario.PublishedVersions, scenario.DraftVersions);
+
+    /// <summary>Gets every version-lineage card to render for a profile: an independent Published
+    /// card and an independent Draft card - each gated by its own display filter and shown even
+    /// when the profile has no version of that type (with a placeholder message) - plus one card
+    /// per "what-if" scenario when <paramref name="includeWhatIfScenarios"/> is set.</summary>
+    public static IReadOnlyList<ProfileVersionGroupViewModel> GetVersionGroups(
+        ProfileSearchResultDto profile,
+        bool displayPublished,
+        bool displayDraft,
+        bool includeWhatIfScenarios)
+    {
+        var groups = new List<ProfileVersionGroupViewModel>();
+
+        if (displayPublished)
+        {
+            groups.Add(BuildLineageCard(profile, profile.PublishedVersions, "Published", "No current published version"));
+        }
+
+        if (displayDraft)
+        {
+            groups.Add(BuildLineageCard(profile, profile.DraftVersions, "Draft", "No current draft version"));
+        }
+
+        return groups;
+    }
+
+    /// <summary>Builds the Published or Draft card for a profile: real content when it has a
+    /// version of that type, otherwise a placeholder - the card is never merged with the other
+    /// type's versions or with any "what-if" scenario's.</summary>
+    private static ProfileVersionGroupViewModel BuildLineageCard(
+        ProfileSearchResultDto profile,
+        IReadOnlyList<ProfileHistoryItemDto> versions,
+        string typeLabel,
+        string noVersionMessage)
+    {
+        var current = versions.MaxBy(version => version.VersionNumber);
+
+        return new ProfileVersionGroupViewModel
+        {
+            SectionId = $"{typeLabel.ToLowerInvariant()}-{profile.Id}",
+            HeadingLabel = $"{typeLabel} current version",
+            CurrentVersion = current,
+            CurrentVersionLabel = $"{typeLabel} current version",
+            PreviousVersions = current is null
+                ? []
+                : [.. versions
+                    .Where(version => version.VersionId != current.VersionId)
+                    .Select(version => new PreviousVersionRow(version, typeLabel))
+                    .OrderByDescending(row => row.Version.VersionNumber)],
+            ProfileStatus = current is null ? null : profile.Status,
+            NoVersionMessage = current is null ? $"({noVersionMessage})" : null,
+            // "View reports" links to a published version's report; the Draft card has none.
+            ShowViewReportsLink = typeLabel != "Draft"
+        };
     }
 
     private string? BuildSearchUrl(object routeValues)
@@ -391,5 +463,27 @@ public class SurveillanceProfilesSearchModel : PageModel
 }
 
 /// <summary>A previous version row for the "Show previous versions" panel, paired with the
-/// bucket (Published/Draft/Scenario) it came from.</summary>
+/// bucket (Published/Draft) it came from.</summary>
 public sealed record PreviousVersionRow(ProfileHistoryItemDto Version, string Status);
+
+/// <summary>One version-lineage card to render for a profile: an independent Published card, an
+/// independent Draft card, or one of its independent "what-if" scenarios.</summary>
+public sealed record ProfileVersionGroupViewModel
+{
+    public required string SectionId { get; init; }
+    public required string HeadingLabel { get; init; }
+    public ProfileHistoryItemDto? CurrentVersion { get; init; }
+    public required string CurrentVersionLabel { get; init; }
+    public required IReadOnlyList<PreviousVersionRow> PreviousVersions { get; init; }
+
+    /// <summary>Only set for the profile's own Published/Draft cards - "what-if" scenarios have
+    /// no status of their own.</summary>
+    public string? ProfileStatus { get; init; }
+
+    /// <summary>Set only when this is a Published or Draft card for a profile that has no version
+    /// of that type, so a static placeholder is shown instead of a version summary.</summary>
+    public string? NoVersionMessage { get; init; }
+
+    /// <summary>Whether the "View reports" link is shown - Draft cards have no report to view.</summary>
+    public bool ShowViewReportsLink { get; init; } = true;
+}

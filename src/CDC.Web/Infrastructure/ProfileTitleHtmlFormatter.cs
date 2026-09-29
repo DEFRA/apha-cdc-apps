@@ -27,8 +27,8 @@ public static partial class ProfileTitleHtmlFormatter
         "br", "br/", "br /"
     ];
 
-    // Named character references (e.g. &nbsp;) get double-encoded by HtmlEncode into &amp;nbsp;;
-    // restore the ones with no markup risk so they render as the intended character.
+    // WebUtility.HtmlEncode escapes the ampersand of any named character reference the title
+    // already contains, so restore the ones with no markup risk to render as intended.
     private static readonly string[] AllowedEntities = ["nbsp;", "lt;", "gt;", "quot;", "apos;", "#39;"];
 
     [GeneratedRegex(@"&lt;/?span\b(?:(?!&gt;).)*&gt;", RegexOptions.IgnoreCase)]

@@ -60,10 +60,8 @@
                 <div class="app-profile-list">
                     @foreach (var profile in Model.PagedResults)
                     {
-                        var currentVersion = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetCurrentVersion(profile);
-                        var currentVersionLabel = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetCurrentVersionLabel(profile);
-                        var previousVersions = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetPreviousVersions(profile);
-                        var previousVersionsId = $"previous-versions-{profile.Id}";
+                        var versionGroups = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetVersionGroups(
+                            profile, Model.DisplayPublished, Model.DisplayDraft, Model.DisplayScenarios);
 
                         <div class="app-profile-card govuk-!-margin-bottom-3">
                             <div class="app-profile-card__header">
@@ -77,71 +75,13 @@
                                 </p>
                             </div>
 
-                            <div class="app-profile-card__sub-card">
-                                @if (currentVersion is not null)
-                                {
-                                    <p class="govuk-body govuk-!-margin-bottom-1">
-                                        <strong>@currentVersionLabel: @($"{currentVersion.VersionNumber}.0")</strong>
-                                        <span class="govuk-!-margin-left-2">@currentVersion.CreatedAtUtc.ToString("dd/MM/yyyy")</span> -
-                                    </p>
-                                }
-
-                                <p class="govuk-body govuk-!-margin-bottom-1">
-                                    <a class="govuk-link" href="#">View reports</a>
-                                    <span aria-hidden="true"> | </span>
-                                    <a class="govuk-link" href="#">Clone profile</a>
-                                    <span aria-hidden="true"> | </span>
-                                    <a class="govuk-link" href="#">Browse profile</a>
-                                    <span aria-hidden="true"> | </span>
-                                    <a class="govuk-link" href="#">Clone scenario</a>
-                                </p>
-
-                                <p class="govuk-body govuk-!-margin-bottom-1">Profile Status: @profile.Status</p>
-
-                                <div data-module="app-filters-toggle">
-                                    <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link
-                                            data-app-filters-expanded-text="Hide previous versions"
-                                            data-app-filters-collapsed-text="Show previous versions"
-                                            aria-expanded="false" aria-controls="@previousVersionsId">
-                                        <span data-app-filters-toggle-text>Show previous versions</span>
-                                        <span class="app-species-filter__icon" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
-                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
-                                                <path d="M1 1l5 5 5-5" />
-                                            </svg>
-                                        </span>
-                                    </button>
-
-                                    <div id="@previousVersionsId" class="app-filters__content govuk-!-margin-top-2" hidden>
-                                        <div class="app-profile-card__sub-card app-profile-card__sub-card--secondary">
-                                            @if (previousVersions.Count == 0)
-                                            {
-                                                <p class="govuk-body govuk-!-margin-bottom-0">No previous versions.</p>
-                                            }
-                                            else
-                                            {
-                                                @foreach (var row in previousVersions)
-                                                {
-                                                    <div class="app-profile-card__version-row">
-                                                        <p class="govuk-body govuk-!-margin-bottom-0">
-                                                            Version @($"{row.Version.VersionNumber}.0")
-                                                            <span class="govuk-!-margin-left-2">@row.Status</span>
-                                                            <span class="govuk-!-margin-left-2">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy")</span>
-                                                        </p>
-                                                        <p class="govuk-body govuk-!-margin-bottom-0">
-                                                            <a class="govuk-link" href="#">Clone profile</a>
-                                                            <span aria-hidden="true"> | </span>
-                                                            <a class="govuk-link" href="#">Browse profile</a>
-                                                            <span aria-hidden="true"> | </span>
-                                                            <a class="govuk-link" href="#">Clone scenario</a>
-                                                        </p>
-                                                    </div>
-                                                }
-                                            }
-                                        </div>
-                                    </div>
+                            @for (var index = 0; index < versionGroups.Count; index++)
+                            {
+                                var versionGroup = versionGroups[index];
+                                <div class="@(index > 0 ? "govuk-!-margin-top-1" : string.Empty)">
+                                    <partial name="_ProfileVersionGroupCard" model="versionGroup" />
                                 </div>
-                            </div>
+                            }
                         </div>
                     }
                 </div>

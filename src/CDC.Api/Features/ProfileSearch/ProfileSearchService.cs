@@ -60,11 +60,18 @@ public sealed class ProfileSearchService(IProfileRepository repository) : IProfi
         [
             .. allProfiles.Where(profile =>
             {
-                var matchesStatus = (displayPublished && profile.Status == "Published") ||
-                                     (displayDraft && profile.Status == "Draft") ||
-                                     (displayScenarios && profile.Status == "Scenario");
+                // A profile can have both a published and a draft version at once, so inclusion
+                // is decided by version availability, not by a single, mutually-exclusive status
+                // (a Draft+Published profile must still match when only "display draft" is on).
+                var hasPublishedVersion = profile.PublishedVersions.Count > 0;
+                var hasDraftVersion = profile.DraftVersions.Count > 0;
+                var hasWhatIfScenario = profile.WhatIfScenarios.Count > 0;
 
-                if (!matchesStatus)
+                var matchesFilter = (displayPublished && hasPublishedVersion) ||
+                                     (displayDraft && hasDraftVersion) ||
+                                     (displayScenarios && hasWhatIfScenario);
+
+                if (!matchesFilter)
                 {
                     return false;
                 }
