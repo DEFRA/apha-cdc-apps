@@ -53,89 +53,20 @@ public sealed class PrioritisationVariablesRepository(
             // Result set 1: ranking range - read separately by GetRankingRangeAsync.
             await reader.NextResultAsync(cancellationToken);
 
-            // Result set 2: categories (Id, Name).
-            var categoryNames = new Dictionary<Guid, string>();
-            var orderedCategoryIds = new List<Guid>();
+            var (categoryNames, orderedCategoryIds) = await ReadCategoryNamesAsync(reader, cancellationToken);
 
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                var id = reader.GetGuid(0);
-                categoryNames[id] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
-                orderedCategoryIds.Add(id);
-            }
-
-            // Result set 3: criteria (Id, PrioritisationCategoryId, Code, Name, Weighting), in code order.
             await reader.NextResultAsync(cancellationToken);
+            var (criterionRows, criterionIdsByCategory) = await ReadCriterionRowsAsync(reader, cancellationToken);
 
-            var criterionRows = new List<(Guid Id, Guid CategoryId, string Code, string Name, int Weight)>();
-            var criterionIdsByCategory = new Dictionary<Guid, List<Guid>>();
-
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                var categoryId = reader.GetGuid(1);
-                var criterionId = reader.GetGuid(0);
-
-                criterionRows.Add((
-                    criterionId,
-                    categoryId,
-                    reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                    reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                    reader.GetInt32(4)));
-
-                if (!criterionIdsByCategory.TryGetValue(categoryId, out var criterionIds))
-                {
-                    criterionIds = [];
-                    criterionIdsByCategory[categoryId] = criterionIds;
-                }
-
-                criterionIds.Add(criterionId);
-            }
-
-            // Result set 4: criterion values (Id, PrioritisationCriterionId, CriterionValue, Score), in sequence order.
             await reader.NextResultAsync(cancellationToken);
+            var valuesByCriterion = await ReadCriterionValuesAsync(reader, cancellationToken);
 
-            var valuesByCriterion = new Dictionary<Guid, List<PrioritisationCriterionValue>>();
-
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                var criterionId = reader.GetGuid(1);
-                var value = new PrioritisationCriterionValue
-                {
-                    Id = reader.GetGuid(0),
-                    CriterionId = criterionId,
-                    Value = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                    Score = reader.GetInt32(3)
-                };
-
-                if (!valuesByCriterion.TryGetValue(criterionId, out var values))
-                {
-                    values = [];
-                    valuesByCriterion[criterionId] = values;
-                }
-
-                values.Add(value);
-            }
-
-            var criteriaById = criterionRows.ToDictionary(
-                row => row.Id,
-                row => new PrioritisationCriterion
-                {
-                    Id = row.Id,
-                    CategoryId = row.CategoryId,
-                    Code = row.Code,
-                    Name = row.Name,
-                    Weight = row.Weight,
-                    Values = valuesByCriterion.TryGetValue(row.Id, out var values) ? values : []
-                });
-
-            var categories = orderedCategoryIds.Select(id => new PrioritisationCategory
-            {
-                Id = id,
-                Name = categoryNames[id],
-                Criteria = criterionIdsByCategory.TryGetValue(id, out var criterionIds)
-                    ? [.. criterionIds.Select(criterionId => criteriaById[criterionId])]
-                    : []
-            }).ToList();
+            var categories = BuildCategories(
+                orderedCategoryIds,
+                categoryNames,
+                criterionIdsByCategory,
+                criterionRows,
+                valuesByCriterion);
 
             logger.RetrievedCategories(categories.Count);
 
@@ -147,6 +78,119 @@ public sealed class PrioritisationVariablesRepository(
             throw;
         }
     }
+
+    /// <summary>Reads result set 2: categories (Id, Name).</summary>
+    private static async Task<(Dictionary<Guid, string> Names, List<Guid> OrderedIds)> ReadCategoryNamesAsync(
+        DbDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        var categoryNames = new Dictionary<Guid, string>();
+        var orderedCategoryIds = new List<Guid>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var id = reader.GetGuid(0);
+            categoryNames[id] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+            orderedCategoryIds.Add(id);
+        }
+
+        return (categoryNames, orderedCategoryIds);
+    }
+
+    /// <summary>Reads result set 3: criteria (Id, PrioritisationCategoryId, Code, Name, Weighting), in code order.</summary>
+    private static async Task<(
+        List<(Guid Id, Guid CategoryId, string Code, string Name, int Weight)> Rows,
+        Dictionary<Guid, List<Guid>> IdsByCategory)> ReadCriterionRowsAsync(
+        DbDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        var criterionRows = new List<(Guid Id, Guid CategoryId, string Code, string Name, int Weight)>();
+        var criterionIdsByCategory = new Dictionary<Guid, List<Guid>>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var categoryId = reader.GetGuid(1);
+            var criterionId = reader.GetGuid(0);
+
+            criterionRows.Add((
+                criterionId,
+                categoryId,
+                reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                reader.GetInt32(4)));
+
+            if (!criterionIdsByCategory.TryGetValue(categoryId, out var criterionIds))
+            {
+                criterionIds = [];
+                criterionIdsByCategory[categoryId] = criterionIds;
+            }
+
+            criterionIds.Add(criterionId);
+        }
+
+        return (criterionRows, criterionIdsByCategory);
+    }
+
+    /// <summary>Reads result set 4: criterion values (Id, PrioritisationCriterionId, CriterionValue, Score), in sequence order.</summary>
+    private static async Task<Dictionary<Guid, List<PrioritisationCriterionValue>>> ReadCriterionValuesAsync(
+        DbDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        var valuesByCriterion = new Dictionary<Guid, List<PrioritisationCriterionValue>>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var criterionId = reader.GetGuid(1);
+            var value = new PrioritisationCriterionValue
+            {
+                Id = reader.GetGuid(0),
+                CriterionId = criterionId,
+                Value = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                Score = reader.GetInt32(3)
+            };
+
+            if (!valuesByCriterion.TryGetValue(criterionId, out var values))
+            {
+                values = [];
+                valuesByCriterion[criterionId] = values;
+            }
+
+            values.Add(value);
+        }
+
+        return valuesByCriterion;
+    }
+
+    /// <summary>Assembles the category/criterion/value graph from the three result sets read above.</summary>
+    private static List<PrioritisationCategory> BuildCategories(
+        List<Guid> orderedCategoryIds,
+        Dictionary<Guid, string> categoryNames,
+        Dictionary<Guid, List<Guid>> criterionIdsByCategory,
+        List<(Guid Id, Guid CategoryId, string Code, string Name, int Weight)> criterionRows,
+        Dictionary<Guid, List<PrioritisationCriterionValue>> valuesByCriterion)
+    {
+        var criteriaById = criterionRows.ToDictionary(
+            row => row.Id,
+            row => new PrioritisationCriterion
+            {
+                Id = row.Id,
+                CategoryId = row.CategoryId,
+                Code = row.Code,
+                Name = row.Name,
+                Weight = row.Weight,
+                Values = valuesByCriterion.TryGetValue(row.Id, out var values) ? values : []
+            });
+
+        return [.. orderedCategoryIds.Select(id => new PrioritisationCategory
+        {
+            Id = id,
+            Name = categoryNames[id],
+            Criteria = criterionIdsByCategory.TryGetValue(id, out var criterionIds)
+                ? [.. criterionIds.Select(criterionId => criteriaById[criterionId])]
+                : []
+        })];
+    }
+
 
     /// <inheritdoc />
     public async Task UpdateCriterionAsync(Guid criterionId, string name, int weight, CancellationToken cancellationToken)

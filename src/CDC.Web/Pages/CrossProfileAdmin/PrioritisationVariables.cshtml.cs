@@ -114,28 +114,8 @@ public class PrioritisationVariablesModel(
     {
         SuccessMessage = null;
 
-        if (LowerBound >= UpperBound)
-        {
-            ModelState.AddModelError(
-                nameof(LowerBound),
-                "Lower bound must be a positive integer that is lower than upper bound");
-        }
-
-        if (SelectedCriterionId is not null)
-        {
-            if (CriterionWeight is < 1 or > 999)
-            {
-                ModelState.AddModelError(nameof(CriterionWeight), "Criterion weight must be a positive integer");
-            }
-
-            for (var i = 0; i < CriterionValueScores.Count; i++)
-            {
-                if (CriterionValueScores[i].Score is < 0 or > 999)
-                {
-                    ModelState.AddModelError($"{nameof(CriterionValueScores)}[{i}].{nameof(CriterionValueScoreInput.Score)}", "Score must be a positive integer");
-                }
-            }
-        }
+        ValidateRankingRange();
+        ValidateSelectedCriterion();
 
         if (!ModelState.IsValid)
         {
@@ -146,6 +126,46 @@ public class PrioritisationVariablesModel(
             return Page();
         }
 
+        await SaveRankingRangeAndCriterionAsync(cancellationToken);
+
+        CategorisationSummary = BuildCategorisationSummary();
+        await LoadPrioritisationDataAsync(cancellationToken);
+        return Page();
+    }
+
+    private void ValidateRankingRange()
+    {
+        if (LowerBound >= UpperBound)
+        {
+            ModelState.AddModelError(
+                nameof(LowerBound),
+                "Lower bound must be a positive integer that is lower than upper bound");
+        }
+    }
+
+    private void ValidateSelectedCriterion()
+    {
+        if (SelectedCriterionId is null)
+        {
+            return;
+        }
+
+        if (CriterionWeight is < 1 or > 999)
+        {
+            ModelState.AddModelError(nameof(CriterionWeight), "Criterion weight must be a positive integer");
+        }
+
+        for (var i = 0; i < CriterionValueScores.Count; i++)
+        {
+            if (CriterionValueScores[i].Score is < 0 or > 999)
+            {
+                ModelState.AddModelError($"{nameof(CriterionValueScores)}[{i}].{nameof(CriterionValueScoreInput.Score)}", "Score must be a positive integer");
+            }
+        }
+    }
+
+    private async Task SaveRankingRangeAndCriterionAsync(CancellationToken cancellationToken)
+    {
         try
         {
             var updatedRange = await prioritisationVariablesApiService.UpdateRankingRangeAsync(
@@ -178,10 +198,6 @@ public class PrioritisationVariablesModel(
             PublishedProfileScoresRecalculated = false;
             ModelState.AddModelError(string.Empty, "We could not save your changes. Try again later.");
         }
-
-        CategorisationSummary = BuildCategorisationSummary();
-        await LoadPrioritisationDataAsync(cancellationToken);
-        return Page();
     }
 
     private async Task LoadRankingRangeAsync(CancellationToken cancellationToken)
