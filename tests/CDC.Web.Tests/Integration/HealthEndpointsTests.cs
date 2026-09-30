@@ -11,6 +11,7 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
     public HealthEndpointsTests(WebApplicationFactory<Program> factory)
     {
+        WebTestEnvironment.EnsureConfigured();
         _factory = factory;
     }
 
