@@ -145,4 +145,89 @@ public class ProfileManagementServiceTests
 
         repository.VerifyAll();
     }
+
+    [Fact]
+    public async Task CreateProfile_MapsResultToDto()
+    {
+        var command = new CreateProfileCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CloneProfileVersionId = Guid.Empty,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
+
+        var repositoryResult = new ProfileCreationResult
+        {
+            NewProfileId = ProfileManagementTestData.ProfileId,
+            NewLastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        repository
+            .Setup(repo => repo.CreateProfileAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(repositoryResult);
+
+        var result = await CreateService().CreateProfileAsync(command, CancellationToken.None);
+
+        result.NewProfileId.Should().Be(ProfileManagementTestData.ProfileId);
+        result.NewLastUpdated.Should().BeEquivalentTo(ProfileManagementTestData.RowVersion);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAttributes_ReturnsNewLastUpdated()
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Bovine tuberculosis",
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        repository
+            .Setup(repo => repo.UpdateProfileAttributesAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ProfileManagementTestData.NewRowVersion);
+
+        var result = await CreateService().UpdateProfileAttributesAsync(command, CancellationToken.None);
+
+        result.NewLastUpdated.Should().BeEquivalentTo(ProfileManagementTestData.NewRowVersion);
+    }
+
+    [Fact]
+    public async Task GetNewProfileDefaults_ReturnsNull_WhenRepositoryReturnsNull()
+    {
+        repository
+            .Setup(repo => repo.GetNewProfileDefaultsAsync(ProfileManagementTestData.ProfileVersionId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NewProfileDefaults?)null);
+
+        var result = await CreateService().GetNewProfileDefaultsAsync(ProfileManagementTestData.ProfileVersionId, false, CancellationToken.None);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetNewProfileDefaults_MapsDefaultsToDto()
+    {
+        var defaults = new NewProfileDefaults
+        {
+            Title = "Bovine tuberculosis",
+            ScenarioTitle = string.Empty,
+            ParentId = Guid.Empty,
+            ParentTitle = string.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId,
+            AffectedSpecies = [ProfileManagementTestData.AffectedSpecies()]
+        };
+
+        repository
+            .Setup(repo => repo.GetNewProfileDefaultsAsync(ProfileManagementTestData.ProfileVersionId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(defaults);
+
+        var result = await CreateService().GetNewProfileDefaultsAsync(ProfileManagementTestData.ProfileVersionId, true, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Title.Should().Be("Bovine tuberculosis");
+        result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
+        result.AffectedSpecies.Should().ContainSingle();
+        result.AffectedSpecies[0].SpeciesId.Should().Be(ProfileManagementTestData.SpeciesId);
+    }
 }
