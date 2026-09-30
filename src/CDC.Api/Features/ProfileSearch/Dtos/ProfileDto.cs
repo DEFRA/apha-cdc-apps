@@ -50,8 +50,27 @@ public sealed record ProfileSearchResultDto
     /// <summary>Gets or sets the draft versions of this profile.</summary>
     public required IReadOnlyList<ProfileHistoryItemDto> DraftVersions { get; init; }
 
-    /// <summary>Gets or sets any scenarios associated with this profile.</summary>
-    public required IReadOnlyList<ProfileHistoryItemDto> Scenarios { get; init; }
+    /// <summary>
+    /// Gets or sets the "what-if" scenarios belonging to this profile. Each scenario is its own
+    /// version lineage, with its own independent published/draft version history - never merged
+    /// with the profile's own (current-situation) history above, or with any other scenario's.
+    /// </summary>
+    public required IReadOnlyList<ProfileScenarioDto> WhatIfScenarios { get; init; }
+}
+
+/// <summary>
+/// One "what-if" scenario belonging to a profile, and its own independent version history.
+/// </summary>
+public sealed record ProfileScenarioDto
+{
+    /// <summary>Gets or sets the scenario's identifier (its own root, distinct from the parent profile's).</summary>
+    public required Guid ScenarioId { get; init; }
+
+    /// <summary>Gets or sets this scenario's own published versions.</summary>
+    public required IReadOnlyList<ProfileHistoryItemDto> PublishedVersions { get; init; }
+
+    /// <summary>Gets or sets this scenario's own draft versions.</summary>
+    public required IReadOnlyList<ProfileHistoryItemDto> DraftVersions { get; init; }
 }
 
 /// <summary>

@@ -39,6 +39,26 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     }
 
     /// <summary>
+    /// Gets the details shown on the "Manage profile" page: titles, version pointers and status.
+    /// </summary>
+    /// <param name="profileId">The profile to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The profile's "Manage profile" details.</returns>
+    /// <response code="200">The profile was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="404">No profile exists with the supplied identifier.</response>
+    [HttpGet("{profileId:guid}/manage")]
+    [ProducesResponseType(typeof(GetManageProfileResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GetManageProfileResponse>> GetManageProfile(Guid profileId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetManageProfileQuery(profileId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
     /// Gets default values for a new profile or "what-if" scenario, sourced from the profile
     /// version being cloned.
     /// </summary>

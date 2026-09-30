@@ -94,7 +94,7 @@ public class ProfileSearchHandlerTests
                     AffectedSpecies = [],
                     PublishedVersions = [],
                     DraftVersions = [],
-                    Scenarios = []
+                    WhatIfScenarios = []
                 }
             ]);
 
@@ -123,7 +123,7 @@ public class ProfileSearchHandlerTests
     [InlineData(false, true, false, "Draft", true)]
     [InlineData(false, false, true, "Scenario", true)]
     [InlineData(false, false, false, "Published", false)]
-    public async Task GetProfileSearchResultsAsync_FiltersByStatusFlags(
+    public async Task GetProfileSearchResultsAsync_FiltersByVersionAvailability(
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
@@ -144,6 +144,24 @@ public class ProfileSearchHandlerTests
             cancellationToken: CancellationToken.None);
 
         results.Should().HaveCount(expectedIncluded ? 1 : 0);
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_IncludesADraftAndPublishedProfile_WhenOnlyDisplayDraftIsOn()
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Published", hasDraftVersionToo: true)]);
+
+        var service = new ProfileSearchService(repository.Object);
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: false,
+            displayDraft: true,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle();
     }
 
     [Fact]
@@ -187,7 +205,7 @@ public class ProfileSearchHandlerTests
         results.Should().HaveCount(expectedCount);
     }
 
-    private static ProfileSearchResultDto CreateProfile(string title, string status) => new()
+    private static ProfileSearchResultDto CreateProfile(string title, string status, bool hasDraftVersionToo = false) => new()
     {
         Id = Guid.NewGuid(),
         Title = title,
@@ -196,8 +214,19 @@ public class ProfileSearchHandlerTests
         ModifiedAtUtc = DateTime.UtcNow,
         IsPublic = true,
         AffectedSpecies = [],
-        PublishedVersions = [],
-        DraftVersions = [],
-        Scenarios = []
+        PublishedVersions = status == "Published" ? [CreateVersion()] : [],
+        DraftVersions = status == "Draft" || hasDraftVersionToo ? [CreateVersion()] : [],
+        WhatIfScenarios = status == "Scenario"
+            ? [new ProfileScenarioDto { ScenarioId = Guid.NewGuid(), PublishedVersions = [], DraftVersions = [CreateVersion()] }]
+            : []
+    };
+
+    private static ProfileHistoryItemDto CreateVersion() => new()
+    {
+        VersionId = Guid.NewGuid(),
+        VersionNumber = 1,
+        Title = "Title",
+        CreatedAtUtc = DateTime.UtcNow,
+        IsScenario = false
     };
 }
