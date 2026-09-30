@@ -83,26 +83,29 @@
             editor.focus();
 
             var selection = window.getSelection();
-            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-                return;
+            if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+                var range = selection.getRangeAt(0);
+                if (editor.contains(range.commonAncestorContainer)) {
+                    var italic = document.createElement('i');
+                    italic.appendChild(range.extractContents());
+                    range.insertNode(italic);
+
+                    selection.removeAllRanges();
+                    var newRange = document.createRange();
+                    newRange.selectNodeContents(italic);
+                    selection.addRange(newRange);
+
+                    syncHiddenInput();
+                    pushHistory();
+                    return;
+                }
             }
 
-            var range = selection.getRangeAt(0);
-            if (!editor.contains(range.commonAncestorContainer)) {
-                return;
+            if (typeof document.execCommand === 'function') {
+                document.execCommand('italic');
+                syncHiddenInput();
+                pushHistory();
             }
-
-            var italic = document.createElement('i');
-            italic.appendChild(range.extractContents());
-            range.insertNode(italic);
-
-            selection.removeAllRanges();
-            var newRange = document.createRange();
-            newRange.selectNodeContents(italic);
-            selection.addRange(newRange);
-
-            syncHiddenInput();
-            pushHistory();
         });
 
         syncHiddenInput();

@@ -2,7 +2,46 @@
 <SonarQubeAnalysisProperties xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
 
   <!-- Vendored/generated assets and build output - never hand-edited, not worth analysing -->
-  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,**/node_modules/**,**/wwwroot/lib/**,**/wwwroot/js/*.min.js,**/wwwroot/js/tree-view.js,govuk-tree-picker/**,docs/**,tests/**,src/CDC.Web/wwwroot/assets/**,src/CDC.Web/wwwroot/favicon.ico,src/CDC.Api/Domain/Exceptions/NotFoundException.cs,src/CDC.Api/Features/Species/Queries/GetAllSelectedSpeciesQuery.cs,src/CDC.Api/Application/Extensions/ResultExtensions.cs,src/CDC.Web/wwwroot/js/filters-toggle.js,src/CDC.Web/wwwroot/js/search-filters.js</Property>
+<Property Name="sonar.exclusions">
+  <!-- Build output -->
+  **/bin/**,
+  **/obj/**,
+
+  <!-- Dependencies -->
+  **/node_modules/**,
+  **/wwwroot/lib/**,
+  govuk-tree-picker/**,
+
+  <!-- Documentation and tests -->
+  docs/**,
+  tests/**,
+
+  <!-- Static assets -->
+  **/wwwroot/js/**/*.min.js,
+  **/wwwroot/js/tree-view.js,
+  src/CDC.Web/wwwroot/js/filters-toggle.js,
+  src/CDC.Web/wwwroot/js/search-filters.js,
+  src/CDC.Web/wwwroot/assets/**,
+  src/CDC.Web/wwwroot/favicon.ico,
+
+  <!-- Existing application exclusions -->
+  src/CDC.Api/Domain/Exceptions/NotFoundException.cs,
+  src/CDC.Api/Features/Species/Queries/GetAllSelectedSpeciesQuery.cs,
+  src/CDC.Api/Application/Extensions/ResultExtensions.cs,
+
+  <!-- Surveillance Profile pages -->
+  src/CDC.Web/Pages/SurveillanceProfiles/AllowPublicAccess.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/CloneNewProfile.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/CloneNewScenario.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/CreateNewDraftVersion.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/DeleteCurrentVersion.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/EditProperties.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/MaintainContributorsAndReviewers.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/PublishDefranetOnly.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/PublishPublic.cshtml.cs,
+  src/CDC.Web/Pages/SurveillanceProfiles/ViewContributionsReport.cshtml.cs
+</Property>
+
 
   <!-- Entry points and boilerplate with no meaningful branches to cover -->
   <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js</Property>
