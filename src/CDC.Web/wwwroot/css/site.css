@@ -692,6 +692,55 @@ body {
   white-space: nowrap;
 }
 
+/* govuk-frontend only styles focus on its own link classes, so the logo link needs the
+   GOV.UK focus indicator applied explicitly. */
+.app-banner-row__logo-link {
+  display: inline-flex;
+}
+
+.app-banner-row__logo-link:focus {
+  outline: 3px solid transparent;
+  background-color: #ffdd00;
+  box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+}
+
+/* Reusable tooltip. Shown on hover and on keyboard focus; dismissed with Escape via
+   tooltip.js adding .app-tooltip--dismissed. Meets WCAG 2.2 SC 1.4.13 (hoverable because the
+   tooltip sits inside the hover area of .app-tooltip, persistent, and dismissable). */
+.app-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.app-tooltip__content {
+  display: none;
+  position: absolute;
+  /* Overridden by tooltip.js to track the pointer; the defaults place the tooltip below the
+     trigger, which is what keyboard focus uses. */
+  top: var(--app-tooltip-y, 100%);
+  left: var(--app-tooltip-x, 0);
+  z-index: 100;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(680px, calc(100vw - 30px));
+  padding: 10px 15px;
+  background-color: #ffffff;
+  border: 1px solid #0b0c0c;
+  color: #0b0c0c;
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.app-tooltip:hover .app-tooltip__content,
+.app-tooltip:focus-within .app-tooltip__content {
+  display: block;
+}
+
+.app-tooltip--dismissed .app-tooltip__content {
+  display: none;
+}
+
 /* Home page: brand logo in the right-hand "Quick links" column */
 .app-home__side-logo {
   max-width: 220px;
