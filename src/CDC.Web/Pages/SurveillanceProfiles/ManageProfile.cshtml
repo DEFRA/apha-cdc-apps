@@ -1,0 +1,108 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.ManageProfileModel
+@{
+    ViewData["Title"] = Model.Profile is not null ? $"Manage profile: {Model.Profile.ProfileTitle}" : "Manage profile";
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Manage
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.Profile is not null)
+        {
+            <h1 class="govuk-heading-l">Manage profile:<br />@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.Profile.ProfileTitle)</h1>
+        }
+        else
+        {
+            <h1 class="govuk-heading-l">Manage profile</h1>
+        }
+
+        @if (Model.HasError)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">Unable to load this profile. Please try again.</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.Profile is not null)
+        {
+            <dl class="govuk-summary-list">
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Profile title</dt>
+                    <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.Profile.ProfileTitle)</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Scenario title</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.ScenarioTitle</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Latest published version (public)</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.LatestPublishedVersionPublic</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Latest published version (DefraNet only)</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.LatestPublishedVersionDefraNetOnly</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Latest draft version</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.LatestDraftVersion</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Profile status</dt>
+                    <dd class="govuk-summary-list__value">@Model.Profile.ProfileStatus</dd>
+                </div>
+            </dl>
+
+            <ul class="govuk-list">
+                <li>
+                    <a class="govuk-link" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./EditProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./MaintainContributorsAndReviewers" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./ViewContributionsReport" asp-route-profileId="@Model.ProfileId">View contributions report</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./DeleteCurrentVersion" asp-route-profileId="@Model.ProfileId">Delete current version</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./CloneNewProfile" asp-route-profileId="@Model.ProfileId">Clone new profile</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./CloneNewScenario" asp-route-profileId="@Model.ProfileId">Clone new scenario</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./PublishPublic" asp-route-profileId="@Model.ProfileId">Publish (public)</a>
+                </li>
+                <li>
+                    <a class="govuk-link" asp-page="./PublishDefranetOnly" asp-route-profileId="@Model.ProfileId">Publish (Defranet only)</a>
+                </li>
+            </ul>
+        }
+    </div>
+</div>

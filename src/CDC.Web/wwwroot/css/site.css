@@ -15,9 +15,48 @@ html {
   max-width: 1200px;
 }
 
+/* GOV.UK Design System "Back to top" footer link; not bundled in this govuk-frontend CSS build. */
+.govuk-back-to-top-link {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 15px;
+  padding-bottom: 20px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--govuk-link-colour, #1d70b8);
+  text-decoration: underline;
+}
+
+.govuk-back-to-top-link:hover {
+  color: #003078;
+}
+
+.govuk-back-to-top-link__icon {
+  margin-right: 5px;
+}
+
 .app-search-panel {
   padding: 1.5rem 1.5rem 1rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+/* Visual loading state while the results fragment is refreshed asynchronously
+   (see wwwroot/js/search-filters.js); the fragment stays visible but is dimmed
+   and un-clickable rather than disappearing, so the page stays responsive. */
+#search-results-container[aria-busy="true"] {
+  position: relative;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+#search-results-container[aria-busy="true"]::after {
+  content: "Loading results\2026";
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--govuk-text-colour, #0b0c0c);
 }
 
 .app-search-form .govuk-details {
@@ -96,6 +135,91 @@ html {
   padding: 1rem 1.5rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
   background: #fff;
+}
+
+/* Centres the pagination nav as a whole below the results list; govuk-pagination's own
+   space-between layout only spaces prev/list/next apart, it doesn't centre the nav itself. */
+.app-pagination-center {
+  display: flex;
+  justify-content: center;
+}
+
+/* Edit profile title: label, textbox and Save button on a single row. The toolbar and any
+   validation message sit above the textbox inside the wrapper, so the row is bottom-aligned to
+   keep the label and Save button level with the textbox itself, not the wrapper's top. */
+.app-edit-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.app-edit-title-row__label {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+.app-edit-title-row__input-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-edit-title-row__input {
+  width: 100%;
+}
+
+.app-edit-title-row__button {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+/* Edit profile title: formatting toolbar shown above the title textbox. */
+.app-title-toolbar {
+  display: inline-flex;
+  margin-bottom: 4px;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-title-toolbar__button {
+  appearance: none;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--govuk-border-colour, #b1b4b6);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #0b0c0c;
+}
+
+.app-title-toolbar__button:last-child {
+  border-right: none;
+}
+
+.app-title-toolbar__button:hover:not(:disabled) {
+  background: #f3f2f1;
+}
+
+.app-title-toolbar__button:disabled {
+  color: var(--govuk-secondary-text-colour, #505a5f);
+  cursor: not-allowed;
+}
+
+.app-title-toolbar__button--italic {
+  font-style: italic;
+  font-weight: 700;
+  min-width: 2.5rem;
+}
+
+/* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
+   (<i>, <strong>, etc.) render live instead of showing as raw text. */
+.app-title-editor {
+  display: block;
+  min-height: 2.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
 }
 
 .app-profile-card__header {

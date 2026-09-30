@@ -70,6 +70,13 @@ public interface IProfileManagementRepository
     /// <returns>The profile, or <see langword="null"/> when it does not exist.</returns>
     Task<Profile?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken);
 
+    /// <summary>Reads a profile version's number via <c>spgProfileVersionInfoById</c>, for display
+    /// purposes (for example, on the "Manage profile" page).</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The version number, or <see langword="null"/> when it does not exist.</returns>
+    Task<ProfileVersionSummary?> GetProfileVersionSummaryAsync(Guid profileVersionId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Reads default values for a new profile from the version being cloned, via
     /// <c>spgProfileVersionInfoById</c>.
