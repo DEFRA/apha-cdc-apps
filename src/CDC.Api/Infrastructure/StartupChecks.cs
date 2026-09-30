@@ -56,4 +56,26 @@ internal static class StartupChecks
 
         return key;
     }
+
+    /// <summary>
+    /// Fails fast at startup if the placeholder species audit user id isn't configured.
+    /// <c>SpeciesTableAuditLog.UserId</c> is a required foreign key to <c>[User].Id</c> - with
+    /// no authentication wired up yet, there is no per-request caller to record, so a real
+    /// existing user id must be configured here instead of silently failing on first save.
+    /// </summary>
+    public static Guid RequireSpeciesAuditUserId(IConfiguration configuration)
+    {
+        var value = configuration["Species:AuditUserId"];
+
+        if (!Guid.TryParse(value, out var auditUserId) || auditUserId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "Species:AuditUserId must be configured as the id of an existing [User] row. Locally, set it in " +
+                "appsettings.Development.json; in a deployed environment, check the Species__AuditUserId wiring " +
+                "in the ECS task definition. Replace this with the authenticated caller's id once Entra ID " +
+                "authentication is wired up.");
+        }
+
+        return auditUserId;
+    }
 }

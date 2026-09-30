@@ -32,4 +32,16 @@ public static class SpeciesStoredProcedures
 
     /// <summary>Recalculates species prioritisation scores after an answer change.</summary>
     public const string CalculatePrioritisationScore = "sppSpeciesPrioritisationScore";
+
+    /// <summary>Returns one species' name/parent detail and row version.</summary>
+    public const string GetSpeciesById = "spgSpeciesById";
+
+    /// <summary>Returns the species that are a legal parent choice for another species.</summary>
+    public const string GetSpeciesValidParents = "spgSpeciesValidParents";
+
+    /// <summary>Updates a species' name and parent, and writes the audit trail entry.</summary>
+    public const string UpdateSpecies = "spuSpecies";
+
+    /// <summary>Returns every recorded species name/parent change.</summary>
+    public const string GetSpeciesAuditTrail = "spgaSpeciesTableAuditLog";
 }

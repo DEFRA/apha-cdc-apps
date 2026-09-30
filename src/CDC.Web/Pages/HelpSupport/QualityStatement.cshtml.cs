@@ -11,17 +11,8 @@ public class QualityStatementModel : BreadcrumbPageModelBase
         _environment = environment;
     }
 
-    public IActionResult OnGet(bool download = true)
+    public void OnGet()
     {
-        var pdfPath = Path.Combine(_environment.WebRootPath, "PDF", "DataQualityStatement_D2R2.pdf");
-
-        if (!System.IO.File.Exists(pdfPath))
-        {
-            return NotFound();
-        }
-
-        var fileName = "D2R2-Quality-Statement.pdf";
-
-        return PhysicalFile(pdfPath, "application/pdf", fileName);
+        // Page renders static content only; no data to load.
     }
 }
