@@ -11,9 +11,9 @@ namespace CDC.Web.Infrastructure;
 /// </summary>
 public static partial class ProfileTitleHtmlFormatter
 {
-    // <p> and <span> wrappers are stripped rather than rendered: titles are shown inside heading
-    // elements (where <p> is invalid block-level content), and <span> carries no visual formatting
-    // of its own once its attributes (e.g. style, data-*) are removed for safety.
+    // Wrapping paragraphs are stripped before rendering, because the title sits inside a heading and
+    // paragraphs are invalid there. Span tags are also removed once their attributes have been
+    // filtered out for safety.
     private static readonly string[] StrippedTags = ["p", "/p"];
 
     private static readonly string[] AllowedTags =
