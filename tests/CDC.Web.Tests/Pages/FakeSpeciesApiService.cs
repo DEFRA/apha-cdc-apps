@@ -8,6 +8,7 @@ internal sealed class FakeSpeciesApiService(
     IReadOnlyList<SpeciesDto>? species = null,
     Exception? throwOnGetAllSpecies = null,
     SpeciesDetailDto? speciesDetail = null,
+    Exception? throwOnGetSpeciesDetail = null,
     IReadOnlyList<SpeciesValidParentDto>? validParents = null,
     UpdateSpeciesNameParentResult? updateResult = null,
     IReadOnlyList<SpeciesAuditTrailEntryDto>? auditTrail = null)
@@ -23,7 +24,9 @@ internal sealed class FakeSpeciesApiService(
             : Task.FromResult(_species);
 
     public Task<SpeciesDetailDto?> GetSpeciesDetailAsync(Guid speciesId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(speciesDetail);
+        throwOnGetSpeciesDetail is not null
+            ? Task.FromException<SpeciesDetailDto?>(throwOnGetSpeciesDetail)
+            : Task.FromResult(speciesDetail);
 
     public Task<IReadOnlyList<SpeciesValidParentDto>> GetSpeciesValidParentsAsync(Guid speciesId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_validParents);

@@ -1,0 +1,98 @@
+@page "{speciesId:guid}"
+@model CDC.Web.Pages.EditSpeciesModel
+@{
+    var speciesLabel = Model.SpeciesName?.ToLowerInvariant();
+    ViewData["Title"] = speciesLabel is null ? "View species data" : $"View species data - {speciesLabel}";
+}
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/ViewSpeciesData">View species data</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">@ViewData["Title"]</li>
+        </ol>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="species-detail-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="species-detail-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">We could not load this species. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <h1 class="govuk-heading-l">View species data - @speciesLabel</h1>
+
+    <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+            <nav class="app-subnav" aria-label="Species data sections">
+                <ul class="app-subnav__list">
+                    @foreach (var navSection in CDC.Web.Models.EditSpeciesSectionCatalog.Sections)
+                    {
+                        var isCurrent = navSection.Key == Model.CurrentSection.Key;
+                        <li class="app-subnav__item @(isCurrent ? "app-subnav__item--current" : string.Empty)">
+                            <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline"
+                               href="@Model.BuildSectionUrl(navSection.Key)"
+                               aria-current="@(isCurrent ? "page" : null)">@navSection.Number. @navSection.Title</a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        </div>
+        <div class="govuk-grid-column-three-quarters">
+            <div class="app-species-tabs">
+                <span class="app-species-tabs__tab app-species-tabs__tab--active">@Model.CurrentSection.Title</span>
+            </div>
+
+            <div class="app-species-panel">
+                <div class="govuk-accordion" data-module="govuk-accordion" id="species-accordion">
+                    @foreach (var question in Model.CurrentSection.Questions)
+                    {
+                        var anchor = question.Number.Replace(".", "-");
+                        <div class="govuk-accordion__section">
+                            <div class="govuk-accordion__section-header">
+                                <h2 class="govuk-accordion__section-heading">
+                                    <span class="govuk-accordion__section-button" id="species-accordion-heading-@anchor">
+                                        @question.Number @question.Text
+                                    </span>
+                                </h2>
+                            </div>
+                            <div id="species-accordion-content-@anchor" class="govuk-accordion__section-content">
+                                <p class="govuk-body">[NEEDS INPUT: answer content pending the species question-and-answer API]</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="app-species-pagination">
+                <div class="app-species-pagination__prev">
+                    @if (Model.PreviousSection is not null)
+                    {
+                        <a class="govuk-link" href="@Model.BuildSectionUrl(Model.PreviousSection.Key)">
+                            &larr; Previous<br />@Model.PreviousSection.Number. @Model.PreviousSection.Title
+                        </a>
+                    }
+                </div>
+                <div class="app-species-pagination__next">
+                    @if (Model.NextSection is not null)
+                    {
+                        <a class="govuk-link" href="@Model.BuildSectionUrl(Model.NextSection.Key)">
+                            Next &rarr;<br />@Model.NextSection.Number. @Model.NextSection.Title
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}

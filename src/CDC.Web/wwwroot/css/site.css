@@ -656,6 +656,52 @@ body {
   padding: 10px 0;
 }
 
+/* View species data detail page: left-hand list of fixed sections (Animal identification,
+   Movements, etc.), with a left border marking the one currently shown on the right. */
+.app-subnav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-subnav__item {
+  padding: 0.5rem 0 0.5rem 0.75rem;
+  border-left: 4px solid transparent;
+}
+
+.app-subnav__item--current {
+  border-left-color: var(--govuk-brand-colour, #1d70b8);
+  font-weight: 700;
+}
+
+/* Single active tab labelled with the current section's title, above the question accordion. */
+.app-species-tabs {
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-species-tabs__tab {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: none;
+}
+
+.app-species-panel {
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-top: none;
+  padding: 1rem;
+}
+
+/* Previous/Next section links below the accordion. */
+.app-species-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
 .app-header__help-icon {
   height: 26px;
   width: 26px;

@@ -1,5 +1,6 @@
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Pages;
 
@@ -13,6 +14,11 @@ public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<
 {
     private const string SpeciesKey = "species";
 
+    /// <summary>Gets or sets the species or species group selected in the tree picker, bound from
+    /// the querystring submitted by the "View data" button.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Species { get; set; }
+
     /// <summary>Gets the species hierarchy, built from every active species returned by the API.</summary>
     public TreeViewViewModel SpeciesTree { get; private set; } = EmptyTree();
 
@@ -22,10 +28,16 @@ public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<
     /// <summary>Gets the message to show the user when <see cref="HasError"/> is <see langword="true"/>.</summary>
     public string? ErrorMessage { get; private set; }
 
-    /// <summary>Loads the species list and builds the tree shown on the page.</summary>
+    /// <summary>Loads the species list and builds the tree shown on the page, or - when a species
+    /// has just been selected via the "View data" button - redirects to its data page.</summary>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(Species) && Guid.TryParse(Species, out var speciesId))
+        {
+            return RedirectToPage("/EditSpecies", new { speciesId });
+        }
+
         try
         {
             var species = await speciesApiService.GetAllSpeciesAsync(cancellationToken);
@@ -49,6 +61,8 @@ public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<
             HasError = true;
             ErrorMessage = "We could not load species data. Try again later.";
         }
+
+        return Page();
     }
 
     private static TreeViewViewModel EmptyTree() => new()
