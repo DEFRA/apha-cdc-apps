@@ -196,6 +196,7 @@ public class ProfileManagementServiceTests
         result.LatestPublishedVersionDefraNetOnly.Should().Be("Version 7.0");
         result.LatestPublishedVersionPublic.Should().Be("Version 5.0");
         result.ProfileStatus.Should().Be("Draft");
+        result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
     }
 
     [Fact]

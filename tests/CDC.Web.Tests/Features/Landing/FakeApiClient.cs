@@ -13,12 +13,17 @@ internal sealed class FakeApiClient(
     Exception? throwOnGetProfileAttributes = null,
     UpdateProfileTitleResult? updateProfileTitleResult = null,
     ManageProfileViewModel? manageProfile = null,
-    Exception? throwOnGetManageProfile = null) : IApiClient
+    Exception? throwOnGetManageProfile = null,
+    IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
+    UpdateProfileStatusResult? updateProfileStatusResult = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
+    private readonly IReadOnlyList<ProfileStatusTypeDto> _profileStatusTypes = profileStatusTypes ?? [];
     private readonly UpdateProfileTitleResult _updateProfileTitleResult =
         updateProfileTitleResult ?? new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null);
+    private readonly UpdateProfileStatusResult _updateProfileStatusResult =
+        updateProfileStatusResult ?? new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null);
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         throwOnGetHealth is not null
@@ -52,6 +57,15 @@ internal sealed class FakeApiClient(
         throwOnGetManageProfile is not null
             ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
             : Task.FromResult(manageProfile);
+
+    public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(_profileStatusTypes);
+
+    public Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
+        Guid profileId,
+        Guid profileStatusId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_updateProfileStatusResult);
 
     public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
         bool isUserManual = false,

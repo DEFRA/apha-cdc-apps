@@ -1,5 +1,6 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.ManageProfileModel
+@using Microsoft.AspNetCore.Mvc.Rendering
 @{
     ViewData["Title"] = Model.Profile is not null ? $"Manage profile: {Model.Profile.ProfileTitle}" : "Manage profile";
 }
@@ -44,6 +45,29 @@
         }
         else if (Model.Profile is not null)
         {
+            @if (!string.IsNullOrEmpty(Model.StatusMessage))
+            {
+                <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-manage-profile-status-success-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="app-manage-profile-status-success-title">Success</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@Model.StatusMessage</p>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Model.StatusErrorMessage))
+            {
+                <div class="govuk-notification-banner" role="alert" aria-labelledby="app-manage-profile-status-error-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="app-manage-profile-status-error-title">Important</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@Model.StatusErrorMessage</p>
+                    </div>
+                </div>
+            }
+
             <dl class="govuk-summary-list">
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Profile title</dt>
@@ -67,7 +91,17 @@
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Profile status</dt>
-                    <dd class="govuk-summary-list__value">@Model.Profile.ProfileStatus</dd>
+                    <dd class="govuk-summary-list__value">
+                        <form method="post">
+                            <input type="hidden" asp-for="ProfileId" />
+                            <div class="govuk-form-group govuk-!-margin-bottom-0">
+                                <label class="govuk-visually-hidden" for="ProfileStatusId">Profile status</label>
+                                <select class="govuk-select" asp-for="ProfileStatusId" asp-items="@(new SelectList(Model.ProfileStatusTypes, nameof(ProfileStatusTypeDto.Id), nameof(ProfileStatusTypeDto.Name)))" onchange="this.form.requestSubmit()">
+                                    <option value="">Please select...</option>
+                                </select>
+                            </div>
+                        </form>
+                    </dd>
                 </div>
             </dl>
 

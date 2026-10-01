@@ -13,4 +13,5 @@ public sealed record ManageProfileViewModel
     public string LatestPublishedVersionDefraNetOnly { get; init; } = string.Empty;
     public string LatestDraftVersion { get; init; } = string.Empty;
     public string ProfileStatus { get; init; } = string.Empty;
+    public Guid ProfileStatusId { get; init; }
 }

@@ -36,6 +36,15 @@ public interface IApiClient
     /// <c>GET /api/profiles/{profileId}/manage</c>.</summary>
     Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets every profile status a profile can be set to, from <c>GET /api/profiles/status-types</c>.</summary>
+    Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Updates a profile's status via <c>PUT /api/profiles/{profileId}/status</c>.</summary>
+    Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
+        Guid profileId,
+        Guid profileStatusId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Gets the current public static reports or manuals from <c>GET /api/static-reports</c>.</summary>
     Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
         bool isUserManual = false,
@@ -133,6 +142,39 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<ManageProfileViewModel>(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default)
+    {
+        var statusTypes = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileStatusTypeDto>>("/api/profiles/status-types", cancellationToken);
+
+        return statusTypes ?? [];
+    }
+
+    public async Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
+        Guid profileId,
+        Guid profileStatusId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PutAsJsonAsync(
+            $"/api/profiles/{profileId}/status",
+            new { ProfileStatusId = profileStatusId },
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => new UpdateProfileStatusResult(
+                UpdateProfileStatusOutcome.NotFound,
+                "The selected profile status could not be found."),
+            _ => new UpdateProfileStatusResult(
+                UpdateProfileStatusOutcome.Error,
+                "The profile status could not be saved. Please try again.")
+        };
     }
 
     public async Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(

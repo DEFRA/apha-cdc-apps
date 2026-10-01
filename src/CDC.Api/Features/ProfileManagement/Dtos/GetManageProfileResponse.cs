@@ -26,4 +26,8 @@ public sealed record GetManageProfileResponse
 
     /// <summary>Gets a display label for the profile's current status.</summary>
     public string ProfileStatus { get; init; } = string.Empty;
+
+    /// <summary>Gets the identifier of the profile's current status, for pre-selecting the
+    /// status dropdown. <see cref="Guid.Empty"/> when no status is set.</summary>
+    public Guid ProfileStatusId { get; init; }
 }

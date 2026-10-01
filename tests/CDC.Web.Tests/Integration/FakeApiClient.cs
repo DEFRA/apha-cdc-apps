@@ -34,6 +34,15 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
     public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         Task.FromResult<ManageProfileViewModel?>(null);
 
+    public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProfileStatusTypeDto>>([]);
+
+    public Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
+        Guid profileId,
+        Guid profileStatusId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Error, "Not implemented in this fake."));
+
     public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
         bool isUserManual = false,
         bool publicOnly = true,

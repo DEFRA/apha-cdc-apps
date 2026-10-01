@@ -168,6 +168,65 @@ public class ApiClientTests
     }
 
     [Fact]
+    public async Task GetProfileStatusTypesAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            [ { "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f", "name": "Draft", "isValidationComplete": false } ]
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var statusTypes = await client.GetProfileStatusTypesAsync();
+
+        var statusType = Assert.Single(statusTypes);
+        Assert.Equal("Draft", statusType.Name);
+        Assert.Equal("/api/profiles/status-types", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetProfileStatusTypesAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var statusTypes = await client.GetProfileStatusTypesAsync();
+
+        Assert.Empty(statusTypes);
+    }
+
+    [Fact]
+    public async Task UpdateProfileStatusAsync_ReturnsSuccess_OnNoContent()
+    {
+        var profileId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.UpdateProfileStatusAsync(profileId, Guid.NewGuid());
+
+        Assert.Equal(UpdateProfileStatusOutcome.Success, result.Outcome);
+        Assert.Equal($"/api/profiles/{profileId}/status", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdateProfileStatusAsync_ReturnsNotFound_OnHttp404()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var result = await client.UpdateProfileStatusAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(UpdateProfileStatusOutcome.NotFound, result.Outcome);
+    }
+
+    [Fact]
+    public async Task UpdateProfileStatusAsync_ReturnsError_OnUnexpectedStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await client.UpdateProfileStatusAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(UpdateProfileStatusOutcome.Error, result.Outcome);
+    }
+
+    [Fact]
     public async Task UpdateProfileTitleAsync_ReturnsSuccess_OnNoContent()
     {
         var profileId = Guid.NewGuid();
