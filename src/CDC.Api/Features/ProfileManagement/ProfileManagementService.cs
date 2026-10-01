@@ -157,7 +157,7 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
         {
             ProfileId = profile.Id,
             ProfileTitle = profile.Title,
-            ScenarioTitle = profile.ScenarioTitle,
+            ScenarioTitle = profile.ParentId == Guid.Empty ? "Current situation" : profile.ScenarioTitle,
             LatestPublishedVersionPublic = publicVersionLabel,
             LatestPublishedVersionDefraNetOnly = publishedVersionLabel,
             LatestDraftVersion = draftVersionLabel,
@@ -170,7 +170,7 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
     {
         var summary = await repository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
 
-        return summary is null ? string.Empty : $"Version {summary.VersionMajor}.{summary.VersionMinor}";
+        return summary is null ? "- none -" : $"{summary.VersionMajor}.{summary.VersionMinor}";
     }
 
     private async Task<string> ResolveProfileStatusNameAsync(Guid profileStatusId, CancellationToken cancellationToken)

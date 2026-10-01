@@ -192,15 +192,16 @@ public class ProfileManagementServiceTests
 
         result.Should().NotBeNull();
         result!.ProfileTitle.Should().Be("Bovine tuberculosis");
-        result.LatestDraftVersion.Should().Be("Version 8.0");
-        result.LatestPublishedVersionDefraNetOnly.Should().Be("Version 7.0");
-        result.LatestPublishedVersionPublic.Should().Be("Version 5.0");
+        result.ScenarioTitle.Should().Be("Current situation");
+        result.LatestDraftVersion.Should().Be("8.0");
+        result.LatestPublishedVersionDefraNetOnly.Should().Be("7.0");
+        result.LatestPublishedVersionPublic.Should().Be("5.0");
         result.ProfileStatus.Should().Be("Draft");
         result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
     }
 
     [Fact]
-    public async Task GetManageProfile_ReturnsEmptyVersionLabels_WhenNoVersionIsSet()
+    public async Task GetManageProfile_ReturnsNoneVersionLabels_WhenNoVersionIsSet()
     {
         var profile = ProfileManagementTestData.Profile() with
         {
@@ -222,9 +223,37 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.LatestDraftVersion.Should().BeEmpty();
-        result.LatestPublishedVersionDefraNetOnly.Should().BeEmpty();
-        result.LatestPublishedVersionPublic.Should().BeEmpty();
+        result!.LatestDraftVersion.Should().Be("- none -");
+        result.LatestPublishedVersionDefraNetOnly.Should().Be("- none -");
+        result.LatestPublishedVersionPublic.Should().Be("- none -");
         result.ProfileStatus.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_ReturnsTheScenarioTitle_WhenTheProfileIsAWhatIfScenario()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            ParentId = Guid.NewGuid(),
+            ScenarioTitle = "Low uptake scenario",
+            CurrentDraftProfileVersionId = Guid.Empty,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.ScenarioTitle.Should().Be("Low uptake scenario");
     }
 }
