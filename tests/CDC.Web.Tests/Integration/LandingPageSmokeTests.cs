@@ -29,7 +29,6 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
     [InlineData("/HelpSupport/HelpUsingD2R2")]
-    [InlineData("/HelpSupport/QualityStatement")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
     public async Task LandingRoutes_ReturnSuccess(string url)
@@ -42,19 +41,16 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
-    public async Task QualityStatementDownload_ReturnsPdfDocument()
+    public async Task QualityStatement_RendersErrorBanner_WhenApiIsUnavailable()
     {
+        // The default WebApplicationFactory<Program> has no live CDC.Api to call, so this is the
+        // page's actual behaviour in this test host - same pattern as ViewSpeciesData/Maintain.
         var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/HelpSupport/QualityStatement?download=true");
+        var response = await client.GetAsync("/HelpSupport/QualityStatement");
+        var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
-        Assert.NotNull(response.Content.Headers.ContentDisposition);
-        Assert.Contains("D2R2-Quality-Statement.pdf", response.Content.Headers.ContentDisposition!.FileName ?? string.Empty);
-
-        var bytes = await response.Content.ReadAsByteArrayAsync();
-        Assert.True(bytes.Length > 0);
-        Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString(bytes.Take(4).ToArray()));
+        Assert.Contains("We could not load the quality statement", body);
     }
 }

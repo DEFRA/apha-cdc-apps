@@ -67,6 +67,12 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IStaticReportsApiService, StaticReportsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
