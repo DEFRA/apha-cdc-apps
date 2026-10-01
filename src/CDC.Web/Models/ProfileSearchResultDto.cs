@@ -34,8 +34,21 @@ public sealed record ProfileScenarioDto
 public sealed record ProfileHistoryItemDto
 {
     public required Guid VersionId { get; init; }
+
+    /// <summary>The major component of the version number, displayed as <c>Major.Minor</c>.</summary>
     public required int VersionNumber { get; init; }
+
+    /// <summary>The minor component of the version number.</summary>
+    public int VersionMinor { get; init; }
+
     public required string Title { get; init; }
+
+    /// <summary>The date this version became effective.</summary>
     public required DateTime CreatedAtUtc { get; init; }
+
+    /// <summary>The date this version stopped being effective, or <see langword="null"/> while it
+    /// is still in effect.</summary>
+    public DateTime? EffectiveToUtc { get; init; }
+
     public required bool IsScenario { get; init; }
 }

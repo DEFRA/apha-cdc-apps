@@ -14,7 +14,7 @@
         @if (Model.CurrentVersion is not null)
         {
             <p class="govuk-body govuk-!-margin-bottom-1">
-                <strong>@Model.CurrentVersionLabel: @($"{Model.CurrentVersion.VersionNumber}.0")</strong>
+                <strong>@Model.CurrentVersionLabel: @($"{Model.CurrentVersion.VersionNumber}.{Model.CurrentVersion.VersionMinor}")</strong>
                 <span class="govuk-!-margin-left-2">@Model.CurrentVersion.CreatedAtUtc.ToString("dd/MM/yyyy")</span> -
             </p>
         }
@@ -53,21 +53,26 @@
 
             <div id="previous-versions-@Model.SectionId" class="app-filters__content govuk-!-margin-top-2" hidden>
                 <div class="app-profile-card__sub-card app-profile-card__sub-card--secondary">
-                    @if (Model.PreviousVersions.Count == 0)
+                    @if (Model.VersionHistory.Count == 0)
                     {
                         <p class="govuk-body govuk-!-margin-bottom-0">No previous versions.</p>
                     }
                     else
                     {
-                        @foreach (var row in Model.PreviousVersions)
+                        @foreach (var row in Model.VersionHistory)
                         {
                             <div class="app-profile-card__version-row">
-                                <p class="govuk-body govuk-!-margin-bottom-0">
-                                    Version @($"{row.Version.VersionNumber}.0")
-                                    <span class="govuk-!-margin-left-2">@row.Status</span>
-                                    <span class="govuk-!-margin-left-2">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy")</span>
+                                <p class="govuk-body govuk-!-margin-bottom-0 app-profile-card__version-detail">
+                                    <span class="app-profile-card__version-number">Version @($"{row.Version.VersionNumber}.{row.Version.VersionMinor}")</span>
+                                    <span class="app-profile-card__version-status">@row.Status</span>
+                                    <span class="app-profile-card__version-dates">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy") - @row.Version.EffectiveToUtc?.ToString("dd/MM/yyyy")</span>
                                 </p>
-                                <p class="govuk-body govuk-!-margin-bottom-0">
+                                <p class="govuk-body govuk-!-margin-bottom-0 app-profile-card__version-actions">
+                                    @if (row.ShowViewReportsLink)
+                                    {
+                                        <a class="govuk-link" href="#">View reports</a>
+                                        <span aria-hidden="true"> | </span>
+                                    }
                                     <a class="govuk-link" href="#">Clone profile</a>
                                     <span aria-hidden="true"> | </span>
                                     <a class="govuk-link" href="#">Browse profile</a>

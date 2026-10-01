@@ -126,8 +126,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         {
             VersionId = row.VersionId,
             VersionNumber = row.VersionNumber,
+            VersionMinor = row.VersionMinor,
             Title = title,
             CreatedAtUtc = row.EffectiveDate,
+            EffectiveToUtc = row.EffectiveDateTo,
             IsScenario = row.ScenarioId != row.RootProfileId
         };
 
@@ -151,8 +153,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             ScenarioId: reader.GetGuid(1),
             RootProfileId: reader.GetGuid(2),
             VersionNumber: ReadInt32(reader, 3),
+            VersionMinor: ReadInt32(reader, 4),
             StateName: ReadNullableString(reader, 5),
             EffectiveDate: effectiveDate,
+            EffectiveDateTo: ReadNullableDateTime(reader, 7),
             IsPublic: ReadBoolean(reader, 8),
             LastUpdated: ReadNullableDateTime(reader, 9) ?? effectiveDate);
     }
@@ -338,8 +342,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         Guid ScenarioId,
         Guid RootProfileId,
         int VersionNumber,
+        int VersionMinor,
         string? StateName,
         DateTime EffectiveDate,
+        DateTime? EffectiveDateTo,
         bool IsPublic,
         DateTime LastUpdated);
 

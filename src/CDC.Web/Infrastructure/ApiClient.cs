@@ -35,6 +35,12 @@ public interface IApiClient
     /// <summary>Gets the details shown on the "Manage profile" page from
     /// <c>GET /api/profiles/{profileId}/manage</c>.</summary>
     Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default);
+
+    /// <summary>Gets the current public static reports or manuals from <c>GET /api/static-reports</c>.</summary>
+    Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
+        bool isUserManual = false,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -127,6 +133,21 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<ManageProfileViewModel>(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
+        bool isUserManual = false,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default)
+    {
+        var url = QueryHelpers.AddQueryString("/api/static-reports", new Dictionary<string, string?>
+        {
+            ["isUserManual"] = isUserManual.ToString(),
+            ["publicOnly"] = publicOnly.ToString()
+        });
+
+        var reports = await httpClient.GetFromJsonAsync<IReadOnlyList<StaticReportListItemDto>>(url, cancellationToken);
+        return reports ?? [];
     }
 }
 

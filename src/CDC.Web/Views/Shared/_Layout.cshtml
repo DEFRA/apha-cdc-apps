@@ -41,7 +41,7 @@
                         <button type="button" id="app-menu-toggle" class="govuk-service-navigation__toggle" aria-controls="app-menu-panel" aria-expanded="false" aria-label="Show or hide menu" data-app-menu-toggle>Menu</button>
                     </nav>
                     <span class="app-header__divider" aria-hidden="true"></span>
-                    <a class="app-header__help-link" asp-page="/HelpSupport/HelpUsingD2R2" aria-label="Help using D2R2">
+                    <a class="app-header__help-link" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="1" aria-label="Help using D2R2">
                         <img class="app-header__help-icon" src="~/assets/images/icon-questionMark.svg" alt="" />
                     </a>
                 </div>
@@ -111,7 +111,8 @@
                 <div class="govuk-footer__section govuk-grid-column-one-third">
                     <h2 class="govuk-footer__heading govuk-heading-m">Help and support</h2>
                     <ul class="govuk-footer__list">
-                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/HelpUsingD2R2">Help using D2R2</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="1">Help using D2R2</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/StaticReports">Static reports</a></li>
                         <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/QualityStatement">D2R2 quality statement</a></li>
                     </ul>
                 </div>

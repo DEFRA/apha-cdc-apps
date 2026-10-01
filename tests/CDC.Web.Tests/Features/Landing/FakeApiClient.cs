@@ -52,4 +52,10 @@ internal sealed class FakeApiClient(
         throwOnGetManageProfile is not null
             ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
             : Task.FromResult(manageProfile);
+
+    public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
+        bool isUserManual = false,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
 }

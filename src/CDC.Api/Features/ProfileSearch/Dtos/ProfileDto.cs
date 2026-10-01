@@ -81,14 +81,23 @@ public sealed record ProfileHistoryItemDto
     /// <summary>Gets or sets the version identifier.</summary>
     public required Guid VersionId { get; init; }
 
-    /// <summary>Gets or sets the version number.</summary>
+    /// <summary>Gets or sets the major component of the version number (<c>ProfileVersion.VersionMajor</c>).</summary>
     public required int VersionNumber { get; init; }
+
+    /// <summary>Gets or sets the minor component of the version number (<c>ProfileVersion.VersionMinor</c>),
+    /// displayed as <c>Major.Minor</c> - a draft lineage increments this on every save.</summary>
+    public int VersionMinor { get; init; }
 
     /// <summary>Gets or sets the version title.</summary>
     public required string Title { get; init; }
 
-    /// <summary>Gets or sets the date this version was created.</summary>
+    /// <summary>Gets or sets the date this version became effective (<c>ProfileVersion.EffectiveDateFrom</c>).</summary>
     public required DateTime CreatedAtUtc { get; init; }
+
+    /// <summary>Gets or sets the date this version stopped being effective
+    /// (<c>ProfileVersion.EffectiveDateTo</c>). <see langword="null"/> while the version is still
+    /// in effect, which is how the current version is identified.</summary>
+    public DateTime? EffectiveToUtc { get; init; }
 
     /// <summary>Gets or sets a value indicating whether this is a scenario.</summary>
     public required bool IsScenario { get; init; }
