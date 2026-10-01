@@ -27,7 +27,7 @@
             }
             <a class="govuk-link" href="#">Clone profile</a>
             <span aria-hidden="true"> | </span>
-            <a class="govuk-link" href="#">Browse profile</a>
+            <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId">Browse profile</a>
             <span aria-hidden="true"> | </span>
             <a class="govuk-link" href="#">Clone scenario</a>
         </p>
@@ -75,7 +75,7 @@
                                     }
                                     <a class="govuk-link" href="#">Clone profile</a>
                                     <span aria-hidden="true"> | </span>
-                                    <a class="govuk-link" href="#">Browse profile</a>
+                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId">Browse profile</a>
                                     <span aria-hidden="true"> | </span>
                                     <a class="govuk-link" href="#">Clone scenario</a>
                                 </p>

@@ -1,0 +1,166 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.EditProfileQuestionsModel
+@{
+    ViewData["Title"] = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
+}
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@Model.ProfileId">Manage</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">Browse profile</li>
+        </ol>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="profile-questions-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="profile-questions-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">We could not load this profile. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <h1 class="govuk-heading-l">Title: @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)</h1>
+
+    <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+            <h2 class="govuk-heading-s">Profile reports</h2>
+            <p class="govuk-body govuk-!-font-size-16">Report generation is not yet available in this migrated view.</p>
+
+            <h2 class="govuk-heading-s">Profile references</h2>
+            <nav class="app-subnav" aria-label="Profile reference sections">
+                <ul class="app-subnav__list">
+                    @foreach (var navSection in Model.Sections)
+                    {
+                        var isCurrent = Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id;
+                        <li class="app-subnav__item @(isCurrent ? "app-subnav__item--current" : string.Empty)">
+                            <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline"
+                               href="@Model.BuildSectionUrl(navSection.Id)"
+                               aria-current="@(isCurrent ? "page" : null)">@navSection.SectionNumber. @navSection.Name</a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        </div>
+        <div class="govuk-grid-column-three-quarters">
+            @if (Model.CurrentSection is null)
+            {
+                <p class="govuk-body">No profile reference sections are available.</p>
+            }
+            else
+            {
+                <div class="app-species-tabs">
+                    <span class="app-species-tabs__tab app-species-tabs__tab--active">@Model.CurrentSection.Name</span>
+                </div>
+
+                <div class="app-species-panel">
+                    @if (Model.HasNoVersion)
+                    {
+                        <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                    }
+                    else if (Model.Questions.Count == 0)
+                    {
+                        <p class="govuk-body">No questions are available for this section.</p>
+                    }
+                    else
+                    {
+                        <div class="govuk-accordion" data-module="govuk-accordion" id="profile-questions-accordion">
+                            @foreach (var question in Model.Questions)
+                            {
+                                var anchor = question.Number.Replace(".", "-");
+                                <div class="govuk-accordion__section">
+                                    <div class="govuk-accordion__section-header">
+                                        <h2 class="govuk-accordion__section-heading">
+                                            <span class="govuk-accordion__section-button" id="profile-questions-accordion-heading-@anchor">
+                                                @question.Number @question.Text
+                                            </span>
+                                        </h2>
+                                    </div>
+                                    <div id="profile-questions-accordion-content-@anchor" class="govuk-accordion__section-content">
+                                        @foreach (var field in question.Fields)
+                                        {
+                                            if (field.Options.Count > 0)
+                                            {
+                                                <div class="govuk-form-group">
+                                                    <fieldset class="govuk-fieldset">
+                                                        <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
+                                                        <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                                            @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                                                            {
+                                                                var option = field.Options[optionIndex];
+                                                                var optionId = $"{anchor}-option-{optionIndex}";
+                                                                <div class="govuk-checkboxes__item">
+                                                                    <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" disabled checked="@(option.IsChecked ? "checked" : null)" />
+                                                                    <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </fieldset>
+                                                </div>
+                                            }
+                                            else if (field.IsHtml)
+                                            {
+                                                <div class="govuk-form-group">
+                                                    @if (!string.IsNullOrEmpty(field.Label))
+                                                    {
+                                                        <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@field.Label</h3>
+                                                    }
+                                                    <div class="govuk-body">@Html.Raw(field.ValueDisplay)</div>
+                                                </div>
+                                            }
+                                            else if (string.IsNullOrEmpty(field.Label))
+                                            {
+                                                <p class="govuk-body">@field.ValueDisplay</p>
+                                            }
+                                            else
+                                            {
+                                                <dl class="govuk-summary-list">
+                                                    <div class="govuk-summary-list__row">
+                                                        <dt class="govuk-summary-list__key">@field.Label</dt>
+                                                        <dd class="govuk-summary-list__value">@field.ValueDisplay</dd>
+                                                    </div>
+                                                </dl>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="app-species-pagination">
+                    <div class="app-species-pagination__prev">
+                        @if (Model.PreviousSection is not null)
+                        {
+                            <a class="govuk-link" href="@Model.BuildSectionUrl(Model.PreviousSection.Id)">
+                                &larr; Previous<br />@Model.PreviousSection.SectionNumber. @Model.PreviousSection.Name
+                            </a>
+                        }
+                    </div>
+                    <div class="app-species-pagination__next">
+                        @if (Model.NextSection is not null)
+                        {
+                            <a class="govuk-link" href="@Model.BuildSectionUrl(Model.NextSection.Id)">
+                                Next &rarr;<br />@Model.NextSection.SectionNumber. @Model.NextSection.Name
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}

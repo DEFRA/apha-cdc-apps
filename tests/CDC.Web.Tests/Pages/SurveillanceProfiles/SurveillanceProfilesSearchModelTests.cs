@@ -295,6 +295,16 @@ public class SurveillanceProfilesSearchModelTests
     }
 
     [Fact]
+    public void GetVersionGroups_CarriesTheProfileId_ForBrowseProfileLinks()
+    {
+        var profile = Profile("A", draft: [Version(1)]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
+
+        Assert.All(groups, group => Assert.Equal(profile.Id, group.ProfileId));
+    }
+
+    [Fact]
     public void GetVersionGroups_DraftOnlyProfile_ShowsPlaceholderPublishedCard_ThenRealDraftCard_WhenBothFiltersOn()
     {
         var draftVersion = Version(1);

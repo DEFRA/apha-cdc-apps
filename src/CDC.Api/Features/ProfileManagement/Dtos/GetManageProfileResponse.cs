@@ -30,4 +30,11 @@ public sealed record GetManageProfileResponse
     /// <summary>Gets the identifier of the profile's current status, for pre-selecting the
     /// status dropdown. <see cref="Guid.Empty"/> when no status is set.</summary>
     public Guid ProfileStatusId { get; init; }
+
+    /// <summary>
+    /// Gets the profile version to browse/edit: the current draft when one exists, otherwise the
+    /// current published version, otherwise the current public version. <see cref="Guid.Empty"/>
+    /// when the profile has no version at all.
+    /// </summary>
+    public Guid CurrentProfileVersionId { get; init; }
 }

@@ -14,4 +14,9 @@ public sealed record ManageProfileViewModel
     public string LatestDraftVersion { get; init; } = string.Empty;
     public string ProfileStatus { get; init; } = string.Empty;
     public Guid ProfileStatusId { get; init; }
+
+    /// <summary>Gets the profile version to browse/edit on the "Edit profile questions" page:
+    /// the current draft when one exists, otherwise the current published version, otherwise the
+    /// current public version. <see cref="Guid.Empty"/> when the profile has no version at all.</summary>
+    public Guid CurrentProfileVersionId { get; init; }
 }

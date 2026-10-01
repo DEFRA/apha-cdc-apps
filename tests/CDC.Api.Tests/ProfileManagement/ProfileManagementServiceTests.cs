@@ -198,6 +198,41 @@ public class ProfileManagementServiceTests
         result.LatestPublishedVersionPublic.Should().Be("5.0");
         result.ProfileStatus.Should().Be("Draft");
         result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
+        result.CurrentProfileVersionId.Should().Be(ProfileManagementTestData.ProfileVersionId);
+    }
+
+    [Fact]
+    public async Task GetManageProfile_PrefersPublishedThenPublicVersion_WhenNoDraftExists()
+    {
+        var publishedVersionId = Guid.NewGuid();
+        var publicVersionId = Guid.NewGuid();
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = Guid.Empty,
+            CurrentPublishedProfileVersionId = publishedVersionId,
+            CurrentPublicVersionId = publicVersionId
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(publishedVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 7, VersionMinor = 0 });
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(publicVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.CurrentProfileVersionId.Should().Be(publishedVersionId);
     }
 
     [Fact]

@@ -314,6 +314,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                     .Select(version => new VersionHistoryRow(version, typeLabel))
                     .OrderByDescending(row => SortKey(row.Version))
             ],
+            ProfileId = profile.Id,
             ProfileStatus = current is null ? null : profile.Status,
             NoVersionMessage = current is null ? $"({noVersionMessage})" : null,
             // "View reports" links to a published version's report; the Draft card has none.
@@ -495,6 +496,10 @@ public sealed record ProfileVersionGroupViewModel
     public ProfileHistoryItemDto? CurrentVersion { get; init; }
     public required string CurrentVersionLabel { get; init; }
     public required IReadOnlyList<VersionHistoryRow> VersionHistory { get; init; }
+
+    /// <summary>Gets the profile this version-lineage card belongs to, so "Browse profile" can
+    /// link to <c>EditProfileQuestions</c> for the correct profile.</summary>
+    public required Guid ProfileId { get; init; }
 
     /// <summary>Only set for the profile's own Published/Draft cards - "what-if" scenarios have
     /// no status of their own.</summary>

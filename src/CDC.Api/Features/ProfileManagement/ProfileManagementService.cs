@@ -162,7 +162,12 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
             LatestPublishedVersionDefraNetOnly = publishedVersionLabel,
             LatestDraftVersion = draftVersionLabel,
             ProfileStatus = statusName,
-            ProfileStatusId = profile.ProfileStatusId
+            ProfileStatusId = profile.ProfileStatusId,
+            CurrentProfileVersionId = profile.CurrentDraftProfileVersionId != Guid.Empty
+                ? profile.CurrentDraftProfileVersionId
+                : profile.CurrentPublishedProfileVersionId != Guid.Empty
+                    ? profile.CurrentPublishedProfileVersionId
+                    : profile.CurrentPublicVersionId
         };
     }
 
