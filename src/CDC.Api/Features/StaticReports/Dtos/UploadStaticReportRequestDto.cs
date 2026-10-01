@@ -12,8 +12,8 @@ public sealed record UploadStaticReportRequestDto
     public required byte[] PdfData { get; init; }
 
     /// <summary>Gets a value indicating whether this is a user manual rather than a general report.</summary>
-    public bool IsUserManual { get; init; }
+    public required bool IsUserManual { get; init; }
 
     /// <summary>Gets a value indicating whether this version is visible to unauthenticated users.</summary>
-    public bool IsPublic { get; init; }
+    public required bool IsPublic { get; init; }
 }

@@ -72,7 +72,7 @@ public class StaticReportsControllerTests
             .Setup(sender => sender.Send(It.IsAny<UploadStaticReportCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Unit.Value));
 
-        var request = new UploadStaticReportRequestDto { Title = "D2R2 Quality Statement", PdfData = [1, 2, 3] };
+        var request = new UploadStaticReportRequestDto { Title = "D2R2 Quality Statement", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
 
         var response = await CreateController().Upload(request, CancellationToken.None);
 

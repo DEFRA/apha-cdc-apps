@@ -51,10 +51,12 @@ public class PrioritisationVariablesApiServiceTests
     {
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.NoContent, string.Empty));
 
-        await service.UpdateCriterionAsync(
+        var exception = await Record.ExceptionAsync(() => service.UpdateCriterionAsync(
             Guid.NewGuid(),
             42,
-            [new CriterionValueScore { ValueId = Guid.NewGuid(), Score = 7 }]);
+            [new CriterionValueScore { ValueId = Guid.NewGuid(), Score = 7 }]));
+
+        Assert.Null(exception);
     }
 
     [Fact]
