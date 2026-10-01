@@ -17,7 +17,7 @@ public class ApiClientTests
         var health = await client.GetHealthAsync();
 
         Assert.NotNull(health);
-        Assert.Equal("Healthy", health!.Status);
+        Assert.Equal("Healthy", health.Status);
         Assert.Equal("/health", handler.LastRequestUri!.AbsolutePath);
     }
 
@@ -100,7 +100,7 @@ public class ApiClientTests
         var attributes = await client.GetProfileAttributesAsync(profileId);
 
         Assert.NotNull(attributes);
-        Assert.Equal("Bovine tuberculosis", attributes!.Title);
+        Assert.Equal("Bovine tuberculosis", attributes.Title);
         Assert.Equal(8, attributes.LastUpdated.Length);
         Assert.Equal($"/api/profiles/{profileId}/attributes", handler.LastRequestUri!.AbsolutePath);
     }
@@ -144,7 +144,7 @@ public class ApiClientTests
         var profile = await client.GetManageProfileAsync(profileId);
 
         Assert.NotNull(profile);
-        Assert.Equal("Bovine Tuberculosis", profile!.ProfileTitle);
+        Assert.Equal("Bovine Tuberculosis", profile.ProfileTitle);
         Assert.Equal("Draft", profile.ProfileStatus);
         Assert.Equal($"/api/profiles/{profileId}/manage", handler.LastRequestUri!.AbsolutePath);
     }

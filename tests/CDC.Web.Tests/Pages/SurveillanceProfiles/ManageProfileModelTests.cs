@@ -71,7 +71,7 @@ public class ManageProfileModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.NotNull(pageModel.Profile);
-        Assert.Equal("Bovine Tuberculosis", pageModel.Profile!.ProfileTitle);
+        Assert.Equal("Bovine Tuberculosis", pageModel.Profile.ProfileTitle);
         Assert.Equal("Draft", pageModel.Profile.ProfileStatus);
         Assert.False(pageModel.HasError);
         Assert.Equal(2, pageModel.ProfileStatusTypes.Count);

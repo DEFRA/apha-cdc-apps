@@ -9,7 +9,7 @@ using Moq;
 
 namespace CDC.Api.Tests.ReferenceData;
 
-public class ReferenceDataRepositoryTests : IDisposable
+public sealed class ReferenceDataRepositoryTests : IDisposable
 {
     private static readonly Guid ReferenceTableId = Guid.Parse("66666666-6666-6666-6666-666666666666");
     private static readonly Guid OptionId = Guid.Parse("77777777-7777-7777-7777-777777777777");

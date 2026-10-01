@@ -163,12 +163,25 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
             LatestDraftVersion = draftVersionLabel,
             ProfileStatus = statusName,
             ProfileStatusId = profile.ProfileStatusId,
-            CurrentProfileVersionId = profile.CurrentDraftProfileVersionId != Guid.Empty
-                ? profile.CurrentDraftProfileVersionId
-                : profile.CurrentPublishedProfileVersionId != Guid.Empty
-                    ? profile.CurrentPublishedProfileVersionId
-                    : profile.CurrentPublicVersionId
+            CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile)
         };
+    }
+
+    /// <summary>Draft take priority, then published, then public - matching the legacy "most
+    /// current" version a user expects to browse/edit.</summary>
+    private static Guid ResolveCurrentProfileVersionId(Domain.Entities.Profile profile)
+    {
+        if (profile.CurrentDraftProfileVersionId != Guid.Empty)
+        {
+            return profile.CurrentDraftProfileVersionId;
+        }
+
+        if (profile.CurrentPublishedProfileVersionId != Guid.Empty)
+        {
+            return profile.CurrentPublishedProfileVersionId;
+        }
+
+        return profile.CurrentPublicVersionId;
     }
 
     private async Task<string> FormatVersionLabelAsync(Guid profileVersionId, CancellationToken cancellationToken)

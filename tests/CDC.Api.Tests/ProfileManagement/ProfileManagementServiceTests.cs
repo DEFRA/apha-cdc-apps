@@ -37,7 +37,7 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.Id.Should().Be(ProfileManagementTestData.ProfileId);
+        result.Id.Should().Be(ProfileManagementTestData.ProfileId);
         result.Title.Should().Be("Bovine tuberculosis");
         result.AffectedSpecies.Should().ContainSingle();
         result.AffectedSpecies[0].SpeciesId.Should().Be(ProfileManagementTestData.SpeciesId);
@@ -67,7 +67,7 @@ public class ProfileManagementServiceTests
         var result = await CreateService().DeleteProfileVersionAsync(ProfileManagementTestData.ProfileVersionId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.NextLatestProfileVersionId.Should().Be(repositoryResult.NextLatestProfileVersionId);
+        result.NextLatestProfileVersionId.Should().Be(repositoryResult.NextLatestProfileVersionId);
         result.IsProfileDeleted.Should().BeFalse();
     }
 
@@ -191,7 +191,7 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.ProfileTitle.Should().Be("Bovine tuberculosis");
+        result.ProfileTitle.Should().Be("Bovine tuberculosis");
         result.ScenarioTitle.Should().Be("Current situation");
         result.LatestDraftVersion.Should().Be("8.0");
         result.LatestPublishedVersionDefraNetOnly.Should().Be("7.0");
@@ -232,7 +232,7 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.CurrentProfileVersionId.Should().Be(publishedVersionId);
+        result.CurrentProfileVersionId.Should().Be(publishedVersionId);
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.LatestDraftVersion.Should().Be("- none -");
+        result.LatestDraftVersion.Should().Be("- none -");
         result.LatestPublishedVersionDefraNetOnly.Should().Be("- none -");
         result.LatestPublishedVersionPublic.Should().Be("- none -");
         result.ProfileStatus.Should().BeEmpty();
@@ -289,6 +289,6 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.ScenarioTitle.Should().Be("Low uptake scenario");
+        result.ScenarioTitle.Should().Be("Low uptake scenario");
     }
 }

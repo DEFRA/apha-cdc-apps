@@ -4,7 +4,7 @@ using CDC.Web.Models;
 namespace CDC.Web.Tests.Features.Landing;
 
 // Test double for IApiClient so controller/health-check unit tests don't need a real HTTP call.
-internal sealed class FakeApiClient(
+internal sealed class FakeApiClient( // NOSONAR
     ApiHealthResponse? response = null,
     Exception? throwOnGetHealth = null,
     IReadOnlyList<ProfileSearchResultDto>? searchResults = null,

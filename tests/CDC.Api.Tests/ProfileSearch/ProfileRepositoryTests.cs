@@ -10,7 +10,7 @@ using Moq;
 
 namespace CDC.Api.Tests.ProfileSearch;
 
-public class ProfileRepositoryTests : IDisposable
+public sealed class ProfileRepositoryTests : IDisposable
 {
     private static readonly Guid ProfileAId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ProfileBId = Guid.Parse("22222222-2222-2222-2222-222222222222");
