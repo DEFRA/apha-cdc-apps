@@ -65,12 +65,7 @@ internal static class StartupChecks
     /// </summary>
     public static Guid RequireSpeciesAuditUserId(IConfiguration configuration)
     {
-        var value = configuration["Species:AuditUserId"];
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            value = "979D06DB-9FEB-412B-930A-009E78A45166";
-        }
+        var value = "979D06DB-9FEB-412B-930A-009E78A45166";
 
         if (!Guid.TryParse(value, out var auditUserId) || auditUserId == Guid.Empty)
         {
