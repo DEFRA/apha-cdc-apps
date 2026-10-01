@@ -1,5 +1,6 @@
 @page
 @model CDC.Web.Pages.CrossProfileAdmin.PrioritisationVariablesModel
+@using Microsoft.AspNetCore.Mvc.Rendering
 @{
     ViewData["Title"] = "Maintain prioritisation variables";
 }
@@ -8,4 +9,181 @@
 }
 
 <h1 class="govuk-heading-l">Maintain prioritisation variables</h1>
-<p class="govuk-body">This page is for Maintain prioritisation variables. It will allow administrators to maintain the variables used in disease prioritisation.</p>
+
+<p class="govuk-body">
+    Use this function to maintain the weightings and scores associated with prioritisation
+    criteria. Please note, if you make and confirm changes to this information, this will
+    trigger an automatic re-calculation of all prioritisation scores of published profiles.
+    Do not use this function for the purpose of developing "what-if" scenarios; a separate
+    spreadsheet exists, outside of this application, which has been developed for this purpose.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="prioritisation-success-title">
+        <div class="govuk-notification-banner__content">
+            <h2 class="govuk-notification-banner__content-title" id="prioritisation-success-title">Success</h2>
+            <p class="govuk-body">@Model.SuccessMessage</p>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.UpdateResultMessage))
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="prioritisation-update-title">
+        <div class="govuk-notification-banner__content">
+            <h2 class="govuk-notification-banner__content-title" id="prioritisation-update-title">Updated</h2>
+            <p class="govuk-body">@Model.UpdateResultMessage</p>
+        </div>
+    </div>
+}
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="govuk-error-summary" aria-labelledby="error-summary-title" role="alert" data-module="govuk-error-summary">
+        <h2 class="govuk-error-summary__title" id="error-summary-title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+                @foreach (var entry in ViewData.ModelState)
+                {
+                    var anchor = entry.Key == nameof(Model.CriterionWeight) ? "#criterion-weight" : "#lower-bound";
+                    @foreach (var error in entry.Value.Errors)
+                    {
+                        <li><a href="@anchor">@error.ErrorMessage</a></li>
+                    }
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <form method="post">
+            <input type="hidden" asp-for="RowVersion" />
+
+            <h2 class="govuk-heading-m">Draft prioritisation</h2>
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="run-draft-prioritisation">Calculate prioritisation scores for draft profiles</label>
+            </div>
+            <button type="submit" asp-page-handler="RunDraftPrioritisation" id="run-draft-prioritisation" class="govuk-button" data-module="govuk-button">Go</button>
+
+            <h2 class="govuk-heading-m govuk-!-margin-top-7">Edit ranking range</h2>
+            <div class="govuk-form-group">
+                <div class="govuk-grid-row">
+                    <div class="govuk-grid-column-one-half">
+                        <label class="govuk-label" for="lower-bound">Lower bound</label>
+                        <input asp-for="LowerBound" class="govuk-input" id="lower-bound" inputmode="numeric" required min="0" max="998" />
+                    </div>
+                    <div class="govuk-grid-column-one-half">
+                        <label class="govuk-label" for="upper-bound">Upper bound</label>
+                        <input asp-for="UpperBound" class="govuk-input" id="upper-bound" inputmode="numeric" required min="1" max="999" />
+                    </div>
+                </div>
+            </div>
+
+            <p class="govuk-body">@Model.CategorisationSummary</p>
+
+            <h2 class="govuk-heading-m govuk-!-margin-top-7">Prioritisation category</h2>
+
+            @if (!string.IsNullOrWhiteSpace(Model.CategoriesErrorMessage))
+            {
+                <p class="govuk-body">@Model.CategoriesErrorMessage</p>
+            }
+
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="prioritisation-category">Prioritisation category</label>
+                <select class="govuk-select" id="prioritisation-category" asp-for="SelectedCategoryId" asp-items="@(new SelectListItem[] { new("Please select...", "") }.Concat(Model.Categories.Select(category => new SelectListItem(category.Name, category.Id.ToString()))))" onchange="window.location.href = '?SelectedCategoryId=' + this.value"></select>
+            </div>
+
+            @if (Model.SelectedCategoryId is not null)
+            {
+                @if (Model.SelectedCategoryCriteria.Count == 0)
+                {
+                    <p class="govuk-body">No criteria are recorded against this category.</p>
+                }
+                else
+                {
+                    <table class="govuk-table">
+                        <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Criteria for the selected prioritisation category</caption>
+                        <thead class="govuk-table__head">
+                            <tr class="govuk-table__row">
+                                <th scope="col" class="govuk-table__header">Criterion</th>
+                                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Weighting</th>
+                            </tr>
+                        </thead>
+                        <tbody class="govuk-table__body">
+                            @foreach (var criterion in Model.SelectedCategoryCriteria)
+                            {
+                                <tr class="govuk-table__row">
+                                    <td class="govuk-table__cell">
+                                        <a class="govuk-link" href="?SelectedCategoryId=@Model.SelectedCategoryId&SelectedCriterionId=@criterion.Id">@criterion.Code - @criterion.Name</a>
+                                    </td>
+                                    <td class="govuk-table__cell govuk-table__cell--numeric">@criterion.Weight</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (Model.SelectedCriterion is { } selectedCriterion)
+                {
+                    <input type="hidden" asp-for="SelectedCategoryId" />
+                    <input type="hidden" asp-for="SelectedCriterionId" />
+
+                    <h2 class="govuk-heading-m govuk-!-margin-top-7">@selectedCriterion.Code - @selectedCriterion.Name</h2>
+                    <div class="govuk-form-group">
+                        <label class="govuk-label" for="criterion-weight">Weighting</label>
+                        <input asp-for="CriterionWeight" class="govuk-input govuk-input--width-3" id="criterion-weight" inputmode="numeric" required min="1" max="999" />
+                    </div>
+
+                    @if (selectedCriterion.Values.Count > 0)
+                    {
+                        <table class="govuk-table">
+                            <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Values for @selectedCriterion.Code - @selectedCriterion.Name</caption>
+                            <thead class="govuk-table__head">
+                                <tr class="govuk-table__row">
+                                    <th scope="col" class="govuk-table__header">Value</th>
+                                    <th scope="col" class="govuk-table__header">Score</th>
+                                </tr>
+                            </thead>
+                            <tbody class="govuk-table__body">
+                                @for (var i = 0; i < selectedCriterion.Values.Count; i++)
+                                {
+                                    var value = selectedCriterion.Values[i];
+                                    var currentScore = Model.CriterionValueScores.FirstOrDefault(v => v.Id == value.Id)?.Score ?? value.Score;
+                                    <tr class="govuk-table__row">
+                                        <td class="govuk-table__cell">
+                                            <label class="govuk-label govuk-!-margin-bottom-0" for="criterion-value-score-@i">@value.Value</label>
+                                        </td>
+                                        <td class="govuk-table__cell">
+                                            <input type="hidden" name="CriterionValueScores[@i].Id" value="@value.Id" />
+                                            <input type="number" name="CriterionValueScores[@i].Score" id="criterion-value-score-@i" value="@currentScore" class="govuk-input govuk-input--width-3" inputmode="numeric" required min="0" max="999" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+            }
+
+            <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button" asp-page-handler="Update" data-confirm-message="Are you sure you want to update the global prioritisation variables?">Update</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('button[data-confirm-message]').forEach(function (button) {
+                button.addEventListener('click', function (event) {
+                    const confirmed = window.confirm(button.dataset.confirmMessage);
+                    if (!confirmed) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        });
+    </script>
+}

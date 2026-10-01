@@ -1,3 +1,4 @@
+using CDC.Api.Features.PrioritisationVariables.Interfaces;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileNotes.Interfaces;
 using CDC.Api.Features.ProfileQuestions.Interfaces;
@@ -27,6 +28,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileNoteRepository, ProfileNoteRepository>();
         services.AddScoped<IProfileQuestionRepository, ProfileQuestionRepository>();
         services.AddScoped<IProfileReportRepository, ProfileReportRepository>();
+        services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
 
         return services;
     }
