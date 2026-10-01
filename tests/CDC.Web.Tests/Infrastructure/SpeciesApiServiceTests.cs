@@ -162,6 +162,117 @@ public class SpeciesApiServiceTests
         Assert.Equal("Dairy", entry.NewName);
     }
 
+    [Fact]
+    public async Task GetSpeciesMetadataAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "sections": [
+                {
+                  "id": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
+                  "name": "Movements",
+                  "shortName": "Move",
+                  "sectionNumber": 2,
+                  "questions": [
+                    {
+                      "id": "2f3e4d5c-6b7a-8988-9a0b-1c2d3e4f5a6c",
+                      "sectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
+                      "name": "Can movements be traced?",
+                      "shortName": "Traceable",
+                      "questionNumber": 1,
+                      "fields": [
+                        { "id": "3f4e5d6c-7b8a-9988-9a0b-1c2d3e4f5a6d", "questionId": "2f3e4d5c-6b7a-8988-9a0b-1c2d3e4f5a6c", "name": "Yes/No", "fieldNumber": 1, "dataTypeName": "Boolean" }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var metadata = await service.GetSpeciesMetadataAsync();
+
+        var section = Assert.Single(metadata.Sections);
+        Assert.Equal("Movements", section.Name);
+        var question = Assert.Single(section.Questions);
+        Assert.Equal("Can movements be traced?", question.Name);
+        Assert.Single(question.Fields);
+    }
+
+    [Fact]
+    public async Task GetSpeciesMetadataAsync_ReturnsEmpty_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var metadata = await service.GetSpeciesMetadataAsync();
+
+        Assert.Empty(metadata.Sections);
+    }
+
+    [Fact]
+    public async Task GetSpeciesAnswerDataAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "speciesId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "speciesName": "Cattle",
+              "lastUpdated": "AAAAAAAAAAE=",
+              "sections": [
+                {
+                  "sectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
+                  "fieldValues": [
+                    { "id": "4f5e6d7c-8b9a-a988-9a0b-1c2d3e4f5a6e", "questionId": "2f3e4d5c-6b7a-8988-9a0b-1c2d3e4f5a6c", "fieldNumber": 1, "booleanValue": true }
+                  ]
+                }
+              ]
+            }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var answerData = await service.GetSpeciesAnswerDataAsync(Guid.NewGuid());
+
+        Assert.NotNull(answerData);
+        Assert.Equal("Cattle", answerData!.SpeciesName);
+        var section = Assert.Single(answerData.Sections);
+        var value = Assert.Single(section.FieldValues);
+        Assert.True(value.BooleanValue);
+    }
+
+    [Fact]
+    public async Task GetSpeciesAnswerDataAsync_ReturnsNull_WhenNotFound()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var answerData = await service.GetSpeciesAnswerDataAsync(Guid.NewGuid());
+
+        Assert.Null(answerData);
+    }
+
+    [Fact]
+    public async Task GetReferenceValuesAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            [ { "id": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f607182", "value": "Market records" } ]
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var values = await service.GetReferenceValuesAsync(Guid.NewGuid());
+
+        var value = Assert.Single(values);
+        Assert.Equal("Market records", value.Value);
+    }
+
+    [Fact]
+    public async Task GetReferenceValuesAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var values = await service.GetReferenceValuesAsync(Guid.NewGuid());
+
+        Assert.Empty(values);
+    }
+
     private static SpeciesApiService CreateService(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

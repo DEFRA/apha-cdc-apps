@@ -9,6 +9,8 @@ using CDC.Api.Features.ProfileReports;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSearch;
 using CDC.Api.Features.ProfileSearch.Interfaces;
+using CDC.Api.Features.ReferenceData;
+using CDC.Api.Features.ReferenceData.Interfaces;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
 using CDC.Api.Features.StaticReports;
@@ -44,6 +46,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();
         services.AddScoped<IProfileReportService, ProfileReportService>();
         services.AddScoped<IStaticReportService, StaticReportService>();
+        services.AddScoped<IReferenceDataService, ReferenceDataService>();
 
         return services;
     }

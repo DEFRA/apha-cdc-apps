@@ -55,24 +55,61 @@ else
             </div>
 
             <div class="app-species-panel">
-                <div class="govuk-accordion" data-module="govuk-accordion" id="species-accordion">
-                    @foreach (var question in Model.CurrentSection.Questions)
-                    {
-                        var anchor = question.Number.Replace(".", "-");
-                        <div class="govuk-accordion__section">
-                            <div class="govuk-accordion__section-header">
-                                <h2 class="govuk-accordion__section-heading">
-                                    <span class="govuk-accordion__section-button" id="species-accordion-heading-@anchor">
-                                        @question.Number @question.Text
-                                    </span>
-                                </h2>
+                @if (Model.Questions.Count == 0)
+                {
+                    <p class="govuk-body">No sub-sections are available for this section.</p>
+                }
+                else
+                {
+                    <div class="govuk-accordion" data-module="govuk-accordion" id="species-accordion">
+                        @foreach (var question in Model.Questions)
+                        {
+                            var anchor = question.Number.Replace(".", "-");
+                            <div class="govuk-accordion__section">
+                                <div class="govuk-accordion__section-header">
+                                    <h2 class="govuk-accordion__section-heading">
+                                        <span class="govuk-accordion__section-button" id="species-accordion-heading-@anchor">
+                                            @question.Number @question.Text
+                                        </span>
+                                    </h2>
+                                </div>
+                                <div id="species-accordion-content-@anchor" class="govuk-accordion__section-content">
+                                    @foreach (var field in question.Fields)
+                                    {
+                                        if (field.Options.Count > 0)
+                                        {
+                                            <div class="govuk-form-group">
+                                                <fieldset class="govuk-fieldset">
+                                                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
+                                                    <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                                        @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                                                        {
+                                                            var option = field.Options[optionIndex];
+                                                            var optionId = $"{anchor}-option-{optionIndex}";
+                                                            <div class="govuk-checkboxes__item">
+                                                                <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" disabled checked="@(option.IsChecked ? "checked" : null)" />
+                                                                <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </fieldset>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <dl class="govuk-summary-list">
+                                                <div class="govuk-summary-list__row">
+                                                    <dt class="govuk-summary-list__key">@field.Label</dt>
+                                                    <dd class="govuk-summary-list__value">@field.ValueDisplay</dd>
+                                                </div>
+                                            </dl>
+                                        }
+                                    }
+                                </div>
                             </div>
-                            <div id="species-accordion-content-@anchor" class="govuk-accordion__section-content">
-                                <p class="govuk-body">[NEEDS INPUT: answer content pending the species question-and-answer API]</p>
-                            </div>
-                        </div>
-                    }
-                </div>
+                        }
+                    </div>
+                }
             </div>
 
             <div class="app-species-pagination">
