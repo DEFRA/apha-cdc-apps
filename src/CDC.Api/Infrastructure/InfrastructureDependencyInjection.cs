@@ -1,9 +1,11 @@
+using CDC.Api.Features.PrioritisationVariables.Interfaces;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileNotes.Interfaces;
 using CDC.Api.Features.ProfileQuestions.Interfaces;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.Species.Interfaces;
+using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Infrastructure.Repositories;
 
 namespace CDC.Api.Infrastructure;
@@ -27,6 +29,8 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileNoteRepository, ProfileNoteRepository>();
         services.AddScoped<IProfileQuestionRepository, ProfileQuestionRepository>();
         services.AddScoped<IProfileReportRepository, ProfileReportRepository>();
+        services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
+        services.AddScoped<IStaticReportRepository, StaticReportRepository>();
 
         return services;
     }

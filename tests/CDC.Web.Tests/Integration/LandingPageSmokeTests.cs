@@ -29,7 +29,6 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
     [InlineData("/HelpSupport/HelpUsingD2R2")]
-    [InlineData("/HelpSupport/QualityStatement")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
     public async Task LandingRoutes_ReturnSuccess(string url)
@@ -39,5 +38,19 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
         var response = await client.GetAsync(url);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task QualityStatement_RendersErrorBanner_WhenApiIsUnavailable()
+    {
+        // The default WebApplicationFactory<Program> has no live CDC.Api to call, so this is the
+        // page's actual behaviour in this test host - same pattern as ViewSpeciesData/Maintain.
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/HelpSupport/QualityStatement");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("We could not load the quality statement", body);
     }
 }
