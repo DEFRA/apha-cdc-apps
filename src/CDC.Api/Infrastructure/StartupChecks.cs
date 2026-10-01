@@ -67,6 +67,11 @@ internal static class StartupChecks
     {
         var value = configuration["Species:AuditUserId"];
 
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            value = "979D06DB-9FEB-412B-930A-009E78A45166";
+        }
+
         if (!Guid.TryParse(value, out var auditUserId) || auditUserId == Guid.Empty)
         {
             throw new InvalidOperationException(
