@@ -29,4 +29,19 @@ public sealed record TreeViewViewModel
     public string ItemNameSingular { get; init; } = "item";
 
     public string ItemNamePlural { get; init; } = "items";
+
+    /// Value of the node that should render pre-checked, for example when re-displaying a
+    /// saved selection. Null means no node is pre-checked. Ignored when
+    /// <see cref="AllowMultipleSelection"/> is true; use <see cref="SelectedValues"/> instead.
+    public string? SelectedValue { get; init; }
+
+    /// Whether more than one node may be checked at once (checkboxes) rather than exactly one
+    /// (radios, the default).
+    public bool AllowMultipleSelection { get; init; }
+
+    /// Values that should render pre-checked when <see cref="AllowMultipleSelection"/> is true.
+    public IReadOnlySet<string> SelectedValues { get; init; } = new HashSet<string>();
+
+    /// Label describing the empty/no-selection state, for example "Any species".
+    public string? EmptySelectionLabel { get; init; }
 }

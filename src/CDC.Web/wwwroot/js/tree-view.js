@@ -1,12 +1,13 @@
-// TreeView: reusable single-select tree picker.
+// TreeView: reusable single- or multi-select tree picker.
 //
 // Enhances the markup rendered by Views/Shared/_TreeView.cshtml. Without JavaScript the
-// markup is still a usable set of nested radios, so nothing is lost.
+// markup is still a usable set of nested radios/checkboxes, so nothing is lost.
 //
-// Selection uses native radio inputs sharing one "name", so the browser itself enforces that
-// only one node - parent, child or grandchild - can ever be selected. Semantics otherwise come
-// from native buttons - no ARIA tree role - and the only ARIA used is aria-expanded plus an
-// aria-controls that points at a real element id.
+// Single-select trees use native radio inputs sharing one "name", so the browser itself
+// enforces that only one node - parent, child or grandchild - can ever be selected. Multi-select
+// trees (Model.AllowMultipleSelection) use checkboxes instead, so any number can be selected.
+// Semantics otherwise come from native buttons - no ARIA tree role - and the only ARIA used is
+// aria-expanded plus an aria-controls that points at a real element id.
 (function () {
     'use strict';
 
@@ -14,7 +15,7 @@
     const GROUP = ':scope > ul.app-tree__group';
     const ROW = ':scope > .app-tree__row';
     const TOGGLE = '.app-tree__toggle';
-    const RADIO = 'input[type="radio"]';
+    const INPUT = 'input[type="radio"], input[type="checkbox"]';
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 
@@ -62,7 +63,7 @@
         }
 
         radio(item) {
-            return item.querySelector(`${ROW} ${RADIO}`);
+            return item.querySelector(`${ROW} ${INPUT}`);
         }
 
         toggle(item) {
@@ -215,24 +216,36 @@
         /* ---------- selection ---------- */
 
         onChange(event) {
-            const radio = event.target;
+            const input = event.target;
 
-            if (radio instanceof HTMLInputElement && radio.type === 'radio') {
+            if (input instanceof HTMLInputElement && (input.type === 'radio' || input.type === 'checkbox')) {
                 this.updateSelectedStatus();
             }
         }
 
-        // The status output disappears entirely (rather than showing empty text) once nothing
-        // is selected, so it also disappears the moment "Remove selection" is clicked.
+        // When the tree defines an empty-selection label (data-app-tree-empty-label), the status
+        // stays visible at all times, falling back to that label once nothing is selected.
+        // Otherwise the status disappears entirely (rather than showing empty text), including
+        // the moment "Remove selection" is clicked. Multiple selected items (checkbox mode) are
+        // joined with a comma; single-select (radio) mode only ever has one.
         updateSelectedStatus() {
             if (!this.$status) {
                 return;
             }
 
-            const selected = this.items.find((item) => this.radio(item).checked);
+            const selectedItems = this.items.filter((item) => this.radio(item).checked);
+            const labels = selectedItems.map((item) => this.labelFor(item));
+            const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
 
-            this.$status.hidden = !selected;
-            this.$status.textContent = selected ? `Selected: ${this.labelFor(selected)}` : '';
+            if (emptyLabel) {
+                this.$status.hidden = false;
+                this.$status.textContent = `Currently selected: ${labels.length > 0 ? labels.join(', ') : emptyLabel}`;
+
+                return;
+            }
+
+            this.$status.hidden = labels.length === 0;
+            this.$status.textContent = labels.length > 0 ? `Selected: ${labels.join(', ')}` : '';
         }
 
         refreshAll() {

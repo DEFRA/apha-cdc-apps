@@ -122,4 +122,44 @@ public static class SpeciesMappings
         ListValue = fieldValue.ListValue,
         TextValue = fieldValue.TextValue
     };
+
+    /// <summary>Projects a species' name/parent detail.</summary>
+    /// <param name="detail">The entity to project.</param>
+    /// <returns>The equivalent DTO.</returns>
+    public static SpeciesDetailDto ToDto(this SpeciesDetail detail) => new()
+    {
+        Id = detail.Id,
+        Name = detail.Name,
+        ParentId = detail.ParentId,
+        ParentName = detail.ParentName,
+        IsActive = detail.IsActive,
+        IsInUse = detail.IsInUse,
+        ChildCount = detail.ChildCount,
+        ActiveChildCount = detail.ActiveChildCount,
+        LastUpdated = detail.LastUpdated
+    };
+
+    /// <summary>Projects a valid parent choice.</summary>
+    /// <param name="validParent">The entity to project.</param>
+    /// <returns>The equivalent DTO.</returns>
+    public static SpeciesValidParentDto ToDto(this SpeciesValidParent validParent) => new()
+    {
+        Id = validParent.Id,
+        Name = validParent.Name
+    };
+
+    /// <summary>Projects a recorded species name/parent change.</summary>
+    /// <param name="entry">The entity to project.</param>
+    /// <returns>The equivalent DTO.</returns>
+    public static SpeciesAuditTrailEntryDto ToDto(this SpeciesAuditTrailEntry entry) => new()
+    {
+        Id = entry.Id,
+        OldName = entry.OldName,
+        NewName = entry.NewName,
+        OldParent = entry.OldParent,
+        NewParent = entry.NewParent,
+        ChangedBy = entry.ChangedBy,
+        LogDate = entry.LogDate,
+        ReasonForChange = entry.ReasonForChange
+    };
 }
