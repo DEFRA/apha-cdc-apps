@@ -88,6 +88,13 @@ public class SurveillanceProfilesSearchModel : PageModel
     [BindProperty(SupportsGet = true)]
     public bool SearchForAllWords { get; set; }
 
+    /// <summary>Gets the single search mode the two mutually exclusive "Search for" checkboxes
+    /// resolve to. The legacy page used a radio group, so exactly one mode was always active and
+    /// "this exact word or phrase" took precedence; this mirrors that for any querystring that
+    /// arrives with both or neither flag set.</summary>
+    public SearchForType SearchForType =>
+        SearchForAllWords && !SearchForExactPhrase ? SearchForType.AllWords : SearchForType.ExactWordOrPhrase;
+
     /// <summary>Gets or sets how the results list is ordered.</summary>
     [BindProperty(SupportsGet = true)]
     public string SortBy { get; set; } = SortByOptions[0].Value;
@@ -178,6 +185,8 @@ public class SurveillanceProfilesSearchModel : PageModel
         DisplayDraft,
         DisplayScenarios,
         AppearsIn,
+        SearchForExactPhrase,
+        SearchForAllWords,
         SortBy,
         PageSize,
         SelectedLetter = letter
@@ -191,6 +200,8 @@ public class SurveillanceProfilesSearchModel : PageModel
         DisplayDraft,
         DisplayScenarios,
         AppearsIn,
+        SearchForExactPhrase,
+        SearchForAllWords,
         SortBy,
         PageSize,
         SelectedLetter,
@@ -394,7 +405,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 return;
             }
 
-            var response = await apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, cancellationToken);
+            var response = await apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, SearchForType, cancellationToken);
             var profiles = response.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(SelectedLetter) && !string.Equals(SelectedLetter, "All", StringComparison.OrdinalIgnoreCase))

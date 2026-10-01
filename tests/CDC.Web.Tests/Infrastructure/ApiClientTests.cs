@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 
 namespace CDC.Web.Tests.Infrastructure;
 
@@ -42,7 +43,7 @@ public class ApiClientTests
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
         var client = CreateClient(handler);
 
-        var results = await client.SearchProfilesAsync("tb", true, false, true);
+        var results = await client.SearchProfilesAsync("tb", true, false, true, SearchForType.ExactWordOrPhrase);
 
         var item = Assert.Single(results);
         Assert.Equal("Bovine tuberculosis", item.Title);
@@ -54,13 +55,14 @@ public class ApiClientTests
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, "[]");
         var client = CreateClient(handler);
 
-        await client.SearchProfilesAsync("tb", true, false, true);
+        await client.SearchProfilesAsync("tb", true, false, true, SearchForType.AllWords);
 
         var query = handler.LastRequestUri!.Query;
         Assert.Contains("searchText=tb", query);
         Assert.Contains("displayPublished=True", query);
         Assert.Contains("displayDraft=False", query);
         Assert.Contains("displayScenarios=True", query);
+        Assert.Contains("searchForType=AllWords", query);
     }
 
     [Fact]
@@ -68,7 +70,7 @@ public class ApiClientTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var results = await client.SearchProfilesAsync(null, true, false, false);
+        var results = await client.SearchProfilesAsync(null, true, false, false, SearchForType.ExactWordOrPhrase);
 
         Assert.Empty(results);
     }
@@ -78,7 +80,7 @@ public class ApiClientTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProfilesAsync(null, true, false, false));
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProfilesAsync(null, true, false, false, SearchForType.ExactWordOrPhrase));
     }
 
     [Fact]

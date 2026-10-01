@@ -30,6 +30,7 @@ internal sealed class FakeApiClient(
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        SearchForType searchForType,
         CancellationToken cancellationToken = default) =>
         throwOnSearchProfiles is not null
             ? Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(throwOnSearchProfiles)

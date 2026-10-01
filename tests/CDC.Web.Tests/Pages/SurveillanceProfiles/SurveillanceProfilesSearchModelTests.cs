@@ -457,6 +457,25 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Null(url);
     }
 
+    // The legacy page used a radio group, so exactly one mode was always active and
+    // "this exact word or phrase" won; these cover every combination the querystring can carry.
+    [Theory]
+    [InlineData(true, false, SearchForType.ExactWordOrPhrase)]
+    [InlineData(false, true, SearchForType.AllWords)]
+    [InlineData(true, true, SearchForType.ExactWordOrPhrase)]
+    [InlineData(false, false, SearchForType.ExactWordOrPhrase)]
+    public void SearchForType_ResolvesTheTwoCheckboxesToASingleMode(
+        bool searchForExactPhrase,
+        bool searchForAllWords,
+        SearchForType expected)
+    {
+        var pageModel = CreatePageModel([]);
+        pageModel.SearchForExactPhrase = searchForExactPhrase;
+        pageModel.SearchForAllWords = searchForAllWords;
+
+        Assert.Equal(expected, pageModel.SearchForType);
+    }
+
     private static FakeUrlHelper CreateUrlHelper() => new(values =>
     {
         var query = string.Join("&", values.Select(pair => $"{pair.Key}={pair.Value}"));

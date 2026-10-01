@@ -17,6 +17,7 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        SearchForType searchForType,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(results);
 

@@ -17,6 +17,7 @@ public interface IApiClient
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        SearchForType searchForType,
         CancellationToken cancellationToken = default);
 
     /// <summary>Gets a profile's attributes from <c>GET /api/profiles/{profileId}/attributes</c>.</summary>
@@ -48,6 +49,7 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        SearchForType searchForType,
         CancellationToken cancellationToken = default)
     {
         var url = QueryHelpers.AddQueryString("/api/profile-search/search", new Dictionary<string, string?>
@@ -55,7 +57,8 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
             ["searchText"] = searchText,
             ["displayPublished"] = displayPublished.ToString(),
             ["displayDraft"] = displayDraft.ToString(),
-            ["displayScenarios"] = displayScenarios.ToString()
+            ["displayScenarios"] = displayScenarios.ToString(),
+            ["searchForType"] = searchForType.ToString()
         });
 
         var results = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileSearchResultDto>>(url, cancellationToken);
