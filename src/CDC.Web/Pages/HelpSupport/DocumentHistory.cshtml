@@ -11,6 +11,16 @@
 
 <p class="govuk-body">This document has previously been published with the versions below. Each version records the date it became effective.</p>
 
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" role="alert">
+        <h2 class="govuk-error-summary__title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+            <p class="govuk-body">We could not load the version history. Try again later.</p>
+        </div>
+    </div>
+}
+
 <table class="govuk-table">
     <thead class="govuk-table__head">
         <tr class="govuk-table__row">

@@ -1,25 +1,53 @@
+using System.Globalization;
+using CDC.Web.Infrastructure;
+
 namespace CDC.Web.Pages.HelpSupport;
 
-public class DocumentHistoryModel : BreadcrumbPageModelBase
+/// <summary>
+/// Previous versions of one "Help using D2R2" document. Replaces the legacy
+/// <c>StaticReports.aspx?StaticReportId=...</c> history mode.
+/// </summary>
+/// <param name="staticReportsApiService">Typed client for the static reports endpoints on CDC.Api.</param>
+/// <param name="logger">Structured logger.</param>
+public class DocumentHistoryModel(IStaticReportsApiService staticReportsApiService, ILogger<DocumentHistoryModel> logger)
+    : BreadcrumbPageModelBase("Help using D2R2")
 {
-    public DocumentHistoryModel() : base("Help using D2R2")
-    {
-        Versions =
-        [
-            new DocumentHistoryRow("Help using D2R2 guidance", "1.0", "22 September 2026"),
-            new DocumentHistoryRow("Help using D2R2 guidance", "0.9", "15 August 2026")
-        ];
-    }
+    /// <summary>Gets every version of the document, most recent first.</summary>
+    public IReadOnlyList<DocumentHistoryRow> Versions { get; private set; } = [];
 
-    public IReadOnlyList<DocumentHistoryRow> Versions { get; }
+    /// <summary>Gets a value indicating whether the history could not be loaded.</summary>
+    public bool HasError { get; private set; }
 
-    public void OnGet(string? documentId)
+    public async Task OnGetAsync(Guid staticReportId, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(documentId))
+        try
         {
-            ViewData["DocumentId"] = documentId;
+            var history = await staticReportsApiService.GetHistoryAsync(staticReportId, cancellationToken);
+
+            Versions =
+            [
+                .. history
+                    .OrderByDescending(version => version.VersionMajor)
+                    .Select(version => new DocumentHistoryRow(
+                        version.Title,
+                        $"{version.VersionMajor}.0",
+                        version.EffectiveDateFrom.ToString("d MMMM yyyy", CultureInfo.InvariantCulture)))
+            ];
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            logger.DocumentHistoryLoadFailed(exception, staticReportId);
+
+            HasError = true;
         }
     }
 }
 
 public sealed record DocumentHistoryRow(string Title, string Version, string EffectiveDate);
+
+/// <summary>Source-generated structured log messages for <see cref="DocumentHistoryModel"/>.</summary>
+internal static partial class DocumentHistoryLog
+{
+    [LoggerMessage(EventId = 3010, Level = LogLevel.Error, Message = "Failed to load history for static report {StaticReportId} from CDC.Api")]
+    public static partial void DocumentHistoryLoadFailed(this ILogger logger, Exception exception, Guid staticReportId);
+}
