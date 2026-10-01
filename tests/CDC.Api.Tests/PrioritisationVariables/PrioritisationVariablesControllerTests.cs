@@ -15,6 +15,7 @@ namespace CDC.Api.Tests.PrioritisationVariables;
 public class PrioritisationVariablesControllerTests
 {
     private static readonly Guid CriterionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid ValueId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     private readonly Mock<ISender> mediator = new(MockBehavior.Strict);
 
@@ -42,16 +43,25 @@ public class PrioritisationVariablesControllerTests
     [Fact]
     public async Task UpdateCriterion_ReturnsNoContent()
     {
+        UpdateCriterionCommand? sentCommand = null;
+
         mediator
             .Setup(sender => sender.Send(It.IsAny<UpdateCriterionCommand>(), It.IsAny<CancellationToken>()))
+            .Callback<IRequest<Result<Unit>>, CancellationToken>((command, _) => sentCommand = (UpdateCriterionCommand)command)
             .ReturnsAsync(Result.Success(Unit.Value));
 
-        var request = new UpdateCriterionRequestDto { Weight = 42 };
+        var request = new UpdateCriterionRequestDto
+        {
+            Weight = 42,
+            ValueScores = [new UpdateCriterionValueScoreRequestDto { ValueId = ValueId, Score = 7 }]
+        };
 
         var response = await CreateController().UpdateCriterion(CriterionId, request, CancellationToken.None);
 
         response.Should().BeOfType<NoContentResult>();
+        sentCommand!.ValueScores.Should().ContainSingle().Which.ValueId.Should().Be(ValueId);
     }
+
 
     [Fact]
     public async Task UpdateCriterion_ReturnsNotFound()

@@ -1,3 +1,4 @@
+using System.Data.Common;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
 using CDC.Api.Tests.Fakes;
@@ -123,9 +124,89 @@ public class StaticReportRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
-    private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
+    [Fact]
+    public async Task GetDataAsync_Throws_WhenConnectionFactoryDoesNotReturnADbConnection()
+    {
+        var repository = new StaticReportRepository(new StubConnectionFactory(new NotADbConnection()), logger.Object);
+
+        var act = () => repository.GetDataAsync(VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task GetDataAsync_RethrowsAndLogs_WhenOpenAsyncFails()
+    {
+        var repository = new StaticReportRepository(new StubConnectionFactory(new ThrowingOpenDbConnection()), logger.Object);
+
+        var act = () => repository.GetDataAsync(VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    private sealed class StubConnectionFactory(System.Data.IDbConnection connection) : IDbConnectionFactory
     {
         public System.Data.IDbConnection CreateConnection() => connection;
+    }
+
+    /// <summary>A bare <see cref="System.Data.IDbConnection"/> (not a <see cref="DbConnection"/>) to exercise the repository's defensive type check.</summary>
+    private sealed class NotADbConnection : System.Data.IDbConnection
+    {
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public string ConnectionString { get; set; } = string.Empty;
+
+        public int ConnectionTimeout => 0;
+
+        public string Database => string.Empty;
+
+        public System.Data.ConnectionState State => System.Data.ConnectionState.Closed;
+
+        public System.Data.IDbTransaction BeginTransaction() => throw new NotSupportedException();
+
+        public System.Data.IDbTransaction BeginTransaction(System.Data.IsolationLevel il) => throw new NotSupportedException();
+
+        public void ChangeDatabase(string databaseName) => throw new NotSupportedException();
+
+        public void Close()
+        {
+        }
+
+        public System.Data.IDbCommand CreateCommand() => throw new NotSupportedException();
+
+        public void Open()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>A <see cref="DbConnection"/> whose <see cref="Open"/> always fails, to exercise the open-connection failure path.</summary>
+    private sealed class ThrowingOpenDbConnection : DbConnection
+    {
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public override string ConnectionString { get; set; } = string.Empty;
+
+        public override string Database => string.Empty;
+
+        public override string DataSource => string.Empty;
+
+        public override string ServerVersion => string.Empty;
+
+        public override System.Data.ConnectionState State => System.Data.ConnectionState.Closed;
+
+        public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
+
+        public override void Close()
+        {
+        }
+
+        public override void Open() => throw new FakeDbException("connect failed");
+
+        protected override DbTransaction BeginDbTransaction(System.Data.IsolationLevel isolationLevel) => throw new NotSupportedException();
+
+        protected override DbCommand CreateDbCommand() => throw new NotSupportedException();
     }
 
     /// <summary>Minimal <see cref="System.Data.Common.DbException"/> so a failure can be scripted without a real SqlException.</summary>

@@ -49,7 +49,8 @@ public class PrioritisationVariablesApiServiceTests
     [Fact]
     public async Task UpdateCriterionAsync_CompletesSuccessfully_OnNoContent()
     {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.NoContent, string.Empty));
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var service = CreateService(handler);
 
         var exception = await Record.ExceptionAsync(() => service.UpdateCriterionAsync(
             Guid.NewGuid(),
@@ -57,6 +58,7 @@ public class PrioritisationVariablesApiServiceTests
             [new CriterionValueScore { ValueId = Guid.NewGuid(), Score = 7 }]));
 
         Assert.Null(exception);
+        Assert.Contains("\"score\":7", handler.CapturedRequestBody, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -132,10 +134,22 @@ public class PrioritisationVariablesApiServiceTests
 
     private sealed class FakeHttpMessageHandler(HttpStatusCode statusCode, string responseBody) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(statusCode)
+        /// <summary>The request body, captured after forcing it to serialize - <see cref="PutAsJsonAsync"/> builds
+        /// the content lazily, so the anonymous object's lambdas are never invoked unless something
+        /// actually reads the content, exactly as the real HTTP transport would.</summary>
+        public string? CapturedRequestBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Content is not null)
+            {
+                CapturedRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            }
+
+            return new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(responseBody, System.Text.Encoding.UTF8, "application/json")
-            });
+            };
+        }
     }
 }

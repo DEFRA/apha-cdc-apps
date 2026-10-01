@@ -59,6 +59,27 @@ public class QualityStatementIntegrationTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task QualityStatement_ReturnsNotFound_WhenCurrentVersionHasNoData()
+    {
+        var currentReports = new List<StaticReportVersionDto>
+        {
+            new()
+            {
+                Id = VersionId,
+                Title = "D2R2 Quality Statement",
+                IsUserManual = true,
+                IsCurrent = true
+            }
+        };
+        using var factory = CreateFactory(new FakeStaticReportsApiService(currentReports, data: null));
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/HelpSupport/QualityStatement");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(IStaticReportsApiService fakeService) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
