@@ -279,13 +279,4 @@ public class SpeciesApiServiceTests
 
         return new SpeciesApiService(httpClient);
     }
-
-    private sealed class FakeHttpMessageHandler(HttpStatusCode statusCode, string responseBody) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(statusCode)
-            {
-                Content = new StringContent(responseBody, System.Text.Encoding.UTF8, "application/json")
-            });
-    }
 }

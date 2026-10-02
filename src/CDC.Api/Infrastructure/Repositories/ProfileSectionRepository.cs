@@ -79,8 +79,8 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                 questionNames.Add(new ProfileQuestionName
                 {
                     Id = reader.GetGuid(0),
-                    Name = ReadString(reader, 1),
-                    NonTechnicalName = ReadString(reader, 2)
+                    Name = reader.ReadString(1),
+                    NonTechnicalName = reader.ReadString(2)
                 });
             }
 
@@ -98,12 +98,12 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     {
                         Id = reader.GetGuid(0),
                         QuestionId = reader.GetGuid(11),
-                        FieldNumber = ReadInt32(reader, 12),
-                        BooleanValue = ReadNullableBoolean(reader, 3),
-                        ListValue = ReadNullableGuid(reader, 4),
-                        DecimalValue = ReadNullableDecimal(reader, 5),
-                        DateValue = ReadNullableDateTime(reader, 6),
-                        TextValue = ReadNullableString(reader, 7)
+                        FieldNumber = reader.ReadInt32(12),
+                        BooleanValue = reader.ReadNullableBoolean(3),
+                        ListValue = reader.ReadNullableGuid(4),
+                        DecimalValue = reader.ReadNullableDecimal(5),
+                        DateValue = reader.ReadNullableDateTime(6),
+                        TextValue = reader.ReadNullableString(7)
                     });
                 }
             }
@@ -133,9 +133,9 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         {
             sections.Add(new SectionMetadataRow(
                 reader.GetGuid(0),
-                ReadString(reader, 1),
-                ReadString(reader, 2),
-                ReadInt32(reader, 3)));
+                reader.ReadString(1),
+                reader.ReadString(2),
+                reader.ReadInt32(3)));
         }
 
         return sections;
@@ -157,10 +157,10 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             questions.Add(new QuestionMetadataRow(
                 reader.GetGuid(0),
                 reader.GetGuid(1),
-                ReadString(reader, 2),
-                ReadInt32(reader, 3),
-                ReadBoolean(reader, 4),
-                ReadBoolean(reader, 5)));
+                reader.ReadString(2),
+                reader.ReadInt32(3),
+                reader.ReadBoolean(4),
+                reader.ReadBoolean(5)));
         }
 
         return questions;
@@ -182,14 +182,14 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             fields.Add(new FieldMetadataRow(
                 reader.GetGuid(1),
                 reader.GetGuid(2),
-                ReadString(reader, 3),
-                ReadInt32(reader, 4),
-                ReadGuid(reader, 5),
-                ReadString(reader, 6),
-                ReadBoolean(reader, 7),
-                ReadGuid(reader, 8),
-                ReadBoolean(reader, 9),
-                ReadString(reader, 11)));
+                reader.ReadString(3),
+                reader.ReadInt32(4),
+                reader.ReadGuid(5),
+                reader.ReadString(6),
+                reader.ReadBoolean(7),
+                reader.ReadGuid(8),
+                reader.ReadBoolean(9),
+                reader.ReadString(11)));
         }
 
         return fields;
@@ -269,33 +269,6 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             throw;
         }
     }
-
-    private static string ReadString(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
-
-    private static string? ReadNullableString(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
-
-    private static Guid ReadGuid(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? Guid.Empty : reader.GetGuid(ordinal);
-
-    private static Guid? ReadNullableGuid(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
-
-    private static bool ReadBoolean(DbDataReader reader, int ordinal) =>
-        !reader.IsDBNull(ordinal) && reader.GetBoolean(ordinal);
-
-    private static bool? ReadNullableBoolean(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetBoolean(ordinal);
-
-    private static int ReadInt32(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);
-
-    private static decimal? ReadNullableDecimal(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetDecimal(ordinal);
-
-    private static DateTime? ReadNullableDateTime(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
 
     private sealed record SectionMetadataRow(Guid Id, string Name, string ShortName, int SectionNumber);
 

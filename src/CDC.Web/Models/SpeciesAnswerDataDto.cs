@@ -13,5 +13,5 @@ public sealed record SpeciesAnswerDataDto : SpeciesAnswerDataContract<SpeciesSec
 public sealed record SpeciesSectionDto : SpeciesSectionContract<SpeciesFieldValueDto>; // NOSONAR
 
 /// <summary>One stored answer. Exactly one value property is populated, per the field's data type.</summary>
-public sealed record SpeciesFieldValueDto : SpeciesFieldValueContract; // NOSONAR
+public sealed record SpeciesFieldValueDto : QuestionnaireFieldValueContract; // NOSONAR
 

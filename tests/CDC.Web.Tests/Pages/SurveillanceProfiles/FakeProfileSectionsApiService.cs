@@ -1,3 +1,4 @@
+using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 

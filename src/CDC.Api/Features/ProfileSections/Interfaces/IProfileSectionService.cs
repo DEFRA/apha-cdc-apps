@@ -1,4 +1,4 @@
-using CDC.Api.Features.ProfileSections.Dtos;
+using CDC.Common.Contracts;
 
 namespace CDC.Api.Features.ProfileSections.Interfaces;
 

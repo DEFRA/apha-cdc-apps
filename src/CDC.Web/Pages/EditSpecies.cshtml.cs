@@ -43,7 +43,7 @@ public class EditSpeciesModel : PageModel
 
     /// <summary>Gets the real questions and recorded answers for <see cref="CurrentSection"/>, matched by
     /// name against <c>GET /api/species/metadata</c>. Empty when no matching section metadata exists.</summary>
-    public IReadOnlyList<EditSpeciesQuestionView> Questions { get; private set; } = [];
+    public IReadOnlyList<AccordionQuestionView> Questions { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -98,7 +98,7 @@ public class EditSpeciesModel : PageModel
 
                 Questions =
                 [
-                    .. matchedSection.Questions.Select(question => new EditSpeciesQuestionView(
+                    .. matchedSection.Questions.Select(question => new AccordionQuestionView(
                         $"{matchedSection.SectionNumber}.{question.QuestionNumber}",
                         question.Name,
                         [
@@ -126,22 +126,23 @@ public class EditSpeciesModel : PageModel
     /// <summary>Builds one field's view: a checkbox group for a "List" type field (its options come
     /// from the field's reference table, checked against the recorded <see cref="SpeciesFieldValueDto.ListValue"/>
     /// rows), or a plain-text value for every other field type.</summary>
-    private static EditSpeciesFieldView BuildFieldView(
+    private static AccordionFieldView BuildFieldView(
         SpeciesFieldMetadataDto field,
         IReadOnlyList<SpeciesFieldValueDto> recordedValues,
         Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
     {
         if (field.ReferenceTableId == Guid.Empty || !referenceValuesByTable.TryGetValue(field.ReferenceTableId, out var options))
         {
-            return new EditSpeciesFieldView(field.Name, FormatFieldValues(recordedValues), []);
+            return new AccordionFieldView(field.Name, FormatFieldValues(recordedValues), false, []);
         }
 
         var selectedValues = recordedValues.Where(value => value.ListValue is not null).Select(value => value.ListValue!.Value).ToHashSet();
 
-        return new EditSpeciesFieldView(
+        return new AccordionFieldView(
             field.Name,
             null,
-            [.. options.Select(option => new EditSpeciesFieldOptionView(option.Value, selectedValues.Contains(option.Id)))]);
+            false,
+            [.. options.Select(option => new AccordionFieldOptionView(option.Value, selectedValues.Contains(option.Id)))]);
     }
 
     /// <summary>Formats every recorded value for one field. More than one row means a multi-select

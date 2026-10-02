@@ -1,0 +1,13 @@
+@model CDC.Web.Models.SectionSubnavViewModel
+<nav class="app-subnav" aria-label="@Model.AriaLabel">
+    <ul class="app-subnav__list">
+        @foreach (var item in Model.Items)
+        {
+            <li class="app-subnav__item @(item.IsCurrent ? "app-subnav__item--current" : string.Empty)">
+                <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline"
+                   href="@item.Url"
+                   aria-current="@(item.IsCurrent ? "page" : null)">@item.Number. @item.Title</a>
+            </li>
+        }
+    </ul>
+</nav>

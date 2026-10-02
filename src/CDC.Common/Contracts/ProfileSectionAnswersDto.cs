@@ -1,7 +1,10 @@
-namespace CDC.Api.Features.ProfileSections.Dtos;
+namespace CDC.Common.Contracts;
 
 /// <summary>
-/// The recorded answers for one profile version's reference section.
+/// The recorded answers for one profile version's reference section. Used directly by both
+/// CDC.Api's response and CDC.Web's view model (rather than one concrete type per project)
+/// because the two never diverge, so a single shared type is all that is needed to keep the wire
+/// shape in sync.
 /// </summary>
 public sealed record ProfileSectionAnswersDto
 {
@@ -31,30 +34,16 @@ public sealed record ProfileQuestionNameDto
     public string NonTechnicalName { get; init; } = string.Empty;
 }
 
-/// <summary>One stored answer. Exactly one value property is populated, per the field's data type.</summary>
-public sealed record ProfileFieldValueDto
+/// <summary>
+/// One stored answer for a profile question field. The common field-value properties live on
+/// <see cref="QuestionnaireFieldValueContract"/>; the profile questionnaire additionally supports
+/// decimal and date answers.
+/// </summary>
+public sealed record ProfileFieldValueDto : QuestionnaireFieldValueContract
 {
-    /// <summary>Gets the field value identifier.</summary>
-    public Guid Id { get; init; }
-
-    /// <summary>Gets the identifier of the question the field belongs to.</summary>
-    public Guid QuestionId { get; init; }
-
-    /// <summary>Gets the position of the field within its question.</summary>
-    public int FieldNumber { get; init; }
-
-    /// <summary>Gets the answer for a boolean field.</summary>
-    public bool? BooleanValue { get; init; }
-
-    /// <summary>Gets the selected reference data item for a list field.</summary>
-    public Guid? ListValue { get; init; }
-
     /// <summary>Gets the answer for a decimal field.</summary>
     public decimal? DecimalValue { get; init; }
 
     /// <summary>Gets the answer for a date field.</summary>
     public DateTime? DateValue { get; init; }
-
-    /// <summary>Gets the answer for a text or long-text (rich/HTML) field.</summary>
-    public string? TextValue { get; init; }
 }

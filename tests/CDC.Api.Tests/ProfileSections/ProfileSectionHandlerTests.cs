@@ -1,6 +1,6 @@
-using CDC.Api.Features.ProfileSections.Dtos;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ProfileSections.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using Moq;
 

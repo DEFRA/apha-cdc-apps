@@ -1,4 +1,5 @@
 using System.Globalization;
+using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -47,7 +48,7 @@ public class EditProfileQuestionsModel(
     public ProfileSectionMetadataDto? NextSection { get; private set; }
 
     /// <summary>Gets the real questions and recorded answers for <see cref="CurrentSection"/>.</summary>
-    public IReadOnlyList<EditProfileQuestionsQuestionView> Questions { get; private set; } = [];
+    public IReadOnlyList<AccordionQuestionView> Questions { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -121,7 +122,7 @@ public class EditProfileQuestionsModel(
 
         Questions =
         [
-            .. section.Questions.Select(question => new EditProfileQuestionsQuestionView(
+            .. section.Questions.Select(question => new AccordionQuestionView(
                 $"{section.SectionNumber}.{question.QuestionNumber}",
                 namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
                 [
@@ -141,7 +142,7 @@ public class EditProfileQuestionsModel(
     /// (its options come from the field's reference table, checked against the recorded
     /// <see cref="ProfileFieldValueDto.ListValue"/> rows), rich/HTML content for a "Long Text"
     /// field, or a plain-text value for every other field type.</summary>
-    private static EditProfileQuestionsFieldView BuildFieldView(
+    private static AccordionFieldView BuildFieldView(
         ProfileFieldMetadataDto field,
         IReadOnlyList<ProfileFieldValueDto> recordedValues,
         Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
@@ -157,16 +158,16 @@ public class EditProfileQuestionsModel(
                 .Select(value => value.ListValue!.Value)
                 .ToHashSet();
 
-            return new EditProfileQuestionsFieldView(
+            return new AccordionFieldView(
                 field.Name,
                 null,
                 false,
-                [.. options.Select(option => new EditProfileQuestionsFieldOptionView(option.Value, selectedValues.Contains(option.Id)))]);
+                [.. options.Select(option => new AccordionFieldOptionView(option.Value, selectedValues.Contains(option.Id)))]);
         }
 
         var isHtml = string.Equals(field.DataTypeName, "Long Text", StringComparison.OrdinalIgnoreCase);
 
-        return new EditProfileQuestionsFieldView(field.Name, FormatFieldValues(recordedValues), isHtml, []);
+        return new AccordionFieldView(field.Name, FormatFieldValues(recordedValues), isHtml, []);
     }
 
     /// <summary>Formats every recorded value for one field. More than one row means a multi-select

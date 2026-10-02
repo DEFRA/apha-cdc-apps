@@ -1,7 +1,7 @@
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileSections;
-using CDC.Api.Features.ProfileSections.Dtos;
 using CDC.Api.Features.ProfileSections.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Http;

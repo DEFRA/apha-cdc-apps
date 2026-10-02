@@ -1,0 +1,19 @@
+@model CDC.Web.Models.SectionPaginationViewModel
+<div class="app-species-pagination">
+    <div class="app-species-pagination__prev">
+        @if (Model.Previous is not null)
+        {
+            <a class="govuk-link" href="@Model.Previous.Url">
+                &larr; Previous<br />@Model.Previous.Number. @Model.Previous.Title
+            </a>
+        }
+    </div>
+    <div class="app-species-pagination__next">
+        @if (Model.Next is not null)
+        {
+            <a class="govuk-link" href="@Model.Next.Url">
+                Next &rarr;<br />@Model.Next.Number. @Model.Next.Title
+            </a>
+        }
+    </div>
+</div>

@@ -1,3 +1,4 @@
+using CDC.Common.Contracts;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;

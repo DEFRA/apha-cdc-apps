@@ -3,6 +3,28 @@
 @{
     var speciesLabel = Model.SpeciesName?.ToLowerInvariant();
     ViewData["Title"] = speciesLabel is null ? "View species data" : $"View species data - {speciesLabel}";
+
+    var subnavModel = new SectionSubnavViewModel(
+        "Species data sections",
+        [.. CDC.Web.Models.EditSpeciesSectionCatalog.Sections
+            .Select(navSection => new SectionNavItem(
+                navSection.Number,
+                navSection.Title,
+                Model.BuildSectionUrl(navSection.Key),
+                navSection.Key == Model.CurrentSection.Key))]);
+
+    var accordionModel = new QuestionAccordionViewModel(
+        "species-accordion",
+        "No sub-sections are available for this section.",
+        Model.Questions);
+
+    var previousNavItem = Model.PreviousSection is null
+        ? null
+        : new SectionNavItem(Model.PreviousSection.Number, Model.PreviousSection.Title, Model.BuildSectionUrl(Model.PreviousSection.Key));
+    var nextNavItem = Model.NextSection is null
+        ? null
+        : new SectionNavItem(Model.NextSection.Number, Model.NextSection.Title, Model.BuildSectionUrl(Model.NextSection.Key));
+    var paginationModel = new SectionPaginationViewModel(previousNavItem, nextNavItem);
 }
 @section Breadcrumbs {
     <div class="govuk-breadcrumbs">
@@ -35,19 +57,7 @@ else
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-one-quarter">
-            <nav class="app-subnav" aria-label="Species data sections">
-                <ul class="app-subnav__list">
-                    @foreach (var navSection in CDC.Web.Models.EditSpeciesSectionCatalog.Sections)
-                    {
-                        var isCurrent = navSection.Key == Model.CurrentSection.Key;
-                        <li class="app-subnav__item @(isCurrent ? "app-subnav__item--current" : string.Empty)">
-                            <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline"
-                               href="@Model.BuildSectionUrl(navSection.Key)"
-                               aria-current="@(isCurrent ? "page" : null)">@navSection.Number. @navSection.Title</a>
-                        </li>
-                    }
-                </ul>
-            </nav>
+            <partial name="_SectionSubnav" model="subnavModel" />
         </div>
         <div class="govuk-grid-column-three-quarters">
             <div class="app-species-tabs">
@@ -55,81 +65,10 @@ else
             </div>
 
             <div class="app-species-panel">
-                @if (Model.Questions.Count == 0)
-                {
-                    <p class="govuk-body">No sub-sections are available for this section.</p>
-                }
-                else
-                {
-                    <div class="govuk-accordion" data-module="govuk-accordion" id="species-accordion">
-                        @foreach (var question in Model.Questions)
-                        {
-                            var anchor = question.Number.Replace(".", "-");
-                            <div class="govuk-accordion__section">
-                                <div class="govuk-accordion__section-header">
-                                    <h2 class="govuk-accordion__section-heading">
-                                        <span class="govuk-accordion__section-button" id="species-accordion-heading-@anchor">
-                                            @question.Number @question.Text
-                                        </span>
-                                    </h2>
-                                </div>
-                                <div id="species-accordion-content-@anchor" class="govuk-accordion__section-content">
-                                    @foreach (var field in question.Fields)
-                                    {
-                                        if (field.Options.Count > 0)
-                                        {
-                                            <div class="govuk-form-group">
-                                                <fieldset class="govuk-fieldset">
-                                                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
-                                                    <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
-                                                        @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
-                                                        {
-                                                            var option = field.Options[optionIndex];
-                                                            var optionId = $"{anchor}-option-{optionIndex}";
-                                                            <div class="govuk-checkboxes__item">
-                                                                <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" disabled checked="@(option.IsChecked ? "checked" : null)" />
-                                                                <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
-                                                            </div>
-                                                        }
-                                                    </div>
-                                                </fieldset>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <dl class="govuk-summary-list">
-                                                <div class="govuk-summary-list__row">
-                                                    <dt class="govuk-summary-list__key">@field.Label</dt>
-                                                    <dd class="govuk-summary-list__value">@field.ValueDisplay</dd>
-                                                </div>
-                                            </dl>
-                                        }
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
+                <partial name="_QuestionAccordion" model="accordionModel" />
             </div>
 
-            <div class="app-species-pagination">
-                <div class="app-species-pagination__prev">
-                    @if (Model.PreviousSection is not null)
-                    {
-                        <a class="govuk-link" href="@Model.BuildSectionUrl(Model.PreviousSection.Key)">
-                            &larr; Previous<br />@Model.PreviousSection.Number. @Model.PreviousSection.Title
-                        </a>
-                    }
-                </div>
-                <div class="app-species-pagination__next">
-                    @if (Model.NextSection is not null)
-                    {
-                        <a class="govuk-link" href="@Model.BuildSectionUrl(Model.NextSection.Key)">
-                            Next &rarr;<br />@Model.NextSection.Number. @Model.NextSection.Title
-                        </a>
-                    }
-                </div>
-            </div>
+            <partial name="_SectionPagination" model="paginationModel" />
         </div>
     </div>
 }

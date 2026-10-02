@@ -8,7 +8,7 @@ namespace CDC.Common.Contracts;
 /// </summary>
 public abstract record SpeciesAnswerDataContract<TSection, TFieldValue>
     where TSection : SpeciesSectionContract<TFieldValue>
-    where TFieldValue : SpeciesFieldValueContract
+    where TFieldValue : QuestionnaireFieldValueContract
 {
     /// <summary>Gets the species the answers belong to.</summary>
     public Guid SpeciesId { get; init; }
@@ -32,34 +32,12 @@ public abstract record SpeciesAnswerDataContract<TSection, TFieldValue>
 /// rather than this base contract.
 /// </summary>
 public abstract record SpeciesSectionContract<TFieldValue>
-    where TFieldValue : SpeciesFieldValueContract
+    where TFieldValue : QuestionnaireFieldValueContract
 {
     /// <summary>Gets the identifier of the section these values belong to.</summary>
     public Guid SectionId { get; init; }
 
     /// <summary>Gets the recorded field values.</summary>
     public IReadOnlyList<TFieldValue> FieldValues { get; init; } = [];
-}
-
-/// <summary>One stored answer. Exactly one value property is populated, per the field's data type.</summary>
-public abstract record SpeciesFieldValueContract
-{
-    /// <summary>Gets the field value identifier.</summary>
-    public Guid Id { get; init; }
-
-    /// <summary>Gets the identifier of the question the field belongs to.</summary>
-    public Guid QuestionId { get; init; }
-
-    /// <summary>Gets the position of the field within its question.</summary>
-    public int FieldNumber { get; init; }
-
-    /// <summary>Gets the answer for a boolean field.</summary>
-    public bool? BooleanValue { get; init; }
-
-    /// <summary>Gets the selected reference data item for a list field.</summary>
-    public Guid? ListValue { get; init; }
-
-    /// <summary>Gets the answer for a text or long-text field.</summary>
-    public string? TextValue { get; init; }
 }
 

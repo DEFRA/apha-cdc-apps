@@ -1,6 +1,6 @@
 using CDC.Api.Application.Extensions;
-using CDC.Api.Features.ProfileSections.Dtos;
 using CDC.Api.Features.ProfileSections.Queries;
+using CDC.Common.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
