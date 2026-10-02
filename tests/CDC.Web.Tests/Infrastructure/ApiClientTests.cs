@@ -286,6 +286,34 @@ public class ApiClientTests
         Assert.Equal("The profile title could not be saved. Please try again.", result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task GetCurrentStaticReportsAsync_ReturnsReports_OnSuccess()
+    {
+        const string json = """
+            [{"id":"11111111-1111-1111-1111-111111111111","staticReportId":"22222222-2222-2222-2222-222222222222","title":"Help using D2R2","versionMajor":1,"effectiveDateFrom":"2024-01-01T00:00:00Z","isUserManual":true,"isPublic":true,"fileSize":1024}]
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var reports = await client.GetCurrentStaticReportsAsync(isUserManual: true, publicOnly: false);
+
+        var report = Assert.Single(reports);
+        Assert.Equal("Help using D2R2", report.Title);
+        Assert.Equal("/api/static-reports", handler.LastRequestUri!.AbsolutePath);
+        Assert.Contains("isUserManual=True", handler.LastRequestUri.Query);
+        Assert.Contains("publicOnly=False", handler.LastRequestUri.Query);
+    }
+
+    [Fact]
+    public async Task GetCurrentStaticReportsAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var reports = await client.GetCurrentStaticReportsAsync();
+
+        Assert.Empty(reports);
+    }
+
     private static ApiClient CreateClient(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

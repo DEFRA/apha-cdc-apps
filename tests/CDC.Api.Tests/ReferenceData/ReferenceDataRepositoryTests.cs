@@ -66,8 +66,51 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
         values.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetReferenceValuesAsync_DefaultsNullLookupValue()
+    {
+        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["Id", "LookupValue"],
+                    [[OptionId, null]])
+            ]
+        });
+
+        var values = await CreateRepository().GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
+
+        values.Should().ContainSingle().Which.Value.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public async Task GetReferenceValuesAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetReferenceValuesAsync_Throws_WhenFactoryDoesNotReturnADbConnection()
+    {
+        var repository = new ReferenceDataRepository(new NonDbConnectionFactory(), logger.Object);
+
+        var act = () => repository.GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;
+    }
+
+    private sealed class NonDbConnectionFactory : IDbConnectionFactory
+    {
+        public IDbConnection CreateConnection() => new Mock<IDbConnection>().Object;
     }
 }

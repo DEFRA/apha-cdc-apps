@@ -15,11 +15,14 @@ internal sealed class FakeApiClient( // NOSONAR
     ManageProfileViewModel? manageProfile = null,
     Exception? throwOnGetManageProfile = null,
     IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
-    UpdateProfileStatusResult? updateProfileStatusResult = null) : IApiClient
+    UpdateProfileStatusResult? updateProfileStatusResult = null,
+    IReadOnlyList<StaticReportListItemDto>? staticReports = null,
+    Exception? throwOnGetCurrentStaticReports = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
     private readonly IReadOnlyList<ProfileStatusTypeDto> _profileStatusTypes = profileStatusTypes ?? [];
+    private readonly IReadOnlyList<StaticReportListItemDto> _staticReports = staticReports ?? [];
     private readonly UpdateProfileTitleResult _updateProfileTitleResult =
         updateProfileTitleResult ?? new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null);
     private readonly UpdateProfileStatusResult _updateProfileStatusResult =
@@ -71,5 +74,7 @@ internal sealed class FakeApiClient( // NOSONAR
         bool isUserManual = false,
         bool publicOnly = true,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
+        throwOnGetCurrentStaticReports is not null
+            ? Task.FromException<IReadOnlyList<StaticReportListItemDto>>(throwOnGetCurrentStaticReports)
+            : Task.FromResult(_staticReports);
 }
