@@ -1,11 +1,18 @@
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace CDC.Web.Pages.HelpSupport;
 
 public class StaticReportsModel : BreadcrumbPageModelBase
 {
+    private static readonly Action<ILogger, bool, Exception?> LogFailedToLoadStaticReportsMessage =
+        LoggerMessage.Define<bool>(
+            LogLevel.Error,
+            new EventId(1, nameof(LogFailedToLoadStaticReportsMessage)),
+            "Failed to load static reports from CDC.Api (UserManual={IsUserManual}).");
+
     private readonly IApiClient apiClient;
     private readonly ILogger<StaticReportsModel> logger;
     private readonly string apiBaseUrl;
@@ -37,12 +44,12 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
     public int TotalPages { get; private set; } = 1;
 
-    public StaticReportsModel(IApiClient apiClient, IConfiguration configuration, ILogger<StaticReportsModel> logger)
+    public StaticReportsModel(IApiClient apiClient, IOptions<ApiOptions> apiOptions, ILogger<StaticReportsModel> logger)
         : base("Static reports")
     {
         this.apiClient = apiClient;
         this.logger = logger;
-        apiBaseUrl = (configuration["Api:BaseUrl"] ?? "http://localhost").TrimEnd('/');
+        apiBaseUrl = (apiOptions.Value.BaseUrl ?? string.Empty).TrimEnd('/');
     }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -55,7 +62,7 @@ public class StaticReportsModel : BreadcrumbPageModelBase
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to load static reports from CDC.Api (UserManual={IsUserManual}).", IsUserManual);
+            LogFailedToLoadStaticReportsMessage(logger, IsUserManual, ex);
             Reports = [];
         }
 

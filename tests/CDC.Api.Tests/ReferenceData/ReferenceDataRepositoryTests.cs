@@ -26,8 +26,8 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private IReferenceDataRepository CreateRepository() =>
-        new ReferenceDataRepository(new StubConnectionFactory(connection), logger.Object);
+    private ReferenceDataRepository CreateRepository() =>
+        new(new StubConnectionFactory(connection), logger.Object);
 
     [Fact]
     public async Task GetReferenceValuesAsync_ExecutesStoredProcedureAndMapsRows()

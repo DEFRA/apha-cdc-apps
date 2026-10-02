@@ -217,13 +217,13 @@ public class SurveillanceProfilesSearchModel : PageModel
         publishedVersions.MaxBy(SortKey)
         ?? draftVersions.MaxBy(SortKey);
 
-    /// <summary>Orders a lineage the way the legacy query does: <c>VersionMajor</c> then <c>VersionMinor</c>.</summary>
-    private static (int Major, int Minor) SortKey(ProfileHistoryItemDto version) =>
-        (version.VersionNumber, version.VersionMinor);
-
     /// <summary>Gets the most relevant version for one "what-if" scenario's own, independent history.</summary>
     public static ProfileHistoryItemDto? GetCurrentVersion(ProfileScenarioDto scenario) =>
         GetCurrentVersion(scenario.PublishedVersions, scenario.DraftVersions);
+
+    /// <summary>Orders a lineage the way the legacy query does: <c>VersionMajor</c> then <c>VersionMinor</c>.</summary>
+    private static (int Major, int Minor) SortKey(ProfileHistoryItemDto version) =>
+        (version.VersionNumber, version.VersionMinor);
 
     /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion(IReadOnlyList{ProfileHistoryItemDto},IReadOnlyList{ProfileHistoryItemDto})"/>'s result.</summary>
     public static string GetCurrentVersionLabel(
