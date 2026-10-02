@@ -25,7 +25,8 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// they contain columns that are meaningless without a real user or that duplicate column names.
 /// Result set 2 is skipped entirely: everything it carries (which profile/scenario a version
 /// belongs to) is already present in result set 3. Result set 4 is not read in this first pass -
-/// <see cref="ProfileSearchResultDto.AffectedSpecies"/> is always empty until that is added.
+/// <see cref="CDC.Common.Contracts.ProfileSearchResultContract{THistoryItem,TScenario}.AffectedSpecies"/>
+/// is always empty until that is added.
 /// </para>
 /// </remarks>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
