@@ -257,6 +257,27 @@ html {
   padding-bottom: 0;
 }
 
+/* Version | Status | Effective dates as fixed columns, so rows line up whatever their content
+   length - mirrors the legacy col-3/col-3/col-auto grid. */
+.app-profile-card__version-detail {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.app-profile-card__version-number {
+  flex: 0 0 7rem;
+}
+
+.app-profile-card__version-status {
+  flex: 0 0 6rem;
+}
+
+.app-profile-card__version-actions {
+  margin-left: auto;
+}
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
@@ -435,6 +456,39 @@ body {
   color: #0b0c0c;
   background-color: var(--govuk-focus-colour, #fd0);
   box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+}
+
+/* Reusable responsive layout for checkbox groups with many options (profile/species
+   questionnaire "List"/"MultiValueList" fields) - mirrors the legacy Web Forms 3-column grid.
+   Apply alongside .govuk-checkboxes; items flow left-to-right and wrap onto further rows.
+   Breakpoints match govuk-frontend's own tablet/desktop breakpoints (40.0625em / 48.0625em). */
+.app-checkboxes--columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 1.5rem;
+}
+
+@media (min-width: 40.0625em) {
+  .app-checkboxes--columns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 48.0625em) {
+  .app-checkboxes--columns {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Grid row-gap would add to this margin, so rows are spaced by the item's own margin only. */
+.app-checkboxes--columns > .govuk-checkboxes__item {
+  margin-bottom: 10px;
+}
+
+/* References/Further information tables: note text may contain long unbroken URLs, which
+   would otherwise overflow the cell rather than wrap - mirrors .app-title-editor below. */
+.app-profile-note-table__text {
+  overflow-wrap: anywhere;
 }
 
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
@@ -635,6 +689,52 @@ body {
   padding: 10px 0;
 }
 
+/* View species data detail page: left-hand list of fixed sections (Animal identification,
+   Movements, etc.), with a left border marking the one currently shown on the right. */
+.app-subnav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-subnav__item {
+  padding: 0.5rem 0 0.5rem 0.75rem;
+  border-left: 4px solid transparent;
+}
+
+.app-subnav__item--current {
+  border-left-color: var(--govuk-brand-colour, #1d70b8);
+  font-weight: 700;
+}
+
+/* Single active tab labelled with the current section's title, above the question accordion. */
+.app-species-tabs {
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-species-tabs__tab {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: none;
+}
+
+.app-species-panel {
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-top: none;
+  padding: 1rem;
+}
+
+/* Previous/Next section links below the accordion. */
+.app-species-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
 .app-header__help-icon {
   height: 26px;
   width: 26px;
@@ -690,6 +790,55 @@ body {
 .app-banner-row__account {
   margin: 0;
   white-space: nowrap;
+}
+
+/* govuk-frontend only styles focus on its own link classes, so the logo link needs the
+   GOV.UK focus indicator applied explicitly. */
+.app-banner-row__logo-link {
+  display: inline-flex;
+}
+
+.app-banner-row__logo-link:focus {
+  outline: 3px solid transparent;
+  background-color: #ffdd00;
+  box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+}
+
+/* Reusable tooltip. Shown on hover and on keyboard focus; dismissed with Escape via
+   tooltip.js adding .app-tooltip--dismissed. Meets WCAG 2.2 SC 1.4.13 (hoverable because the
+   tooltip sits inside the hover area of .app-tooltip, persistent, and dismissable). */
+.app-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.app-tooltip__content {
+  display: none;
+  position: absolute;
+  /* Overridden by tooltip.js to track the pointer; the defaults place the tooltip below the
+     trigger, which is what keyboard focus uses. */
+  top: var(--app-tooltip-y, 100%);
+  left: var(--app-tooltip-x, 0);
+  z-index: 100;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(680px, calc(100vw - 30px));
+  padding: 10px 15px;
+  background-color: #ffffff;
+  border: 1px solid #0b0c0c;
+  color: #0b0c0c;
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.app-tooltip:hover .app-tooltip__content,
+.app-tooltip:focus-within .app-tooltip__content {
+  display: block;
+}
+
+.app-tooltip--dismissed .app-tooltip__content {
+  display: none;
 }
 
 /* Home page: brand logo in the right-hand "Quick links" column */

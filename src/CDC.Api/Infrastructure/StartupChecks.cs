@@ -70,7 +70,7 @@ internal static class StartupChecks
         if (!Guid.TryParse(value, out var auditUserId) || auditUserId == Guid.Empty)
         {
             throw new InvalidOperationException(
-                "Species:AuditUserId must be configured as the id of an existing [User] row. Locally, set it in " +
+               "Species:AuditUserId must be configured as the id of an existing [User] row. Locally, set it in " +
                 "appsettings.Development.json; in a deployed environment, check the Species__AuditUserId wiring " +
                 "in the ECS task definition. Replace this with the authenticated caller's id once Entra ID " +
                 "authentication is wired up.");

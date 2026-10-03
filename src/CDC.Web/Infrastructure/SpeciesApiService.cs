@@ -88,4 +88,36 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
 
         return entries ?? [];
     }
+
+    /// <inheritdoc />
+    public async Task<SpeciesMetadataDto> GetSpeciesMetadataAsync(CancellationToken cancellationToken = default)
+    {
+        var metadata = await httpClient.GetFromJsonAsync<SpeciesMetadataDto>("/api/species/metadata", cancellationToken);
+
+        return metadata ?? new SpeciesMetadataDto();
+    }
+
+    /// <inheritdoc />
+    public async Task<SpeciesAnswerDataDto?> GetSpeciesAnswerDataAsync(Guid speciesId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync($"/api/species/{speciesId}/answers", cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<SpeciesAnswerDataDto>(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default)
+    {
+        var values = await httpClient.GetFromJsonAsync<IReadOnlyList<ReferenceValueDto>>(
+            $"/api/reference-data/{referenceTableId}/values", cancellationToken);
+
+        return values ?? [];
+    }
 }

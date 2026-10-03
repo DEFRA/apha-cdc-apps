@@ -41,7 +41,7 @@
                         <button type="button" id="app-menu-toggle" class="govuk-service-navigation__toggle" aria-controls="app-menu-panel" aria-expanded="false" aria-label="Show or hide menu" data-app-menu-toggle>Menu</button>
                     </nav>
                     <span class="app-header__divider" aria-hidden="true"></span>
-                    <a class="app-header__help-link" asp-page="/HelpSupport/HelpUsingD2R2" aria-label="Help using D2R2">
+                    <a class="app-header__help-link" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="1" aria-label="Help using D2R2">
                         <img class="app-header__help-icon" src="~/assets/images/icon-questionMark.svg" alt="" />
                     </a>
                 </div>
@@ -57,7 +57,18 @@
 
     <div class="govuk-width-container">
         <div class="app-banner-row">
-            <img class="app-banner-row__logo" src="~/assets/images/apha-logo-dark.png" alt="Animal and Plant Health Agency" />
+            <span class="app-tooltip" data-module="app-tooltip">
+                <a class="app-banner-row__logo-link"
+                   href="https://defra.sharepoint.com/sites/APHAIntranet"
+                   rel="noopener noreferrer"
+                   aria-label="Animal and Plant Health Agency - go to the APHA Intranet"
+                   aria-describedby="apha-logo-tooltip">
+                    <img class="app-banner-row__logo" src="~/assets/images/apha-logo-dark.png" alt="" />
+                </a>
+                <span class="app-tooltip__content" id="apha-logo-tooltip" role="tooltip">
+                    This is the Animal &amp; Plant Health Agency logo, this is hyperlinked to navigate you towards the APHA Intranet (https://defra.sharepoint.com/sites/APHAIntranet)
+                </span>
+            </span>
             @if (!(ViewData["HideAccountBar"] as bool? ?? false))
             {
                 <!-- Placeholder until Entra ID sign-in is implemented; username will come from the authenticated user's claims. -->
@@ -100,7 +111,8 @@
                 <div class="govuk-footer__section govuk-grid-column-one-third">
                     <h2 class="govuk-footer__heading govuk-heading-m">Help and support</h2>
                     <ul class="govuk-footer__list">
-                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/HelpUsingD2R2">Help using D2R2</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="1">Help using D2R2</a></li>
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/StaticReports">Static reports</a></li>
                         <li class="govuk-footer__list-item"><a class="govuk-footer__link" asp-page="/HelpSupport/QualityStatement">D2R2 quality statement</a></li>
                     </ul>
                 </div>
@@ -129,6 +141,7 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/header-menu.js" asp-append-version="true"></script>
+    <script src="~/js/tooltip.js" asp-append-version="true"></script>
     <script type="module" src="~/js/govuk-frontend-6.5.0.min.js"></script>
     <script type="module">
         import { initAll } from '/js/govuk-frontend-6.5.0.min.js'

@@ -16,11 +16,17 @@ public class ManageProfileModelTests
 
     private static ManageProfileModel CreatePageModel(
         ManageProfileViewModel? manageProfile = null,
-        Exception? throwOnGetManageProfile = null)
+        Exception? throwOnGetManageProfile = null,
+        IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
+        UpdateProfileStatusResult? updateProfileStatusResult = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var pageModel = new ManageProfileModel(
-            new FakeApiClient(manageProfile: manageProfile, throwOnGetManageProfile: throwOnGetManageProfile),
+            new FakeApiClient(
+                manageProfile: manageProfile,
+                throwOnGetManageProfile: throwOnGetManageProfile,
+                profileStatusTypes: profileStatusTypes,
+                updateProfileStatusResult: updateProfileStatusResult),
             NullLogger<ManageProfileModel>.Instance)
         {
             ProfileId = ProfileId,
@@ -35,6 +41,9 @@ public class ManageProfileModelTests
         return pageModel;
     }
 
+    private static readonly Guid DraftStatusId = Guid.NewGuid();
+    private static readonly Guid ValidationCompleteStatusId = Guid.NewGuid();
+
     private static ManageProfileViewModel Profile() => new()
     {
         ProfileId = ProfileId,
@@ -43,21 +52,30 @@ public class ManageProfileModelTests
         LatestPublishedVersionPublic = "Version 5",
         LatestPublishedVersionDefraNetOnly = "Version 7",
         LatestDraftVersion = "Version 8",
-        ProfileStatus = "Draft"
+        ProfileStatus = "Draft",
+        ProfileStatusId = DraftStatusId
     };
+
+    private static IReadOnlyList<ProfileStatusTypeDto> StatusTypes() =>
+    [
+        new ProfileStatusTypeDto { Id = DraftStatusId, Name = "Draft" },
+        new ProfileStatusTypeDto { Id = ValidationCompleteStatusId, Name = "Validation complete", IsValidationComplete = true }
+    ];
 
     [Fact]
     public async Task OnGetAsync_PopulatesProfile_WhenTheProfileExists()
     {
-        var pageModel = CreatePageModel(Profile());
+        var pageModel = CreatePageModel(Profile(), profileStatusTypes: StatusTypes());
 
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.NotNull(pageModel.Profile);
-        Assert.Equal("Bovine Tuberculosis", pageModel.Profile!.ProfileTitle);
+        Assert.Equal("Bovine Tuberculosis", pageModel.Profile.ProfileTitle);
         Assert.Equal("Draft", pageModel.Profile.ProfileStatus);
         Assert.False(pageModel.HasError);
+        Assert.Equal(2, pageModel.ProfileStatusTypes.Count);
+        Assert.Equal(DraftStatusId, pageModel.ProfileStatusId);
     }
 
     [Fact]
@@ -81,5 +99,38 @@ public class ManageProfileModelTests
         Assert.IsType<PageResult>(result);
         Assert.True(pageModel.HasError);
         Assert.Null(pageModel.Profile);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_UpdatesStatusAndShowsSuccessMessage_WhenTheSaveSucceeds()
+    {
+        var pageModel = CreatePageModel(
+            Profile() with { ProfileStatus = "Validation complete", ProfileStatusId = ValidationCompleteStatusId },
+            profileStatusTypes: StatusTypes(),
+            updateProfileStatusResult: new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null));
+        pageModel.ProfileStatusId = ValidationCompleteStatusId;
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Successfully updated the profile status.", pageModel.StatusMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+        Assert.Equal(ValidationCompleteStatusId, pageModel.ProfileStatusId);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_ShowsErrorMessage_WhenTheSaveFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            updateProfileStatusResult: new UpdateProfileStatusResult(UpdateProfileStatusOutcome.NotFound, "The selected profile status could not be found."));
+        pageModel.ProfileStatusId = ValidationCompleteStatusId;
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("The selected profile status could not be found.", pageModel.StatusErrorMessage);
     }
 }
