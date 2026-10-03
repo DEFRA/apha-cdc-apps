@@ -1,7 +1,9 @@
+using CDC.Api.Application;
 using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileManagement.Mapping;
+using CDC.Common.Contracts;
 
 namespace CDC.Api.Features.ProfileManagement;
 
@@ -11,8 +13,12 @@ namespace CDC.Api.Features.ProfileManagement;
 /// returns.
 /// </summary>
 /// <param name="repository">Profile management data access.</param>
+/// <param name="userContext">The current user's profile-authoring role flags.</param>
 /// <param name="logger">Structured logger.</param>
-public sealed class ProfileManagementService(IProfileManagementRepository repository, ILogger<ProfileManagementService> logger)
+public sealed class ProfileManagementService(
+    IProfileManagementRepository repository,
+    IUserContext userContext,
+    ILogger<ProfileManagementService> logger)
     : IProfileManagementService
 {
     /// <inheritdoc />
@@ -150,6 +156,7 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
         var publishedVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublishedProfileVersionId, cancellationToken);
         var draftVersionLabel = await FormatVersionLabelAsync(profile.CurrentDraftProfileVersionId, cancellationToken);
         var statusName = await ResolveProfileStatusNameAsync(profile.ProfileStatusId, cancellationToken);
+        var linkVisibility = await BuildLinkVisibilityAsync(profile, cancellationToken);
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -163,7 +170,105 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
             LatestDraftVersion = draftVersionLabel,
             ProfileStatus = statusName,
             ProfileStatusId = profile.ProfileStatusId,
-            CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile)
+            CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile),
+            LinkVisibility = linkVisibility
+        };
+    }
+
+    /// <summary>
+    /// Computes the "Manage profile" action link visibility, matching
+    /// <c>ManageProfile.aspx.vb</c>'s <c>RefreshDisplay</c> and the underlying
+    /// <c>Profile.vb</c>/<c>ProfileContributorList.vb</c> rules verbatim, including their exact
+    /// short-circuit order.
+    /// </summary>
+    private async Task<ManageProfileLinkVisibilityDto> BuildLinkVisibilityAsync(
+        Domain.Entities.Profile profile,
+        CancellationToken cancellationToken)
+    {
+        var isWhatIfScenario = profile.ParentId != Guid.Empty;
+        var hasCurrentDraftVersion = profile.CurrentDraftProfileVersionId != Guid.Empty;
+        var hasCurrentPublishedVersion = profile.CurrentPublishedProfileVersionId != Guid.Empty;
+
+        // Only fetched for a what-if scenario: ParentProfile.CurrentPublishedVersion/HasPublicVersion.
+        var parentProfile = isWhatIfScenario
+            ? await repository.GetProfileAttributesAsync(profile.ParentId, cancellationToken)
+            : null;
+        var parentHasPublishedVersion = parentProfile is not null && parentProfile.CurrentPublishedProfileVersionId != Guid.Empty;
+        var parentHasPublicVersion = parentProfile is not null && parentProfile.CurrentPublicVersionId != Guid.Empty;
+
+        var parentPublishedVersionIsPublic = false;
+        if (parentHasPublishedVersion)
+        {
+            var parentPublishedVersion = await repository.GetProfileVersionSummaryAsync(
+                parentProfile!.CurrentPublishedProfileVersionId, cancellationToken);
+            parentPublishedVersionIsPublic = parentPublishedVersion?.IsPublic ?? false;
+        }
+
+        var currentPublishedVersionIsPublic = false;
+        if (hasCurrentPublishedVersion)
+        {
+            var currentPublishedVersion = await repository.GetProfileVersionSummaryAsync(
+                profile.CurrentPublishedProfileVersionId, cancellationToken);
+            currentPublishedVersionIsPublic = currentPublishedVersion?.IsPublic ?? false;
+        }
+
+        // ProfileContributorList.CanGetContributorList() / Profile.CanCreateProfile() /
+        // Profile.CanEditProfile(): all identity.IsProfileEditor AndAlso Not IsUserManagementSystem.
+        var isProfileEditorNotUserManagement = userContext.IsProfileEditor && !userContext.IsUserManagementSystem;
+
+        // Profile.CanPublish(): false with no draft; false for a what-if scenario whose parent
+        // has no published version; otherwise identity.IsProfileEditor.
+        bool canPublish;
+        if (!hasCurrentDraftVersion)
+        {
+            canPublish = false;
+        }
+        else if (isWhatIfScenario && !parentHasPublishedVersion)
+        {
+            canPublish = false;
+        }
+        else
+        {
+            canPublish = userContext.IsProfileEditor;
+        }
+
+        // Profile.CanPublishPublic(): for a what-if scenario whose parent has a published
+        // version, only when that published version is itself public; otherwise same as CanPublish().
+        var canPublishPublic = isWhatIfScenario && parentHasPublishedVersion
+            ? canPublish && parentPublishedVersionIsPublic
+            : canPublish;
+
+        // SetProfileVersionPublicAccessCommand.CanChangePublicAccess(profile.Id).
+        bool canChangePublicAccess;
+        if (!hasCurrentPublishedVersion)
+        {
+            canChangePublicAccess = false;
+        }
+        else if (currentPublishedVersionIsPublic)
+        {
+            canChangePublicAccess = false;
+        }
+        else if (isWhatIfScenario && !parentHasPublicVersion)
+        {
+            canChangePublicAccess = false;
+        }
+        else
+        {
+            canChangePublicAccess = isProfileEditorNotUserManagement;
+        }
+
+        return new ManageProfileLinkVisibilityDto
+        {
+            CanEditProperties = isProfileEditorNotUserManagement && (isWhatIfScenario || hasCurrentDraftVersion),
+            CanMaintainContributorsAndReviewers = isProfileEditorNotUserManagement,
+            CanViewContributionsReport = (userContext.IsProfileEditor || userContext.IsPolicyProfileUser) && !userContext.IsUserManagementSystem,
+            CanCreateNewDraftVersion = userContext.IsProfileEditor,
+            CanDeleteCurrentVersion = hasCurrentDraftVersion && userContext.IsProfileEditor,
+            CanCloneNewProfile = isProfileEditorNotUserManagement && !isWhatIfScenario,
+            CanCloneNewScenario = isProfileEditorNotUserManagement,
+            CanPublishPublic = canPublishPublic,
+            CanPublishDefranetOnly = canPublish,
+            CanAllowPublicAccess = canChangePublicAccess && profile.CurrentPublishedProfileVersionId != profile.CurrentPublicVersionId
         };
     }
 

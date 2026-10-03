@@ -34,10 +34,9 @@
             <li class="govuk-breadcrumbs__list-item">
                 <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
             </li>
-            <li class="govuk-breadcrumbs__list-item">
-                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@Model.ProfileId">Manage</a>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)
             </li>
-            <li class="govuk-breadcrumbs__list-item" aria-current="page">Browse profile</li>
         </ol>
     </div>
 }
@@ -72,19 +71,52 @@ else
             }
             else
             {
-                <div class="app-species-tabs">
-                    <span class="app-species-tabs__tab app-species-tabs__tab--active">@Model.CurrentSection.Name</span>
-                </div>
+                <h2 class="govuk-heading-m">@Model.CurrentSection.Name</h2>
 
-                <div class="app-species-panel">
-                    @if (Model.HasNoVersion)
-                    {
-                        <div class="govuk-inset-text">This profile has no current version to browse.</div>
-                    }
-                    else
-                    {
-                        <partial name="_QuestionAccordion" model="accordionModel" />
-                    }
+                <div class="govuk-tabs" data-module="govuk-tabs">
+                    <h2 class="govuk-tabs__title">Contents</h2>
+                    <ul class="govuk-tabs__list">
+                        <li class="govuk-tabs__list-item govuk-tabs__list-item--selected">
+                            <a class="govuk-tabs__tab" href="#profile-questions-panel">Questions</a>
+                        </li>
+                        <li class="govuk-tabs__list-item">
+                            <a class="govuk-tabs__tab" href="#profile-references-panel">References</a>
+                        </li>
+                        <li class="govuk-tabs__list-item">
+                            <a class="govuk-tabs__tab" href="#profile-further-information-panel">Further information</a>
+                        </li>
+                    </ul>
+                    <div class="govuk-tabs__panel" id="profile-questions-panel">
+                        @if (Model.HasNoVersion)
+                        {
+                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                        }
+                        else
+                        {
+                            <partial name="_QuestionAccordion" model="accordionModel" />
+                        }
+                    </div>
+                    <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-references-panel">
+                        @if (Model.HasNoVersion)
+                        {
+                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                        }
+                        else
+                        {
+                            <partial name="_ProfileNoteList" model="Model.ScientificPaperReferences" />
+                            <partial name="_ProfileNoteList" model="Model.LegislativeReferences" />
+                        }
+                    </div>
+                    <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-further-information-panel">
+                        @if (Model.HasNoVersion)
+                        {
+                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                        }
+                        else
+                        {
+                            <partial name="_ProfileNoteList" model="Model.FurtherInformation" />
+                        }
+                    </div>
                 </div>
 
                 <partial name="_SectionPagination" model="paginationModel" />

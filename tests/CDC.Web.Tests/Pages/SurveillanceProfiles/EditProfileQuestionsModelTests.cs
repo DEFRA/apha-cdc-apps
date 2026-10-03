@@ -26,7 +26,10 @@ public class EditProfileQuestionsModelTests
         ProfileQuestionnaireMetadataDto? metadata = null,
         ProfileSectionAnswersDto? answers = null,
         Guid? section = null,
-        IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null)
+        IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
+        IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
+        IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
+        Exception? throwOnGetProfileNoteTypes = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -35,7 +38,10 @@ public class EditProfileQuestionsModelTests
             new FakeProfileSectionsApiService(
                 metadata: metadata,
                 answers: answers,
-                referenceValuesByTable: referenceValuesByTable),
+                referenceValuesByTable: referenceValuesByTable,
+                noteTypes: noteTypes,
+                notesByNoteType: notesByNoteType,
+                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes),
             NullLogger<EditProfileQuestionsModel>.Instance)
         {
             ProfileId = ProfileId,
@@ -157,6 +163,99 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(pageModel.HasNoVersion);
         Assert.Empty(pageModel.Questions);
+        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
+        Assert.Empty(pageModel.LegislativeReferences.Notes);
+        Assert.Empty(pageModel.FurtherInformation.Notes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_PopulatesReferencesAndFurtherInformation_MatchedByNoteTypeName_RegardlessOfCasingOrSpacing()
+    {
+        var scientificPaperReferenceTypeId = Guid.NewGuid();
+        var legislativeReferenceTypeId = Guid.NewGuid();
+        var furtherInformationTypeId = Guid.NewGuid();
+
+        var noteTypes = new List<ProfileNoteTypeDto>
+        {
+            new() { Id = scientificPaperReferenceTypeId, Name = "scientific paper reference", PluralName = "Scientific paper references" },
+            new() { Id = legislativeReferenceTypeId, Name = "Legislative Reference", PluralName = "Legislative references" },
+            new() { Id = furtherInformationTypeId, Name = "SourceOfFurtherInformation", PluralName = "Sources of further information" }
+        };
+
+        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
+        {
+            [scientificPaperReferenceTypeId] =
+            [
+                new ProfileNoteDto
+                {
+                    Id = Guid.NewGuid(),
+                    NoteText = "Zebra et al. (2020) <a href='https://example.com'>https://example.com</a>",
+                    QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
+                },
+                new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }
+            ],
+            [legislativeReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Animal Health Act 1981" }]
+        };
+
+        var pageModel = CreatePageModel(
+            Profile(),
+            metadata: TwoSectionMetadata(),
+            noteTypes: noteTypes,
+            notesByNoteType: notesByNoteType);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal("Scientific paper references", pageModel.ScientificPaperReferences.Heading);
+        Assert.Equal(2, pageModel.ScientificPaperReferences.Notes.Count);
+        Assert.Equal("Aardvark et al. (2019)", pageModel.ScientificPaperReferences.Notes[0].NoteTextHtml);
+        Assert.Equal("1.1", pageModel.ScientificPaperReferences.Notes[1].QuestionReferenceDisplay);
+        Assert.Contains("<a href=", pageModel.ScientificPaperReferences.Notes[1].NoteTextHtml);
+
+        Assert.Equal("Legislative references", pageModel.LegislativeReferences.Heading);
+        Assert.Single(pageModel.LegislativeReferences.Notes);
+
+        Assert.Empty(pageModel.FurtherInformation.Notes);
+        Assert.Equal("Sources of further information", pageModel.FurtherInformation.Heading);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DefaultsToEmptyGroups_WhenNoteTypesAreNotFound()
+    {
+        var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
+        Assert.Equal("There are no scientific paper references to display.", pageModel.ScientificPaperReferences.EmptyMessage);
+        Assert.Empty(pageModel.LegislativeReferences.Notes);
+        Assert.Empty(pageModel.FurtherInformation.Notes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_StillReturnsQuestions_WhenLoadingReferencesFails()
+    {
+        var answers = new ProfileSectionAnswersDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            ProfileSectionId = SummarySectionId,
+            QuestionNames = [new ProfileQuestionNameDto { Id = QuestionId, Name = "Is the disease endemic in GB?" }],
+            FieldValues = []
+        };
+
+        var pageModel = CreatePageModel(
+            Profile(),
+            metadata: TwoSectionMetadata(),
+            answers: answers,
+            throwOnGetProfileNoteTypes: new HttpRequestException("connection refused"));
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.Questions);
+        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
+        Assert.Empty(pageModel.LegislativeReferences.Notes);
+        Assert.Empty(pageModel.FurtherInformation.Notes);
     }
 
     [Fact]

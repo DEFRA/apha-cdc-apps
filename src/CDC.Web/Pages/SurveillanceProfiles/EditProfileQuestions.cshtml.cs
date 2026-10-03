@@ -50,8 +50,20 @@ public class EditProfileQuestionsModel(
     /// <summary>Gets the real questions and recorded answers for <see cref="CurrentSection"/>.</summary>
     public IReadOnlyList<AccordionQuestionView> Questions { get; private set; } = [];
 
+    /// <summary>Gets the current section's scientific paper references, for the References tab.</summary>
+    public ProfileNoteGroupView ScientificPaperReferences { get; private set; } = EmptyNoteGroup("Scientific paper references");
+
+    /// <summary>Gets the current section's legislative references, for the References tab.</summary>
+    public ProfileNoteGroupView LegislativeReferences { get; private set; } = EmptyNoteGroup("Legislative references");
+
+    /// <summary>Gets the current section's sources of further information, for the Further
+    /// information tab.</summary>
+    public ProfileNoteGroupView FurtherInformation { get; private set; } = EmptyNoteGroup("Sources of further information");
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        var profileVersionId = Guid.Empty;
+
         try
         {
             var profile = await apiClient.GetManageProfileAsync(ProfileId, cancellationToken);
@@ -82,12 +94,28 @@ public class EditProfileQuestionsModel(
                 return Page();
             }
 
-            await LoadQuestionsAsync(profile.CurrentProfileVersionId, CurrentSection, cancellationToken);
+            profileVersionId = profile.CurrentProfileVersionId;
+            await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
             logger.ProfileQuestionsLoadFailed(exception, ProfileId);
             HasError = true;
+        }
+
+        // Kept outside the Questions try/catch above: the References and Further information
+        // tabs are a separate data source, so a failure there must not blank out the Questions
+        // tab that already loaded successfully.
+        if (!HasError && !HasNoVersion && CurrentSection is not null)
+        {
+            try
+            {
+                await LoadNotesAsync(profileVersionId, CurrentSection, cancellationToken);
+            }
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+            {
+                logger.ProfileNotesLoadFailed(exception, ProfileId);
+            }
         }
 
         return Page();
@@ -96,6 +124,73 @@ public class EditProfileQuestionsModel(
     /// <summary>Builds the querystring URL for a left-nav/pagination link to a different section of this profile.</summary>
     public string? BuildSectionUrl(Guid sectionId) =>
         Url.Page("/SurveillanceProfiles/EditProfileQuestions", new { profileId = ProfileId, section = sectionId });
+
+    /// <summary>Loads the current section's References and Further information tab content.
+    /// Resolves each note type by name rather than a hardcoded id, since note types are reference
+    /// data (<c>GET /api/profile-notes/types</c>); a missing type degrades to an empty group
+    /// rather than failing the whole page.</summary>
+    private async Task LoadNotesAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
+    {
+        var noteTypes = await profileSectionsApiService.GetProfileNoteTypesAsync(cancellationToken);
+
+        var questionNumbersById = Sections
+            .SelectMany(s => s.Questions.Select(question => (question.Id, Display: $"{s.SectionNumber}.{question.QuestionNumber}")))
+            .ToDictionary(pair => pair.Id, pair => pair.Display);
+
+        ScientificPaperReferences = await LoadNoteGroupAsync(
+            noteTypes, "SCIENTIFICPAPERREFERENCE", "Scientific paper references",
+            profileVersionId, section.Id, questionNumbersById, cancellationToken);
+
+        LegislativeReferences = await LoadNoteGroupAsync(
+            noteTypes, "LEGISLATIVEREFERENCE", "Legislative references",
+            profileVersionId, section.Id, questionNumbersById, cancellationToken);
+
+        FurtherInformation = await LoadNoteGroupAsync(
+            noteTypes, "SOURCEOFFURTHERINFORMATION", "Sources of further information",
+            profileVersionId, section.Id, questionNumbersById, cancellationToken);
+    }
+
+    private async Task<ProfileNoteGroupView> LoadNoteGroupAsync(
+        IReadOnlyList<ProfileNoteTypeDto> noteTypes,
+        string normalisedNoteTypeName,
+        string fallbackHeading,
+        Guid profileVersionId,
+        Guid profileSectionId,
+        IReadOnlyDictionary<Guid, string> questionNumbersById,
+        CancellationToken cancellationToken)
+    {
+        var noteType = noteTypes.FirstOrDefault(type => NormaliseNoteTypeName(type.Name) == normalisedNoteTypeName);
+
+        if (noteType is null)
+        {
+            return EmptyNoteGroup(fallbackHeading);
+        }
+
+        var notes = await profileSectionsApiService.GetProfileNotesBySectionAsync(
+            profileVersionId, profileSectionId, noteType.Id, cancellationToken);
+
+        var heading = string.IsNullOrEmpty(noteType.PluralName) ? fallbackHeading : noteType.PluralName;
+
+        var rows = notes
+            .OrderBy(note => ProfileTitleHtmlFormatter.ToPlainText(note.NoteText), StringComparer.OrdinalIgnoreCase)
+            .Select(note => new ProfileNoteRowView(
+                note.NoteText,
+                string.Join(", ", note.QuestionReferences
+                    .Select(reference => questionNumbersById.GetValueOrDefault(reference.ProfileQuestionId))
+                    .Where(number => !string.IsNullOrEmpty(number)))))
+            .ToList();
+
+        return new ProfileNoteGroupView(heading, BuildEmptyMessage(heading), rows);
+    }
+
+    /// <summary>Strips everything but letters so a reference-data display name (however spaced or
+    /// cased) can be matched against the legacy note type's PascalCase identifier.</summary>
+    private static string NormaliseNoteTypeName(string name) =>
+        new string([.. name.Where(char.IsLetter)]).ToUpperInvariant();
+
+    private static ProfileNoteGroupView EmptyNoteGroup(string heading) => new(heading, BuildEmptyMessage(heading), []);
+
+    private static string BuildEmptyMessage(string heading) => $"There are no {heading.ToLowerInvariant()} to display.";
 
     private async Task LoadQuestionsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
     {
@@ -211,4 +306,7 @@ internal static partial class EditProfileQuestionsLog
 {
     [LoggerMessage(EventId = 2300, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' questions from CDC.Api")]
     public static partial void ProfileQuestionsLoadFailed(this ILogger logger, Exception exception, Guid profileId);
+
+    [LoggerMessage(EventId = 2301, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' references/further information from CDC.Api")]
+    public static partial void ProfileNotesLoadFailed(this ILogger logger, Exception exception, Guid profileId);
 }

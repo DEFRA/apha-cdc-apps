@@ -13,7 +13,10 @@ public class ProfileManagementServiceTests
     private readonly Mock<IProfileManagementRepository> repository = new(MockBehavior.Strict);
 
     private CDC.Api.Features.ProfileManagement.ProfileManagementService CreateService() =>
-        new(repository.Object, NullLogger<CDC.Api.Features.ProfileManagement.ProfileManagementService>.Instance);
+        new(
+            repository.Object,
+            ManageProfileLinkVisibilityTests.TestUserContext.ProfileEditor,
+            NullLogger<CDC.Api.Features.ProfileManagement.ProfileManagementService>.Instance);
 
     [Fact]
     public async Task GetProfileAttributes_ReturnsNull_WhenRepositoryReturnsNull()
@@ -279,6 +282,9 @@ public class ProfileManagementServiceTests
         repository
             .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(profile.ParentId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profile?)null);
         repository
             .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProfileVersionSummary?)null);

@@ -43,4 +43,27 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
 
         return values ?? [];
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileNoteTypeDto>> GetProfileNoteTypesAsync(CancellationToken cancellationToken = default)
+    {
+        var noteTypes = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileNoteTypeDto>>(
+            "/api/profile-notes/types", cancellationToken);
+
+        return noteTypes ?? [];
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesBySectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid noteTypeId,
+        CancellationToken cancellationToken = default)
+    {
+        var notes = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileNoteDto>>(
+            $"/api/profile-notes/by-section?profileVersionId={profileVersionId}&profileSectionId={profileSectionId}&noteTypeId={noteTypeId}",
+            cancellationToken);
+
+        return notes ?? [];
+    }
 }

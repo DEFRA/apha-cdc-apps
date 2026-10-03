@@ -29,4 +29,22 @@ public interface IProfileSectionsApiService
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The reference values; an empty list when the table has none.</returns>
     Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-notes/types</c>, used to resolve the note type ids for
+    /// the References and Further information tabs.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every profile note type.</returns>
+    Task<IReadOnlyList<ProfileNoteTypeDto>> GetProfileNoteTypesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-notes/by-section</c>.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="profileSectionId">The section to read.</param>
+    /// <param name="noteTypeId">The note type to filter by.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The matching notes; an empty list when none have been recorded.</returns>
+    Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesBySectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid noteTypeId,
+        CancellationToken cancellationToken = default);
 }

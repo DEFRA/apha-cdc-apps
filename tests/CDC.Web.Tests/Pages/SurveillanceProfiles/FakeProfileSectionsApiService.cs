@@ -9,7 +9,10 @@ internal sealed class FakeProfileSectionsApiService(
     ProfileQuestionnaireMetadataDto? metadata = null,
     ProfileSectionAnswersDto? answers = null,
     Exception? throwOnGetProfileSectionAnswers = null,
-    IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null)
+    IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
+    IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
+    IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
+    Exception? throwOnGetProfileNoteTypes = null)
     : IProfileSectionsApiService
 {
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
@@ -27,5 +30,20 @@ internal sealed class FakeProfileSectionsApiService(
         Task.FromResult(
             referenceValuesByTable is not null && referenceValuesByTable.TryGetValue(referenceTableId, out var values)
                 ? values
+                : []);
+
+    public Task<IReadOnlyList<ProfileNoteTypeDto>> GetProfileNoteTypesAsync(CancellationToken cancellationToken = default) =>
+        throwOnGetProfileNoteTypes is not null
+            ? Task.FromException<IReadOnlyList<ProfileNoteTypeDto>>(throwOnGetProfileNoteTypes)
+            : Task.FromResult(noteTypes ?? []);
+
+    public Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesBySectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid noteTypeId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(
+            notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
+                ? notes
                 : []);
 }

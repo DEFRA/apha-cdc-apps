@@ -38,4 +38,7 @@ public abstract record ManageProfileContract
     /// when the profile has no version at all.
     /// </summary>
     public Guid CurrentProfileVersionId { get; init; }
+
+    /// <summary>Gets which action links are visible for the current user and profile state.</summary>
+    public ManageProfileLinkVisibilityDto LinkVisibility { get; init; } = new();
 }

@@ -25,7 +25,7 @@ else
                             <div class="govuk-form-group">
                                 <fieldset class="govuk-fieldset">
                                     <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
-                                    <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                    <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
                                         @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
                                         {
                                             var option = field.Options[optionIndex];

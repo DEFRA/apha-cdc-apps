@@ -458,6 +458,39 @@ body {
   box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
 }
 
+/* Reusable responsive layout for checkbox groups with many options (profile/species
+   questionnaire "List"/"MultiValueList" fields) - mirrors the legacy Web Forms 3-column grid.
+   Apply alongside .govuk-checkboxes; items flow left-to-right and wrap onto further rows.
+   Breakpoints match govuk-frontend's own tablet/desktop breakpoints (40.0625em / 48.0625em). */
+.app-checkboxes--columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 1.5rem;
+}
+
+@media (min-width: 40.0625em) {
+  .app-checkboxes--columns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 48.0625em) {
+  .app-checkboxes--columns {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Grid row-gap would add to this margin, so rows are spaced by the item's own margin only. */
+.app-checkboxes--columns > .govuk-checkboxes__item {
+  margin-bottom: 10px;
+}
+
+/* References/Further information tables: note text may contain long unbroken URLs, which
+   would otherwise overflow the cell rather than wrap - mirrors .app-title-editor below. */
+.app-profile-note-table__text {
+  overflow-wrap: anywhere;
+}
+
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
    between "Open all" (pointing down) and "Close all" (pointing up). */
 .app-tree__toggle-all-icon {

@@ -106,36 +106,66 @@
             </dl>
 
             <ul class="govuk-list">
-                <li>
-                    <a class="govuk-link" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./EditProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./MaintainContributorsAndReviewers" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./ViewContributionsReport" asp-route-profileId="@Model.ProfileId">View contributions report</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./DeleteCurrentVersion" asp-route-profileId="@Model.ProfileId">Delete current version</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./CloneNewProfile" asp-route-profileId="@Model.ProfileId">Clone new profile</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./CloneNewScenario" asp-route-profileId="@Model.ProfileId">Clone new scenario</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./PublishPublic" asp-route-profileId="@Model.ProfileId">Publish (public)</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./PublishDefranetOnly" asp-route-profileId="@Model.ProfileId">Publish (Defranet only)</a>
-                </li>
+                @if (Model.Profile.LinkVisibility.CanAllowPublicAccess)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanEditProperties)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./EditProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanMaintainContributorsAndReviewers)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./MaintainContributorsAndReviewers" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanViewContributionsReport)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./ViewContributionsReport" asp-route-profileId="@Model.ProfileId">View contributions report</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanCreateNewDraftVersion)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanDeleteCurrentVersion)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./DeleteCurrentVersion" asp-route-profileId="@Model.ProfileId">Delete current version</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanCloneNewProfile)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./CloneNewProfile" asp-route-profileId="@Model.ProfileId">Clone new profile</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanCloneNewScenario)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./CloneNewScenario" asp-route-profileId="@Model.ProfileId">Clone new scenario</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanPublishPublic)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./PublishPublic" asp-route-profileId="@Model.ProfileId">Publish (public)</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanPublishDefranetOnly)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./PublishDefranetOnly" asp-route-profileId="@Model.ProfileId">Publish (Defranet only)</a>
+                    </li>
+                }
             </ul>
         }
     </div>
