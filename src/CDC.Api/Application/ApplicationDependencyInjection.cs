@@ -11,6 +11,8 @@ using CDC.Api.Features.ProfileSearch;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
+using CDC.Api.Features.Users;
+using CDC.Api.Features.Users.Interfaces;
 using FluentValidation;
 using MediatR;
 
@@ -41,6 +43,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileNoteService, ProfileNoteService>();
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();
         services.AddScoped<IProfileReportService, ProfileReportService>();
+        services.AddScoped<IUserService, UserService>();
 
         return services;
     }

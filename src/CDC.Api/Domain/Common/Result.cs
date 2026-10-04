@@ -13,7 +13,10 @@ public enum ResultStatus
     NotFound = 1,
 
     /// <summary>The operation clashed with a concurrent change and was abandoned.</summary>
-    Conflict = 2
+    Conflict = 2,
+
+    /// <summary>The caller is not permitted to perform the operation.</summary>
+    Forbidden = 3
 }
 
 /// <summary>
@@ -70,4 +73,10 @@ public static class Result
     /// <param name="error">Description of the conflict.</param>
     /// <returns>A conflict <see cref="Result{T}"/>.</returns>
     public static Result<T> Conflict<T>(string error) => new(ResultStatus.Conflict, default, error);
+
+    /// <summary>Creates a "not permitted" result.</summary>
+    /// <typeparam name="T">Type of the value the operation would have produced.</typeparam>
+    /// <param name="error">Description of why the operation is not permitted.</param>
+    /// <returns>A forbidden <see cref="Result{T}"/>.</returns>
+    public static Result<T> Forbidden<T>(string error) => new(ResultStatus.Forbidden, default, error);
 }
