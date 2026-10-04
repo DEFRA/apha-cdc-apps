@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 
 namespace CDC.Web.Tests.Infrastructure;
 
@@ -223,6 +224,73 @@ public class ApiClientTests
 
         Assert.Equal(UpdateProfileTitleOutcome.Error, result.Outcome);
         Assert.Equal("The profile title could not be saved. Please try again.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsSuccess_WithDeserialisedUser()
+    {
+        const string json = """
+            {
+              "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "fullName": "Jane External",
+              "emailAddress": "user@example.com",
+              "organisation": "ACME Ltd"
+            }
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+        var request = new ResolveExternalUserRequestDto
+        {
+            CidmSsoId = Guid.NewGuid(),
+            Email = "user@example.com",
+            FirstName = "Jane",
+            LastName = "External",
+            Organisation = "ACME Ltd"
+        };
+
+        var result = await client.ResolveExternalUserAsync(request);
+
+        Assert.Equal(ResolveExternalUserOutcome.Success, result.Outcome);
+        Assert.Equal("Jane External", result.User!.FullName);
+        Assert.Equal("/api/users/external/resolve", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsNotPermitted_OnForbidden()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Forbidden, "{}"));
+        var request = new ResolveExternalUserRequestDto
+        {
+            CidmSsoId = Guid.NewGuid(),
+            Email = "user@example.com",
+            FirstName = "Jane",
+            LastName = "External",
+            Organisation = "ACME Ltd"
+        };
+
+        var result = await client.ResolveExternalUserAsync(request);
+
+        Assert.Equal(ResolveExternalUserOutcome.NotPermitted, result.Outcome);
+        Assert.Null(result.User);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+        var request = new ResolveExternalUserRequestDto
+        {
+            CidmSsoId = Guid.NewGuid(),
+            Email = "user@example.com",
+            FirstName = "Jane",
+            LastName = "External",
+            Organisation = "ACME Ltd"
+        };
+
+        var result = await client.ResolveExternalUserAsync(request);
+
+        Assert.Equal(ResolveExternalUserOutcome.Error, result.Outcome);
+        Assert.Null(result.User);
     }
 
     private static ApiClient CreateClient(HttpMessageHandler handler)

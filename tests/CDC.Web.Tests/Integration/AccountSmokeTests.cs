@@ -33,4 +33,14 @@ public class AccountSmokeTests : IClassFixture<CdcWebTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task NotPermitted_ReturnsSuccess()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/Account/NotPermitted");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }

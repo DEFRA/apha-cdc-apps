@@ -1,6 +1,11 @@
 using System.Net;
+using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 using CDC.Web.Tests.TestSupport;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CDC.Web.Tests.Integration;
 
@@ -18,6 +23,7 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
     [Theory]
     [InlineData("/")]
     [InlineData("/Landing/Internal")]
+    [InlineData("/Landing/Error")]
     [InlineData("/HelpSupport/HelpUsingD2R2")]
     [InlineData("/HelpSupport/QualityStatement")]
     public async Task LandingRoutes_ReturnSuccess(string url)
@@ -25,6 +31,65 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // Program.cs only registers the global exception handler middleware outside Development, so a
+    // Development-environment test host (the default for every other test here) never exercises
+    // that branch. A dedicated Production-environment host proves the app still starts and serves
+    // requests with it registered.
+    [Fact]
+    public async Task LandingRoutes_ReturnSuccess_InProductionEnvironment()
+    {
+        await using var productionFactory = _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        var client = productionFactory.CreateClient();
+
+        var response = await client.GetAsync("/Landing/Error");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // The other ManageProfile smoke tests only exercise the error-state view (the real ApiClient
+    // has no live CDC.Api to call in tests), so this fakes a successful response to render the
+    // page's happy-path markup too.
+    [Fact]
+    public async Task ManageProfile_WithAProfile_RendersTheHappyPathView()
+    {
+        var profileId = Guid.NewGuid();
+        await using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddScoped<IApiClient>(_ => new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: new ManageProfileViewModel
+            {
+                ProfileId = profileId,
+                ProfileTitle = "Bovine Tuberculosis",
+                ScenarioTitle = "Default Scenario",
+                LatestPublishedVersionPublic = "Version 5",
+                LatestPublishedVersionDefraNetOnly = "Version 7",
+                LatestDraftVersion = "Version 8",
+                ProfileStatus = "Draft"
+            }))));
+        var client = factory.CreateClient();
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/ManageProfile/{profileId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Bovine Tuberculosis", await response.Content.ReadAsStringAsync());
+    }
+
+    // The search filters are resubmitted via a background fetch that only wants the results
+    // fragment re-rendered, not a full page reload - signalled by this header.
+    [Fact]
+    public async Task Search_WithAjaxHeader_ReturnsOnlyTheResultsPartial()
+    {
+        var client = _factory.CreateClient();
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -57,6 +122,16 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/CrossProfileAdmin/ReferenceData")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
+    [InlineData("/SurveillanceProfiles/PublishPublic/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/PublishDefranetOnly/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/ViewContributionsReport/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/CloneNewScenario/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/AllowPublicAccess/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/CreateNewDraftVersion/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/MaintainContributorsAndReviewers/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/EditProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/ManageProfile/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/EditProfileTitle/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     public async Task ProtectedRoutes_Anonymous_RedirectToCidmRatherThanRenderingView(string url)
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -82,6 +157,16 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/CrossProfileAdmin/ReferenceData")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
+    [InlineData("/SurveillanceProfiles/PublishPublic/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/PublishDefranetOnly/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/ViewContributionsReport/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/CloneNewScenario/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/AllowPublicAccess/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/CreateNewDraftVersion/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/MaintainContributorsAndReviewers/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/EditProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/ManageProfile/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/EditProfileTitle/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     public async Task ProtectedRoutes_AuthenticatedSession_ReturnSuccess(string url)
     {
         var client = _factory.CreateClient();

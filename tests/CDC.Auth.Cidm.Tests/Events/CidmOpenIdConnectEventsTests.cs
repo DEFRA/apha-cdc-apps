@@ -4,6 +4,7 @@ using CDC.Auth.Cidm.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -129,6 +130,80 @@ public class CidmOpenIdConnectEventsTests
     }
 
     [Fact]
+    public async Task TokenValidated_NoResolverRegistered_LeavesPrincipalUnchanged()
+    {
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var principal = new ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), principal, new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.False(context.Result?.Handled ?? false);
+        Assert.DoesNotContain(identity.Claims, claim => claim.Type == "internalUserId");
+    }
+
+    [Fact]
+    public async Task TokenValidated_ResolverAllows_AddsReturnedClaims()
+    {
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var principal = new ClaimsPrincipal(identity);
+        var resolver = new StubResolver(CidmExternalUserResolution.Allow(new Dictionary<string, string>
+        {
+            ["internalUserId"] = "11111111-1111-1111-1111-111111111111",
+            ["fullName"] = "Jane External"
+        }));
+        var services = new ServiceCollection();
+        services.AddSingleton<ICidmExternalUserResolver>(resolver);
+        var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), principal, new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.Contains(identity.Claims, c => c.Type == "internalUserId" && c.Value == "11111111-1111-1111-1111-111111111111");
+        Assert.Contains(identity.Claims, c => c.Type == "fullName" && c.Value == "Jane External");
+    }
+
+    [Fact]
+    public async Task TokenValidated_ResolverDenies_HandlesResponseAndRedirectsToDenialPath()
+    {
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var principal = new ClaimsPrincipal(identity);
+        var resolver = new StubResolver(CidmExternalUserResolution.Deny("/Account/NotPermitted"));
+        var services = new ServiceCollection();
+        services.AddSingleton<ICidmExternalUserResolver>(resolver);
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            Response = { Body = new MemoryStream() }
+        };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), principal, new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.True(context.Result?.Handled);
+        Assert.Equal(StatusCodes.Status302Found, httpContext.Response.StatusCode);
+        Assert.Equal("/Account/NotPermitted", httpContext.Response.Headers.Location);
+    }
+
+    private sealed class StubResolver(CidmExternalUserResolution resolution) : ICidmExternalUserResolver
+    {
+        public Task<CidmExternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken) =>
+            Task.FromResult(resolution);
+    }
+
+    private sealed class FakeStateDataFormat : ISecureDataFormat<AuthenticationProperties>
+    {
+        public string Protect(AuthenticationProperties data) => "protected-state";
+
+        public string Protect(AuthenticationProperties data, string? purpose) => "protected-state";
+
+        public AuthenticationProperties? Unprotect(string? protectedText) => new();
+
+        public AuthenticationProperties? Unprotect(string? protectedText, string? purpose) => new();
+    }
+
+    [Fact]
     public async Task RemoteFailure_HandlesResponseAndRedirectsToGenericErrorPage()
     {
         var httpContext = new DefaultHttpContext();
@@ -145,7 +220,8 @@ public class CidmOpenIdConnectEventsTests
     public async Task RedirectToIdentityProviderForSignOut_RendersHtmlFormWithEndSessionEndpoint()
     {
         var httpContext = new DefaultHttpContext { Response = { Body = new MemoryStream() } };
-        var context = new RedirectContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new AuthenticationProperties())
+        var context = new RedirectContext(
+            httpContext, CreateScheme(), new OpenIdConnectOptions { StateDataFormat = new FakeStateDataFormat() }, new AuthenticationProperties())
         {
             ProtocolMessage = new OpenIdConnectMessage
             {
@@ -161,6 +237,7 @@ public class CidmOpenIdConnectEventsTests
         var body = new StreamReader(httpContext.Response.Body).ReadToEnd();
         Assert.Contains("action=\"https://cidm.test/signout\"", body);
         Assert.Contains("text/html", httpContext.Response.ContentType);
+        Assert.Equal("protected-state", context.ProtocolMessage.State);
     }
 
     [Fact]

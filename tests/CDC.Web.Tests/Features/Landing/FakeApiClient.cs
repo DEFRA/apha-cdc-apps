@@ -51,4 +51,9 @@ internal sealed class FakeApiClient(
         throwOnGetManageProfile is not null
             ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
             : Task.FromResult(manageProfile);
+
+    public Task<ResolveExternalUserResult> ResolveExternalUserAsync(
+        ResolveExternalUserRequestDto request,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 }

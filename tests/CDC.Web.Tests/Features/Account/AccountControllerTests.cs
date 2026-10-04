@@ -72,11 +72,42 @@ public class AccountControllerTests
     }
 
     [Fact]
+    public async Task Logout_WhenCookieCarriesAnIdToken_ForwardsItAsIdTokenHintToCidmSignOut()
+    {
+        var httpContext = CreateHttpContextWithFakeAuth(out var authService);
+        var cookieProperties = new AuthenticationProperties();
+        cookieProperties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = "captured-id-token" }]);
+        var identity = new ClaimsIdentity(authenticationType: CookieAuthenticationDefaults.AuthenticationScheme);
+        authService.AuthenticateResultToReturn = AuthenticateResult.Success(
+            new AuthenticationTicket(new ClaimsPrincipal(identity), cookieProperties, CookieAuthenticationDefaults.AuthenticationScheme));
+        var controller = new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+            Url = new FakeUrlHelper()
+        };
+
+        var result = await controller.Logout();
+
+        var signOut = Assert.IsType<SignOutResult>(result);
+        Assert.Equal("captured-id-token", signOut.Properties!.GetTokenValue("id_token"));
+    }
+
+    [Fact]
     public void SignedOut_ReturnsView()
     {
         var controller = new AccountController();
 
         var result = controller.SignedOut();
+
+        Assert.IsType<ViewResult>(result);
+    }
+
+    [Fact]
+    public void NotPermitted_ReturnsView()
+    {
+        var controller = new AccountController();
+
+        var result = controller.NotPermitted();
 
         Assert.IsType<ViewResult>(result);
     }

@@ -13,8 +13,10 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
 
     public IEnumerable<string?> SignOutSchemes => SignOutCalls.Select(call => call.Scheme);
 
+    public AuthenticateResult AuthenticateResultToReturn { get; set; } = AuthenticateResult.NoResult();
+
     public Task<AuthenticateResult> AuthenticateAsync(HttpContext context, string? scheme) =>
-        Task.FromResult(AuthenticateResult.NoResult());
+        Task.FromResult(AuthenticateResultToReturn);
 
     public Task ChallengeAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) =>
         Task.CompletedTask;
