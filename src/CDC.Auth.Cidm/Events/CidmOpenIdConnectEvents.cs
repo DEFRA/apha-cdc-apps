@@ -5,6 +5,7 @@ using CDC.Auth.Cidm.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -50,11 +51,11 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
     }
 
     /// <inheritdoc />
-    public override Task TokenValidated(TokenValidatedContext context)
+    public override async Task TokenValidated(TokenValidatedContext context)
     {
         if (context.Principal?.Identity is not ClaimsIdentity identity)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var rawRelationships = context.Principal.FindAll(CidmClaimTypes.RawRelationships).Select(c => c.Value);
@@ -72,7 +73,29 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
             identity.AddClaim(new Claim(CidmClaimTypes.Role, JsonSerializer.Serialize(role)));
         }
 
-        return Task.CompletedTask;
+        // Resolved per-request rather than constructor-injected (this class is a singleton) - if
+        // the consuming app hasn't registered one (or RequestServices isn't set, as in some unit
+        // test contexts), sign-in proceeds exactly as before this hook existed.
+        var resolver = context.HttpContext.RequestServices?.GetService<ICidmExternalUserResolver>();
+        if (resolver is null)
+        {
+            return;
+        }
+
+        var resolution = await resolver.ResolveAsync(context.Principal, context.HttpContext.RequestAborted);
+        if (!resolution.IsAllowed)
+        {
+            // Runs before the OIDC handler ever signs the principal into the cookie scheme, so
+            // denying here means no local session is ever created for this sign-in attempt.
+            context.HandleResponse();
+            context.HttpContext.Response.Redirect(resolution.DenialRedirectPath ?? "/");
+            return;
+        }
+
+        foreach (var (claimType, claimValue) in resolution.Claims ?? new Dictionary<string, string>())
+        {
+            identity.AddClaim(new Claim(claimType, claimValue));
+        }
     }
 
     /// <inheritdoc />
@@ -96,6 +119,16 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
         if (string.IsNullOrEmpty(endSessionEndpoint))
         {
             return;
+        }
+
+        // The base handler only protects Properties into ProtocolMessage.State *after* this event
+        // returns, as the very last step before it would normally issue the redirect itself - since
+        // HandleResponse() below skips that step entirely, State is still empty at this point and must
+        // be set here, or the round trip back to our own /signout-oidc (SignedOutCallbackPath) would
+        // never be able to recover Properties.RedirectUri (/Account/SignedOut).
+        if (string.IsNullOrEmpty(context.ProtocolMessage.State))
+        {
+            context.ProtocolMessage.State = context.Options.StateDataFormat.Protect(context.Properties);
         }
 
         context.HandleResponse();
