@@ -314,6 +314,57 @@ public class ApiClientTests
         Assert.Empty(reports);
     }
 
+    [Fact]
+    public async Task CreateNewProfileVersionAsync_ReturnsSuccess_WithNewVersionId_OnOk()
+    {
+        var newVersionId = Guid.NewGuid();
+        var json = $$"""{"newProfileVersionId":"{{newVersionId}}"}""";
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var result = await client.CreateNewProfileVersionAsync(Guid.NewGuid(), isPublished: false, isPublic: false);
+
+        Assert.Equal(CreateNewProfileVersionOutcome.Success, result.Outcome);
+        Assert.Equal(newVersionId, result.NewProfileVersionId);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal("/api/profiles/versions", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task CreateNewProfileVersionAsync_ReturnsConflict_OnHttpConflict()
+    {
+        const string json = """{"detail":"This profile version is not eligible for a new draft version."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, json));
+
+        var result = await client.CreateNewProfileVersionAsync(Guid.NewGuid(), isPublished: false, isPublic: false);
+
+        Assert.Equal(CreateNewProfileVersionOutcome.Conflict, result.Outcome);
+        Assert.Equal("This profile version is not eligible for a new draft version.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CreateNewProfileVersionAsync_ReturnsValidationFailed_OnBadRequestWithErrors()
+    {
+        const string json = """{"errors":{"ProfileVersionId":["The profile version could not be found."]}}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, json));
+
+        var result = await client.CreateNewProfileVersionAsync(Guid.NewGuid(), isPublished: false, isPublic: false);
+
+        Assert.Equal(CreateNewProfileVersionOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("The profile version could not be found.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CreateNewProfileVersionAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await client.CreateNewProfileVersionAsync(Guid.NewGuid(), isPublished: false, isPublic: false);
+
+        Assert.Equal(CreateNewProfileVersionOutcome.Error, result.Outcome);
+        Assert.Equal("The new draft version could not be created. Please try again.", result.ErrorMessage);
+    }
+
     private static ApiClient CreateClient(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

@@ -47,6 +47,13 @@ public abstract record ManageProfileContract
     /// </summary>
     public string NewDraftVersionLabel { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Gets the legacy <c>LatestVersion.Id</c>: the current draft, else the current published
+    /// version - never the public version. This is the source version a new draft/published
+    /// version is created from. <see cref="Guid.Empty"/> when the profile has neither.
+    /// </summary>
+    public Guid LatestVersionId { get; init; }
+
     /// <summary>Gets which action links are visible for the current user and profile state.</summary>
     public ManageProfileLinkVisibilityDto LinkVisibility { get; init; } = new();
 }

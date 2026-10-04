@@ -491,6 +491,47 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Shared confirmation dialog (e.g. "Create new draft version"): greyed-out backdrop + dialog,
+   styled with GOV.UK tokens since GOV.UK Frontend has no official modal component, and
+   Bootstrap is deliberately being phased out of this app (see _Layout.cshtml). Hidden by
+   default; confirm-modal.js toggles .app-modal--open. */
+.app-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.app-modal.app-modal--open {
+  display: block;
+}
+
+.app-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 12, 12, 0.8);
+}
+
+.app-modal__dialog {
+  position: relative;
+  max-width: 560px;
+  margin: 10vh auto 0;
+  padding: 2rem;
+  background-color: #ffffff;
+  border: 4px solid var(--govuk-text-colour, #0b0c0c);
+}
+
+/* Makes a real <button> read and behave visually like a govuk-link, so a mutating action (one
+   that must POST, not navigate via GET) still looks consistent with the other action links. */
+.app-link-button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
    between "Open all" (pointing down) and "Close all" (pointing up). */
 .app-tree__toggle-all-icon {

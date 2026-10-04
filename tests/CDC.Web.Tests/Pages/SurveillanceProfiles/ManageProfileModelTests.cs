@@ -18,7 +18,8 @@ public class ManageProfileModelTests
         ManageProfileViewModel? manageProfile = null,
         Exception? throwOnGetManageProfile = null,
         IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
-        UpdateProfileStatusResult? updateProfileStatusResult = null)
+        UpdateProfileStatusResult? updateProfileStatusResult = null,
+        CreateNewProfileVersionResult? createNewProfileVersionResult = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var pageModel = new ManageProfileModel(
@@ -26,7 +27,8 @@ public class ManageProfileModelTests
                 manageProfile: manageProfile,
                 throwOnGetManageProfile: throwOnGetManageProfile,
                 profileStatusTypes: profileStatusTypes,
-                updateProfileStatusResult: updateProfileStatusResult),
+                updateProfileStatusResult: updateProfileStatusResult,
+                createNewProfileVersionResult: createNewProfileVersionResult),
             NullLogger<ManageProfileModel>.Instance)
         {
             ProfileId = ProfileId,
@@ -132,5 +134,46 @@ public class ManageProfileModelTests
         Assert.IsType<PageResult>(result);
         Assert.Null(pageModel.StatusMessage);
         Assert.Equal("The selected profile status could not be found.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostCreateNewDraftVersionAsync_RedirectsToEditProfileQuestions_WhenSuccessful()
+    {
+        var newVersionId = Guid.NewGuid();
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+
+        var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/SurveillanceProfiles/EditProfileQuestions", redirect.PageName);
+        Assert.Equal(ProfileId, Assert.Single(redirect.RouteValues!).Value);
+    }
+
+    [Fact]
+    public async Task OnPostCreateNewDraftVersionAsync_ReturnsPageWithError_WhenCreationFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(
+                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for a new draft version."));
+
+        var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("This profile version is not eligible for a new draft version.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostCreateNewDraftVersionAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var pageModel = CreatePageModel(manageProfile: null);
+
+        var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 }

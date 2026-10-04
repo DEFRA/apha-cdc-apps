@@ -30,6 +30,16 @@ public class ManageProfileModel : PageModel
             LogLevel.Information,
             new EventId(4, nameof(LogUpdatedProfileStatusMessage)),
             "Profile status updated for profile '{ProfileId}'");
+    private static readonly Action<ILogger, Guid, Exception?> LogCreatedNewDraftVersionMessage =
+        LoggerMessage.Define<Guid>(
+            LogLevel.Information,
+            new EventId(5, nameof(LogCreatedNewDraftVersionMessage)),
+            "Created a new draft version for profile '{ProfileId}'");
+    private static readonly Action<ILogger, Guid, string, Exception?> LogFailedToCreateNewDraftVersionMessage =
+        LoggerMessage.Define<Guid, string>(
+            LogLevel.Error,
+            new EventId(6, nameof(LogFailedToCreateNewDraftVersionMessage)),
+            "Failed to create a new draft version for profile '{ProfileId}': {ErrorMessage}");
 
     private readonly IApiClient apiClient;
     private readonly ILogger<ManageProfileModel> logger;
@@ -93,6 +103,36 @@ public class ManageProfileModel : PageModel
         var loaded = await LoadProfileAsync(cancellationToken);
 
         return loaded || HasError ? Page() : NotFound();
+    }
+
+    /// <summary>
+    /// Creates a new draft version from the profile's <c>LatestVersionId</c> and redirects to
+    /// browse it, matching the legacy <c>lnkNewDraftVersion_Click</c> handler
+    /// (<c>profileData.CreateNewDraft()</c> then <c>Response.Redirect("EditProfileQuestions.aspx...")</c>).
+    /// On failure, redisplays Manage profile with an inline error, matching the legacy page.
+    /// </summary>
+    public async Task<IActionResult> OnPostCreateNewDraftVersionAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await LoadProfileAsync(cancellationToken);
+
+        if (!loaded)
+        {
+            return HasError ? Page() : NotFound();
+        }
+
+        var result = await apiClient.CreateNewProfileVersionAsync(
+            Profile!.LatestVersionId, isPublished: false, isPublic: false, cancellationToken);
+
+        if (result.Outcome == CreateNewProfileVersionOutcome.Success)
+        {
+            LogCreatedNewDraftVersionMessage(logger, ProfileId, null);
+            return RedirectToPage("/SurveillanceProfiles/EditProfileQuestions", new { profileId = ProfileId });
+        }
+
+        LogFailedToCreateNewDraftVersionMessage(logger, ProfileId, result.ErrorMessage ?? string.Empty, null);
+        StatusErrorMessage = result.ErrorMessage;
+
+        return Page();
     }
 
     private async Task<bool> LoadProfileAsync(CancellationToken cancellationToken)

@@ -1,0 +1,13 @@
+@model CDC.Web.Models.ConfirmActionModalViewModel
+<div class="app-modal" id="@Model.ModalId" role="dialog" aria-modal="true" aria-labelledby="@(Model.ModalId)-title" aria-hidden="true">
+    <div class="app-modal__backdrop"></div>
+    <div class="app-modal__dialog">
+        <h2 class="govuk-heading-m" id="@(Model.ModalId)-title">@Model.Title</h2>
+        <p class="govuk-body">@Model.BodyText</p>
+        <form method="post" asp-page-handler="@Model.PageHandler">
+            <input type="hidden" name="ProfileId" value="@Model.ProfileId" />
+            <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">OK</button>
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+        </form>
+    </div>
+</div>

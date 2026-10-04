@@ -50,6 +50,17 @@ public interface IApiClient
         bool isUserManual = false,
         bool publicOnly = true,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Creates a new version of a profile via <c>POST /api/profiles/versions</c>.</summary>
+    /// <param name="profileVersionId">The profile version to base the new version on. Must be the latest version.</param>
+    /// <param name="isPublished">Whether the new version is published rather than a draft.</param>
+    /// <param name="isPublic">Whether the new version is publicly visible. Only valid when <paramref name="isPublished"/> is <see langword="true"/>.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
+        Guid profileVersionId,
+        bool isPublished,
+        bool isPublic,
+        CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -128,6 +139,44 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         }
 
         return new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Error, "The profile title could not be saved. Please try again.");
+    }
+
+    public async Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
+        Guid profileVersionId,
+        bool isPublished,
+        bool isPublic,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new { ProfileVersionId = profileVersionId, IsPublished = isPublished, IsPublic = isPublic };
+        var response = await httpClient.PostAsJsonAsync("/api/profiles/versions", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<NewProfileVersionResultDto>(cancellationToken);
+            return new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, result?.NewProfileVersionId, null);
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+            return new CreateNewProfileVersionResult(
+                CreateNewProfileVersionOutcome.Conflict,
+                null,
+                problem?.Detail ?? "This profile version is not eligible for a new draft version.");
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
+            var message = problem?.Errors.Count > 0
+                ? string.Join(" ", problem.Errors.SelectMany(error => error.Value))
+                : "The new draft version could not be created.";
+
+            return new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.ValidationFailed, null, message);
+        }
+
+        return new CreateNewProfileVersionResult(
+            CreateNewProfileVersionOutcome.Error, null, "The new draft version could not be created. Please try again.");
     }
 
     public async Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default)

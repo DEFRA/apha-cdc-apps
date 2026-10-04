@@ -48,4 +48,11 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
         bool publicOnly = true,
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
+
+    public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
+        Guid profileVersionId,
+        bool isPublished,
+        bool isPublic,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Error, null, "Not implemented in this fake."));
 }

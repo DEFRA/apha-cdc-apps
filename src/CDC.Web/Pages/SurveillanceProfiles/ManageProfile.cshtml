@@ -133,7 +133,7 @@
                 @if (Model.Profile.LinkVisibility.CanCreateNewDraftVersion)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version @Model.Profile.NewDraftVersionLabel</a>
+                        <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmCreateNewDraftVersionModal">Create new draft version @Model.Profile.NewDraftVersionLabel</button>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanDeleteCurrentVersion)
@@ -167,6 +167,16 @@
                     </li>
                 }
             </ul>
+
+            @if (Model.Profile.LinkVisibility.CanCreateNewDraftVersion)
+            {
+                <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                    "confirmCreateNewDraftVersionModal",
+                    "Are you sure you want to perform this action?",
+                    "Are you sure you want to create a new draft version?",
+                    "CreateNewDraftVersion",
+                    Model.ProfileId))" />
+            }
         }
     </div>
 </div>

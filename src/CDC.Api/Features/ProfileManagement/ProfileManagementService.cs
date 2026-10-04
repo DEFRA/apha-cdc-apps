@@ -157,7 +157,8 @@ public sealed class ProfileManagementService(
         var draftVersionLabel = await FormatVersionLabelAsync(profile.CurrentDraftProfileVersionId, cancellationToken);
         var statusName = await ResolveProfileStatusNameAsync(profile.ProfileStatusId, cancellationToken);
         var linkVisibility = await BuildLinkVisibilityAsync(profile, cancellationToken);
-        var newDraftVersionLabel = await FormatNewDraftVersionLabelAsync(profile, cancellationToken);
+        var latestVersionId = ResolveLatestVersionId(profile);
+        var newDraftVersionLabel = await FormatNewDraftVersionLabelAsync(latestVersionId, cancellationToken);
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -173,21 +174,24 @@ public sealed class ProfileManagementService(
             ProfileStatusId = profile.ProfileStatusId,
             CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile),
             NewDraftVersionLabel = newDraftVersionLabel,
+            LatestVersionId = latestVersionId,
             LinkVisibility = linkVisibility
         };
     }
 
-    /// <summary>
-    /// Legacy <c>profileData.LatestVersion</c>: the current draft, else the current published
-    /// version - never the public version. Formats as <c>{VersionMajor}.{VersionMinor + 1}</c>,
-    /// matching <c>ManageProfile.aspx.vb</c>'s "Create new draft version" link text verbatim.
-    /// </summary>
-    private async Task<string> FormatNewDraftVersionLabelAsync(Domain.Entities.Profile profile, CancellationToken cancellationToken)
-    {
-        var latestVersionId = profile.CurrentDraftProfileVersionId != Guid.Empty
+    /// <summary>Legacy <c>profileData.LatestVersion</c>: the current draft, else the current
+    /// published version - never the public version.</summary>
+    private static Guid ResolveLatestVersionId(Domain.Entities.Profile profile) =>
+        profile.CurrentDraftProfileVersionId != Guid.Empty
             ? profile.CurrentDraftProfileVersionId
             : profile.CurrentPublishedProfileVersionId;
 
+    /// <summary>
+    /// Formats <see cref="ResolveLatestVersionId"/> as <c>{VersionMajor}.{VersionMinor + 1}</c>,
+    /// matching <c>ManageProfile.aspx.vb</c>'s "Create new draft version" link text verbatim.
+    /// </summary>
+    private async Task<string> FormatNewDraftVersionLabelAsync(Guid latestVersionId, CancellationToken cancellationToken)
+    {
         var latestVersion = await repository.GetProfileVersionSummaryAsync(latestVersionId, cancellationToken);
 
         return latestVersion is null ? string.Empty : $"{latestVersion.VersionMajor}.{latestVersion.VersionMinor + 1}";
