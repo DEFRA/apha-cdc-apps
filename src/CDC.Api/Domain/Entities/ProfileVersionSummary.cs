@@ -17,7 +17,7 @@ public sealed record ProfileVersionSummary
     /// rather than DefraNet-authenticated users only.
     /// </summary>
     /// <remarks>
-    /// TODO: <c>spgProfileVersionInfoById</c>'s <c>IsPublic</c> column is looked up by name
+    /// <c>spgProfileVersionInfoById</c>'s <c>IsPublic</c> column is looked up by name
     /// (not by the fixed ordinal every other column here uses) because its position has not
     /// been verified against the live schema; see <see cref="Infrastructure.Repositories.ProfileManagementRepository"/>.
     /// Defaults to <see langword="false"/> if the column cannot be found, rather than guessing.

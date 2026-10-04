@@ -189,73 +189,31 @@ public sealed class ProfileManagementService(
         var hasCurrentDraftVersion = profile.CurrentDraftProfileVersionId != Guid.Empty;
         var hasCurrentPublishedVersion = profile.CurrentPublishedProfileVersionId != Guid.Empty;
 
-        // Only fetched for a what-if scenario: ParentProfile.CurrentPublishedVersion/HasPublicVersion.
+        // Only relevant for a what-if scenario: ParentProfile.CurrentPublishedVersion/HasPublicVersion.
         var parentProfile = isWhatIfScenario
             ? await repository.GetProfileAttributesAsync(profile.ParentId, cancellationToken)
             : null;
         var parentHasPublishedVersion = parentProfile is not null && parentProfile.CurrentPublishedProfileVersionId != Guid.Empty;
         var parentHasPublicVersion = parentProfile is not null && parentProfile.CurrentPublicVersionId != Guid.Empty;
 
-        var parentPublishedVersionIsPublic = false;
-        if (parentHasPublishedVersion)
-        {
-            var parentPublishedVersion = await repository.GetProfileVersionSummaryAsync(
-                parentProfile!.CurrentPublishedProfileVersionId, cancellationToken);
-            parentPublishedVersionIsPublic = parentPublishedVersion?.IsPublic ?? false;
-        }
-
-        var currentPublishedVersionIsPublic = false;
-        if (hasCurrentPublishedVersion)
-        {
-            var currentPublishedVersion = await repository.GetProfileVersionSummaryAsync(
-                profile.CurrentPublishedProfileVersionId, cancellationToken);
-            currentPublishedVersionIsPublic = currentPublishedVersion?.IsPublic ?? false;
-        }
+        // GetProfileVersionSummaryAsync already returns null (=> not public) for Guid.Empty, so
+        // the "has a version" checks above do not need to gate these calls.
+        var parentPublishedVersionIsPublic = await IsVersionPublicAsync(
+            parentProfile?.CurrentPublishedProfileVersionId ?? Guid.Empty, cancellationToken);
+        var currentPublishedVersionIsPublic = await IsVersionPublicAsync(profile.CurrentPublishedProfileVersionId, cancellationToken);
 
         // ProfileContributorList.CanGetContributorList() / Profile.CanCreateProfile() /
         // Profile.CanEditProfile(): all identity.IsProfileEditor AndAlso Not IsUserManagementSystem.
         var isProfileEditorNotUserManagement = userContext.IsProfileEditor && !userContext.IsUserManagementSystem;
 
-        // Profile.CanPublish(): false with no draft; false for a what-if scenario whose parent
-        // has no published version; otherwise identity.IsProfileEditor.
-        bool canPublish;
-        if (!hasCurrentDraftVersion)
-        {
-            canPublish = false;
-        }
-        else if (isWhatIfScenario && !parentHasPublishedVersion)
-        {
-            canPublish = false;
-        }
-        else
-        {
-            canPublish = userContext.IsProfileEditor;
-        }
-
-        // Profile.CanPublishPublic(): for a what-if scenario whose parent has a published
-        // version, only when that published version is itself public; otherwise same as CanPublish().
-        var canPublishPublic = isWhatIfScenario && parentHasPublishedVersion
-            ? canPublish && parentPublishedVersionIsPublic
-            : canPublish;
-
-        // SetProfileVersionPublicAccessCommand.CanChangePublicAccess(profile.Id).
-        bool canChangePublicAccess;
-        if (!hasCurrentPublishedVersion)
-        {
-            canChangePublicAccess = false;
-        }
-        else if (currentPublishedVersionIsPublic)
-        {
-            canChangePublicAccess = false;
-        }
-        else if (isWhatIfScenario && !parentHasPublicVersion)
-        {
-            canChangePublicAccess = false;
-        }
-        else
-        {
-            canChangePublicAccess = isProfileEditorNotUserManagement;
-        }
+        var canPublish = ComputeCanPublish(hasCurrentDraftVersion, isWhatIfScenario, parentHasPublishedVersion, userContext.IsProfileEditor);
+        var canPublishPublic = ComputeCanPublishPublic(isWhatIfScenario, parentHasPublishedVersion, canPublish, parentPublishedVersionIsPublic);
+        var canChangePublicAccess = ComputeCanChangePublicAccess(
+            hasCurrentPublishedVersion,
+            currentPublishedVersionIsPublic,
+            isWhatIfScenario,
+            parentHasPublicVersion,
+            isProfileEditorNotUserManagement);
 
         return new ManageProfileLinkVisibilityDto
         {
@@ -270,6 +228,64 @@ public sealed class ProfileManagementService(
             CanPublishDefranetOnly = canPublish,
             CanAllowPublicAccess = canChangePublicAccess && profile.CurrentPublishedProfileVersionId != profile.CurrentPublicVersionId
         };
+    }
+
+    private async Task<bool> IsVersionPublicAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var summary = await repository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
+
+        return summary?.IsPublic ?? false;
+    }
+
+    /// <summary>Profile.CanPublish(): false with no draft; false for a what-if scenario whose
+    /// parent has no published version; otherwise identity.IsProfileEditor.</summary>
+    private static bool ComputeCanPublish(bool hasCurrentDraftVersion, bool isWhatIfScenario, bool parentHasPublishedVersion, bool isProfileEditor)
+    {
+        if (!hasCurrentDraftVersion)
+        {
+            return false;
+        }
+
+        if (isWhatIfScenario && !parentHasPublishedVersion)
+        {
+            return false;
+        }
+
+        return isProfileEditor;
+    }
+
+    /// <summary>Profile.CanPublishPublic(): for a what-if scenario whose parent has a published
+    /// version, only when that published version is itself public; otherwise same as CanPublish().</summary>
+    private static bool ComputeCanPublishPublic(
+        bool isWhatIfScenario, bool parentHasPublishedVersion, bool canPublish, bool parentPublishedVersionIsPublic) =>
+        isWhatIfScenario && parentHasPublishedVersion
+            ? canPublish && parentPublishedVersionIsPublic
+            : canPublish;
+
+    /// <summary>SetProfileVersionPublicAccessCommand.CanChangePublicAccess(profile.Id).</summary>
+    private static bool ComputeCanChangePublicAccess(
+        bool hasCurrentPublishedVersion,
+        bool currentPublishedVersionIsPublic,
+        bool isWhatIfScenario,
+        bool parentHasPublicVersion,
+        bool isProfileEditorNotUserManagement)
+    {
+        if (!hasCurrentPublishedVersion)
+        {
+            return false;
+        }
+
+        if (currentPublishedVersionIsPublic)
+        {
+            return false;
+        }
+
+        if (isWhatIfScenario && !parentHasPublicVersion)
+        {
+            return false;
+        }
+
+        return isProfileEditorNotUserManagement;
     }
 
     /// <summary>Draft take priority, then published, then public - matching the legacy "most
