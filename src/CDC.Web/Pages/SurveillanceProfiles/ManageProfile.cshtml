@@ -83,7 +83,13 @@
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Latest published version (DefraNet only)</dt>
-                    <dd class="govuk-summary-list__value">@Model.Profile.LatestPublishedVersionDefraNetOnly</dd>
+                    <dd class="govuk-summary-list__value">
+                        @Model.Profile.LatestPublishedVersionDefraNetOnly
+                        @if (Model.Profile.LinkVisibility.CanAllowPublicAccess)
+                        {
+                            <a class="govuk-link govuk-!-margin-left-3" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
+                        }
+                    </dd>
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Latest draft version</dt>
@@ -106,12 +112,6 @@
             </dl>
 
             <ul class="govuk-list">
-                @if (Model.Profile.LinkVisibility.CanAllowPublicAccess)
-                {
-                    <li>
-                        <a class="govuk-link" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
-                    </li>
-                }
                 @if (Model.Profile.LinkVisibility.CanEditProperties)
                 {
                     <li>
@@ -133,7 +133,7 @@
                 @if (Model.Profile.LinkVisibility.CanCreateNewDraftVersion)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version</a>
+                        <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version @Model.Profile.NewDraftVersionLabel</a>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanDeleteCurrentVersion)

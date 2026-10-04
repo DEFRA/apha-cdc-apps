@@ -177,6 +177,9 @@ public class ProfileManagementServiceTests
             .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(profile);
         repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
             .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 8, VersionMinor = 0 });
         repository
@@ -202,6 +205,63 @@ public class ProfileManagementServiceTests
         result.ProfileStatus.Should().Be("Draft");
         result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
         result.CurrentProfileVersionId.Should().Be(ProfileManagementTestData.ProfileVersionId);
+        result.NewDraftVersionLabel.Should().Be("8.1");
+    }
+
+    [Fact]
+    public async Task GetManageProfile_NewDraftVersionLabel_IsBasedOnThePublishedVersion_WhenThereIsNoDraft()
+    {
+        var publishedVersionId = Guid.NewGuid();
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = Guid.Empty,
+            CurrentPublishedProfileVersionId = publishedVersionId,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(publishedVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 13, VersionMinor = 0 });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.NewDraftVersionLabel.Should().Be("13.1");
+    }
+
+    [Fact]
+    public async Task GetManageProfile_NewDraftVersionLabel_IsEmpty_WhenThereIsNoDraftOrPublishedVersion()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = Guid.Empty,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.NewDraftVersionLabel.Should().BeEmpty();
     }
 
     [Fact]

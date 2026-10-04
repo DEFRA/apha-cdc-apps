@@ -157,6 +157,7 @@ public sealed class ProfileManagementService(
         var draftVersionLabel = await FormatVersionLabelAsync(profile.CurrentDraftProfileVersionId, cancellationToken);
         var statusName = await ResolveProfileStatusNameAsync(profile.ProfileStatusId, cancellationToken);
         var linkVisibility = await BuildLinkVisibilityAsync(profile, cancellationToken);
+        var newDraftVersionLabel = await FormatNewDraftVersionLabelAsync(profile, cancellationToken);
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -171,8 +172,25 @@ public sealed class ProfileManagementService(
             ProfileStatus = statusName,
             ProfileStatusId = profile.ProfileStatusId,
             CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile),
+            NewDraftVersionLabel = newDraftVersionLabel,
             LinkVisibility = linkVisibility
         };
+    }
+
+    /// <summary>
+    /// Legacy <c>profileData.LatestVersion</c>: the current draft, else the current published
+    /// version - never the public version. Formats as <c>{VersionMajor}.{VersionMinor + 1}</c>,
+    /// matching <c>ManageProfile.aspx.vb</c>'s "Create new draft version" link text verbatim.
+    /// </summary>
+    private async Task<string> FormatNewDraftVersionLabelAsync(Domain.Entities.Profile profile, CancellationToken cancellationToken)
+    {
+        var latestVersionId = profile.CurrentDraftProfileVersionId != Guid.Empty
+            ? profile.CurrentDraftProfileVersionId
+            : profile.CurrentPublishedProfileVersionId;
+
+        var latestVersion = await repository.GetProfileVersionSummaryAsync(latestVersionId, cancellationToken);
+
+        return latestVersion is null ? string.Empty : $"{latestVersion.VersionMajor}.{latestVersion.VersionMinor + 1}";
     }
 
     /// <summary>
