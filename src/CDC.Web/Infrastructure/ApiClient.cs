@@ -61,6 +61,9 @@ public interface IApiClient
         bool isPublished,
         bool isPublic,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a profile version via <c>DELETE /api/profiles/versions/{profileVersionId}</c>.</summary>
+    Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -177,6 +180,31 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
 
         return new CreateNewProfileVersionResult(
             CreateNewProfileVersionOutcome.Error, null, "The new draft version could not be created. Please try again.");
+    }
+
+    public async Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.DeleteAsync($"/api/profiles/versions/{profileVersionId}", cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<DeleteProfileVersionResultDto>(cancellationToken);
+            return new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, result?.IsProfileDeleted ?? false, null);
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+            return new DeleteProfileVersionResult(
+                DeleteProfileVersionOutcome.NotFound,
+                false,
+                problem?.Detail ?? "This profile version could not be found. Another user may have already deleted it.");
+        }
+
+        return new DeleteProfileVersionResult(
+            DeleteProfileVersionOutcome.Error, false, "The profile version could not be deleted. Please try again.");
     }
 
     public async Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default)

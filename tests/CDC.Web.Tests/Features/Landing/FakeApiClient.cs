@@ -18,7 +18,8 @@ internal sealed class FakeApiClient( // NOSONAR
     UpdateProfileStatusResult? updateProfileStatusResult = null,
     IReadOnlyList<StaticReportListItemDto>? staticReports = null,
     Exception? throwOnGetCurrentStaticReports = null,
-    CreateNewProfileVersionResult? createNewProfileVersionResult = null) : IApiClient
+    CreateNewProfileVersionResult? createNewProfileVersionResult = null,
+    DeleteProfileVersionResult? deleteProfileVersionResult = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -30,6 +31,8 @@ internal sealed class FakeApiClient( // NOSONAR
         updateProfileStatusResult ?? new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null);
     private readonly CreateNewProfileVersionResult _createNewProfileVersionResult =
         createNewProfileVersionResult ?? new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, Guid.NewGuid(), null);
+    private readonly DeleteProfileVersionResult _deleteProfileVersionResult =
+        deleteProfileVersionResult ?? new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, false, null);
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         throwOnGetHealth is not null
@@ -87,4 +90,7 @@ internal sealed class FakeApiClient( // NOSONAR
         bool isPublic,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(_createNewProfileVersionResult);
+
+    public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_deleteProfileVersionResult);
 }

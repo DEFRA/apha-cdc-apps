@@ -365,6 +365,46 @@ public class ApiClientTests
         Assert.Equal("The new draft version could not be created. Please try again.", result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task DeleteProfileVersionAsync_ReturnsSuccess_WithIsProfileDeleted_OnOk()
+    {
+        var profileVersionId = Guid.NewGuid();
+        const string json = """{"isProfileDeleted":true}""";
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var result = await client.DeleteProfileVersionAsync(profileVersionId);
+
+        Assert.Equal(DeleteProfileVersionOutcome.Success, result.Outcome);
+        Assert.True(result.IsProfileDeleted);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal($"/api/profiles/versions/{profileVersionId}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task DeleteProfileVersionAsync_ReturnsNotFound_OnHttp404()
+    {
+        const string json = """{"detail":"This profile version could not be found."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, json));
+
+        var result = await client.DeleteProfileVersionAsync(Guid.NewGuid());
+
+        Assert.Equal(DeleteProfileVersionOutcome.NotFound, result.Outcome);
+        Assert.False(result.IsProfileDeleted);
+        Assert.Equal("This profile version could not be found.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DeleteProfileVersionAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await client.DeleteProfileVersionAsync(Guid.NewGuid());
+
+        Assert.Equal(DeleteProfileVersionOutcome.Error, result.Outcome);
+        Assert.Equal("The profile version could not be deleted. Please try again.", result.ErrorMessage);
+    }
+
     private static ApiClient CreateClient(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

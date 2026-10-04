@@ -40,6 +40,16 @@ public class ManageProfileModel : PageModel
             LogLevel.Error,
             new EventId(6, nameof(LogFailedToCreateNewDraftVersionMessage)),
             "Failed to create a new draft version for profile '{ProfileId}': {ErrorMessage}");
+    private static readonly Action<ILogger, Guid, bool, Exception?> LogDeletedProfileVersionMessage =
+        LoggerMessage.Define<Guid, bool>(
+            LogLevel.Information,
+            new EventId(7, nameof(LogDeletedProfileVersionMessage)),
+            "Deleted the current version for profile '{ProfileId}' (profile also deleted: {IsProfileDeleted})");
+    private static readonly Action<ILogger, Guid, string, Exception?> LogFailedToDeleteProfileVersionMessage =
+        LoggerMessage.Define<Guid, string>(
+            LogLevel.Error,
+            new EventId(8, nameof(LogFailedToDeleteProfileVersionMessage)),
+            "Failed to delete the current version for profile '{ProfileId}': {ErrorMessage}");
 
     private readonly IApiClient apiClient;
     private readonly ILogger<ManageProfileModel> logger;
@@ -130,6 +140,36 @@ public class ManageProfileModel : PageModel
         }
 
         LogFailedToCreateNewDraftVersionMessage(logger, ProfileId, result.ErrorMessage ?? string.Empty, null);
+        StatusErrorMessage = result.ErrorMessage;
+
+        return Page();
+    }
+
+    /// <summary>
+    /// Deletes the profile's current draft version (<c>LatestVersionId</c>) and redirects to the
+    /// home page, matching the legacy <c>lnkDelete_Click</c> handler (<c>profileData.DeleteLatestDraft()</c>
+    /// then an unconditional <c>Response.Redirect("~/Home.aspx")</c> - regardless of whether the
+    /// whole profile was also deleted as a result). On failure, redisplays Manage profile with an
+    /// inline error, matching the legacy page.
+    /// </summary>
+    public async Task<IActionResult> OnPostDeleteCurrentVersionAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await LoadProfileAsync(cancellationToken);
+
+        if (!loaded)
+        {
+            return HasError ? Page() : NotFound();
+        }
+
+        var result = await apiClient.DeleteProfileVersionAsync(Profile!.LatestVersionId, cancellationToken);
+
+        if (result.Outcome == DeleteProfileVersionOutcome.Success)
+        {
+            LogDeletedProfileVersionMessage(logger, ProfileId, result.IsProfileDeleted, null);
+            return RedirectToAction("Index", "Landing");
+        }
+
+        LogFailedToDeleteProfileVersionMessage(logger, ProfileId, result.ErrorMessage ?? string.Empty, null);
         StatusErrorMessage = result.ErrorMessage;
 
         return Page();

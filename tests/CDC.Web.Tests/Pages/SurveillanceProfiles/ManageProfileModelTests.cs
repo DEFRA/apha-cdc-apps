@@ -19,7 +19,8 @@ public class ManageProfileModelTests
         Exception? throwOnGetManageProfile = null,
         IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
         UpdateProfileStatusResult? updateProfileStatusResult = null,
-        CreateNewProfileVersionResult? createNewProfileVersionResult = null)
+        CreateNewProfileVersionResult? createNewProfileVersionResult = null,
+        DeleteProfileVersionResult? deleteProfileVersionResult = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var pageModel = new ManageProfileModel(
@@ -28,7 +29,8 @@ public class ManageProfileModelTests
                 throwOnGetManageProfile: throwOnGetManageProfile,
                 profileStatusTypes: profileStatusTypes,
                 updateProfileStatusResult: updateProfileStatusResult,
-                createNewProfileVersionResult: createNewProfileVersionResult),
+                createNewProfileVersionResult: createNewProfileVersionResult,
+                deleteProfileVersionResult: deleteProfileVersionResult),
             NullLogger<ManageProfileModel>.Instance)
         {
             ProfileId = ProfileId,
@@ -173,6 +175,46 @@ public class ManageProfileModelTests
         var pageModel = CreatePageModel(manageProfile: null);
 
         var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteCurrentVersionAsync_RedirectsToLandingIndex_WhenSuccessful()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            deleteProfileVersionResult: new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, false, null));
+
+        var result = await pageModel.OnPostDeleteCurrentVersionAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Index", redirect.ActionName);
+        Assert.Equal("Landing", redirect.ControllerName);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteCurrentVersionAsync_ReturnsPageWithError_WhenDeletionFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            deleteProfileVersionResult: new DeleteProfileVersionResult(
+                DeleteProfileVersionOutcome.NotFound, false, "This profile version could not be found."));
+
+        var result = await pageModel.OnPostDeleteCurrentVersionAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("This profile version could not be found.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteCurrentVersionAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var pageModel = CreatePageModel(manageProfile: null);
+
+        var result = await pageModel.OnPostDeleteCurrentVersionAsync(CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result);
     }
