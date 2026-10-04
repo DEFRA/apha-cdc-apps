@@ -145,4 +145,85 @@ public class ProfileManagementServiceTests
 
         repository.VerifyAll();
     }
+
+    [Fact]
+    public async Task GetManageProfile_ReturnsNull_WhenRepositoryReturnsNull()
+    {
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profile?)null);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_FormatsVersionLabelsAndResolvesStatusName()
+    {
+        var publishedVersionId = Guid.NewGuid();
+        var publicVersionId = Guid.NewGuid();
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CurrentPublishedProfileVersionId = publishedVersionId,
+            CurrentPublicVersionId = publicVersionId
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 8, VersionMinor = 0 });
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(publishedVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 7, VersionMinor = 0 });
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(publicVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 5, VersionMinor = 0 });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[
+                new ProfileStatusType { Id = ProfileManagementTestData.ProfileStatusId, Name = "Draft", IsValidationComplete = false }
+            ]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.ProfileTitle.Should().Be("Bovine tuberculosis");
+        result.LatestDraftVersion.Should().Be("Version 8.0");
+        result.LatestPublishedVersionDefraNetOnly.Should().Be("Version 7.0");
+        result.LatestPublishedVersionPublic.Should().Be("Version 5.0");
+        result.ProfileStatus.Should().Be("Draft");
+    }
+
+    [Fact]
+    public async Task GetManageProfile_ReturnsEmptyVersionLabels_WhenNoVersionIsSet()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = Guid.Empty,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.LatestDraftVersion.Should().BeEmpty();
+        result.LatestPublishedVersionDefraNetOnly.Should().BeEmpty();
+        result.LatestPublishedVersionPublic.Should().BeEmpty();
+        result.ProfileStatus.Should().BeEmpty();
+    }
 }

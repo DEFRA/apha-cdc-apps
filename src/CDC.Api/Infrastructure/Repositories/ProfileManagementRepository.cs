@@ -254,6 +254,44 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
     }
 
     /// <inheritdoc />
+    public async Task<ProfileVersionSummary?> GetProfileVersionSummaryAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        if (profileVersionId == Guid.Empty)
+        {
+            return null;
+        }
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    ProfileManagementStoredProcedures.GetProfileVersionInfoById,
+                    new { Id = profileVersionId },
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken),
+                CommandBehavior.Default);
+
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new ProfileVersionSummary
+            {
+                VersionMajor = ReadByte(reader, 3),
+                VersionMinor = ReadByte(reader, 4)
+            };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileManagementStoredProcedures.GetProfileVersionInfoById);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<NewProfileDefaults?> GetNewProfileDefaultsAsync(
         Guid cloneProfileVersionId,
         bool isWhatIfScenario,

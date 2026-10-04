@@ -29,7 +29,7 @@ public class ProfileSearchControllerTests
                 AffectedSpecies = [],
                 PublishedVersions = [],
                 DraftVersions = [],
-                Scenarios = []
+                WhatIfScenarios = []
             }
         ];
 

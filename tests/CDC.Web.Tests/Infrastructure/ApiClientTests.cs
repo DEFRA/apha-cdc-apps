@@ -35,7 +35,7 @@ public class ApiClientTests
                 "affectedSpecies": [],
                 "publishedVersions": [],
                 "draftVersions": [],
-                "scenarios": []
+                "whatIfScenarios": []
               }
             ]
             """;
@@ -79,6 +79,150 @@ public class ApiClientTests
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
 
         await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProfilesAsync(null, true, false, false));
+    }
+
+    [Fact]
+    public async Task GetProfileAttributesAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "title": "Bovine tuberculosis",
+              "lastUpdated": "AQIDBAUGBwg="
+            }
+            """;
+        var profileId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var attributes = await client.GetProfileAttributesAsync(profileId);
+
+        Assert.NotNull(attributes);
+        Assert.Equal("Bovine tuberculosis", attributes!.Title);
+        Assert.Equal(8, attributes.LastUpdated.Length);
+        Assert.Equal($"/api/profiles/{profileId}/attributes", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetProfileAttributesAsync_ReturnsNull_WhenTheProfileDoesNotExist()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var attributes = await client.GetProfileAttributesAsync(Guid.NewGuid());
+
+        Assert.Null(attributes);
+    }
+
+    [Fact]
+    public async Task GetProfileAttributesAsync_Throws_OnANonSuccessNonNotFoundStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetProfileAttributesAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "profileId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "profileTitle": "Bovine Tuberculosis",
+              "scenarioTitle": "Default Scenario",
+              "latestPublishedVersionPublic": "Version 5",
+              "latestPublishedVersionDefraNetOnly": "Version 7",
+              "latestDraftVersion": "Version 8",
+              "profileStatus": "Draft"
+            }
+            """;
+        var profileId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var profile = await client.GetManageProfileAsync(profileId);
+
+        Assert.NotNull(profile);
+        Assert.Equal("Bovine Tuberculosis", profile!.ProfileTitle);
+        Assert.Equal("Draft", profile.ProfileStatus);
+        Assert.Equal($"/api/profiles/{profileId}/manage", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_ReturnsNull_WhenTheProfileDoesNotExist()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var profile = await client.GetManageProfileAsync(Guid.NewGuid());
+
+        Assert.Null(profile);
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_Throws_OnANonSuccessNonNotFoundStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetManageProfileAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsSuccess_OnNoContent()
+    {
+        var profileId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.UpdateProfileTitleAsync(profileId, "New title", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.Success, result.Outcome);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal($"/api/profiles/{profileId}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsConflict_OnHttpConflict()
+    {
+        const string json = """{"detail":"Another user has updated this profile."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, json));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), "New title", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.Conflict, result.Outcome);
+        Assert.Equal("Another user has updated this profile.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsConflict_WithDefaultMessage_WhenProblemDetailHasNoDetail()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, "{}"));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), "New title", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.Conflict, result.Outcome);
+        Assert.Equal("This profile has been edited by another user. Reload the page and try again.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsValidationFailed_OnBadRequestWithErrors()
+    {
+        const string json = """{"errors":{"Title":["You must enter a profile title"]}}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, json));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), string.Empty, [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("You must enter a profile title", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), "New title", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.Error, result.Outcome);
+        Assert.Equal("The profile title could not be saved. Please try again.", result.ErrorMessage);
     }
 
     private static ApiClient CreateClient(HttpMessageHandler handler)

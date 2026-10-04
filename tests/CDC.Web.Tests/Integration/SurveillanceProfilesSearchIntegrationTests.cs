@@ -41,7 +41,7 @@ public class SurveillanceProfilesSearchIntegrationTests
                 }
             ],
             DraftVersions = [],
-            Scenarios = []
+            WhatIfScenarios = []
         }
     ];
 

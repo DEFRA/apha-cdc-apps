@@ -134,4 +134,48 @@ public sealed class ProfileManagementService(IProfileManagementRepository reposi
         await repository.UpdateProfileStatusAsync(profileId, profileStatusId, cancellationToken);
         logger.UpdatedProfileStatus(profileId, profileStatusId);
     }
+
+    /// <inheritdoc />
+    public async Task<GetManageProfileResponse?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        var profile = await repository.GetProfileAttributesAsync(profileId, cancellationToken);
+
+        if (profile is null)
+        {
+            logger.ProfileNotFound(profileId);
+            return null;
+        }
+
+        var publicVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublicVersionId, cancellationToken);
+        var publishedVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublishedProfileVersionId, cancellationToken);
+        var draftVersionLabel = await FormatVersionLabelAsync(profile.CurrentDraftProfileVersionId, cancellationToken);
+        var statusName = await ResolveProfileStatusNameAsync(profile.ProfileStatusId, cancellationToken);
+
+        logger.RetrievedProfileAttributes(profileId);
+
+        return new GetManageProfileResponse
+        {
+            ProfileId = profile.Id,
+            ProfileTitle = profile.Title,
+            ScenarioTitle = profile.ScenarioTitle,
+            LatestPublishedVersionPublic = publicVersionLabel,
+            LatestPublishedVersionDefraNetOnly = publishedVersionLabel,
+            LatestDraftVersion = draftVersionLabel,
+            ProfileStatus = statusName
+        };
+    }
+
+    private async Task<string> FormatVersionLabelAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var summary = await repository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
+
+        return summary is null ? string.Empty : $"Version {summary.VersionMajor}.{summary.VersionMinor}";
+    }
+
+    private async Task<string> ResolveProfileStatusNameAsync(Guid profileStatusId, CancellationToken cancellationToken)
+    {
+        var statusTypes = await repository.GetProfileStatusTypesAsync(cancellationToken);
+
+        return statusTypes.FirstOrDefault(status => status.Id == profileStatusId)?.Name ?? string.Empty;
+    }
 }
