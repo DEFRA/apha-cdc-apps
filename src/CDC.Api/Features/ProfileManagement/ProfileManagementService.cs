@@ -167,6 +167,7 @@ public sealed class ProfileManagementService(
             ProfileId = profile.Id,
             ProfileTitle = profile.Title,
             ScenarioTitle = profile.ParentId == Guid.Empty ? "Current situation" : profile.ScenarioTitle,
+            IsWhatIfScenario = profile.ParentId != Guid.Empty,
             LatestPublishedVersionPublic = publicVersionLabel,
             LatestPublishedVersionDefraNetOnly = publishedVersionLabel,
             LatestDraftVersion = draftVersionLabel,

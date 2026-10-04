@@ -28,7 +28,8 @@ public class EditProfileQuestionsModel(
     [BindProperty(SupportsGet = true)]
     public Guid? Section { get; set; }
 
-    /// <summary>Gets the profile's current display title, once loaded.</summary>
+    /// <summary>Gets the profile's full display title (with its scenario title in brackets, for
+    /// a "what-if" scenario), once loaded. Matches the legacy <c>ProfileVersionInfo.FullTitle</c>.</summary>
     public string? ProfileTitle { get; private set; }
 
     /// <summary>Gets a value indicating whether the profile failed to load.</summary>
@@ -73,7 +74,7 @@ public class EditProfileQuestionsModel(
                 return NotFound();
             }
 
-            ProfileTitle = profile.ProfileTitle;
+            ProfileTitle = profile.FullTitle;
 
             var metadata = await profileSectionsApiService.GetProfileQuestionnaireMetadataAsync(cancellationToken);
             Sections = metadata.Sections;

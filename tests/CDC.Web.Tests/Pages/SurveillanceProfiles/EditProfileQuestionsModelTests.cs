@@ -143,6 +143,18 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_PopulatesProfileTitle_WithScenarioTitleInBrackets_ForAWhatIfScenario()
+    {
+        var scenario = Profile() with { ProfileTitle = "Swine Fever", ScenarioTitle = "African", IsWhatIfScenario = true };
+        var pageModel = CreatePageModel(scenario, metadata: TwoSectionMetadata());
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Swine Fever (African)", pageModel.ProfileTitle);
+    }
+
+    [Fact]
     public async Task OnGetAsync_SelectsTheRequestedSection_AndComputesItsNeighbours()
     {
         var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata(), section: EpidemiologySectionId);

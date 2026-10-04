@@ -16,6 +16,17 @@ public abstract record ManageProfileContract
     /// <summary>Gets the "what-if" scenario title, empty for a current-situation profile.</summary>
     public string ScenarioTitle { get; init; } = string.Empty;
 
+    /// <summary>Gets a value indicating whether this profile is a "what-if" scenario, as opposed
+    /// to a current-situation profile.</summary>
+    public bool IsWhatIfScenario { get; init; }
+
+    /// <summary>
+    /// Gets the profile's full display title, matching the legacy
+    /// <c>ProfileVersionInfo.FullTitle</c>: the scenario title in brackets after the profile
+    /// title, but only for a "what-if" scenario - never for a current-situation profile.
+    /// </summary>
+    public string FullTitle => IsWhatIfScenario ? $"{ProfileTitle} ({ScenarioTitle})" : ProfileTitle;
+
     /// <summary>Gets a display label for the latest published version visible to the public.</summary>
     public string LatestPublishedVersionPublic { get; init; } = string.Empty;
 

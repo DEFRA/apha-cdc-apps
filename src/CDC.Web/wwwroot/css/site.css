@@ -491,34 +491,20 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Shared confirmation dialog (e.g. "Create new draft version"): greyed-out backdrop + dialog,
-   styled with GOV.UK tokens since GOV.UK Frontend has no official modal component, and
-   Bootstrap is deliberately being phased out of this app (see _Layout.cshtml). Hidden by
-   default; confirm-modal.js toggles .app-modal--open. */
+/* Shared confirmation dialog (e.g. "Create new draft version"): a native <dialog>, styled with
+   GOV.UK tokens since GOV.UK Frontend has no official modal component, and Bootstrap is
+   deliberately being phased out of this app (see _Layout.cshtml). Visibility, centring and
+   stacking all come from the UA/top-layer via confirm-modal.js's showModal()/close() calls. */
 .app-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-}
-
-.app-modal.app-modal--open {
-  display: block;
-}
-
-.app-modal__backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(11, 12, 12, 0.8);
-}
-
-.app-modal__dialog {
-  position: relative;
   max-width: 560px;
-  margin: 10vh auto 0;
+  width: 90%;
   padding: 2rem;
   background-color: #ffffff;
   border: 4px solid var(--govuk-text-colour, #0b0c0c);
+}
+
+.app-modal::backdrop {
+  background-color: rgba(11, 12, 12, 0.8);
 }
 
 /* Makes a real <button> read and behave visually like a govuk-link, so a mutating action (one

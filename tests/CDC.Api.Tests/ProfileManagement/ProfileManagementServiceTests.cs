@@ -199,6 +199,8 @@ public class ProfileManagementServiceTests
         result.Should().NotBeNull();
         result.ProfileTitle.Should().Be("Bovine tuberculosis");
         result.ScenarioTitle.Should().Be("Current situation");
+        result.IsWhatIfScenario.Should().BeFalse();
+        result.FullTitle.Should().Be("Bovine tuberculosis");
         result.LatestDraftVersion.Should().Be("8.0");
         result.LatestPublishedVersionDefraNetOnly.Should().Be("7.0");
         result.LatestPublishedVersionPublic.Should().Be("5.0");
@@ -356,5 +358,7 @@ public class ProfileManagementServiceTests
 
         result.Should().NotBeNull();
         result.ScenarioTitle.Should().Be("Low uptake scenario");
+        result.IsWhatIfScenario.Should().BeTrue();
+        result.FullTitle.Should().Be($"{result.ProfileTitle} (Low uptake scenario)");
     }
 }
