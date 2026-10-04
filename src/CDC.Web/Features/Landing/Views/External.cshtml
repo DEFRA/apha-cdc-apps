@@ -1,11 +1,15 @@
+@using CDC.Web.Features.Account
 @{
     ViewData["Title"] = "External User Sign In";
+    var fullName = User.FindFirst(ExternalUserClaimTypes.FullName)?.Value;
 }
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
         <h1 class="govuk-heading-l">You are signed in</h1>
-        <p class="govuk-body">You are signed in as an external user.</p>
+        <p class="govuk-body">
+            You are signed in as an external user@(string.IsNullOrEmpty(fullName) ? "." : $", {fullName}.")
+        </p>
         <a asp-controller="Account" asp-action="Logout" class="govuk-button govuk-button--secondary">
             Sign out
         </a>

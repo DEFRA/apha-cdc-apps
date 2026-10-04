@@ -34,6 +34,10 @@ public interface IApiClient
     /// <summary>Gets the details shown on the "Manage profile" page from
     /// <c>GET /api/profiles/{profileId}/manage</c>.</summary>
     Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default);
+
+    /// <summary>Resolves (or provisions) the external user matching the given CIDM claims via
+    /// <c>POST /api/users/external/resolve</c>.</summary>
+    Task<ResolveExternalUserResult> ResolveExternalUserAsync(ResolveExternalUserRequestDto request, CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -124,6 +128,26 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<ManageProfileViewModel>(cancellationToken);
+    }
+
+    public async Task<ResolveExternalUserResult> ResolveExternalUserAsync(
+        ResolveExternalUserRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("/api/users/external/resolve", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var user = await response.Content.ReadFromJsonAsync<ExternalUserDto>(cancellationToken);
+            return new ResolveExternalUserResult(ResolveExternalUserOutcome.Success, user);
+        }
+
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return new ResolveExternalUserResult(ResolveExternalUserOutcome.NotPermitted, null);
+        }
+
+        return new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null);
     }
 }
 

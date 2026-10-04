@@ -1,7 +1,9 @@
 using System.Globalization;
 using CDC.Auth.Cidm;
+using CDC.Auth.Cidm.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Web.Features.Account;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -83,6 +85,10 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
 // AddCidmAuthentication registers its own Cookie + "cidm" OIDC schemes additively, so adding an
 // "entra" OIDC scheme later does not require reworking this.
 builder.AddCidmAuthentication();
+
+// Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see
+// CidmOpenIdConnectEvents.TokenValidated, which calls this via ICidmExternalUserResolver.
+builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();
 
 // Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
 // page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
