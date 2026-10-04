@@ -1069,6 +1069,7 @@ jobs:
       - publish
       - gate
     if: >-
+      always() &&
       needs.gate.result == 'success' &&
       needs.publish.result == 'success' &&
       needs.release-version.result == 'success' &&
