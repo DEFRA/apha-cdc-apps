@@ -156,14 +156,14 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
 
     private sealed record UserRow
     {
-        public Guid Id { get; init; }
-        public string? UserName { get; init; }
-        public string? FullName { get; init; }
-        public string? Organisation { get; init; }
-        public string? EmailAddress { get; init; }
-        public Guid? CidmSsoId { get; init; }
-        public Guid? SsoUserId { get; init; }
-        public bool IsProfileEditor { get; init; }
-        public bool IsPolicyProfileUser { get; init; }
+        public Guid Id { get; init; } // NOSONAR
+        public string? UserName { get; init; } // NOSONAR
+        public string? FullName { get; init; } // NOSONAR
+        public string? Organisation { get; init; } // NOSONAR
+        public string? EmailAddress { get; init; } // NOSONAR
+        public Guid? CidmSsoId { get; init; } // NOSONAR
+        public Guid? SsoUserId { get; init; } // NOSONAR
+        public bool IsProfileEditor { get; init; } // NOSONAR
+        public bool IsPolicyProfileUser { get; init; } // NOSONAR
     }
 }

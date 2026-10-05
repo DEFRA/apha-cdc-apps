@@ -1,4 +1,4 @@
-/****** New stored procedure for CIDM external-user resolution: lookup by CidmSsoId. ******/
+-- New stored procedure for CIDM external-user resolution: lookup by CidmSsoId.
 CREATE PROCEDURE [dbo].[spgUserByCidmSsoId]
 	@CidmSsoId uniqueidentifier
 AS

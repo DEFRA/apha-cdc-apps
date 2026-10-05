@@ -12,7 +12,9 @@ public class PlaceholderPageModelTests
     {
         var pageModel = new CloneNewProfileModel();
 
-        pageModel.OnGet();
+        var exception = Record.Exception(pageModel.OnGet);
+
+        Assert.Null(exception);
     }
 
     [Fact]
@@ -20,6 +22,8 @@ public class PlaceholderPageModelTests
     {
         var pageModel = new DeleteCurrentVersionModel();
 
-        pageModel.OnGet();
+        var exception = Record.Exception(pageModel.OnGet);
+
+        Assert.Null(exception);
     }
 }
