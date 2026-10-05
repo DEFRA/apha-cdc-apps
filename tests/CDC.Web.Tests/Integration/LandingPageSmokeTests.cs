@@ -24,7 +24,6 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/")]
     [InlineData("/Landing/Internal")]
     [InlineData("/Landing/Error")]
-    [InlineData("/HelpSupport/HelpUsingD2R2")]
     [InlineData("/HelpSupport/QualityStatement")]
     public async Task LandingRoutes_ReturnSuccess(string url)
     {
@@ -120,6 +119,8 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
+    [InlineData("/HelpSupport/StaticReports")]
+    [InlineData("/HelpSupport/StaticReports?UserManual=1")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
     [InlineData("/SurveillanceProfiles/PublishPublic/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
@@ -155,6 +156,8 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
+    [InlineData("/HelpSupport/StaticReports")]
+    [InlineData("/HelpSupport/StaticReports?UserManual=1")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
     [InlineData("/SurveillanceProfiles/PublishPublic/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
