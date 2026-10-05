@@ -56,7 +56,7 @@ public class DocumentHistoryModel(IStaticReportsApiService staticReportsApiServi
             TotalPages = Math.Max(1, (int)Math.Ceiling((double)totalCount / PageSize));
             PageNumber = Math.Clamp(pageNumber, 1, TotalPages);
 
-            SelectedDocumentTitle = orderedVersions.FirstOrDefault()?.Title ?? "this manual";
+            SelectedDocumentTitle = orderedVersions.Count > 0 ? orderedVersions[0].Title : "this manual";
 
             Versions =
             [
@@ -90,7 +90,7 @@ public class DocumentHistoryModel(IStaticReportsApiService staticReportsApiServi
         return $"?staticReportId={StaticReportId}&sortOrder={nextSortOrder}&pageSize={PageSize}&pageNumber=1";
     }
 
-    private static IReadOnlyList<StaticReportVersionDto> SortVersions(IReadOnlyList<StaticReportVersionDto> history, string sortOrder) =>
+    private static List<StaticReportVersionDto> SortVersions(IReadOnlyList<StaticReportVersionDto> history, string sortOrder) =>
         string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase)
             ? history.OrderBy(version => version.VersionMajor).ToList()
             : history.OrderByDescending(version => version.VersionMajor).ToList();
