@@ -45,14 +45,7 @@ public class SurveillanceProfilesSearchIntegrationTests
     [Fact]
     public async Task Search_RendersResultsPartial_ForAjaxRequest()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services =>
-            {
-                services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(SearchResults));
-                services.RemoveAll<ISpeciesApiService>();
-                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
-            }));
+        using var factory = CreateFactory(SearchResults);
         var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
         request.Headers.Add("X-Requested-With", "XMLHttpRequest");
@@ -74,14 +67,7 @@ public class SurveillanceProfilesSearchIntegrationTests
             new SpeciesDto { Id = cattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
             new SpeciesDto { Id = dairyId, ParentId = cattleId, Description = "Dairy cattle", IsActive = true, IsInUse = true }
         ];
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services =>
-            {
-                services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(SearchResults));
-                services.RemoveAll<ISpeciesApiService>();
-                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService(species));
-            }));
+        using var factory = CreateFactory(SearchResults, species);
         var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/Search?SelectedSpecies={dairyId}");
@@ -94,14 +80,7 @@ public class SurveillanceProfilesSearchIntegrationTests
     [Fact]
     public async Task Search_FallsBackToAnySpecies_WhenSelectedSpeciesIdIsUnknown()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services =>
-            {
-                services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(SearchResults));
-                services.RemoveAll<ISpeciesApiService>();
-                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
-            }));
+        using var factory = CreateFactory(SearchResults);
         var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/Search?SelectedSpecies={Guid.NewGuid()}");
@@ -145,14 +124,7 @@ public class SurveillanceProfilesSearchIntegrationTests
                 ]
             }
         ];
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services =>
-            {
-                services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(searchResults));
-                services.RemoveAll<ISpeciesApiService>();
-                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
-            }));
+        using var factory = CreateFactory(searchResults);
         var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search?DisplayDraft=true");
         request.Headers.Add("X-Requested-With", "XMLHttpRequest");
@@ -164,4 +136,16 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("Show previous versions", body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Draft current version", body, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static WebApplicationFactory<Program> CreateFactory(
+        IReadOnlyList<ProfileSearchResultDto> searchResults,
+        IReadOnlyList<SpeciesDto>? species = null) =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new FakeApiClient(searchResults));
+                services.RemoveAll<ISpeciesApiService>();
+                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService(species ?? []));
+            }));
 }

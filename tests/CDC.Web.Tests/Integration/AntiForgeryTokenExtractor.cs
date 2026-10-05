@@ -15,6 +15,15 @@ internal static partial class AntiForgeryTokenExtractor
         return match.Groups[1].Value;
     }
 
+    // Collapses the GET-then-extract boilerplate repeated across every form-posting test.
+    public static async Task<string> GetTokenFromPageAsync(HttpClient client, string url)
+    {
+        var response = await client.GetAsync(url);
+        var html = await response.Content.ReadAsStringAsync();
+
+        return GetToken(html);
+    }
+
     [GeneratedRegex("<input[^>]*name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase)]
     private static partial Regex TokenRegex();
 }

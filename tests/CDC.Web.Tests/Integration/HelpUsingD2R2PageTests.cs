@@ -181,8 +181,7 @@ public class HelpUsingD2R2PageTests
         var initialResponse = await client.GetAsync("/HelpSupport/HelpUsingD2R2");
         Assert.Equal(HttpStatusCode.OK, initialResponse.StatusCode);
 
-        var initialHtml = await initialResponse.Content.ReadAsStringAsync();
-        var token = AntiForgeryTokenExtractor.GetToken(initialHtml);
+        var token = await AntiForgeryTokenExtractor.GetTokenFromPageAsync(client, "/HelpSupport/HelpUsingD2R2");
 
         var deleteResponse = await client.PostAsync(
             "/HelpSupport/HelpUsingD2R2?handler=Delete",
