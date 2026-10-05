@@ -110,6 +110,26 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnPostSaveAsync_FailsValidation_WhenNameAndReasonAreTooLong()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.Input = new EditNameParentInput
+        {
+            SpeciesId = DairyId,
+            Name = new string('a', 51),
+            Reason = new string('b', 256),
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        await pageModel.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowEditPanel);
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.True(pageModel.ModelState.ContainsKey("Input.Name"));
+        Assert.True(pageModel.ModelState.ContainsKey("Input.Reason"));
+    }
+
+    [Fact]
     public async Task OnPostSaveAsync_Redirects_WhenValid()
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(

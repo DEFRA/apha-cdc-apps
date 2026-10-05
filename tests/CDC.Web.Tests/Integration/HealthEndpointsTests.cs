@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using CDC.Common.Health;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 
 namespace CDC.Web.Tests.Integration;
 
@@ -42,6 +43,40 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add(ReadinessKeyFilter.HeaderName, "wrong-key");
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HealthReady_ReturnsOk_WhenKeyMatchesConfiguredValue()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+                configBuilder.AddInMemoryCollection(
+                [
+                    new KeyValuePair<string, string?>("HealthCheck:ReadinessKey", "test-readiness-key")
+                ])));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(ReadinessKeyFilter.HeaderName, "test-readiness-key");
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HealthReady_ReturnsNotFound_WhenKeyLengthDiffersFromConfiguredValue()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+                configBuilder.AddInMemoryCollection(
+                [
+                    new KeyValuePair<string, string?>("HealthCheck:ReadinessKey", "test-readiness-key")
+                ])));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(ReadinessKeyFilter.HeaderName, "short");
 
         var response = await client.GetAsync("/health/ready");
 

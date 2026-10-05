@@ -8,7 +8,9 @@
 }
 
 <h1 class="govuk-heading-l">Help using D2R2</h1>
-<p class="govuk-body">Use the documents below to find current guidance, recent updates and earlier versions of the help content available in D2R2.</p>
+<p class="govuk-body">Below is a list of manuals for using D2R2. Each manual has been tailored according to the particular privileges that you may have as a user of D2R2. Please click on the title of any of the manuals to open the document. If you have any general questions or suggestions for improving the system, then you can contact us using the following email address: <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>.</p>
+<p class="govuk-body">If you are experiencing any problems with the system, then you can contact the APHA ITU helpdesk at <a class="govuk-link" href="mailto:aphaservicedesk@apha.gov.uk">aphaservicedesk@apha.gov.uk</a>.</p>
+<p class="govuk-body"><em>N.B. This service is not provided on UK Bank Holidays.</em></p>
 
 @if (!string.IsNullOrEmpty(Model.StatusMessage))
 {
@@ -34,6 +36,26 @@
     }
 }
 
+@if (Model.Documents.Count > 0)
+{
+    <div class="govuk-grid-row govuk-!-margin-bottom-3">
+        <div class="govuk-grid-column-full govuk-!-text-align-right">
+            <form method="get" class="govuk-!-display-inline-block">
+                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                    <label class="govuk-label govuk-!-display-inline" for="PageSize">Items per page:</label>
+                    <select class="govuk-select govuk-!-display-inline" id="PageSize" name="PageSize" style="min-width: 5rem; width: 5rem;" onchange="this.form.submit()">
+                        @foreach (var option in CDC.Web.Pages.HelpSupport.HelpUsingD2R2Model.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+                <input type="hidden" name="pageNumber" value="1" />
+            </form>
+        </div>
+    </div>
+}
+
 <table class="govuk-table">
     <thead class="govuk-table__head">
         <tr class="govuk-table__row">
@@ -51,14 +73,14 @@
         </tr>
     </thead>
     <tbody class="govuk-table__body">
-        @foreach (var document in Model.Documents)
+        @foreach (var document in Model.PagedDocuments)
         {
             <tr class="govuk-table__row">
                 <td class="govuk-table__cell">
                     <a class="govuk-link" asp-page="/HelpSupport/HelpUsingD2R2" asp-page-handler="Download" asp-route-documentId="@document.Id" target="_blank" rel="noopener noreferrer">@document.Title</a>
                 </td>
                 <td class="govuk-table__cell">@(document.VersionMajor).0</td>
-                <td class="govuk-table__cell">@document.EffectiveDateFrom.ToString("d MMMM yyyy")</td>
+                <td class="govuk-table__cell">@document.EffectiveDateFrom.ToString("dd/MM/yyyy")@(document.EffectiveDateTo is null ? " -" : $" - {document.EffectiveDateTo.Value:dd/MM/yyyy}")</td>
                 @if (Model.CanViewHistory)
                 {
                     <td class="govuk-table__cell">
@@ -80,23 +102,62 @@
     </tbody>
 </table>
 
+@if (Model.TotalPages > 1)
+{
+    <nav class="govuk-pagination" aria-label="Manual pages">
+        @if (Model.PageNumber > 1)
+        {
+            <div class="govuk-pagination__prev">
+                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                    <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                        <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                    </svg>
+                    <span class="govuk-pagination__link-title">Previous</span>
+                </a>
+            </div>
+        }
+
+        <ul class="govuk-pagination__list">
+            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+            {
+                <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @pageNumber" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@pageNumber</a>
+                </li>
+            }
+        </ul>
+
+        @if (Model.PageNumber < Model.TotalPages)
+        {
+            <div class="govuk-pagination__next">
+                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                    <span class="govuk-pagination__link-title">Next</span>
+                    <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                        <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                    </svg>
+                </a>
+            </div>
+        }
+    </nav>
+}
+
 @if (Model.CanManageDocuments)
 {
-    <details class="govuk-details" data-module="govuk-details" open="@Model.ShowUploadPanel">
-        <summary class="govuk-details__summary">
-            <span class="govuk-details__summary-text">Add</span>
-        </summary>
-        <div class="govuk-details__text">
-            <form method="post" enctype="multipart/form-data" asp-page-handler="Upload">
-                @Html.AntiForgeryToken()
-                <div class="govuk-form-group">
-                    <label class="govuk-label" for="document">User manual:</label>
-                    <input class="govuk-file-upload" id="document" name="document" type="file" accept="application/pdf">
-                </div>
-                <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
-                <a class="govuk-button govuk-button--secondary" asp-page="/HelpSupport/HelpUsingD2R2">Cancel</a>
-            </form>
-        </div>
-    </details>
+    <div class="govuk-!-margin-bottom-4">
+        <button type="button" class="govuk-button govuk-button--success govuk-!-margin-bottom-0" data-module="govuk-button" aria-expanded="@Model.ShowUploadPanel.ToString().ToLowerInvariant()" aria-controls="app-help-manual-upload" onclick="document.getElementById('app-help-manual-upload').hidden = !document.getElementById('app-help-manual-upload').hidden; this.setAttribute('aria-expanded', String(!document.getElementById('app-help-manual-upload').hidden));">
+            Add
+        </button>
+    </div>
+
+    <div id="app-help-manual-upload" @(Model.ShowUploadPanel ? null : "hidden") class="govuk-!-margin-bottom-4">
+        <form method="post" enctype="multipart/form-data" asp-page-handler="Upload">
+            @Html.AntiForgeryToken()
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="document">User manual:</label>
+                <input class="govuk-file-upload" id="document" name="document" type="file" accept="application/pdf">
+            </div>
+            <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+            <a class="govuk-button govuk-button--secondary" asp-page="/HelpSupport/HelpUsingD2R2">Cancel</a>
+        </form>
+    </div>
 }
 

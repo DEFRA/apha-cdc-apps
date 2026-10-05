@@ -21,9 +21,25 @@ public class HelpUsingD2R2Model(IStaticReportsApiService staticReportsApiService
     : BreadcrumbPageModelBase("Help using D2R2")
 {
     private const string PdfContentType = "application/pdf";
+    public const int DefaultPageSize = 10;
+
+    public static IReadOnlyList<int> PageSizeOptions { get; } = [10, 20, 30, 50];
 
     /// <summary>Gets the current version of every user manual.</summary>
     public IReadOnlyList<StaticReportVersionDto> Documents { get; private set; } = [];
+
+    /// <summary>Gets or sets the current page number in the browser query string.</summary>
+    public int PageNumber { get; set; } = 1;
+
+    /// <summary>Gets or sets how many documents appear on a page.</summary>
+    public int PageSize { get; set; } = DefaultPageSize;
+
+    /// <summary>Gets the subset of documents shown on the current page.</summary>
+    public IReadOnlyList<StaticReportVersionDto> PagedDocuments =>
+        Documents.Skip((PageNumber - 1) * PageSize).Take(PageSize).ToList();
+
+    /// <summary>Gets the total number of pages in the document list.</summary>
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling((double)Documents.Count / Math.Max(PageSize, 1)));
 
     /// <summary>Gets a value indicating whether the history link is shown.</summary>
     public bool CanViewHistory { get; } = true;
@@ -41,9 +57,10 @@ public class HelpUsingD2R2Model(IStaticReportsApiService staticReportsApiService
     /// failed upload leaves the user on it to choose another file.</summary>
     public bool ShowUploadPanel { get; private set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task OnGetAsync(int? pageNumber = null, int? pageSize = null, CancellationToken cancellationToken = default)
     {
         await LoadDocumentsAsync(cancellationToken);
+        ApplyPaging(pageNumber, pageSize);
     }
 
     /// <summary>Streams a manual's PDF content back to the browser.</summary>
@@ -161,6 +178,22 @@ public class HelpUsingD2R2Model(IStaticReportsApiService staticReportsApiService
         await LoadDocumentsAsync(cancellationToken);
 
         return Page();
+    }
+
+    private void ApplyPaging(int? requestedPageNumber, int? requestedPageSize)
+    {
+        var validPageSize = requestedPageSize is > 0 && PageSizeOptions.Contains(requestedPageSize.Value)
+            ? requestedPageSize.Value
+            : DefaultPageSize;
+
+        PageSize = validPageSize;
+        PageNumber = Math.Clamp(requestedPageNumber ?? 1, 1, TotalPages);
+    }
+
+    public string BuildPageUrl(int targetPage)
+    {
+        var safePageNumber = Math.Clamp(targetPage, 1, TotalPages);
+        return $"?pageNumber={safePageNumber}&pageSize={PageSize}";
     }
 
     private async Task LoadDocumentsAsync(CancellationToken cancellationToken)

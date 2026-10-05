@@ -1,15 +1,15 @@
 @page
 @model CDC.Web.Pages.HelpSupport.DocumentHistoryModel
 @{
-    ViewData["Title"] = "Document history";
+    ViewData["Title"] = $"History for {Model.SelectedDocumentTitle}";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
-<h1 class="govuk-heading-l">Previous versions</h1>
+<h1 class="govuk-heading-l">History for @Model.SelectedDocumentTitle</h1>
 
-<p class="govuk-body">This document has previously been published with the versions below. Each version records the date it became effective.</p>
+<p class="govuk-body">Below is a list of published versions of this user manual. These manuals have been created to help D2R2 users. If you have any suggestions for improving the manual system, then you can contact us using the following email address: <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a></p>
 
 @if (Model.HasError)
 {
@@ -21,22 +21,90 @@
     </div>
 }
 
-<table class="govuk-table">
+@if (!Model.HasError)
+{
+    <div class="govuk-grid-row govuk-!-margin-bottom-3">
+        <div class="govuk-grid-column-full govuk-!-text-align-right">
+            <form method="get" class="govuk-!-margin-bottom-0">
+                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                    <label class="govuk-label govuk-!-display-inline" for="PageSize">Items per page:</label>
+                    <select class="govuk-select govuk-!-display-inline" id="PageSize" name="pageSize" style="min-width: 5rem; width: 5rem;" onchange="this.form.submit()">
+                        @foreach (var option in CDC.Web.Pages.HelpSupport.DocumentHistoryModel.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+                <input type="hidden" name="staticReportId" value="@Model.StaticReportId" />
+                <input type="hidden" name="sortOrder" value="@Model.SortOrder" />
+                <input type="hidden" name="pageNumber" value="1" />
+            </form>
+        </div>
+    </div>
+}
+
+<table id="manual-history-table" class="govuk-table">
     <thead class="govuk-table__head">
         <tr class="govuk-table__row">
-            <th scope="col" class="govuk-table__header">Version</th>
-            <th scope="col" class="govuk-table__header">Effective date</th>
             <th scope="col" class="govuk-table__header">Title</th>
+            <th scope="col" class="govuk-table__header" aria-sort="@(Model.SortOrder == "desc" ? "descending" : "ascending")">
+                <a id="manual-history-sort-toggle" class="govuk-link" href="@Model.BuildSortUrl()">
+                    Version <span aria-hidden="true">@(Model.SortOrder == "desc" ? "▼" : "▲")</span>
+                    <span class="govuk-visually-hidden">@(Model.SortOrder == "desc" ? "sorted descending, select to sort ascending" : "sorted ascending, select to sort descending")</span>
+                </a>
+            </th>
+            <th scope="col" class="govuk-table__header">Effective dates</th>
         </tr>
     </thead>
     <tbody class="govuk-table__body">
         @foreach (var version in Model.Versions)
         {
             <tr class="govuk-table__row">
+                <td class="govuk-table__cell">
+                    <a class="govuk-link" asp-page="/HelpSupport/HelpUsingD2R2" asp-page-handler="Download" asp-route-documentId="@version.Id" target="_blank" rel="noopener noreferrer">@version.Title</a>
+                </td>
                 <td class="govuk-table__cell">@version.Version</td>
-                <td class="govuk-table__cell">@version.EffectiveDate</td>
-                <td class="govuk-table__cell">@version.Title</td>
+                <td class="govuk-table__cell">@version.EffectiveDateRange</td>
             </tr>
         }
     </tbody>
 </table>
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="govuk-pagination" aria-label="Manual history pages">
+        @if (Model.PageNumber > 1)
+        {
+            <div class="govuk-pagination__prev">
+                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                    <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                        <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                    </svg>
+                    <span class="govuk-pagination__link-title">Previous</span>
+                </a>
+            </div>
+        }
+
+        <ul class="govuk-pagination__list">
+            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+            {
+                <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @pageNumber" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@pageNumber</a>
+                </li>
+            }
+        </ul>
+
+        @if (Model.PageNumber < Model.TotalPages)
+        {
+            <div class="govuk-pagination__next">
+                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                    <span class="govuk-pagination__link-title">Next</span>
+                    <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                        <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                    </svg>
+                </a>
+            </div>
+        }
+    </nav>
+}
+

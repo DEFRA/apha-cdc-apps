@@ -29,7 +29,7 @@ public class HelpUsingD2R2ModelTests
     {
         var pageModel = CreatePageModel(new FakeStaticReportsApiService(Manuals));
 
-        await pageModel.OnGetAsync(CancellationToken.None);
+        await pageModel.OnGetAsync(pageNumber: null, pageSize: null, CancellationToken.None);
 
         Assert.Single(pageModel.Documents);
         Assert.False(pageModel.StatusIsError);
@@ -40,7 +40,7 @@ public class HelpUsingD2R2ModelTests
     {
         var pageModel = CreatePageModel(new FakeStaticReportsApiService(throwOnGetCurrent: new HttpRequestException("connection refused")));
 
-        await pageModel.OnGetAsync(CancellationToken.None);
+        await pageModel.OnGetAsync(pageNumber: null, pageSize: null, CancellationToken.None);
 
         Assert.Empty(pageModel.Documents);
         Assert.True(pageModel.StatusIsError);
@@ -135,6 +135,39 @@ public class HelpUsingD2R2ModelTests
         Assert.True(pageModel.StatusIsError);
         Assert.True(pageModel.ShowUploadPanel);
         Assert.StartsWith("Failed to upload the user manual: ", pageModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_RejectsInvalidPageSize_FallsBackToDefault()
+    {
+        var pageModel = CreatePageModel(new FakeStaticReportsApiService(Manuals));
+
+        await pageModel.OnGetAsync(pageNumber: 1, pageSize: 999, CancellationToken.None);
+
+        Assert.Equal(HelpUsingD2R2Model.DefaultPageSize, pageModel.PageSize);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ClampsPageNumberAboveTotalPages()
+    {
+        var pageModel = CreatePageModel(new FakeStaticReportsApiService(Manuals));
+
+        await pageModel.OnGetAsync(pageNumber: 99, pageSize: 10, CancellationToken.None);
+
+        Assert.Equal(1, pageModel.PageNumber);
+        Assert.Equal(1, pageModel.TotalPages);
+    }
+
+    [Fact]
+    public async Task BuildPageUrl_ClampsTargetPageWithinBounds()
+    {
+        var pageModel = CreatePageModel(new FakeStaticReportsApiService(Manuals));
+
+        await pageModel.OnGetAsync(pageNumber: 1, pageSize: 10, CancellationToken.None);
+
+        Assert.Equal("?pageNumber=1&pageSize=10", pageModel.BuildPageUrl(0));
+        Assert.Equal("?pageNumber=1&pageSize=10", pageModel.BuildPageUrl(1));
+        Assert.Equal("?pageNumber=1&pageSize=10", pageModel.BuildPageUrl(99));
     }
 
     [Fact]
