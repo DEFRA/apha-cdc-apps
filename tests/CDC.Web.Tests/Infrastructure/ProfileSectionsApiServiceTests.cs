@@ -105,6 +105,52 @@ public class ProfileSectionsApiServiceTests
         Assert.Empty(values);
     }
 
+    [Fact]
+    public async Task GetProfileNoteTypesAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            [{ "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f", "name": "Scientific paper reference", "pluralName": "Scientific paper references" }]
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var noteTypes = await service.GetProfileNoteTypesAsync();
+
+        var noteType = Assert.Single(noteTypes);
+        Assert.Equal("Scientific paper reference", noteType.Name);
+    }
+
+    [Fact]
+    public async Task GetProfileNoteTypesAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var noteTypes = await service.GetProfileNoteTypesAsync();
+
+        Assert.Empty(noteTypes);
+    }
+
+    [Fact]
+    public async Task GetProfileNotesBySectionAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """[{ "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f", "noteText": "A relevant paper." }]""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var notes = await service.GetProfileNotesBySectionAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+
+        var note = Assert.Single(notes);
+        Assert.Equal("A relevant paper.", note.NoteText);
+    }
+
+    [Fact]
+    public async Task GetProfileNotesBySectionAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var notes = await service.GetProfileNotesBySectionAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Empty(notes);
+    }
+
     private static ProfileSectionsApiService CreateService(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };
