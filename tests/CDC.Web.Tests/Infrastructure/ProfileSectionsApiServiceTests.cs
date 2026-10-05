@@ -21,8 +21,19 @@ public class ProfileSectionsApiServiceTests
                       "id": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
                       "shortName": "Q1",
                       "questionNumber": 1,
+                      "isPerSpecies": true,
+                      "isRepeating": true,
                       "fields": [
-                        { "id": "2e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6071", "name": "Affected species", "dataTypeName": "List" }
+                        {
+                          "id": "2e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6071",
+                          "name": "Affected species",
+                          "shortName": "Species",
+                          "dataTypeName": "List",
+                          "isMandatory": true,
+                          "dataFieldTypeId": "3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d",
+                          "referenceTableId": "4b5c6d7e-8f9a-0b1c-2d3e-4f5a6b7c8d9e",
+                          "referenceTableIsMaintainable": true
+                        }
                       ]
                     }
                   ]
@@ -38,8 +49,12 @@ public class ProfileSectionsApiServiceTests
         Assert.Equal("Epidemiology", section.Name);
         var question = Assert.Single(section.Questions);
         Assert.Equal("Q1", question.ShortName);
+        Assert.True(question.IsPerSpecies);
+        Assert.True(question.IsRepeating);
         var field = Assert.Single(question.Fields);
         Assert.Equal("Affected species", field.Name);
+        Assert.True(field.IsMandatory);
+        Assert.True(field.ReferenceTableIsMaintainable);
     }
 
     [Fact]
@@ -59,8 +74,19 @@ public class ProfileSectionsApiServiceTests
             {
               "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
               "profileSectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
-              "questionNames": [ { "id": "2e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6071", "name": "Is it endemic?" } ],
-              "fieldValues": [ { "id": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f607182", "questionId": "2e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6071", "fieldNumber": 1, "booleanValue": true } ]
+              "questionNames": [ { "id": "2e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6071", "name": "Is it endemic?", "nonTechnicalName": "Endemic?" } ],
+              "fieldValues": [
+                {
+                  "id": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f607182",
+                  "questionId": "2e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6071",
+                  "fieldNumber": 1,
+                  "booleanValue": true,
+                  "listValue": "4a5b6c7d-8e9f-0a1b-2c3d-4e5f60718293",
+                  "textValue": "Some notes",
+                  "decimalValue": 1.5,
+                  "dateValue": "2026-01-01T00:00:00Z"
+                }
+              ]
             }
             """;
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
@@ -70,6 +96,8 @@ public class ProfileSectionsApiServiceTests
         Assert.Single(answers.QuestionNames);
         var fieldValue = Assert.Single(answers.FieldValues);
         Assert.True(fieldValue.BooleanValue);
+        Assert.Equal(1.5m, fieldValue.DecimalValue);
+        Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), fieldValue.DateValue);
     }
 
     [Fact]

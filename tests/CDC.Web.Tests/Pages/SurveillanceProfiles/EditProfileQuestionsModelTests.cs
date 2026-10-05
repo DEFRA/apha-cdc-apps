@@ -80,6 +80,8 @@ public class EditProfileQuestionsModelTests
                         SectionId = SummarySectionId,
                         ShortName = "Overview",
                         QuestionNumber = 1,
+                        IsPerSpecies = true,
+                        IsRepeating = true,
                         Fields =
                         [
                             new ProfileFieldMetadataDto

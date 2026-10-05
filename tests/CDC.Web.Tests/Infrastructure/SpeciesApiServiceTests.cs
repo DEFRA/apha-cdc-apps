@@ -181,7 +181,18 @@ public class SpeciesApiServiceTests
                       "shortName": "Traceable",
                       "questionNumber": 1,
                       "fields": [
-                        { "id": "3f4e5d6c-7b8a-9988-9a0b-1c2d3e4f5a6d", "questionId": "2f3e4d5c-6b7a-8988-9a0b-1c2d3e4f5a6c", "name": "Yes/No", "fieldNumber": 1, "dataTypeName": "Boolean" }
+                        {
+                          "id": "3f4e5d6c-7b8a-9988-9a0b-1c2d3e4f5a6d",
+                          "questionId": "2f3e4d5c-6b7a-8988-9a0b-1c2d3e4f5a6c",
+                          "name": "Yes/No",
+                          "fieldNumber": 1,
+                          "dataTypeName": "Boolean",
+                          "isMandatory": true,
+                          "editorFieldType": 2,
+                          "dataFieldTypeId": "4f5e6d7c-8b9a-0988-9a0b-1c2d3e4f5a6e",
+                          "referenceTableId": "5f6e7d8c-9b0a-1988-9a0b-1c2d3e4f5a6f",
+                          "referenceTableIsMaintainable": true
+                        }
                       ]
                     }
                   ]
@@ -197,7 +208,10 @@ public class SpeciesApiServiceTests
         Assert.Equal("Movements", section.Name);
         var question = Assert.Single(section.Questions);
         Assert.Equal("Can movements be traced?", question.Name);
-        Assert.Single(question.Fields);
+        var field = Assert.Single(question.Fields);
+        Assert.True(field.IsMandatory);
+        Assert.Equal(2, field.EditorFieldType);
+        Assert.True(field.ReferenceTableIsMaintainable);
     }
 
     [Fact]
