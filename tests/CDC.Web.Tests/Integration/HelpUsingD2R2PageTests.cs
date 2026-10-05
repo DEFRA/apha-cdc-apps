@@ -182,19 +182,14 @@ public class HelpUsingD2R2PageTests
         Assert.Equal(HttpStatusCode.OK, initialResponse.StatusCode);
 
         var initialHtml = await initialResponse.Content.ReadAsStringAsync();
-        var tokenMatch = System.Text.RegularExpressions.Regex.Match(
-            initialHtml,
-            "<input[^>]*name=\\\"__RequestVerificationToken\\\"[^>]*value=\\\"([^\\\"]+)\\\"",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        Assert.True(tokenMatch.Success, "Expected anti-forgery token in the page markup.");
+        var token = AntiForgeryTokenExtractor.GetToken(initialHtml);
 
         var deleteResponse = await client.PostAsync(
             "/HelpSupport/HelpUsingD2R2?handler=Delete",
             new FormUrlEncodedContent(
             [
                 new KeyValuePair<string, string>("documentId", VersionId.ToString()),
-                new KeyValuePair<string, string>("__RequestVerificationToken", tokenMatch.Groups[1].Value)
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
             ]));
 
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);

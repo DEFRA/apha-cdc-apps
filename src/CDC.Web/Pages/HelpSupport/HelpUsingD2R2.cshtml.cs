@@ -35,7 +35,7 @@ public class HelpUsingD2R2Model(IStaticReportsApiService staticReportsApiService
     public int PageSize { get; set; } = DefaultPageSize;
 
     /// <summary>Gets the subset of documents shown on the current page.</summary>
-    public IReadOnlyList<StaticReportVersionDto> PagedDocuments =>
+    public IReadOnlyList<StaticReportVersionDto> GetPagedDocuments() =>
         Documents.Skip((PageNumber - 1) * PageSize).Take(PageSize).ToList();
 
     /// <summary>Gets the total number of pages in the document list.</summary>

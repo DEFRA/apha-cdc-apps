@@ -100,19 +100,14 @@ public class SpeciesDataIntegrationTests
 
         var initialResponse = await client.GetAsync("/SpeciesData/Maintain");
         var initialHtml = await initialResponse.Content.ReadAsStringAsync();
-        var tokenMatch = System.Text.RegularExpressions.Regex.Match(
-            initialHtml,
-            "<input[^>]*name=\\\"__RequestVerificationToken\\\"[^>]*value=\\\"([^\\\"]+)\\\"",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        Assert.True(tokenMatch.Success, "Expected anti-forgery token in the page markup.");
+        var token = AntiForgeryTokenExtractor.GetToken(initialHtml);
 
         var editResponse = await client.PostAsync(
             "/SpeciesData/Maintain?handler=EditNameParent",
             new FormUrlEncodedContent(
             [
                 new KeyValuePair<string, string>("species", DairyId.ToString()),
-                new KeyValuePair<string, string>("__RequestVerificationToken", tokenMatch.Groups[1].Value)
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
             ]));
 
         Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
@@ -132,18 +127,13 @@ public class SpeciesDataIntegrationTests
 
         var initialResponse = await client.GetAsync("/SpeciesData/Maintain");
         var initialHtml = await initialResponse.Content.ReadAsStringAsync();
-        var tokenMatch = System.Text.RegularExpressions.Regex.Match(
-            initialHtml,
-            "<input[^>]*name=\\\"__RequestVerificationToken\\\"[^>]*value=\\\"([^\\\"]+)\\\"",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        Assert.True(tokenMatch.Success, "Expected anti-forgery token in the page markup.");
+        var token = AntiForgeryTokenExtractor.GetToken(initialHtml);
 
         var editResponse = await client.PostAsync(
             "/SpeciesData/Maintain?handler=EditNameParent",
             new FormUrlEncodedContent(
             [
-                new KeyValuePair<string, string>("__RequestVerificationToken", tokenMatch.Groups[1].Value)
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
             ]));
 
         var editHtml = await editResponse.Content.ReadAsStringAsync();
@@ -171,12 +161,7 @@ public class SpeciesDataIntegrationTests
 
         var initialResponse = await client.GetAsync("/SpeciesData/Maintain");
         var initialHtml = await initialResponse.Content.ReadAsStringAsync();
-        var tokenMatch = System.Text.RegularExpressions.Regex.Match(
-            initialHtml,
-            "<input[^>]*name=\\\"__RequestVerificationToken\\\"[^>]*value=\\\"([^\\\"]+)\\\"",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        Assert.True(tokenMatch.Success, "Expected anti-forgery token in the page markup.");
+        var token = AntiForgeryTokenExtractor.GetToken(initialHtml);
 
         var saveResponse = await client.PostAsync(
             "/SpeciesData/Maintain?handler=Save",
@@ -186,7 +171,7 @@ public class SpeciesDataIntegrationTests
                 new KeyValuePair<string, string>("Input.Name", string.Empty),
                 new KeyValuePair<string, string>("Input.Reason", string.Empty),
                 new KeyValuePair<string, string>("Input.LastUpdatedBase64", Convert.ToBase64String(speciesDetail.LastUpdated)),
-                new KeyValuePair<string, string>("__RequestVerificationToken", tokenMatch.Groups[1].Value)
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
             ]));
 
         var saveHtml = await saveResponse.Content.ReadAsStringAsync();
