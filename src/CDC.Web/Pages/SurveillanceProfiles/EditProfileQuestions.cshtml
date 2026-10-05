@@ -1,0 +1,126 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.EditProfileQuestionsModel
+@{
+    ViewData["Title"] = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
+
+    var subnavModel = new SectionSubnavViewModel(
+        "Profile reference sections",
+        [.. Model.Sections
+            .Select(navSection => new SectionNavItem(
+                navSection.SectionNumber,
+                navSection.Name,
+                Model.BuildSectionUrl(navSection.Id),
+                Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id))]);
+
+    var accordionModel = new QuestionAccordionViewModel(
+        "profile-questions-accordion",
+        "No questions are available for this section.",
+        Model.Questions);
+
+    var previousNavItem = Model.PreviousSection is null
+        ? null
+        : new SectionNavItem(Model.PreviousSection.SectionNumber, Model.PreviousSection.Name, Model.BuildSectionUrl(Model.PreviousSection.Id));
+    var nextNavItem = Model.NextSection is null
+        ? null
+        : new SectionNavItem(Model.NextSection.SectionNumber, Model.NextSection.Name, Model.BuildSectionUrl(Model.NextSection.Id));
+    var paginationModel = new SectionPaginationViewModel(previousNavItem, nextNavItem);
+}
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)
+            </li>
+        </ol>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="profile-questions-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="profile-questions-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">We could not load this profile. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <h1 class="govuk-heading-l">Title: @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)</h1>
+
+    <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+            <h2 class="govuk-heading-s">Profile reports</h2>
+            <p class="govuk-body govuk-!-font-size-16">Report generation is not yet available in this migrated view.</p>
+
+            <h2 class="govuk-heading-s">Profile references</h2>
+            <partial name="_SectionSubnav" model="subnavModel" />
+        </div>
+        <div class="govuk-grid-column-three-quarters">
+            @if (Model.CurrentSection is null)
+            {
+                <p class="govuk-body">No profile reference sections are available.</p>
+            }
+            else
+            {
+                <h2 class="govuk-heading-m">@Model.CurrentSection.Name</h2>
+
+                <div class="govuk-tabs" data-module="govuk-tabs">
+                    <h2 class="govuk-tabs__title">Contents</h2>
+                    <ul class="govuk-tabs__list">
+                        <li class="govuk-tabs__list-item govuk-tabs__list-item--selected">
+                            <a class="govuk-tabs__tab" href="#profile-questions-panel">Questions</a>
+                        </li>
+                        <li class="govuk-tabs__list-item">
+                            <a class="govuk-tabs__tab" href="#profile-references-panel">References</a>
+                        </li>
+                        <li class="govuk-tabs__list-item">
+                            <a class="govuk-tabs__tab" href="#profile-further-information-panel">Further information</a>
+                        </li>
+                    </ul>
+                    <div class="govuk-tabs__panel" id="profile-questions-panel">
+                        @if (Model.HasNoVersion)
+                        {
+                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                        }
+                        else
+                        {
+                            <partial name="_QuestionAccordion" model="accordionModel" />
+                        }
+                    </div>
+                    <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-references-panel">
+                        @if (Model.HasNoVersion)
+                        {
+                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                        }
+                        else
+                        {
+                            <partial name="_ProfileNoteList" model="Model.ScientificPaperReferences" />
+                            <partial name="_ProfileNoteList" model="Model.LegislativeReferences" />
+                        }
+                    </div>
+                    <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-further-information-panel">
+                        @if (Model.HasNoVersion)
+                        {
+                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                        }
+                        else
+                        {
+                            <partial name="_ProfileNoteList" model="Model.FurtherInformation" />
+                        }
+                    </div>
+                </div>
+
+                <partial name="_SectionPagination" model="paginationModel" />
+            }
+        </div>
+    </div>
+}
