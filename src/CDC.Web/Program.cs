@@ -1,6 +1,8 @@
 using System.Globalization;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Web.Authorization;
+using CDC.Web.Authorization.Middleware;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -70,6 +72,10 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
+// Centralized policy-based authorization (replaces legacy CSLA Profile.CanXxx() checks). See
+// src/CDC.Web/Authorization/AuthorizationDependencyInjection.cs.
+builder.Services.AddCdcWebAuthorization(builder.Configuration);
+
 // Allow views to be located under Features/{Controller}/Views and Features/Shared
 builder.Services.Configure<RazorViewEngineOptions>(options =>
 {
@@ -100,6 +106,9 @@ app.UseRouting();
 
 app.MapHealthEndpoints();
 
+// TEMPORARY: simulates an authenticated user from config until real authentication (Entra ID
+// SAML) is integrated - see src/CDC.Web/Authorization/Middleware/PlaceholderUserContextMiddleware.cs.
+app.UsePlaceholderUserContext();
 app.UseAuthorization();
 
 app.MapStaticAssets();
