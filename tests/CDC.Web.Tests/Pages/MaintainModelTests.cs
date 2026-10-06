@@ -274,7 +274,7 @@ public class MaintainModelTests
 
         var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
         Assert.Equal(newSpeciesId, redirect.RouteValues!["species"]);
-        Assert.Equal(true, redirect.RouteValues["added"]);
+        Assert.True(redirect.RouteValues["added"] as bool?);
         Assert.Equal("Jersey", api.LastAddRequest?.Name);
         Assert.Equal("New breed", api.LastAddRequest?.Reason);
     }
