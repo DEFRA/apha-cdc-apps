@@ -105,7 +105,7 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
         // generic error page, per the CIDM guide's own error-handling guidance.
         LogAuthenticationFailed(context.Failure);
         context.HandleResponse();
-        context.Response.Redirect("/Home/Error");
+        context.Response.Redirect("/Landing/Error");
         return Task.CompletedTask;
     }
 

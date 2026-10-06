@@ -80,6 +80,13 @@ public static class CidmAuthenticationExtensions
             {
                 var cidm = cidmOptions.Value;
 
+                // Without this, the handler resolves its sign-in target lazily from the app's
+                // ambient default scheme at runtime - fine while CIDM's cookie was the only one
+                // registered, but silently wrong (signs the ticket into the WRONG cookie, looping
+                // the challenge forever) once another Add*Authentication call elsewhere in the app
+                // changes which scheme is "default". Pin it explicitly so this never depends on
+                // registration order again.
+                options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 options.MetadataAddress = cidm.MetadataAddress;
                 options.ClientId = cidm.ClientId;
                 options.ClientSecret = cidm.ClientSecret;

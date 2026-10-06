@@ -213,7 +213,7 @@ public class CidmOpenIdConnectEventsTests
 
         Assert.True(context.Result.Handled);
         Assert.Equal(StatusCodes.Status302Found, httpContext.Response.StatusCode);
-        Assert.Equal("/Home/Error", httpContext.Response.Headers.Location.ToString());
+        Assert.Equal("/Landing/Error", httpContext.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -252,5 +252,31 @@ public class CidmOpenIdConnectEventsTests
         await CreateEvents().RedirectToIdentityProviderForSignOut(context);
 
         Assert.Equal(0, httpContext.Response.Body.Length);
+    }
+
+    [Fact]
+    public async Task SignedOutCallbackRedirect_SetsDefaultRedirectUri_WhenNoneIsEchoedBack()
+    {
+        var context = new RemoteSignOutContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), new OpenIdConnectMessage())
+        {
+            Properties = null
+        };
+
+        await CreateEvents().SignedOutCallbackRedirect(context);
+
+        Assert.Equal("/Account/SignedOut", context.Properties?.RedirectUri);
+    }
+
+    [Fact]
+    public async Task SignedOutCallbackRedirect_LeavesRedirectUriUnchanged_WhenCidmEchoedOneBack()
+    {
+        var context = new RemoteSignOutContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), new OpenIdConnectMessage())
+        {
+            Properties = new AuthenticationProperties { RedirectUri = "/custom-redirect" }
+        };
+
+        await CreateEvents().SignedOutCallbackRedirect(context);
+
+        Assert.Equal("/custom-redirect", context.Properties?.RedirectUri);
     }
 }
