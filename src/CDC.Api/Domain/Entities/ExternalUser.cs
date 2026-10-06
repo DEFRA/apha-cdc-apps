@@ -21,12 +21,12 @@ public sealed record ExternalUser : BaseEntity
     public required string EmailAddress { get; init; }
 
     /// <summary>Gets the CIDM 'sub' claim (GUID) this user record is matched against.</summary>
-    public required Guid CidmSsoId { get; init; }
+    public required Guid SsoUserIdExt { get; init; }
 
     /// <summary>
     /// Gets the legacy SSO identity, if any. A non-null value is the existing signal (unchanged
     /// since before CIDM existed) that this row is an external, not internal, user - used to
-    /// decide whether a row found by email is allowed to be linked to a CidmSsoId.
+    /// decide whether a row found by email is allowed to be linked to a SsoUserIdExt.
     /// </summary>
     public required Guid? SsoUserId { get; init; }
 

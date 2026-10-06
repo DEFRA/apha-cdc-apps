@@ -8,7 +8,7 @@ public sealed class ResolveExternalUserCommandValidator : AbstractValidator<Reso
     /// <summary>Initialises a new instance of the <see cref="ResolveExternalUserCommandValidator"/> class.</summary>
     public ResolveExternalUserCommandValidator()
     {
-        RuleFor(command => command.CidmSsoId)
+        RuleFor(command => command.SsoUserIdExt)
             .NotEmpty().WithMessage("A CIDM subject id is required.");
 
         RuleFor(command => command.Email)

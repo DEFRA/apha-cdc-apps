@@ -11,7 +11,7 @@ namespace CDC.Api.Features.Users.Commands;
 public sealed record ResolveExternalUserCommand : IRequest<Result<ExternalUserDto>>
 {
     /// <summary>Gets the CIDM 'sub' claim.</summary>
-    public required Guid CidmSsoId { get; init; }
+    public required Guid SsoUserIdExt { get; init; }
 
     /// <summary>Gets the email claim.</summary>
     public required string Email { get; init; }

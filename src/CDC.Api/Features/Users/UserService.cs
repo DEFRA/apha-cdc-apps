@@ -6,7 +6,7 @@ using CDC.Api.Features.Users.Interfaces;
 namespace CDC.Api.Features.Users;
 
 /// <summary>
-/// Default <see cref="IUserService"/>: CidmSsoId-then-email resolution, the external/not-external
+/// Default <see cref="IUserService"/>: SsoUserIdExt-then-email resolution, the external/not-external
 /// decision, and new-user provisioning, on top of the plain CRUD <see cref="IUserRepository"/>.
 /// </summary>
 /// <param name="userRepository">User data access.</param>
@@ -20,17 +20,17 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var bySsoId = await userRepository.GetByCidmSsoIdAsync(command.CidmSsoId, cancellationToken);
+        var bySsoId = await userRepository.GetBySsoUserIdExtAsync(command.SsoUserIdExt, cancellationToken);
         if (bySsoId is not null)
         {
-            logger.MatchedByCidmSsoId(bySsoId.Id);
+            logger.MatchedBySsoUserIdExt(bySsoId.Id);
             return Result.Success(bySsoId);
         }
 
         var byEmail = await userRepository.GetByEmailAddressAsync(command.Email, cancellationToken);
         if (byEmail is not null)
         {
-            return await LinkOrDenyAsync(byEmail, command.CidmSsoId, cancellationToken);
+            return await LinkOrDenyAsync(byEmail, command.SsoUserIdExt, cancellationToken);
         }
 
         return Result.Success(await CreateAsync(command, cancellationToken));
@@ -38,7 +38,7 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
 
     private async Task<Result<ExternalUser>> LinkOrDenyAsync(
         ExternalUser existingUser,
-        Guid cidmSsoId,
+        Guid ssoUserIdExt,
         CancellationToken cancellationToken)
     {
         // SsoUserId is the pre-existing (legacy, pre-CIDM) signal that a row is an external user -
@@ -51,10 +51,10 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
                 $"The email address '{existingUser.EmailAddress}' belongs to an existing account that is not permitted to sign in externally.");
         }
 
-        logger.MatchedByEmailBackfillingCidmSsoId(existingUser.Id);
-        await userRepository.UpdateCidmSsoIdAsync(existingUser.Id, cidmSsoId, cancellationToken);
+        logger.MatchedByEmailBackfillingSsoUserIdExt(existingUser.Id);
+        await userRepository.UpdateSsoUserIdExtAsync(existingUser.Id, ssoUserIdExt, cancellationToken);
 
-        return Result.Success(existingUser with { CidmSsoId = cidmSsoId });
+        return Result.Success(existingUser with { SsoUserIdExt = ssoUserIdExt });
     }
 
     private async Task<ExternalUser> CreateAsync(ResolveExternalUserCommand command, CancellationToken cancellationToken)
@@ -69,7 +69,7 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
             FullName = $"{command.FirstName} {command.LastName}".Trim(),
             Organisation = command.Organisation,
             EmailAddress = command.Email,
-            CidmSsoId = command.CidmSsoId,
+            SsoUserIdExt = command.SsoUserIdExt,
             SsoUserId = null,
             IsProfileEditor = false,
             IsPolicyProfileUser = false
@@ -79,5 +79,43 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
         logger.CreatedNewExternalUser(created.Id);
 
         return created;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<InternalUser>> ResolveInternalUserAsync(
+        ResolveInternalUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var bySsoId = await userRepository.GetBySsoUserIdIntAsync(command.SsoUserIdInt, cancellationToken);
+        if (bySsoId is not null)
+        {
+            logger.MatchedBySsoUserIdInt(bySsoId.Id);
+            return Result.Success(bySsoId);
+        }
+
+        var byUserName = await userRepository.GetByUserNameAsync(command.UserName, cancellationToken);
+        if (byUserName is null)
+        {
+            // Legacy parity: a Windows/Entra-authenticated user with no [dbo].[User] row is still
+            // let in - just with no profile-authoring privileges (IsProfileEditor/IsPolicyProfileUser
+            // both false, no linked Id) - rather than being denied sign-in outright.
+            logger.GrantedLimitedAccessForUnmatchedInternalUser();
+            return Result.Success(new InternalUser
+            {
+                Id = Guid.Empty,
+                UserName = command.UserName,
+                FullName = command.FullName,
+                SsoUserIdInt = null,
+                IsProfileEditor = false,
+                IsPolicyProfileUser = false
+            });
+        }
+
+        logger.MatchedByUserNameBackfillingSsoUserIdInt(byUserName.Id);
+        await userRepository.UpdateSsoUserIdIntAsync(byUserName.Id, command.SsoUserIdInt, cancellationToken);
+
+        return Result.Success(byUserName with { SsoUserIdInt = command.SsoUserIdInt });
     }
 }

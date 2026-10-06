@@ -16,15 +16,15 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     : IUserRepository
 {
     /// <inheritdoc />
-    public async Task<ExternalUser?> GetByCidmSsoIdAsync(Guid cidmSsoId, CancellationToken cancellationToken)
+    public async Task<ExternalUser?> GetBySsoUserIdExtAsync(Guid ssoUserIdExt, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
 
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<UserRow>(new CommandDefinition(
-                UserStoredProcedures.GetByCidmSsoId,
-                new { CidmSsoId = cidmSsoId },
+                UserStoredProcedures.GetBySsoUserIdExt,
+                new { SsoUserIdExt = ssoUserIdExt },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
 
@@ -32,7 +32,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetByCidmSsoId);
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetBySsoUserIdExt);
             throw;
         }
     }
@@ -60,21 +60,21 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     }
 
     /// <inheritdoc />
-    public async Task UpdateCidmSsoIdAsync(Guid id, Guid cidmSsoId, CancellationToken cancellationToken)
+    public async Task UpdateSsoUserIdExtAsync(Guid id, Guid ssoUserIdExt, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
 
         try
         {
             await connection.ExecuteAsync(new CommandDefinition(
-                UserStoredProcedures.UpdateCidmSsoId,
-                new { Id = id, CidmSsoId = cidmSsoId },
+                UserStoredProcedures.UpdateSsoUserIdExt,
+                new { Id = id, SsoUserIdExt = ssoUserIdExt },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, UserStoredProcedures.UpdateCidmSsoId);
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.UpdateSsoUserIdExt);
             throw;
         }
     }
@@ -97,7 +97,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
                     newUser.FullName,
                     newUser.Organisation,
                     newUser.EmailAddress,
-                    newUser.CidmSsoId
+                    newUser.SsoUserIdExt
                 },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
@@ -111,8 +111,72 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         }
     }
 
-    // CidmSsoId, SsoUserId and EmailAddress are nullable in the database (every internal row has
-    // none of them) - a row returned by GetByCidmSsoId/GetByEmailAddress always has CidmSsoId and
+    /// <inheritdoc />
+    public async Task<InternalUser?> GetBySsoUserIdIntAsync(Guid ssoUserIdInt, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var row = await connection.QuerySingleOrDefaultAsync<InternalUserRow>(new CommandDefinition(
+                UserStoredProcedures.GetBySsoUserIdInt,
+                new { SsoUserIdInt = ssoUserIdInt },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return ToEntity(row);
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetBySsoUserIdInt);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<InternalUser?> GetByUserNameAsync(string userName, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var row = await connection.QuerySingleOrDefaultAsync<InternalUserRow>(new CommandDefinition(
+                UserStoredProcedures.GetByUserName,
+                new { UserName = userName },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return ToEntity(row);
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetByUserName);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateSsoUserIdIntAsync(Guid id, Guid ssoUserIdInt, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                UserStoredProcedures.UpdateSsoUserIdInt,
+                new { Id = id, SsoUserIdInt = ssoUserIdInt },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.UpdateSsoUserIdInt);
+            throw;
+        }
+    }
+
+    // SsoUserIdExt, SsoUserId and EmailAddress are nullable in the database (every internal row has
+    // none of them) - a row returned by GetBySsoUserIdExt/GetByEmailAddress always has SsoUserIdExt and
     // EmailAddress, since both procedures filter on one of them, but the mapped type must still
     // declare them nullable.
     private static ExternalUser? ToEntity(UserRow? row) => row is null
@@ -124,8 +188,23 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
             FullName = row.FullName ?? string.Empty,
             Organisation = row.Organisation ?? string.Empty,
             EmailAddress = row.EmailAddress ?? string.Empty,
-            CidmSsoId = row.CidmSsoId ?? Guid.Empty,
+            SsoUserIdExt = row.SsoUserIdExt ?? Guid.Empty,
             SsoUserId = row.SsoUserId,
+            IsProfileEditor = row.IsProfileEditor,
+            IsPolicyProfileUser = row.IsPolicyProfileUser
+        };
+
+    // SsoUserIdInt is nullable in the database (every external/legacy row has none of it) - a row
+    // returned by GetBySsoUserIdInt/GetByUserName always has UserName, since both procedures filter
+    // on one of them, but the mapped type must still declare it nullable.
+    private static InternalUser? ToEntity(InternalUserRow? row) => row is null
+        ? null
+        : new InternalUser
+        {
+            Id = row.Id,
+            UserName = row.UserName ?? string.Empty,
+            FullName = row.FullName ?? string.Empty,
+            SsoUserIdInt = row.SsoUserIdInt,
             IsProfileEditor = row.IsProfileEditor,
             IsPolicyProfileUser = row.IsPolicyProfileUser
         };
@@ -161,8 +240,18 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         public string? FullName { get; init; } // NOSONAR
         public string? Organisation { get; init; } // NOSONAR
         public string? EmailAddress { get; init; } // NOSONAR
-        public Guid? CidmSsoId { get; init; } // NOSONAR
+        public Guid? SsoUserIdExt { get; init; } // NOSONAR
         public Guid? SsoUserId { get; init; } // NOSONAR
+        public bool IsProfileEditor { get; init; } // NOSONAR
+        public bool IsPolicyProfileUser { get; init; } // NOSONAR
+    }
+
+    private sealed record InternalUserRow
+    {
+        public Guid Id { get; init; } // NOSONAR
+        public string? UserName { get; init; } // NOSONAR
+        public string? FullName { get; init; } // NOSONAR
+        public Guid? SsoUserIdInt { get; init; } // NOSONAR
         public bool IsProfileEditor { get; init; } // NOSONAR
         public bool IsPolicyProfileUser { get; init; } // NOSONAR
     }

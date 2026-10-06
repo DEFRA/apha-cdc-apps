@@ -7,8 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace CDC.Api.Features.Users;
 
 /// <summary>
-/// Resolves the <c>[dbo].[User]</c> row for a CIDM-authenticated external user. Called by
-/// CDC.Web once per sign-in, from the validated id_token's claims.
+/// Resolves the <c>[dbo].[User]</c> row for a CIDM-authenticated external user or an Entra
+/// ID-authenticated internal user. Called by CDC.Web once per sign-in, from the validated
+/// id_token's claims.
 /// </summary>
 /// <param name="mediator">Dispatches the resolve command.</param>
 [ApiController]
@@ -29,6 +30,26 @@ public sealed class UsersController(ISender mediator) : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ExternalUserDto>> ResolveExternalUser(
         ResolveExternalUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Resolves the internal user matching the supplied Entra ID claims. Internal users are never
+    /// auto-provisioned.
+    /// </summary>
+    /// <param name="command">The Entra ID claims to resolve against.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The resolved user, or a problem response when no account matches.</returns>
+    [HttpPost("internal/resolve")]
+    [ProducesResponseType(typeof(InternalUserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InternalUserDto>> ResolveInternalUser(
+        ResolveInternalUserCommand command,
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(command, cancellationToken);
