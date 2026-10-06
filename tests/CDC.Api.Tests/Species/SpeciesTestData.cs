@@ -159,4 +159,12 @@ internal static class SpeciesTestData
         UserId = Guid.Parse("66666666-6666-6666-6666-666666666666"),
         LastUpdated = RowVersion
     };
+
+    public static AddSpeciesCommand AddSpeciesCommand() => new()
+    {
+        Name = "Jersey",
+        ParentId = SectionId,
+        Reason = "New breed added to the taxonomy",
+        UserId = Guid.Parse("66666666-6666-6666-6666-666666666666")
+    };
 }

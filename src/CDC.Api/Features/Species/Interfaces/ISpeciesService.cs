@@ -55,6 +55,12 @@ public interface ISpeciesService
     /// <returns>The species identifier and its new row version.</returns>
     Task<UpdateSpeciesNameParentResultDto> UpdateSpeciesNameParentAsync(UpdateSpeciesNameParentCommand command, CancellationToken cancellationToken);
 
+    /// <summary>Adds a new species or species group, with an audit trail entry.</summary>
+    /// <param name="command">The species to add.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The identifier assigned to the new species.</returns>
+    Task<AddSpeciesResultDto> AddSpeciesAsync(AddSpeciesCommand command, CancellationToken cancellationToken);
+
     /// <summary>Gets every recorded species name/parent change, most recent first.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The audit trail.</returns>

@@ -29,7 +29,7 @@ public class EditSpeciesModelTests
                 throwOnGetSpeciesAnswerData: throwOnGetSpeciesAnswerData,
                 speciesMetadata: speciesMetadata,
                 referenceValuesByTable: referenceValuesByTable),
-            NullLogger<EditSpeciesModel>.Instance)
+            new AlwaysEnabledLogger<EditSpeciesModel>())
         {
             SpeciesId = SpeciesId,
             Section = section,

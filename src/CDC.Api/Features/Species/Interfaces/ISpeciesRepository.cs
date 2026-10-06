@@ -70,6 +70,19 @@ public interface ISpeciesRepository
     /// </exception>
     Task<byte[]> UpdateSpeciesNameParentAsync(UpdateSpeciesNameParentCommand command, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Inserts a new species via <c>spiSpecies</c>, which also allocates its sequence number
+    /// and writes the audit trail entry recording <c>- new entry -</c> as the old name and
+    /// old parent.
+    /// </summary>
+    /// <param name="command">The species to add.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The identifier assigned to the new species.</returns>
+    /// <exception cref="Domain.Exceptions.DuplicateSpeciesNameException">
+    /// Thrown when another species already uses the supplied name.
+    /// </exception>
+    Task<Guid> AddSpeciesAsync(AddSpeciesCommand command, CancellationToken cancellationToken);
+
     /// <summary>Reads every recorded species name/parent change via <c>spgaSpeciesTableAuditLog</c>.</summary>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>The audit trail, most recent entry first.</returns>

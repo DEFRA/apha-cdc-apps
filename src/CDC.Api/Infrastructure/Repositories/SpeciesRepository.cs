@@ -30,10 +30,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     /// <summary>The message <c>spuSpeciesAnswerData</c> raises when the row version has moved on.</summary>
     private const string ConcurrencyMessageFragment = "edited by another user";
 
+    /// <summary>The message <c>spiSpecies</c> and <c>spuSpecies</c> raise for a name clash.</summary>
+    private const string DuplicateNameMessageFragment = "already a species with this name";
+
     private const int RowVersionLength = 8;
 
     /// <summary><c>spuSpecies</c> declares <c>@Name varchar(50)</c>.</summary>
     private const int SpeciesNameMaxLength = 50;
+
+    /// <summary><c>spuSpecies</c> declares <c>@Reason varchar(255)</c>.</summary>
+    private const int ReasonMaxLength = 255;
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Domain.Entities.Species>> GetAllSpeciesAsync(CancellationToken cancellationToken)
@@ -344,7 +350,7 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         var parameters = new DynamicParameters();
         parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
         parameters.Add("@UserId", command.UserId, DbType.Guid);
-        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: 255);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
         parameters.Add("@ParentId", command.ParentId == Guid.Empty ? null : command.ParentId, DbType.Guid);
         parameters.Add("@Name", command.Name, DbType.AnsiString, size: SpeciesNameMaxLength);
         parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
@@ -377,6 +383,47 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             cancellationToken: cancellationToken));
 
         return updated?.LastUpdated ?? [];
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid> AddSpeciesAsync(AddSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        // The legacy CSLA business object allocated the key before calling the procedure, and
+        // spiSpecies still takes it as an input parameter rather than generating one.
+        var speciesId = Guid.NewGuid();
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", speciesId, DbType.Guid);
+        parameters.Add("@UserId", command.UserId, DbType.Guid);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
+        // Guid.Empty means "root species", which spiSpecies expects as a NULL parent.
+        parameters.Add("@ParentId", command.ParentId is null || command.ParentId == Guid.Empty ? null : command.ParentId, DbType.Guid);
+        parameters.Add("@Name", command.Name, DbType.AnsiString, size: SpeciesNameMaxLength);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.InsertSpecies,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.InsertSpecies);
+
+            // spiSpecies RAISERRORs when the name is taken; its own message already says so,
+            // so it is passed through rather than replaced with a generic one.
+            throw IsDuplicateNameViolation(exception)
+                ? new DuplicateSpeciesNameException(exception.Message, exception)
+                : exception;
+        }
+
+        return speciesId;
     }
 
     /// <inheritdoc />
@@ -422,6 +469,15 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     internal static bool IsConcurrencyViolation(DbException exception) =>
         exception is SqlException { Number: UserRaisedErrorNumber } ||
         exception.Message.Contains(ConcurrencyMessageFragment, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Identifies the name clash raised by <c>spiSpecies</c>. Matched on the message because
+    /// it shares error number 50000 with every other <c>RAISERROR</c> the procedure can emit.
+    /// </summary>
+    /// <param name="exception">The database exception to classify.</param>
+    /// <returns><see langword="true"/> when the failure is a duplicate species name.</returns>
+    internal static bool IsDuplicateNameViolation(DbException exception) =>
+        exception.Message.Contains(DuplicateNameMessageFragment, StringComparison.OrdinalIgnoreCase);
 
     private static async Task<byte[]> UpdateRowVersionAsync(
         DbConnection connection,

@@ -175,6 +175,30 @@ public class SpeciesServiceTests
     }
 
     [Fact]
+    public async Task AddSpecies_ShouldReturnTheNewIdentifier()
+    {
+        var command = SpeciesTestData.AddSpeciesCommand();
+        var newSpeciesId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+
+        repository
+            .Setup(repo => repo.AddSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(newSpeciesId);
+
+        var result = await CreateService().AddSpeciesAsync(command, CancellationToken.None);
+
+        result.SpeciesId.Should().Be(newSpeciesId);
+        repository.VerifyAll();
+    }
+
+    [Fact]
+    public async Task AddSpecies_ShouldRejectNullCommand()
+    {
+        var act = async () => await CreateService().AddSpeciesAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
     public async Task GetSpeciesAuditTrail_ShouldReturnEntries()
     {
         repository
