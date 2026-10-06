@@ -7,8 +7,14 @@
     <IsPackable>false</IsPackable>
     <!-- Pure DI wiring, exercised end-to-end via CDC.Web.Tests' WebApplicationFactory-based
          integration tests (which run the real Program.cs -> AddEntraAuthentication path) rather than
-         here - same rationale as CDC.Auth.Cidm.Tests excluding CidmAuthenticationExtensions.cs. -->
-    <ExcludeByFile>**/EntraAuthenticationExtensions.cs</ExcludeByFile>
+         here - same rationale as CDC.Auth.Cidm.Tests excluding CidmAuthenticationExtensions.cs.
+         Logging.g.cs is the [LoggerMessage] source generator's own boilerplate - tests use
+         NullLogger, whose IsEnabled() always returns false, so the generator's "actually log"
+         branch never executes; in Release builds the smaller line count elsewhere in this project
+         lets that fixed-size gap tip the total below the threshold. Comma-separated (not
+         semicolon) - coverlet's glob-list parser silently stops excluding anything once more than
+         one semicolon-separated pattern is present. -->
+    <ExcludeByFile>**/EntraAuthenticationExtensions.cs,**/Logging.g.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>

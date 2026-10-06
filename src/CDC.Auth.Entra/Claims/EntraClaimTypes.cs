@@ -16,7 +16,7 @@ public static class EntraClaimTypes
     /// The long-form claim URI <see cref="ObjectId"/> is sometimes remapped to by inbound JWT claim
     /// type mapping, checked as a fallback.
     /// </summary>
-    public const string ObjectIdLongClaimUri = "http://schemas.microsoft.com/identity/claims/objectidentifier";
+    public const string ObjectIdLongClaimUri = "http://schemas.microsoft.com/identity/claims/objectidentifier"; // NOSONAR - stable claim-type schema identifier, not a callable/configurable endpoint
 
     /// <summary>
     /// On-premises Active Directory sAMAccountName for a hybrid/synced user. Not present on the
