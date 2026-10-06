@@ -87,6 +87,17 @@ public static class CidmAuthenticationExtensions
                 options.ResponseMode = useLocalHttpFriendlyOidcSettings ? "query" : cidm.ResponseMode;
                 options.CallbackPath = cidm.CallbackPath;
                 options.SignedOutCallbackPath = cidm.SignedOutCallbackPath;
+                // RemoteSignOutPath defaults to this same "/signout-oidc" value and is checked
+                // BEFORE SignedOutCallbackPath in OpenIdConnectHandler.HandleRequestAsync, so without
+                // clearing it every request here was misrouted to the front-channel-logout handler
+                // (HandleRemoteSignOutAsync, which just signs out and returns 200) instead of our
+                // own HandleSignOutCallbackAsync - CIDM only uses the redirect-based flow, never
+                // front-channel logout notifications.
+                options.RemoteSignOutPath = null;
+                // Default RedirectUri for SignOutAsync calls that don't specify one themselves. The
+                // real safety net for CIDM not echoing back state on its post-logout redirect is
+                // CidmOpenIdConnectEvents.SignedOutCallbackRedirect, not this.
+                options.SignedOutRedirectUri = "/Account/SignedOut";
                 options.SaveTokens = true;
                 options.UsePkce = true;
                 options.GetClaimsFromUserInfoEndpoint = false;

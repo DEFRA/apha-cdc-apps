@@ -41,7 +41,9 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
     [Fact]
     public async Task LandingRoutes_ReturnSuccess_InProductionEnvironment()
     {
-        await using var productionFactory = _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        await using var productionFactory = _factory.WithWebHostBuilder(builder => builder
+            .UseEnvironment("Production")
+            .UseSetting("Api:BaseUrl", "http://cdc-api.test"));
         var client = productionFactory.CreateClient();
 
         var response = await client.GetAsync("/Landing/Error");

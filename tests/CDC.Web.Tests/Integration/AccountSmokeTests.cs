@@ -43,4 +43,17 @@ public class AccountSmokeTests : IClassFixture<CdcWebTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    // CIDM's B2C policy doesn't always echo back the protected state on its post-logout redirect,
+    // so the callback must still land somewhere real rather than rendering an empty response.
+    [Fact]
+    public async Task SignOutOidcCallback_RedirectsToSignedOutPage_WhenNoStateIsEchoedBack()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/signout-oidc");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/SignedOut", response.Headers.Location!.ToString());
+    }
 }

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Claims;
 using CDC.Auth.Cidm.Events;
 using CDC.Web.Infrastructure;
@@ -29,15 +30,23 @@ public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUs
             return CidmExternalUserResolution.Deny("/Account/NotPermitted");
         }
 
-        var email = principal.FindFirst("email")?.Value ?? string.Empty;
+        // Same default inbound mapping remaps the JWT 'email' claim to ClaimTypes.Email.
+        var email = principal.FindFirst(ClaimTypes.Email)?.Value ?? principal.FindFirst("email")?.Value ?? string.Empty;
         var firstName = principal.FindFirst("firstName")?.Value ?? string.Empty;
         var lastName = principal.FindFirst("lastName")?.Value ?? string.Empty;
 
         // CidmOpenIdConnectEvents.TokenValidated maps the raw "relationships" claims before calling
-        // this resolver, so the first relationship's organisation name is already available here.
+        // this resolver. A user can belong to more than one organisation, so prefer whichever
+        // relationship CIDM says was selected for this session (currentRelationshipId); only fall
+        // back to the first relationship when that claim is absent or doesn't match any of them.
+        // [dbo].[User].Organisation is NOT NULL, so this is an empty string, never null, when the
+        // user has no relationships at all.
         var relationships = CidmClaimsMapper.ParseRelationships(
             principal.FindAll(CidmClaimTypes.RawRelationships).Select(claim => claim.Value));
-        var organisation = relationships.Count > 0 ? relationships[0].OrganisationName : string.Empty;
+        var currentRelationshipId = principal.FindFirst(CidmClaimTypes.CurrentRelationshipId)?.Value;
+        var currentRelationship = relationships.FirstOrDefault(r => r.RelationshipId == currentRelationshipId)
+            ?? relationships.FirstOrDefault();
+        var organisation = currentRelationship?.OrganisationName ?? string.Empty;
 
         var request = new ResolveExternalUserRequestDto
         {
@@ -56,7 +65,8 @@ public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUs
                 new Dictionary<string, string>
                 {
                     [ExternalUserClaimTypes.InternalUserId] = result.User.Id.ToString(),
-                    [ExternalUserClaimTypes.FullName] = result.User.FullName
+                    [ExternalUserClaimTypes.FullName] = result.User.FullName,
+                    [ExternalUserClaimTypes.AuthenticationProvider] = CidmAuthenticationDefaults.AuthenticationScheme
                 }),
             { Outcome: ResolveExternalUserOutcome.NotPermitted } => CidmExternalUserResolution.Deny("/Account/NotPermitted"),
             _ => CidmExternalUserResolution.Deny("/Landing/Error")

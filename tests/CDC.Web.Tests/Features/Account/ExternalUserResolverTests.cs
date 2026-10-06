@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Events;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
@@ -15,7 +16,8 @@ public class ExternalUserResolverTests
         string? email = "user@example.com",
         string? firstName = "Jane",
         string? lastName = "External",
-        string? relationship = null)
+        string[]? relationships = null,
+        string? currentRelationshipId = null)
     {
         var claims = new List<Claim>();
         if (sub is not null)
@@ -34,9 +36,13 @@ public class ExternalUserResolverTests
         {
             claims.Add(new Claim("lastName", lastName));
         }
-        if (relationship is not null)
+        foreach (var relationship in relationships ?? [])
         {
             claims.Add(new Claim("relationships", relationship));
+        }
+        if (currentRelationshipId is not null)
+        {
+            claims.Add(new Claim("currentRelationshipId", currentRelationshipId));
         }
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims));
@@ -46,7 +52,7 @@ public class ExternalUserResolverTests
     public async Task ResolveAsync_Allows_AndAddsClaims_OnSuccess()
     {
         var principal = CreatePrincipal(
-            relationship: "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee:bc19305a-f9b6-ea11-a812-000d3ab4653d:ACME Ltd:0:Employee:0");
+            relationships: ["23950a2d-c37d-43da-9fcb-0a4ce9aa11ee:bc19305a-f9b6-ea11-a812-000d3ab4653d:ACME Ltd:0:Employee:0"]);
         var user = new ExternalUserDto
         {
             Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
@@ -61,6 +67,7 @@ public class ExternalUserResolverTests
         Assert.True(resolution.IsAllowed);
         Assert.Equal(user.Id.ToString(), resolution.Claims![ExternalUserClaimTypes.InternalUserId]);
         Assert.Equal("Jane External", resolution.Claims[ExternalUserClaimTypes.FullName]);
+        Assert.Equal(CidmAuthenticationDefaults.AuthenticationScheme, resolution.Claims[ExternalUserClaimTypes.AuthenticationProvider]);
 
         Assert.NotNull(apiClient.LastRequest);
         Assert.Equal(CidmSsoId, apiClient.LastRequest!.CidmSsoId);
@@ -120,6 +127,57 @@ public class ExternalUserResolverTests
         Assert.Equal(string.Empty, apiClient.LastRequest.FirstName);
         Assert.Equal(string.Empty, apiClient.LastRequest.LastName);
         Assert.Equal(string.Empty, apiClient.LastRequest.Organisation);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_UsesTheOrganisationMatchingCurrentRelationshipId_WhenUserHasMultipleRelationships()
+    {
+        var principal = CreatePrincipal(
+            relationships:
+            [
+                "11111111-1111-1111-1111-111111111111:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:ACME Ltd:0:Employee:0",
+                "22222222-2222-2222-2222-222222222222:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:Contoso Ltd:0:Employee:0"
+            ],
+            currentRelationshipId: "22222222-2222-2222-2222-222222222222");
+        var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
+
+        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Equal("Contoso Ltd", apiClient.LastRequest!.Organisation);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_FallsBackToTheFirstRelationship_WhenCurrentRelationshipIdIsMissingOrUnmatched()
+    {
+        var principal = CreatePrincipal(
+            relationships:
+            [
+                "11111111-1111-1111-1111-111111111111:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:ACME Ltd:0:Employee:0",
+                "22222222-2222-2222-2222-222222222222:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:Contoso Ltd:0:Employee:0"
+            ],
+            currentRelationshipId: "no-such-relationship-id");
+        var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
+
+        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Equal("ACME Ltd", apiClient.LastRequest!.Organisation);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ReadsEmail_WhenJwtInboundMappingRemapsItToClaimTypesEmail()
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, CidmSsoId.ToString()),
+            new(ClaimTypes.Email, "user@example.com")
+        };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims));
+        var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
+
+        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.NotNull(apiClient.LastRequest);
+        Assert.Equal("user@example.com", apiClient.LastRequest!.Email);
     }
 
     [Fact]
