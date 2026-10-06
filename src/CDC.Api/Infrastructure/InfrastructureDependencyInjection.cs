@@ -34,6 +34,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileReportRepository, ProfileReportRepository>();
         services.AddScoped<IStaticReportRepository, StaticReportRepository>();
         services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
+        services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
 
         return services;
     }
