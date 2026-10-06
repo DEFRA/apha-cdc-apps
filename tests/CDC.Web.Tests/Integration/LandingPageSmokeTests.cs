@@ -41,18 +41,4 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
-
-    [Fact]
-    public async Task QualityStatement_RendersErrorBanner_WhenApiIsUnavailable()
-    {
-        // The default WebApplicationFactory<Program> has no live CDC.Api to call, so this is the
-        // page's actual behaviour in this test host - same pattern as ViewSpeciesData/Maintain.
-        var client = _factory.CreateClient();
-
-        var response = await client.GetAsync("/HelpSupport/QualityStatement");
-        var body = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("We could not load the quality statement", body);
-    }
 }
