@@ -12,13 +12,19 @@ namespace CDC.Api.Tests.Users;
 public class UserRepositoryTests : IDisposable
 {
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid CidmSsoId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid SsoUserIdExt = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid SsoUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid SsoUserIdInt = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
     private static readonly string[] UserColumns =
     [
-        "Id", "UserName", "FullName", "Organisation", "EmailAddress", "CidmSsoId", "SsoUserId",
+        "Id", "UserName", "FullName", "Organisation", "EmailAddress", "SsoUserIdExt", "SsoUserId",
         "IsProfileEditor", "IsPolicyProfileUser"
+    ];
+
+    private static readonly string[] InternalUserColumns =
+    [
+        "Id", "UserName", "FullName", "IsProfileEditor", "IsPolicyProfileUser", "SsoUserIdInt"
     ];
 
     private readonly FakeDbConnection connection = new();
@@ -36,55 +42,55 @@ public class UserRepositoryTests : IDisposable
     private UserRepository CreateRepository() => new(new StubConnectionFactory(connection), logger.Object);
 
     [Fact]
-    public async Task GetByCidmSsoIdAsync_MapsRow_WhenFound()
+    public async Task GetBySsoUserIdExtAsync_MapsRow_WhenFound()
     {
-        connection.Script(UserStoredProcedures.GetByCidmSsoId, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetBySsoUserIdExt, new FakeCommandScript
         {
             ResultSets =
             [
                 new FakeResultSet(UserColumns,
                 [
-                    [UserId, "user@example.com", "Jane External", "ACME Ltd", "user@example.com", CidmSsoId, SsoUserId, false, false]
+                    [UserId, "user@example.com", "Jane External", "ACME Ltd", "user@example.com", SsoUserIdExt, SsoUserId, false, false]
                 ])
             ]
         });
 
-        var user = await CreateRepository().GetByCidmSsoIdAsync(CidmSsoId, CancellationToken.None);
+        var user = await CreateRepository().GetBySsoUserIdExtAsync(SsoUserIdExt, CancellationToken.None);
 
         user.Should().NotBeNull();
         user!.Id.Should().Be(UserId);
         user.FullName.Should().Be("Jane External");
-        user.CidmSsoId.Should().Be(CidmSsoId);
+        user.SsoUserIdExt.Should().Be(SsoUserIdExt);
         user.SsoUserId.Should().Be(SsoUserId);
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(UserStoredProcedures.GetByCidmSsoId);
+        executed.CommandText.Should().Be(UserStoredProcedures.GetBySsoUserIdExt);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
-        executed.Parameters.Should().ContainKey("CidmSsoId").WhoseValue.Should().Be(CidmSsoId);
+        executed.Parameters.Should().ContainKey("SsoUserIdExt").WhoseValue.Should().Be(SsoUserIdExt);
     }
 
     [Fact]
-    public async Task GetByCidmSsoIdAsync_ReturnsNull_WhenNotFound()
+    public async Task GetBySsoUserIdExtAsync_ReturnsNull_WhenNotFound()
     {
-        connection.Script(UserStoredProcedures.GetByCidmSsoId, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetBySsoUserIdExt, new FakeCommandScript
         {
             ResultSets = [FakeResultSet.Empty(UserColumns)]
         });
 
-        var user = await CreateRepository().GetByCidmSsoIdAsync(CidmSsoId, CancellationToken.None);
+        var user = await CreateRepository().GetBySsoUserIdExtAsync(SsoUserIdExt, CancellationToken.None);
 
         user.Should().BeNull();
     }
 
     [Fact]
-    public async Task GetByCidmSsoIdAsync_LogsAndRethrows_WhenTheProcedureFails()
+    public async Task GetBySsoUserIdExtAsync_LogsAndRethrows_WhenTheProcedureFails()
     {
-        connection.Script(UserStoredProcedures.GetByCidmSsoId, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetBySsoUserIdExt, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });
 
-        var act = async () => await CreateRepository().GetByCidmSsoIdAsync(CidmSsoId, CancellationToken.None);
+        var act = async () => await CreateRepository().GetBySsoUserIdExtAsync(SsoUserIdExt, CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }
@@ -106,7 +112,7 @@ public class UserRepositoryTests : IDisposable
         var user = await CreateRepository().GetByEmailAddressAsync("user@example.com", CancellationToken.None);
 
         user.Should().NotBeNull();
-        user!.CidmSsoId.Should().Be(Guid.Empty);
+        user!.SsoUserIdExt.Should().Be(Guid.Empty);
         user.SsoUserId.Should().Be(SsoUserId);
     }
 
@@ -137,27 +143,27 @@ public class UserRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateCidmSsoIdAsync_ExecutesWithExpectedParameters()
+    public async Task UpdateSsoUserIdExtAsync_ExecutesWithExpectedParameters()
     {
-        connection.Script(UserStoredProcedures.UpdateCidmSsoId, new FakeCommandScript());
+        connection.Script(UserStoredProcedures.UpdateSsoUserIdExt, new FakeCommandScript());
 
-        await CreateRepository().UpdateCidmSsoIdAsync(UserId, CidmSsoId, CancellationToken.None);
+        await CreateRepository().UpdateSsoUserIdExtAsync(UserId, SsoUserIdExt, CancellationToken.None);
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(UserStoredProcedures.UpdateCidmSsoId);
+        executed.CommandText.Should().Be(UserStoredProcedures.UpdateSsoUserIdExt);
         executed.Parameters.Should().ContainKey("Id").WhoseValue.Should().Be(UserId);
-        executed.Parameters.Should().ContainKey("CidmSsoId").WhoseValue.Should().Be(CidmSsoId);
+        executed.Parameters.Should().ContainKey("SsoUserIdExt").WhoseValue.Should().Be(SsoUserIdExt);
     }
 
     [Fact]
-    public async Task UpdateCidmSsoIdAsync_LogsAndRethrows_WhenTheProcedureFails()
+    public async Task UpdateSsoUserIdExtAsync_LogsAndRethrows_WhenTheProcedureFails()
     {
-        connection.Script(UserStoredProcedures.UpdateCidmSsoId, new FakeCommandScript
+        connection.Script(UserStoredProcedures.UpdateSsoUserIdExt, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });
 
-        var act = async () => await CreateRepository().UpdateCidmSsoIdAsync(UserId, CidmSsoId, CancellationToken.None);
+        var act = async () => await CreateRepository().UpdateSsoUserIdExtAsync(UserId, SsoUserIdExt, CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }
@@ -174,7 +180,7 @@ public class UserRepositoryTests : IDisposable
             FullName = "New User",
             Organisation = "ACME Ltd",
             EmailAddress = "new.user@example.com",
-            CidmSsoId = CidmSsoId,
+            SsoUserIdExt = SsoUserIdExt,
             SsoUserId = null,
             IsProfileEditor = false,
             IsPolicyProfileUser = false
@@ -188,7 +194,7 @@ public class UserRepositoryTests : IDisposable
         executed.CommandText.Should().Be(UserStoredProcedures.CreateExternalUser);
         executed.Parameters.Should().ContainKey("Id").WhoseValue.Should().Be(UserId);
         executed.Parameters.Should().ContainKey("UserName").WhoseValue.Should().Be("new.user@example.com");
-        executed.Parameters.Should().ContainKey("CidmSsoId").WhoseValue.Should().Be(CidmSsoId);
+        executed.Parameters.Should().ContainKey("SsoUserIdExt").WhoseValue.Should().Be(SsoUserIdExt);
     }
 
     [Fact]
@@ -206,7 +212,7 @@ public class UserRepositoryTests : IDisposable
             FullName = "New User",
             Organisation = "ACME Ltd",
             EmailAddress = "new.user@example.com",
-            CidmSsoId = CidmSsoId,
+            SsoUserIdExt = SsoUserIdExt,
             SsoUserId = null,
             IsProfileEditor = false,
             IsPolicyProfileUser = false
@@ -226,11 +232,149 @@ public class UserRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetByCidmSsoIdAsync_Throws_WhenConnectionFactoryDoesNotReturnADbConnection()
+    public async Task GetBySsoUserIdExtAsync_Throws_WhenConnectionFactoryDoesNotReturnADbConnection()
     {
         var repository = new UserRepository(new NonDbConnectionFactory(), logger.Object);
 
-        var act = async () => await repository.GetByCidmSsoIdAsync(CidmSsoId, CancellationToken.None);
+        var act = async () => await repository.GetBySsoUserIdExtAsync(SsoUserIdExt, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task GetBySsoUserIdIntAsync_MapsRow_WhenFound()
+    {
+        connection.Script(UserStoredProcedures.GetBySsoUserIdInt, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(InternalUserColumns,
+                [
+                    [UserId, @"DEFRA\jdoe", "Jane Internal", false, false, SsoUserIdInt]
+                ])
+            ]
+        });
+
+        var user = await CreateRepository().GetBySsoUserIdIntAsync(SsoUserIdInt, CancellationToken.None);
+
+        user.Should().NotBeNull();
+        user!.Id.Should().Be(UserId);
+        user.FullName.Should().Be("Jane Internal");
+        user.SsoUserIdInt.Should().Be(SsoUserIdInt);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(UserStoredProcedures.GetBySsoUserIdInt);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters.Should().ContainKey("SsoUserIdInt").WhoseValue.Should().Be(SsoUserIdInt);
+    }
+
+    [Fact]
+    public async Task GetBySsoUserIdIntAsync_ReturnsNull_WhenNotFound()
+    {
+        connection.Script(UserStoredProcedures.GetBySsoUserIdInt, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty(InternalUserColumns)]
+        });
+
+        var user = await CreateRepository().GetBySsoUserIdIntAsync(SsoUserIdInt, CancellationToken.None);
+
+        user.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetBySsoUserIdIntAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.GetBySsoUserIdInt, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().GetBySsoUserIdIntAsync(SsoUserIdInt, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetByUserNameAsync_MapsRow_WhenFound()
+    {
+        connection.Script(UserStoredProcedures.GetByUserName, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(InternalUserColumns,
+                [
+                    [UserId, @"DEFRA\jdoe", "Jane Internal", false, false, null]
+                ])
+            ]
+        });
+
+        var user = await CreateRepository().GetByUserNameAsync(@"DEFRA\jdoe", CancellationToken.None);
+
+        user.Should().NotBeNull();
+        user!.SsoUserIdInt.Should().BeNull();
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.Parameters.Should().ContainKey("UserName").WhoseValue.Should().Be(@"DEFRA\jdoe");
+    }
+
+    [Fact]
+    public async Task GetByUserNameAsync_ReturnsNull_WhenNotFound()
+    {
+        connection.Script(UserStoredProcedures.GetByUserName, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty(InternalUserColumns)]
+        });
+
+        var user = await CreateRepository().GetByUserNameAsync(@"DEFRA\nobody", CancellationToken.None);
+
+        user.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByUserNameAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.GetByUserName, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().GetByUserNameAsync(@"DEFRA\jdoe", CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task UpdateSsoUserIdIntAsync_ExecutesWithExpectedParameters()
+    {
+        connection.Script(UserStoredProcedures.UpdateSsoUserIdInt, new FakeCommandScript());
+
+        await CreateRepository().UpdateSsoUserIdIntAsync(UserId, SsoUserIdInt, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(UserStoredProcedures.UpdateSsoUserIdInt);
+        executed.Parameters.Should().ContainKey("Id").WhoseValue.Should().Be(UserId);
+        executed.Parameters.Should().ContainKey("SsoUserIdInt").WhoseValue.Should().Be(SsoUserIdInt);
+    }
+
+    [Fact]
+    public async Task UpdateSsoUserIdIntAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.UpdateSsoUserIdInt, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().UpdateSsoUserIdIntAsync(UserId, SsoUserIdInt, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetBySsoUserIdIntAsync_Throws_WhenConnectionFactoryDoesNotReturnADbConnection()
+    {
+        var repository = new UserRepository(new NonDbConnectionFactory(), logger.Object);
+
+        var act = async () => await repository.GetBySsoUserIdIntAsync(SsoUserIdInt, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }

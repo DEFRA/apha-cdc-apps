@@ -22,7 +22,6 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
 
     [Theory]
     [InlineData("/")]
-    [InlineData("/Landing/Internal")]
     [InlineData("/Landing/Error")]
     [InlineData("/HelpSupport/QualityStatement")]
     public async Task LandingRoutes_ReturnSuccess(string url)
@@ -97,8 +96,8 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
 }
 
 // These pages are business/admin functionality with no anonymous exemption - the app's default
-// authorization policy (RequireAuthenticatedUser) must redirect anonymous requests to CIDM rather
-// than rendering them.
+// authorization policy (RequireAuthenticatedUser) must redirect anonymous requests to Entra ID
+// (the app-wide fallback scheme) rather than rendering them.
 public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
 {
     private readonly CdcWebTestFactory _factory;
@@ -109,6 +108,7 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     }
 
     [Theory]
+    [InlineData("/Landing/Internal")]
     [InlineData("/SurveillanceProfiles/Search")]
     [InlineData("/DiseaseProfiles/Create")]
     [InlineData("/DiseaseProfiles/CompareVersions")]
@@ -135,17 +135,18 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/SurveillanceProfiles/EditProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/ManageProfile/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/EditProfileTitle/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
-    public async Task ProtectedRoutes_Anonymous_RedirectToCidmRatherThanRenderingView(string url)
+    public async Task ProtectedRoutes_Anonymous_RedirectToEntraRatherThanRenderingView(string url)
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
         var response = await client.GetAsync(url);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.StartsWith(CdcWebTestFactory.FakeAuthorizationEndpoint, response.Headers.Location!.ToString());
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
     }
 
     [Theory]
+    [InlineData("/Landing/Internal")]
     [InlineData("/SurveillanceProfiles/Search")]
     [InlineData("/DiseaseProfiles/Create")]
     [InlineData("/DiseaseProfiles/CompareVersions")]
@@ -218,6 +219,42 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
 
         var response = await client.GetAsync("/Landing/External");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+}
+
+// LandingController.Internal() requires authentication via the app's fallback policy, which
+// resolves to Entra ID's cookie scheme (this app is predominantly used by internal staff).
+public class LandingInternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
+{
+    private readonly CdcWebTestFactory _factory;
+
+    public LandingInternalAuthSmokeTests(CdcWebTestFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public async Task Internal_Anonymous_RedirectsToEntraRatherThanRenderingView()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Landing/Internal");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Internal_AuthenticatedSession_RendersSignedInView()
+    {
+        var client = _factory.CreateClient();
+
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
+
+        var response = await client.GetAsync("/Landing/Internal");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

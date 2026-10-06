@@ -25,6 +25,17 @@ public class AccountSmokeTests : IClassFixture<CdcWebTestFactory>
     }
 
     [Fact]
+    public async Task LoginInternal_Get_RedirectsToEntraAuthorizeEndpointRatherThanRenderingAForm()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Account/LoginInternal");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
+    }
+
+    [Fact]
     public async Task SignedOut_ReturnsSuccess()
     {
         var client = _factory.CreateClient();

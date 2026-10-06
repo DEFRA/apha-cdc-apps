@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CDC.Auth.Cidm;
+using CDC.Auth.Entra;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -15,16 +16,17 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 namespace CDC.Web.Tests.TestSupport;
 
 /// <summary>
-/// Supplies dummy CIDM configuration (so options validation doesn't fail startup) and a static,
-/// network-free OpenID Connect discovery document (so the handler never makes a real HTTP call),
-/// so integration tests can exercise the auth pipeline without a real DEFRA CIDM tenant. Also adds
-/// a test-only sign-in endpoint so tests can reach authenticated-only branches without simulating a
-/// full CIDM redirect/callback handshake.
+/// Supplies dummy CIDM and Entra ID configuration (so options validation doesn't fail startup) and
+/// static, network-free OpenID Connect discovery documents (so neither handler ever makes a real
+/// HTTP call), so integration tests can exercise the auth pipeline without a real DEFRA CIDM tenant
+/// or Entra ID tenant. Also adds a test-only sign-in endpoint so tests can reach authenticated-only
+/// branches without simulating a full redirect/callback handshake.
 /// </summary>
 public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
 {
     public const string FakeAuthorizationEndpoint = "https://cidm.test/oauth2/v2.0/authorize";
     public const string FakeEndSessionEndpoint = "https://cidm.test/signout";
+    public const string FakeEntraAuthorizationEndpoint = "https://entra.test/oauth2/v2.0/authorize";
     public const string TestSignInPath = "/__test/sign-in";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -43,7 +45,10 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
             ["Cidm:Policy"] = "b2c_1a_test_signupsignin",
             ["Cidm:ClientId"] = "test-client-id",
             ["Cidm:ClientSecret"] = "test-client-secret",
-            ["Cidm:ServiceId"] = "test-service-id"
+            ["Cidm:ServiceId"] = "test-service-id",
+            ["Entra:TenantId"] = "11111111-1111-1111-1111-111111111111",
+            ["Entra:ClientId"] = "test-entra-client-id",
+            ["Entra:ClientSecret"] = "test-entra-client-secret"
         }));
 
         builder.ConfigureServices(services =>
@@ -62,8 +67,25 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
                     };
 
                     // Explicitly overrides whatever ConfigurationManager the built-in
-                    // OpenIdConnectPostConfigureOptions set up from MetadataAddress, guaranteeing no
-                    // real HTTP discovery call happens in tests regardless of PostConfigure order.
+                    // OpenIdConnectPostConfigureOptions set up from MetadataAddress/Authority,
+                    // guaranteeing no real HTTP discovery call happens in tests regardless of
+                    // PostConfigure order.
+                    options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+                });
+
+            services.PostConfigure<OpenIdConnectOptions>(
+                EntraAuthenticationDefaults.AuthenticationScheme,
+                options =>
+                {
+                    var configuration = new OpenIdConnectConfiguration
+                    {
+                        Issuer = "https://entra.test/",
+                        AuthorizationEndpoint = FakeEntraAuthorizationEndpoint,
+                        TokenEndpoint = "https://entra.test/oauth2/v2.0/token",
+                        JwksUri = "https://entra.test/discovery/v2.0/keys",
+                        EndSessionEndpoint = "https://entra.test/signout"
+                    };
+
                     options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
                 });
 
@@ -87,7 +109,13 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
                     var identity = new ClaimsIdentity(
                         [new Claim(ClaimTypes.Name, "test-user")],
                         CookieAuthenticationDefaults.AuthenticationScheme);
+                    // Signed into both cookie schemes with the same test identity - most "protected"
+                    // routes used across this test suite rely on the app's fallback policy (which
+                    // resolves to Entra's cookie scheme), while LandingController.External is
+                    // explicitly gated on the CIDM cookie scheme - one shared sign-in endpoint covers
+                    // both without every calling test needing to know which scheme its route uses.
                     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+                    await context.SignInAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme, new ClaimsPrincipal(identity));
                     context.Response.StatusCode = StatusCodes.Status204NoContent;
                     return;
                 }

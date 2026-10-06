@@ -9,7 +9,7 @@ namespace CDC.Web.Tests.Features.Account;
 
 public class ExternalUserResolverTests
 {
-    private static readonly Guid CidmSsoId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid SsoUserIdExt = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private static ClaimsPrincipal CreatePrincipal(
         string? sub = "22222222-2222-2222-2222-222222222222",
@@ -70,7 +70,7 @@ public class ExternalUserResolverTests
         Assert.Equal(CidmAuthenticationDefaults.AuthenticationScheme, resolution.Claims[ExternalUserClaimTypes.AuthenticationProvider]);
 
         Assert.NotNull(apiClient.LastRequest);
-        Assert.Equal(CidmSsoId, apiClient.LastRequest!.CidmSsoId);
+        Assert.Equal(SsoUserIdExt, apiClient.LastRequest!.SsoUserIdExt);
         Assert.Equal("user@example.com", apiClient.LastRequest.Email);
         Assert.Equal("Jane", apiClient.LastRequest.FirstName);
         Assert.Equal("External", apiClient.LastRequest.LastName);
@@ -168,7 +168,7 @@ public class ExternalUserResolverTests
     {
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, CidmSsoId.ToString()),
+            new(ClaimTypes.NameIdentifier, SsoUserIdExt.ToString()),
             new(ClaimTypes.Email, "user@example.com")
         };
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims));
@@ -227,6 +227,11 @@ public class ExternalUserResolverTests
             LastRequest = request;
             return Task.FromResult(scriptedResult);
         }
+
+        public Task<ResolveInternalUserResult> ResolveInternalUserAsync(
+            ResolveInternalUserRequestDto request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
         public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ProfileStatusTypeDto>>([]);

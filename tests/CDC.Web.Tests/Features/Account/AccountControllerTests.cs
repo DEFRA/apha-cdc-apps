@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CDC.Auth.Cidm;
+using CDC.Auth.Entra;
 using CDC.Web.Features.Account;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication;
@@ -110,6 +111,83 @@ public class AccountControllerTests
         var result = controller.NotPermitted();
 
         Assert.IsType<ViewResult>(result);
+    }
+
+    [Fact]
+    public void LoginInternal_WhenAnonymous_ChallengesEntraSchemeWithRedirectToLandingInternal()
+    {
+        var controller = new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+            Url = new FakeUrlHelper()
+        };
+
+        var result = controller.LoginInternal();
+
+        var challenge = Assert.IsType<ChallengeResult>(result);
+        Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
+        Assert.Equal("/Landing/Internal", challenge.Properties!.RedirectUri);
+    }
+
+    [Fact]
+    public void LoginInternal_WhenAlreadyAuthenticated_RedirectsToLandingInternal()
+    {
+        var identity = new ClaimsIdentity(authenticationType: EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        var controller = new AccountController
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+            },
+            Url = new FakeUrlHelper()
+        };
+
+        var result = controller.LoginInternal();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Internal", redirect.ActionName);
+        Assert.Equal("Landing", redirect.ControllerName);
+    }
+
+    [Fact]
+    public async Task LogoutInternal_SignsOutEntraCookieSchemeWithNoRedirectThenReturnsEntraSignOutResult()
+    {
+        var httpContext = CreateHttpContextWithFakeAuth(out var authService);
+        var controller = new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+            Url = new FakeUrlHelper()
+        };
+
+        var result = await controller.LogoutInternal();
+
+        var cookieSignOut = Assert.Single(authService.SignOutCalls, call => call.Scheme == EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        Assert.Null(cookieSignOut.Properties?.RedirectUri);
+
+        var signOut = Assert.IsType<SignOutResult>(result);
+        Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], signOut.AuthenticationSchemes);
+        Assert.Equal("/Account/SignedOut", signOut.Properties!.RedirectUri);
+    }
+
+    [Fact]
+    public async Task LogoutInternal_WhenCookieCarriesAnIdToken_ForwardsItAsIdTokenHintToEntraSignOut()
+    {
+        var httpContext = CreateHttpContextWithFakeAuth(out var authService);
+        var cookieProperties = new AuthenticationProperties();
+        cookieProperties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = "captured-id-token" }]);
+        var identity = new ClaimsIdentity(authenticationType: EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        authService.AuthenticateResultToReturn = AuthenticateResult.Success(
+            new AuthenticationTicket(new ClaimsPrincipal(identity), cookieProperties, EntraAuthenticationDefaults.CookieAuthenticationScheme));
+        var controller = new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+            Url = new FakeUrlHelper()
+        };
+
+        var result = await controller.LogoutInternal();
+
+        var signOut = Assert.IsType<SignOutResult>(result);
+        Assert.Equal("captured-id-token", signOut.Properties!.GetTokenValue("id_token"));
     }
 
     private static DefaultHttpContext CreateHttpContextWithFakeAuth(out FakeAuthenticationService authService)

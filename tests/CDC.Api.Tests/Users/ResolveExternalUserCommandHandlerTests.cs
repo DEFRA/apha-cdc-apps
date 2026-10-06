@@ -10,13 +10,13 @@ namespace CDC.Api.Tests.Users;
 public class ResolveExternalUserCommandHandlerTests
 {
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid CidmSsoId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid SsoUserIdExt = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private readonly Mock<IUserService> service = new(MockBehavior.Strict);
 
     private static ResolveExternalUserCommand Command() => new()
     {
-        CidmSsoId = CidmSsoId,
+        SsoUserIdExt = SsoUserIdExt,
         Email = "user@example.com",
         FirstName = "Jane",
         LastName = "External",
@@ -33,7 +33,7 @@ public class ResolveExternalUserCommandHandlerTests
             FullName = "Jane External",
             Organisation = "ACME Ltd",
             EmailAddress = "user@example.com",
-            CidmSsoId = CidmSsoId,
+            SsoUserIdExt = SsoUserIdExt,
             SsoUserId = null,
             IsProfileEditor = false,
             IsPolicyProfileUser = false
@@ -64,5 +64,47 @@ public class ResolveExternalUserCommandHandlerTests
         result.IsSuccess.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.Forbidden);
         result.Error.Should().Be("not permitted");
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsNotFound_WhenServiceReturnsNotFound()
+    {
+        service
+            .Setup(svc => svc.ResolveExternalUserAsync(Command(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<ExternalUser>("not found"));
+
+        var result = await new ResolveExternalUserCommandHandler(service.Object).Handle(Command(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.NotFound);
+        result.Error.Should().Be("not found");
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsConflict_WhenServiceReturnsConflict()
+    {
+        service
+            .Setup(svc => svc.ResolveExternalUserAsync(Command(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Conflict<ExternalUser>("conflict"));
+
+        var result = await new ResolveExternalUserCommandHandler(service.Object).Handle(Command(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("conflict");
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsForbidden_WhenServiceReturnsAnUnrecognisedStatus()
+    {
+        service
+            .Setup(svc => svc.ResolveExternalUserAsync(Command(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Result<ExternalUser>((ResultStatus)(-1), null, "unexpected"));
+
+        var result = await new ResolveExternalUserCommandHandler(service.Object).Handle(Command(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        result.Error.Should().Be("unexpected");
     }
 }

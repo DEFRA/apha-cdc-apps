@@ -7,7 +7,7 @@ public class ResolveExternalUserCommandValidatorTests
 {
     private static ResolveExternalUserCommand ValidCommand() => new()
     {
-        CidmSsoId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+        SsoUserIdExt = Guid.Parse("22222222-2222-2222-2222-222222222222"),
         Email = "user@example.com",
         FirstName = "Jane",
         LastName = "External",
@@ -23,14 +23,14 @@ public class ResolveExternalUserCommandValidatorTests
     }
 
     [Fact]
-    public void Validator_RequiresCidmSsoId()
+    public void Validator_RequiresSsoUserIdExt()
     {
-        var command = ValidCommand() with { CidmSsoId = Guid.Empty };
+        var command = ValidCommand() with { SsoUserIdExt = Guid.Empty };
 
         var result = new ResolveExternalUserCommandValidator().Validate(command);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(failure => failure.PropertyName == nameof(ResolveExternalUserCommand.CidmSsoId));
+        result.Errors.Should().Contain(failure => failure.PropertyName == nameof(ResolveExternalUserCommand.SsoUserIdExt));
     }
 
     [Fact]
