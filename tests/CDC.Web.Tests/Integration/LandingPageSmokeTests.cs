@@ -28,7 +28,9 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
-    [InlineData("/HelpSupport/HelpUsingD2R2")]
+    [InlineData("/HelpSupport/StaticReports")]
+    [InlineData("/HelpSupport/StaticReports?UserManual=1")]
+    [InlineData("/HelpSupport/QualityStatement")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]
     public async Task LandingRoutes_ReturnSuccess(string url)

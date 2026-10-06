@@ -29,8 +29,8 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileNoteRepository, ProfileNoteRepository>();
         services.AddScoped<IProfileQuestionRepository, ProfileQuestionRepository>();
         services.AddScoped<IProfileReportRepository, ProfileReportRepository>();
-        services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
         services.AddScoped<IStaticReportRepository, StaticReportRepository>();
+        services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
 
         return services;
     }

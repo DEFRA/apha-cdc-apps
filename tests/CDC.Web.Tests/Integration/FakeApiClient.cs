@@ -17,6 +17,7 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        SearchForType searchForType,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(results);
 
@@ -32,4 +33,29 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
 
     public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         Task.FromResult<ManageProfileViewModel?>(null);
+
+    public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProfileStatusTypeDto>>([]);
+
+    public Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
+        Guid profileId,
+        Guid profileStatusId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Error, "Not implemented in this fake."));
+
+    public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
+        bool isUserManual = false,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
+
+    public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
+        Guid profileVersionId,
+        bool isPublished,
+        bool isPublic,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Error, null, "Not implemented in this fake."));
+
+    public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Error, false, "Not implemented in this fake."));
 }

@@ -1,77 +1,93 @@
-using CDC.Api.Application.Extensions;
-using CDC.Api.Features.StaticReports.Commands;
 using CDC.Api.Features.StaticReports.Dtos;
-using CDC.Api.Features.StaticReports.Queries;
-using MediatR;
+using CDC.Api.Features.StaticReports.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Api.Features.StaticReports;
 
 /// <summary>
-/// Static reports: general reports and user manuals, each with a version history. Replaces the
-/// legacy <c>IStaticReportService</c> WCF endpoint used by <c>StaticReports.aspx</c> and the
-/// footer's "D2R2 Quality Statement" link.
+/// Static reports and user manuals: the documents behind the legacy <c>StaticReports.aspx</c>
+/// page ("Help using D2R2" when <c>UserManual=1</c>).
 /// </summary>
-/// <param name="mediator">Dispatches queries and commands to their handlers.</param>
+/// <param name="staticReportService">Static report data service.</param>
 [ApiController]
 [Route("api/static-reports")]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-public sealed class StaticReportsController(ISender mediator) : ControllerBase
+public sealed class StaticReportsController(IStaticReportService staticReportService) : ControllerBase
 {
     /// <summary>
-    /// Gets the current version of every static report.
+    /// Gets the current version of every static report, or of every user manual.
     /// </summary>
-    /// <param name="isUserManual">Whether to retrieve user manuals rather than general reports.</param>
+    /// <param name="isUserManual">Return user manuals rather than general reports.</param>
+    /// <param name="publicOnly">Restrict to versions marked public.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The current version of every matching report.</returns>
     /// <response code="200">The reports were retrieved.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<StaticReportVersionDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<StaticReportVersionDto>>> GetCurrent(
-        [FromQuery] bool isUserManual,
-        CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(IReadOnlyList<StaticReportDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<StaticReportDto>>> GetCurrentStaticReports(
+        [FromQuery] bool isUserManual = false,
+        [FromQuery] bool publicOnly = false,
+        CancellationToken cancellationToken = default)
     {
-        var result = await mediator.Send(new GetCurrentStaticReportsQuery(isUserManual), cancellationToken);
+        var reports = await staticReportService.GetCurrentStaticReportsAsync(isUserManual, publicOnly, cancellationToken);
 
-        return result.ToActionResult(this);
+        return Ok(reports);
     }
 
     /// <summary>
-    /// Gets one static report version's PDF content.
+    /// Gets every version of one static report or user manual.
+    /// </summary>
+    /// <param name="staticReportId">The logical report to read the history of.</param>
+    /// <param name="publicOnly">Restrict to versions marked public.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="200">The version history was retrieved.</response>
+    [HttpGet("{staticReportId:guid}/history")]
+    [ProducesResponseType(typeof(IReadOnlyList<StaticReportDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<StaticReportDto>>> GetStaticReportHistory(
+        Guid staticReportId,
+        [FromQuery] bool publicOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        var versions = await staticReportService.GetStaticReportHistoryAsync(staticReportId, publicOnly, cancellationToken);
+
+        return Ok(versions);
+    }
+
+    /// <summary>
+    /// Gets the stored document for one version.
     /// </summary>
     /// <param name="staticReportVersionId">The version to read.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The PDF content.</returns>
-    /// <response code="200">The report data was retrieved.</response>
-    /// <response code="404">No version exists with that id.</response>
-    [HttpGet("{staticReportVersionId:guid}/data")]
+    /// <response code="200">The document was retrieved.</response>
+    /// <response code="404">No document is stored for the supplied version.</response>
+    [HttpGet("versions/{staticReportVersionId:guid}/document")]
     [ProducesResponseType(typeof(StaticReportDataDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StaticReportDataDto>> GetData(Guid staticReportVersionId, CancellationToken cancellationToken)
+    public async Task<ActionResult<StaticReportDataDto>> GetStaticReportDocument(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(new GetStaticReportDataQuery(staticReportVersionId), cancellationToken);
+        var document = await staticReportService.GetStaticReportDataAsync(staticReportVersionId, cancellationToken);
 
-        return result.ToActionResult(this);
+        return document is null ? NotFound() : Ok(document);
     }
 
     /// <summary>
-    /// Uploads a new static report version, superseding the previous current version for that
-    /// title.
+    /// Deletes one version.
     /// </summary>
-    /// <param name="request">The title, PDF bytes and visibility for the new version.</param>
+    /// <param name="staticReportVersionId">The version to delete.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <response code="204">The new version was stored.</response>
-    /// <response code="400">The request failed validation.</response>
-    [HttpPost]
+    /// <response code="204">The version was deleted.</response>
+    /// <response code="404">No such version exists.</response>
+    [HttpDelete("versions/{staticReportVersionId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult> Upload([FromBody] UploadStaticReportRequestDto request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteStaticReportVersion(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(
-            new UploadStaticReportCommand(request.Title, request.PdfData, request.IsUserManual, request.IsPublic),
-            cancellationToken);
+        var deleted = await staticReportService.DeleteStaticReportVersionAsync(staticReportVersionId, cancellationToken);
 
-        return result.ToNoContentActionResult(this);
+        return deleted ? NoContent() : NotFound();
     }
 }

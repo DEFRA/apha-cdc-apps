@@ -1,4 +1,5 @@
-using System.Data.Common;
+using System.Data;
+using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
 using CDC.Api.Tests.Fakes;
@@ -8,10 +9,10 @@ using Moq;
 
 namespace CDC.Api.Tests.StaticReports;
 
-public class StaticReportRepositoryTests : IDisposable
+public sealed class StaticReportRepositoryTests : IDisposable
 {
-    private static readonly Guid VersionId = Guid.Parse("c80b8e93-21d2-453a-b0e0-3f522d03971d");
-    private static readonly Guid StaticReportId = Guid.Parse("65fe96f2-ea67-4618-9e45-0af0026da1ef");
+    private static readonly Guid StaticReportId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid VersionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private readonly FakeDbConnection connection = new();
     private readonly Mock<ILogger<StaticReportRepository>> logger = new();
@@ -27,188 +28,245 @@ public class StaticReportRepositoryTests : IDisposable
 
     private StaticReportRepository CreateRepository() => new(new StubConnectionFactory(connection), logger.Object);
 
+    private static readonly string[] ReportColumns =
+    [
+        "Id", "StaticReportId", "Title", "VersionMajor", "EffectiveDateFrom", "EffectiveDateTo", "IsUserManual", "IsPublic", "FileSize"
+    ];
+
     [Fact]
-    public async Task GetCurrentAsync_MapsRowsAndPassesParameters()
+    public async Task GetCurrentStaticReportsAsync_MapsEveryColumn()
     {
-        connection.Script(StaticReportStoredProcedures.GetCurrent, new FakeCommandScript
+        var effectiveFrom = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        connection.Script(StaticReportStoredProcedures.GetCurrentStaticReports, new FakeCommandScript
         {
             ResultSets =
             [
                 new FakeResultSet(
-                    ["Id", "StaticReportId", "Title", "VersionMajor", "EffectiveDateFrom", "EffectiveDateTo", "IsUserManual", "IsPublic", "FileSize"],
-                    [[VersionId, StaticReportId, "D2R2 Quality Statement", (byte)1, new DateTime(2024, 4, 26), null, true, false, 225133]])
+                    ReportColumns,
+                    [[VersionId, StaticReportId, "Help using D2R2", 2, effectiveFrom, null, true, true, 4096]])
             ]
         });
 
-        var reports = await CreateRepository().GetCurrentAsync(isUserManual: true, CancellationToken.None);
+        var reports = await CreateRepository().GetCurrentStaticReportsAsync(true, false, CancellationToken.None);
 
-        reports.Should().ContainSingle();
-        reports[0].Title.Should().Be("D2R2 Quality Statement");
-        reports[0].IsCurrent.Should().BeTrue();
-        reports[0].FileSize.Should().Be(225133);
+        var report = reports.Should().ContainSingle().Subject;
+        report.Id.Should().Be(VersionId);
+        report.StaticReportId.Should().Be(StaticReportId);
+        report.Title.Should().Be("Help using D2R2");
+        report.VersionMajor.Should().Be(2);
+        report.EffectiveDateFrom.Should().Be(effectiveFrom);
+        report.EffectiveDateTo.Should().BeNull();
+        report.IsUserManual.Should().BeTrue();
+        report.IsPublic.Should().BeTrue();
+        report.FileSize.Should().Be(4096);
+        report.IsCurrent.Should().BeTrue();
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(StaticReportStoredProcedures.GetCurrentStaticReports);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("IsUserManual").WhoseValue.Should().Be(true);
     }
 
     [Fact]
-    public async Task GetCurrentAsync_RethrowsAndLogs_OnDbException()
+    public async Task GetCurrentStaticReportsAsync_DefaultsNullableColumns()
     {
-        connection.Script(StaticReportStoredProcedures.GetCurrent, new FakeCommandScript { Throws = new FakeDbException("boom") });
+        var effectiveFrom = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var effectiveTo = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        var act = () => CreateRepository().GetCurrentAsync(isUserManual: false, CancellationToken.None);
+        connection.Script(StaticReportStoredProcedures.GetCurrentStaticReports, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ReportColumns,
+                    [[VersionId, StaticReportId, null, 1, effectiveFrom, effectiveTo, null, null, null]])
+            ]
+        });
+
+        var reports = await CreateRepository().GetCurrentStaticReportsAsync(false, true, CancellationToken.None);
+
+        var report = reports.Should().ContainSingle().Subject;
+        report.Title.Should().Be(string.Empty);
+        report.EffectiveDateTo.Should().Be(effectiveTo);
+        report.IsUserManual.Should().BeFalse();
+        report.IsPublic.Should().BeFalse();
+        report.FileSize.Should().Be(0);
+        report.IsCurrent.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetCurrentStaticReportsAsync_ReturnsEmpty_WhenThereAreNoReports()
+    {
+        connection.Script(StaticReportStoredProcedures.GetCurrentStaticReports, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(ReportColumns, [])]
+        });
+
+        var reports = await CreateRepository().GetCurrentStaticReportsAsync(false, false, CancellationToken.None);
+
+        reports.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCurrentStaticReportsAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(StaticReportStoredProcedures.GetCurrentStaticReports, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetCurrentStaticReportsAsync(false, false, CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
     [Fact]
-    public async Task GetDataAsync_ReturnsNull_WhenNoVersionExists()
+    public async Task GetStaticReportHistoryAsync_MapsRowsAndPassesParameters()
     {
-        connection.Script(StaticReportStoredProcedures.GetData, new FakeCommandScript
+        var effectiveFrom = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        connection.Script(StaticReportStoredProcedures.GetStaticReportHistory, new FakeCommandScript
         {
-            ResultSets = [FakeResultSet.Empty("PdfData", "IsPublic", "Title")]
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ReportColumns,
+                    [[VersionId, StaticReportId, "Help using D2R2 v1", 1, effectiveFrom, null, false, false, 2048]])
+            ]
         });
 
-        var data = await CreateRepository().GetDataAsync(VersionId, CancellationToken.None);
+        var versions = await CreateRepository().GetStaticReportHistoryAsync(StaticReportId, true, CancellationToken.None);
 
-        data.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task GetDataAsync_ReturnsPersistedBytes()
-    {
-        byte[] pdfBytes = [0x25, 0x50, 0x44, 0x46];
-
-        connection.Script(StaticReportStoredProcedures.GetData, new FakeCommandScript
-        {
-            ResultSets = [new FakeResultSet(["PdfData", "IsPublic", "Title"], [[pdfBytes, false, "D2R2 Quality Statement"]])]
-        });
-
-        var data = await CreateRepository().GetDataAsync(VersionId, CancellationToken.None);
-
-        data.Should().NotBeNull();
-        data!.PdfData.Should().Equal(pdfBytes);
-        data.Title.Should().Be("D2R2 Quality Statement");
-    }
-
-    [Fact]
-    public async Task GetDataAsync_RethrowsAndLogs_OnDbException()
-    {
-        connection.Script(StaticReportStoredProcedures.GetData, new FakeCommandScript { Throws = new FakeDbException("boom") });
-
-        var act = () => CreateRepository().GetDataAsync(VersionId, CancellationToken.None);
-
-        await act.Should().ThrowAsync<FakeDbException>();
-    }
-
-    [Fact]
-    public async Task UploadAsync_PassesParameters()
-    {
-        connection.Script(StaticReportStoredProcedures.Upload, new FakeCommandScript());
-        byte[] pdfBytes = [0x25, 0x50, 0x44, 0x46];
-
-        await CreateRepository().UploadAsync("D2R2 Quality Statement", pdfBytes, isUserManual: true, isPublic: false, CancellationToken.None);
+        versions.Should().ContainSingle();
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.Parameters.Should().ContainKey("Title").WhoseValue.Should().Be("D2R2 Quality Statement");
-        executed.Parameters.Should().ContainKey("IsUserManual").WhoseValue.Should().Be(true);
+        executed.CommandText.Should().Be(StaticReportStoredProcedures.GetStaticReportHistory);
+        executed.Parameters.Should().ContainKey("StaticReportId").WhoseValue.Should().Be(StaticReportId);
+        executed.Parameters.Should().ContainKey("PublicOnly").WhoseValue.Should().Be(true);
     }
 
     [Fact]
-    public async Task UploadAsync_RethrowsAndLogs_OnDbException()
+    public async Task GetStaticReportHistoryAsync_RethrowsAndLogs_OnDbException()
     {
-        connection.Script(StaticReportStoredProcedures.Upload, new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script(StaticReportStoredProcedures.GetStaticReportHistory, new FakeCommandScript { Throws = new FakeDbException("boom") });
 
-        var act = () => CreateRepository().UploadAsync("D2R2 Quality Statement", [1, 2, 3], false, false, CancellationToken.None);
+        var act = () => CreateRepository().GetStaticReportHistoryAsync(StaticReportId, false, CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
     [Fact]
-    public async Task GetDataAsync_Throws_WhenConnectionFactoryDoesNotReturnADbConnection()
+    public async Task GetStaticReportDataAsync_ReturnsDocument_WhenFound()
     {
-        var repository = new StaticReportRepository(new StubConnectionFactory(new NotADbConnection()), logger.Object);
+        var pdfBytes = new byte[] { 1, 2, 3 };
 
-        var act = () => repository.GetDataAsync(VersionId, CancellationToken.None);
+        connection.Script(StaticReportStoredProcedures.GetStaticReportVersionData, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["PdfData", "IsPublic", "Title"], [[pdfBytes, true, "Help using D2R2"]])
+            ]
+        });
+
+        var document = await CreateRepository().GetStaticReportDataAsync(VersionId, CancellationToken.None);
+
+        document.Should().NotBeNull();
+        document!.PdfData.Should().BeEquivalentTo(pdfBytes);
+        document.Title.Should().Be("Help using D2R2");
+    }
+
+    [Fact]
+    public async Task GetStaticReportDataAsync_DefaultsTitle_WhenTitleIsNull()
+    {
+        var pdfBytes = new byte[] { 1, 2, 3 };
+
+        connection.Script(StaticReportStoredProcedures.GetStaticReportVersionData, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["PdfData", "IsPublic", "Title"], [[pdfBytes, true, null]])
+            ]
+        });
+
+        var document = await CreateRepository().GetStaticReportDataAsync(VersionId, CancellationToken.None);
+
+        document.Should().NotBeNull();
+        document!.Title.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public async Task GetStaticReportDataAsync_ReturnsNull_WhenNoRowExists()
+    {
+        connection.Script(StaticReportStoredProcedures.GetStaticReportVersionData, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["PdfData", "IsPublic", "Title"], [])]
+        });
+
+        var document = await CreateRepository().GetStaticReportDataAsync(VersionId, CancellationToken.None);
+
+        document.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetStaticReportDataAsync_ReturnsNull_WhenPdfDataColumnIsNull()
+    {
+        connection.Script(StaticReportStoredProcedures.GetStaticReportVersionData, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["PdfData", "IsPublic", "Title"], [[null, true, "Help using D2R2"]])]
+        });
+
+        var document = await CreateRepository().GetStaticReportDataAsync(VersionId, CancellationToken.None);
+
+        document.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetStaticReportDataAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(StaticReportStoredProcedures.GetStaticReportVersionData, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetStaticReportDataAsync(VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task DeleteStaticReportVersionAsync_ExecutesStoredProcedure()
+    {
+        connection.Script(StaticReportStoredProcedures.DeleteStaticReportVersion, new FakeCommandScript());
+
+        await CreateRepository().DeleteStaticReportVersionAsync(VersionId, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(StaticReportStoredProcedures.DeleteStaticReportVersion);
+        executed.Parameters.Should().ContainKey("StaticReportVersionId").WhoseValue.Should().Be(VersionId);
+    }
+
+    [Fact]
+    public async Task DeleteStaticReportVersionAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(StaticReportStoredProcedures.DeleteStaticReportVersion, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().DeleteStaticReportVersionAsync(VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task OpenConnectionAsync_Throws_WhenFactoryDoesNotReturnADbConnection()
+    {
+        var repository = new StaticReportRepository(new NonDbConnectionFactory(), logger.Object);
+
+        var act = () => repository.GetCurrentStaticReportsAsync(false, false, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
-    [Fact]
-    public async Task GetDataAsync_RethrowsAndLogs_WhenOpenAsyncFails()
+    private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
-        var repository = new StaticReportRepository(new StubConnectionFactory(new ThrowingOpenDbConnection()), logger.Object);
-
-        var act = () => repository.GetDataAsync(VersionId, CancellationToken.None);
-
-        await act.Should().ThrowAsync<FakeDbException>();
+        public IDbConnection CreateConnection() => connection;
     }
 
-    private sealed class StubConnectionFactory(System.Data.IDbConnection connection) : IDbConnectionFactory
+    private sealed class NonDbConnectionFactory : IDbConnectionFactory
     {
-        public System.Data.IDbConnection CreateConnection() => connection;
+        public IDbConnection CreateConnection() => new Mock<IDbConnection>().Object;
     }
-
-    /// <summary>A bare <see cref="System.Data.IDbConnection"/> (not a <see cref="DbConnection"/>) to exercise the repository's defensive type check.</summary>
-    private sealed class NotADbConnection : System.Data.IDbConnection
-    {
-        [System.Diagnostics.CodeAnalysis.AllowNull]
-        public string ConnectionString { get; set; } = string.Empty;
-
-        public int ConnectionTimeout => 0;
-
-        public string Database => string.Empty;
-
-        public System.Data.ConnectionState State => System.Data.ConnectionState.Closed;
-
-        public System.Data.IDbTransaction BeginTransaction() => throw new NotSupportedException();
-
-        public System.Data.IDbTransaction BeginTransaction(System.Data.IsolationLevel il) => throw new NotSupportedException();
-
-        public void ChangeDatabase(string databaseName) => throw new NotSupportedException();
-
-        public void Close()
-        {
-        }
-
-        public System.Data.IDbCommand CreateCommand() => throw new NotSupportedException();
-
-        public void Open()
-        {
-        }
-
-        public void Dispose()
-        {
-        }
-    }
-
-    /// <summary>A <see cref="DbConnection"/> whose <see cref="Open"/> always fails, to exercise the open-connection failure path.</summary>
-    private sealed class ThrowingOpenDbConnection : DbConnection
-    {
-        [System.Diagnostics.CodeAnalysis.AllowNull]
-        public override string ConnectionString { get; set; } = string.Empty;
-
-        public override string Database => string.Empty;
-
-        public override string DataSource => string.Empty;
-
-        public override string ServerVersion => string.Empty;
-
-        public override System.Data.ConnectionState State => System.Data.ConnectionState.Closed;
-
-        public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
-
-        public override void Close()
-        {
-        }
-
-        public override void Open() => throw new FakeDbException("connect failed");
-
-        protected override DbTransaction BeginDbTransaction(System.Data.IsolationLevel isolationLevel) => throw new NotSupportedException();
-
-        protected override DbCommand CreateDbCommand() => throw new NotSupportedException();
-    }
-
-    /// <summary>Minimal <see cref="System.Data.Common.DbException"/> so a failure can be scripted without a real SqlException.</summary>
-    private sealed class FakeDbException(string message) : System.Data.Common.DbException(message);
 }

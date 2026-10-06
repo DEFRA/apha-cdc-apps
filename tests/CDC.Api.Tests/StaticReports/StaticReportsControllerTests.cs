@@ -1,124 +1,96 @@
-using CDC.Api.Domain.Common;
 using CDC.Api.Features.StaticReports;
-using CDC.Api.Features.StaticReports.Commands;
 using CDC.Api.Features.StaticReports.Dtos;
-using CDC.Api.Features.StaticReports.Queries;
+using CDC.Api.Features.StaticReports.Interfaces;
 using FluentAssertions;
-using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Moq;
 
 namespace CDC.Api.Tests.StaticReports;
 
-public class StaticReportsControllerTests
+public sealed class StaticReportsControllerTests
 {
-    private static readonly Guid VersionId = Guid.Parse("c80b8e93-21d2-453a-b0e0-3f522d03971d");
+    private static readonly Guid StaticReportId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid VersionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-    private readonly Mock<ISender> mediator = new(MockBehavior.Strict);
+    private readonly Mock<IStaticReportService> service = new(MockBehavior.Strict);
 
-    private StaticReportsController CreateController() => new(mediator.Object)
-    {
-        // ControllerBase.Problem() resolves this from the request services at runtime.
-        ProblemDetailsFactory = new TestProblemDetailsFactory(),
-        ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
-    };
+    private StaticReportsController CreateController() => new(service.Object);
 
     [Fact]
-    public async Task GetCurrent_ReturnsOk()
+    public async Task GetCurrentStaticReports_ReturnsOk()
     {
-        IReadOnlyList<StaticReportVersionDto> reports = [new StaticReportVersionDto { Title = "D2R2 Quality Statement" }];
+        IReadOnlyList<StaticReportDto> reports = [];
 
-        mediator
-            .Setup(sender => sender.Send(It.IsAny<GetCurrentStaticReportsQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success(reports));
+        service
+            .Setup(svc => svc.GetCurrentStaticReportsAsync(true, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(reports);
 
-        var response = await CreateController().GetCurrent(isUserManual: true, CancellationToken.None);
+        var response = await CreateController().GetCurrentStaticReports(true, false, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(reports);
     }
 
     [Fact]
-    public async Task GetData_ReturnsOk()
+    public async Task GetStaticReportHistory_ReturnsOk()
     {
-        var dto = new StaticReportDataDto { PdfData = [1, 2, 3], Title = "D2R2 Quality Statement" };
+        IReadOnlyList<StaticReportDto> versions = [];
 
-        mediator
-            .Setup(sender => sender.Send(It.IsAny<GetStaticReportDataQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success(dto));
+        service
+            .Setup(svc => svc.GetStaticReportHistoryAsync(StaticReportId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(versions);
 
-        var response = await CreateController().GetData(VersionId, CancellationToken.None);
+        var response = await CreateController().GetStaticReportHistory(StaticReportId, true, CancellationToken.None);
 
-        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(versions);
     }
 
     [Fact]
-    public async Task GetData_ReturnsNotFound()
+    public async Task GetStaticReportDocument_ReturnsOk_WhenDocumentExists()
     {
-        mediator
-            .Setup(sender => sender.Send(It.IsAny<GetStaticReportDataQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.NotFound<StaticReportDataDto>("not found"));
+        var document = new StaticReportDataDto { Title = "Help using D2R2", PdfData = [1, 2, 3] };
 
-        var response = await CreateController().GetData(VersionId, CancellationToken.None);
+        service
+            .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(document);
 
-        AssertProblem(response.Result!, StatusCodes.Status404NotFound);
+        var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(document);
     }
 
     [Fact]
-    public async Task Upload_ReturnsNoContent()
+    public async Task GetStaticReportDocument_ReturnsNotFound_WhenDocumentMissing()
     {
-        mediator
-            .Setup(sender => sender.Send(It.IsAny<UploadStaticReportCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success(Unit.Value));
+        service
+            .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StaticReportDataDto?)null);
 
-        var request = new UploadStaticReportRequestDto { Title = "D2R2 Quality Statement", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
+        var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
 
-        var response = await CreateController().Upload(request, CancellationToken.None);
+        response.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task DeleteStaticReportVersion_ReturnsNoContent_WhenDeleted()
+    {
+        service
+            .Setup(svc => svc.DeleteStaticReportVersionAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var response = await CreateController().DeleteStaticReportVersion(VersionId, CancellationToken.None);
 
         response.Should().BeOfType<NoContentResult>();
     }
 
-    private static ProblemDetails AssertProblem(IActionResult result, int expectedStatusCode)
+    [Fact]
+    public async Task DeleteStaticReportVersion_ReturnsNotFound_WhenVersionDoesNotExist()
     {
-        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-        objectResult.StatusCode.Should().Be(expectedStatusCode);
+        service
+            .Setup(svc => svc.DeleteStaticReportVersionAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
-        return objectResult.Value.Should().BeOfType<ProblemDetails>().Subject;
-    }
+        var response = await CreateController().DeleteStaticReportVersion(VersionId, CancellationToken.None);
 
-    /// <summary>Minimal factory so <c>ControllerBase.Problem()</c> works without the MVC pipeline.</summary>
-    private sealed class TestProblemDetailsFactory : ProblemDetailsFactory
-    {
-        public override ProblemDetails CreateProblemDetails(
-            HttpContext httpContext,
-            int? statusCode = null,
-            string? title = null,
-            string? type = null,
-            string? detail = null,
-            string? instance = null) => new()
-            {
-                Status = statusCode ?? StatusCodes.Status500InternalServerError,
-                Title = title,
-                Type = type,
-                Detail = detail,
-                Instance = instance
-            };
-
-        public override ValidationProblemDetails CreateValidationProblemDetails(
-            HttpContext httpContext,
-            Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelStateDictionary,
-            int? statusCode = null,
-            string? title = null,
-            string? type = null,
-            string? detail = null,
-            string? instance = null) => new(modelStateDictionary)
-            {
-                Status = statusCode ?? StatusCodes.Status400BadRequest,
-                Title = title,
-                Type = type,
-                Detail = detail,
-                Instance = instance
-            };
+        response.Should().BeOfType<NotFoundResult>();
     }
 }
