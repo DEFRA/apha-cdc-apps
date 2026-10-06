@@ -10,7 +10,7 @@ using Moq;
 
 namespace CDC.Api.Tests.ProfileSearch;
 
-public class ProfileRepositoryTests : IDisposable
+public sealed class ProfileRepositoryTests : IDisposable
 {
     private static readonly Guid ProfileAId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ProfileBId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -86,6 +86,36 @@ public class ProfileRepositoryTests : IDisposable
         executed.CommandText.Should().Be(ProfileStoredProcedures.GetAllProfiles);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsEffectiveDateToOntoSupersededVersionsOnly()
+    {
+        var currentVersionId = Guid.NewGuid();
+        var supersededVersionId = Guid.NewGuid();
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "Bovine tuberculosis"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [currentVersionId, ProfileAId, ProfileAId, 11, 0, "Published", Utc(2026, 3, 7), null, true, null],
+                    [supersededVersionId, ProfileAId, ProfileAId, 10, 2, "Published", Utc(2025, 1, 16), Utc(2026, 3, 7), true, null]
+                ])
+            ]
+        });
+
+        var profiles = await CreateRepository().GetAllProfilesAsync(CancellationToken.None);
+
+        var versions = profiles.Should().ContainSingle().Subject.PublishedVersions;
+        versions.Single(version => version.VersionId == currentVersionId).EffectiveToUtc.Should().BeNull();
+
+        var superseded = versions.Single(version => version.VersionId == supersededVersionId);
+        superseded.EffectiveToUtc.Should().Be(Utc(2026, 3, 7));
+        superseded.VersionMinor.Should().Be(2);
     }
 
     [Fact]

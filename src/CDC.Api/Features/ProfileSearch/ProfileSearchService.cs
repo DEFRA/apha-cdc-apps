@@ -52,6 +52,7 @@ public sealed class ProfileSearchService(IProfileRepository repository) : IProfi
         bool displayPublished = true,
         bool displayDraft = false,
         bool displayScenarios = false,
+        SearchForType searchForType = SearchForType.ExactWordOrPhrase,
         CancellationToken cancellationToken = default)
     {
         var allProfiles = await repository.GetAllProfilesAsync(cancellationToken);
@@ -76,10 +77,27 @@ public sealed class ProfileSearchService(IProfileRepository repository) : IProfi
                     return false;
                 }
 
-                return string.IsNullOrEmpty(searchText) ||
-                       profile.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                return TitleMatches(profile.Title, searchText, searchForType);
             })
         ];
+    }
+
+    /// <summary>Mirrors the legacy <c>ProfileInfoList.TitleMatchesWords</c>: an exact-phrase search
+    /// matches the trimmed search text as a single substring, an all-words search splits it on
+    /// spaces and requires every word to appear somewhere in the title, in any order.</summary>
+    internal static bool TitleMatches(string title, string? searchText, SearchForType searchForType)
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            return true;
+        }
+
+        // Legacy splits on the space character only, discarding empty entries.
+        var words = searchForType == SearchForType.AllWords
+            ? searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            : [searchText.Trim()];
+
+        return words.All(word => title.Contains(word, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <inheritdoc />

@@ -25,7 +25,8 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// they contain columns that are meaningless without a real user or that duplicate column names.
 /// Result set 2 is skipped entirely: everything it carries (which profile/scenario a version
 /// belongs to) is already present in result set 3. Result set 4 is not read in this first pass -
-/// <see cref="ProfileSearchResultDto.AffectedSpecies"/> is always empty until that is added.
+/// <see cref="CDC.Common.Contracts.ProfileSearchResultContract{THistoryItem,TScenario}.AffectedSpecies"/>
+/// is always empty until that is added.
 /// </para>
 /// </remarks>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
@@ -126,8 +127,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         {
             VersionId = row.VersionId,
             VersionNumber = row.VersionNumber,
+            VersionMinor = row.VersionMinor,
             Title = title,
             CreatedAtUtc = row.EffectiveDate,
+            EffectiveToUtc = row.EffectiveDateTo,
             IsScenario = row.ScenarioId != row.RootProfileId
         };
 
@@ -151,8 +154,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             ScenarioId: reader.GetGuid(1),
             RootProfileId: reader.GetGuid(2),
             VersionNumber: ReadInt32(reader, 3),
+            VersionMinor: ReadInt32(reader, 4),
             StateName: ReadNullableString(reader, 5),
             EffectiveDate: effectiveDate,
+            EffectiveDateTo: ReadNullableDateTime(reader, 7),
             IsPublic: ReadBoolean(reader, 8),
             LastUpdated: ReadNullableDateTime(reader, 9) ?? effectiveDate);
     }
@@ -338,8 +343,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         Guid ScenarioId,
         Guid RootProfileId,
         int VersionNumber,
+        int VersionMinor,
         string? StateName,
         DateTime EffectiveDate,
+        DateTime? EffectiveDateTo,
         bool IsPublic,
         DateTime LastUpdated);
 
