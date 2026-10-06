@@ -88,6 +88,13 @@ public class SurveillanceProfilesSearchModel : PageModel
     [BindProperty(SupportsGet = true)]
     public bool SearchForAllWords { get; set; }
 
+    /// <summary>Gets the single search mode the two mutually exclusive "Search for" checkboxes
+    /// resolve to. The legacy page used a radio group, so exactly one mode was always active and
+    /// "this exact word or phrase" took precedence; this mirrors that for any querystring that
+    /// arrives with both or neither flag set.</summary>
+    public SearchForType SearchForType =>
+        SearchForAllWords && !SearchForExactPhrase ? SearchForType.AllWords : SearchForType.ExactWordOrPhrase;
+
     /// <summary>Gets or sets how the results list is ordered.</summary>
     [BindProperty(SupportsGet = true)]
     public string SortBy { get; set; } = SortByOptions[0].Value;
@@ -178,6 +185,8 @@ public class SurveillanceProfilesSearchModel : PageModel
         DisplayDraft,
         DisplayScenarios,
         AppearsIn,
+        SearchForExactPhrase,
+        SearchForAllWords,
         SortBy,
         PageSize,
         SelectedLetter = letter
@@ -191,6 +200,8 @@ public class SurveillanceProfilesSearchModel : PageModel
         DisplayDraft,
         DisplayScenarios,
         AppearsIn,
+        SearchForExactPhrase,
+        SearchForAllWords,
         SortBy,
         PageSize,
         SelectedLetter,
@@ -203,12 +214,16 @@ public class SurveillanceProfilesSearchModel : PageModel
     public static ProfileHistoryItemDto? GetCurrentVersion(
         IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
         IReadOnlyList<ProfileHistoryItemDto> draftVersions) =>
-        publishedVersions.MaxBy(version => version.VersionNumber)
-        ?? draftVersions.MaxBy(version => version.VersionNumber);
+        publishedVersions.MaxBy(SortKey)
+        ?? draftVersions.MaxBy(SortKey);
 
     /// <summary>Gets the most relevant version for one "what-if" scenario's own, independent history.</summary>
     public static ProfileHistoryItemDto? GetCurrentVersion(ProfileScenarioDto scenario) =>
         GetCurrentVersion(scenario.PublishedVersions, scenario.DraftVersions);
+
+    /// <summary>Orders a lineage the way the legacy query does: <c>VersionMajor</c> then <c>VersionMinor</c>.</summary>
+    private static (int Major, int Minor) SortKey(ProfileHistoryItemDto version) =>
+        (version.VersionNumber, version.VersionMinor);
 
     /// <summary>Gets the label to show alongside <see cref="GetCurrentVersion(IReadOnlyList{ProfileHistoryItemDto},IReadOnlyList{ProfileHistoryItemDto})"/>'s result.</summary>
     public static string GetCurrentVersionLabel(
@@ -226,27 +241,27 @@ public class SurveillanceProfilesSearchModel : PageModel
 
     /// <summary>Gets every version other than the one <see cref="GetCurrentVersion(IReadOnlyList{ProfileHistoryItemDto},IReadOnlyList{ProfileHistoryItemDto})"/>
     /// returns, newest first, for the "Show previous versions" toggle.</summary>
-    public static IReadOnlyList<PreviousVersionRow> GetPreviousVersions(
+    public static IReadOnlyList<VersionHistoryRow> GetPreviousVersions(
         IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
         IReadOnlyList<ProfileHistoryItemDto> draftVersions)
     {
         var current = GetCurrentVersion(publishedVersions, draftVersions);
 
-        IEnumerable<PreviousVersionRow> Labelled(IReadOnlyList<ProfileHistoryItemDto> versions, string status) =>
-            versions.Select(version => new PreviousVersionRow(version, status));
+        IEnumerable<VersionHistoryRow> Labelled(IReadOnlyList<ProfileHistoryItemDto> versions, string status) =>
+            versions.Select(version => new VersionHistoryRow(version, status));
 
         return
         [
             .. Labelled(publishedVersions, "Published")
                 .Concat(Labelled(draftVersions, "Draft"))
                 .Where(row => row.Version.VersionId != current?.VersionId)
-                .OrderByDescending(row => row.Version.VersionNumber)
+                .OrderByDescending(row => SortKey(row.Version))
         ];
     }
 
     /// <summary>Gets every version other than the one <see cref="GetCurrentVersion(ProfileScenarioDto)"/>
     /// returns, for that scenario's own "Show previous versions" toggle.</summary>
-    public static IReadOnlyList<PreviousVersionRow> GetPreviousVersions(ProfileScenarioDto scenario) =>
+    public static IReadOnlyList<VersionHistoryRow> GetPreviousVersions(ProfileScenarioDto scenario) =>
         GetPreviousVersions(scenario.PublishedVersions, scenario.DraftVersions);
 
     /// <summary>Gets every version-lineage card to render for a profile: an independent Published
@@ -283,7 +298,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         string typeLabel,
         string noVersionMessage)
     {
-        var current = versions.MaxBy(version => version.VersionNumber);
+        var current = versions.MaxBy(SortKey);
 
         return new ProfileVersionGroupViewModel
         {
@@ -291,12 +306,15 @@ public class SurveillanceProfilesSearchModel : PageModel
             HeadingLabel = $"{typeLabel} current version",
             CurrentVersion = current,
             CurrentVersionLabel = $"{typeLabel} current version",
-            PreviousVersions = current is null
-                ? []
-                : [.. versions
-                    .Where(version => version.VersionId != current.VersionId)
-                    .Select(version => new PreviousVersionRow(version, typeLabel))
-                    .OrderByDescending(row => row.Version.VersionNumber)],
+            // The legacy repeater binds the whole lineage, so the current version appears in the
+            // history list as well as in the card summary above it.
+            VersionHistory =
+            [
+                .. versions
+                    .Select(version => new VersionHistoryRow(version, typeLabel))
+                    .OrderByDescending(row => SortKey(row.Version))
+            ],
+            ProfileId = profile.Id,
             ProfileStatus = current is null ? null : profile.Status,
             NoVersionMessage = current is null ? $"({noVersionMessage})" : null,
             // "View reports" links to a published version's report; the Draft card has none.
@@ -394,7 +412,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 return;
             }
 
-            var response = await apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, cancellationToken);
+            var response = await apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, SearchForType, cancellationToken);
             var profiles = response.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(SelectedLetter) && !string.Equals(SelectedLetter, "All", StringComparison.OrdinalIgnoreCase))
@@ -463,8 +481,11 @@ public class SurveillanceProfilesSearchModel : PageModel
 }
 
 /// <summary>A previous version row for the "Show previous versions" panel, paired with the
-/// bucket (Published/Draft) it came from.</summary>
-public sealed record PreviousVersionRow(ProfileHistoryItemDto Version, string Status);
+/// bucket (Published/Draft) it came from. Draft rows have no report to view.</summary>
+public sealed record VersionHistoryRow(ProfileHistoryItemDto Version, string Status)
+{
+    public bool ShowViewReportsLink { get; } = Status != "Draft";
+}
 
 /// <summary>One version-lineage card to render for a profile: an independent Published card, an
 /// independent Draft card, or one of its independent "what-if" scenarios.</summary>
@@ -474,7 +495,11 @@ public sealed record ProfileVersionGroupViewModel
     public required string HeadingLabel { get; init; }
     public ProfileHistoryItemDto? CurrentVersion { get; init; }
     public required string CurrentVersionLabel { get; init; }
-    public required IReadOnlyList<PreviousVersionRow> PreviousVersions { get; init; }
+    public required IReadOnlyList<VersionHistoryRow> VersionHistory { get; init; }
+
+    /// <summary>Gets the profile this version-lineage card belongs to, so "Browse profile" can
+    /// link to <c>EditProfileQuestions</c> for the correct profile.</summary>
+    public required Guid ProfileId { get; init; }
 
     /// <summary>Only set for the profile's own Published/Draft cards - "what-if" scenarios have
     /// no status of their own.</summary>

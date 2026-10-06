@@ -9,8 +9,14 @@ using CDC.Api.Features.ProfileReports;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSearch;
 using CDC.Api.Features.ProfileSearch.Interfaces;
+using CDC.Api.Features.ProfileSections;
+using CDC.Api.Features.ProfileSections.Interfaces;
+using CDC.Api.Features.ReferenceData;
+using CDC.Api.Features.ReferenceData.Interfaces;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
+using CDC.Api.Features.StaticReports;
+using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Features.UserAdmin;
 using CDC.Api.Features.UserAdmin.Interfaces;
 using FluentValidation;
@@ -44,6 +50,10 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();
         services.AddScoped<IProfileReportService, ProfileReportService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<IProfileSectionService, ProfileSectionService>();
+        services.AddScoped<IReferenceDataService, ReferenceDataService>();
+        services.AddScoped<IStaticReportService, StaticReportService>();
+        services.AddScoped<IUserContext, DefaultUserContext>();
 
         return services;
     }

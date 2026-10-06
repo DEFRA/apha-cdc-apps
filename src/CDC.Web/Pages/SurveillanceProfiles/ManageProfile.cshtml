@@ -1,5 +1,6 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.ManageProfileModel
+@using Microsoft.AspNetCore.Mvc.Rendering
 @{
     ViewData["Title"] = Model.Profile is not null ? $"Manage profile: {Model.Profile.ProfileTitle}" : "Manage profile";
 }
@@ -44,6 +45,29 @@
         }
         else if (Model.Profile is not null)
         {
+            @if (!string.IsNullOrEmpty(Model.StatusMessage))
+            {
+                <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-manage-profile-status-success-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="app-manage-profile-status-success-title">Success</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@Model.StatusMessage</p>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Model.StatusErrorMessage))
+            {
+                <div class="govuk-notification-banner" role="alert" aria-labelledby="app-manage-profile-status-error-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="app-manage-profile-status-error-title">Important</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@Model.StatusErrorMessage</p>
+                    </div>
+                </div>
+            }
+
             <dl class="govuk-summary-list">
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Profile title</dt>
@@ -59,7 +83,13 @@
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Latest published version (DefraNet only)</dt>
-                    <dd class="govuk-summary-list__value">@Model.Profile.LatestPublishedVersionDefraNetOnly</dd>
+                    <dd class="govuk-summary-list__value">
+                        @Model.Profile.LatestPublishedVersionDefraNetOnly
+                        @if (Model.Profile.LinkVisibility.CanAllowPublicAccess)
+                        {
+                            <a class="govuk-link govuk-!-margin-left-3" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
+                        }
+                    </dd>
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Latest draft version</dt>
@@ -67,42 +97,93 @@
                 </div>
                 <div class="govuk-summary-list__row">
                     <dt class="govuk-summary-list__key">Profile status</dt>
-                    <dd class="govuk-summary-list__value">@Model.Profile.ProfileStatus</dd>
+                    <dd class="govuk-summary-list__value">
+                        <form method="post">
+                            <input type="hidden" asp-for="ProfileId" />
+                            <div class="govuk-form-group govuk-!-margin-bottom-0">
+                                <label class="govuk-visually-hidden" for="ProfileStatusId">Profile status</label>
+                                <select class="govuk-select" asp-for="ProfileStatusId" asp-items="@(new SelectList(Model.ProfileStatusTypes, nameof(ProfileStatusTypeDto.Id), nameof(ProfileStatusTypeDto.Name)))" onchange="this.form.requestSubmit()">
+                                    <option value="">Please select...</option>
+                                </select>
+                            </div>
+                        </form>
+                    </dd>
                 </div>
             </dl>
 
             <ul class="govuk-list">
-                <li>
-                    <a class="govuk-link" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./EditProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./MaintainContributorsAndReviewers" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./ViewContributionsReport" asp-route-profileId="@Model.ProfileId">View contributions report</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./CreateNewDraftVersion" asp-route-profileId="@Model.ProfileId">Create new draft version</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./DeleteCurrentVersion" asp-route-profileId="@Model.ProfileId">Delete current version</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./CloneNewProfile" asp-route-profileId="@Model.ProfileId">Clone new profile</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./CloneNewScenario" asp-route-profileId="@Model.ProfileId">Clone new scenario</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./PublishPublic" asp-route-profileId="@Model.ProfileId">Publish (public)</a>
-                </li>
-                <li>
-                    <a class="govuk-link" asp-page="./PublishDefranetOnly" asp-route-profileId="@Model.ProfileId">Publish (Defranet only)</a>
-                </li>
+                @if (Model.Profile.LinkVisibility.CanEditProperties)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./EditProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanMaintainContributorsAndReviewers)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./MaintainContributorsAndReviewers" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanViewContributionsReport)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./ViewContributionsReport" asp-route-profileId="@Model.ProfileId">View contributions report</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanCreateNewDraftVersion)
+                {
+                    <li>
+                        <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmCreateNewDraftVersionModal">Create new draft version @Model.Profile.NewDraftVersionLabel</button>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanDeleteCurrentVersion)
+                {
+                    <li>
+                        <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmDeleteCurrentVersionModal">Delete current version</button>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanCloneNewProfile)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./CloneNewProfile" asp-route-profileId="@Model.ProfileId">Clone new profile</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanCloneNewScenario)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./CloneNewScenario" asp-route-profileId="@Model.ProfileId">Clone new scenario</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanPublishPublic)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./PublishPublic" asp-route-profileId="@Model.ProfileId">Publish (public)</a>
+                    </li>
+                }
+                @if (Model.Profile.LinkVisibility.CanPublishDefranetOnly)
+                {
+                    <li>
+                        <a class="govuk-link" asp-page="./PublishDefranetOnly" asp-route-profileId="@Model.ProfileId">Publish (Defranet only)</a>
+                    </li>
+                }
             </ul>
+
+            @if (Model.Profile.LinkVisibility.CanCreateNewDraftVersion)
+            {
+                <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                    "confirmCreateNewDraftVersionModal",
+                    "Are you sure you want to create a new draft version?",
+                    "CreateNewDraftVersion",
+                    Model.ProfileId))" />
+            }
+            @if (Model.Profile.LinkVisibility.CanDeleteCurrentVersion)
+            {
+                <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                    "confirmDeleteCurrentVersionModal",
+                    "Are you sure you want to delete this profile version?",
+                    "DeleteCurrentVersion",
+                    Model.ProfileId))" />
+            }
         }
     </div>
 </div>

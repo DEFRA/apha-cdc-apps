@@ -36,4 +36,22 @@ public interface ISpeciesApiService
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The audit trail, most recent entry first.</returns>
     Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/species/metadata</c>.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every section, its questions and each question's fields.</returns>
+    Task<SpeciesMetadataDto> GetSpeciesMetadataAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/species/{speciesId}/answers</c>.</summary>
+    /// <param name="speciesId">The species to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The recorded answers, or <see langword="null"/> when the species does not exist.</returns>
+    Task<SpeciesAnswerDataDto?> GetSpeciesAnswerDataAsync(Guid speciesId, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/reference-data/{referenceTableId}/values</c>, used to resolve
+    /// "List" type question field options (for example a species questionnaire checkbox group).</summary>
+    /// <param name="referenceTableId">The reference table to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The reference values; an empty list when the table has none.</returns>
+    Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
 }

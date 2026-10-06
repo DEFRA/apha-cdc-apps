@@ -49,6 +49,8 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
         $"Configuration value 'Api:BaseUrl' ('{apiBaseUrl}') must be an absolute http:// or https:// URL, e.g. 'http://cdc-api:8080'.");
 }
 
+builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
+
 // Forwards this request's correlation ID to CDC.Api, so a single ID traces the action across
 // both services' CloudWatch log groups.
 builder.Services.AddHttpContextAccessor();
@@ -68,6 +70,13 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IUserAdminApiService, UserAdminApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
