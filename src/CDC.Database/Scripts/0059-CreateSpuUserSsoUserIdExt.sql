@@ -1,10 +1,10 @@
-/****** New stored procedure for CIDM external-user resolution: backfills CidmSsoId the first
+/****** New stored procedure for CIDM external-user resolution: backfills SsoUserIdExt the first
         time a user matched by email signs in through CIDM, so every subsequent sign-in matches
-        directly on CidmSsoId instead. ******/
-CREATE PROCEDURE [dbo].[spuUserCidmSsoId]
+        directly on SsoUserIdExt instead. ******/
+CREATE OR ALTER PROCEDURE [dbo].[spuUserSsoUserIdExt]
 	(
 		@Id uniqueidentifier,
-		@CidmSsoId uniqueidentifier
+		@SsoUserIdExt uniqueidentifier
 	)
 AS
 BEGIN
@@ -14,7 +14,7 @@ BEGIN
 	-- UPDATE and rejects any attempt to assign it explicitly.
 	UPDATE [User]
 	SET
-		[CidmSsoId] = @CidmSsoId
+		[SsoUserIdExt] = @SsoUserIdExt
 	WHERE
 		[Id] = @Id
 END

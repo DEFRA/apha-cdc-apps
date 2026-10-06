@@ -1,6 +1,6 @@
--- New stored procedure for CIDM external-user resolution: lookup by CidmSsoId.
-CREATE PROCEDURE [dbo].[spgUserByCidmSsoId]
-	@CidmSsoId uniqueidentifier
+-- New stored procedure for CIDM external-user resolution: lookup by SsoUserIdExt.
+CREATE OR ALTER PROCEDURE [dbo].[spgUserBySsoUserIdExt]
+	@SsoUserIdExt uniqueidentifier
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -14,13 +14,13 @@ BEGIN
 		[IsProfileEditor],
 		[IsPolicyProfileUser],
 		[SsoUserId],
-		[CidmSsoId],
+		[SsoUserIdExt],
 		[EmailAddress],
 		[LastUpdated]
 	FROM
 		[User]
 	WHERE
-		[CidmSsoId] = @CidmSsoId
+		[SsoUserIdExt] = @SsoUserIdExt
 END
 
 GO
