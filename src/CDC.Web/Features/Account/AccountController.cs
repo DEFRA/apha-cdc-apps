@@ -9,17 +9,20 @@ namespace CDC.Web.Features.Account;
 
 public class AccountController : Controller
 {
+    private const string LandingController = "Landing";
+    private const string IdTokenName = "id_token";
+
     [AllowAnonymous]
     public IActionResult Login()
     {
         if (User.Identity?.IsAuthenticated == true)
         {
-            return RedirectToAction("External", "Landing");
+            return RedirectToAction("External", LandingController);
         }
 
         var properties = new AuthenticationProperties
         {
-            RedirectUri = Url.Action("External", "Landing")
+            RedirectUri = Url.Action("External", LandingController)
         };
 
         return Challenge(properties, CidmAuthenticationDefaults.AuthenticationScheme);
@@ -35,7 +38,7 @@ public class AccountController : Controller
         // B2C) ignores post_logout_redirect_uri entirely and shows its own default sign-out page instead
         // of redirecting back to /Account/SignedOut.
         var cookieResult = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        var idToken = cookieResult?.Properties?.GetTokenValue("id_token");
+        var idToken = cookieResult?.Properties?.GetTokenValue(IdTokenName);
 
         // The Cookie scheme's SignOutAsync also honors AuthenticationProperties.RedirectUri and would
         // otherwise race/short-circuit the OIDC scheme's sign-out event that renders CIDM's logout form,
@@ -48,7 +51,7 @@ public class AccountController : Controller
         };
         if (!string.IsNullOrEmpty(idToken))
         {
-            properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = idToken }]);
+            properties.StoreTokens([new AuthenticationToken { Name = IdTokenName, Value = idToken }]);
         }
 
         return SignOut(properties, CidmAuthenticationDefaults.AuthenticationScheme);
@@ -59,12 +62,12 @@ public class AccountController : Controller
     {
         if (User.Identity?.IsAuthenticated == true)
         {
-            return RedirectToAction("Internal", "Landing");
+            return RedirectToAction("Internal", LandingController);
         }
 
         var properties = new AuthenticationProperties
         {
-            RedirectUri = Url.Action("Internal", "Landing")
+            RedirectUri = Url.Action("Internal", LandingController)
         };
 
         return Challenge(properties, EntraAuthenticationDefaults.AuthenticationScheme);
@@ -77,7 +80,7 @@ public class AccountController : Controller
         // sign-out only reads id_token_hint off AuthenticationProperties or, failing that, the cookie
         // scheme, which finds nothing once that cookie has already been cleared.
         var cookieResult = await HttpContext.AuthenticateAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme);
-        var idToken = cookieResult?.Properties?.GetTokenValue("id_token");
+        var idToken = cookieResult?.Properties?.GetTokenValue(IdTokenName);
 
         await HttpContext.SignOutAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
@@ -87,7 +90,7 @@ public class AccountController : Controller
         };
         if (!string.IsNullOrEmpty(idToken))
         {
-            properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = idToken }]);
+            properties.StoreTokens([new AuthenticationToken { Name = IdTokenName, Value = idToken }]);
         }
 
         return SignOut(properties, EntraAuthenticationDefaults.AuthenticationScheme);
