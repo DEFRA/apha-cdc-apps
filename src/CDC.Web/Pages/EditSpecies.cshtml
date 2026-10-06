@@ -1,0 +1,74 @@
+@page "{speciesId:guid}"
+@model CDC.Web.Pages.EditSpeciesModel
+@{
+    var speciesLabel = Model.SpeciesName?.ToLowerInvariant();
+    ViewData["Title"] = speciesLabel is null ? "View species data" : $"View species data - {speciesLabel}";
+
+    var subnavModel = new SectionSubnavViewModel(
+        "Species data sections",
+        [.. CDC.Web.Models.EditSpeciesSectionCatalog.Sections
+            .Select(navSection => new SectionNavItem(
+                navSection.Number,
+                navSection.Title,
+                Model.BuildSectionUrl(navSection.Key),
+                navSection.Key == Model.CurrentSection.Key))]);
+
+    var accordionModel = new QuestionAccordionViewModel(
+        "species-accordion",
+        "No sub-sections are available for this section.",
+        Model.Questions);
+
+    var previousNavItem = Model.PreviousSection is null
+        ? null
+        : new SectionNavItem(Model.PreviousSection.Number, Model.PreviousSection.Title, Model.BuildSectionUrl(Model.PreviousSection.Key));
+    var nextNavItem = Model.NextSection is null
+        ? null
+        : new SectionNavItem(Model.NextSection.Number, Model.NextSection.Title, Model.BuildSectionUrl(Model.NextSection.Key));
+    var paginationModel = new SectionPaginationViewModel(previousNavItem, nextNavItem);
+}
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/ViewSpeciesData">View species data</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">@ViewData["Title"]</li>
+        </ol>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="species-detail-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="species-detail-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">We could not load this species. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <h1 class="govuk-heading-l">View species data - @speciesLabel</h1>
+
+    <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+            <partial name="_SectionSubnav" model="subnavModel" />
+        </div>
+        <div class="govuk-grid-column-three-quarters">
+            <div class="app-species-tabs">
+                <span class="app-species-tabs__tab app-species-tabs__tab--active">@Model.CurrentSection.Title</span>
+            </div>
+
+            <div class="app-species-panel">
+                <partial name="_QuestionAccordion" model="accordionModel" />
+            </div>
+
+            <partial name="_SectionPagination" model="paginationModel" />
+        </div>
+    </div>
+}

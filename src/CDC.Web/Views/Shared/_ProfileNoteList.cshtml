@@ -1,0 +1,27 @@
+@model CDC.Web.Models.ProfileNoteGroupView
+<h3 class="govuk-heading-s">@Model.Heading</h3>
+@if (Model.Notes.Count == 0)
+{
+    <p class="govuk-body">@Model.EmptyMessage</p>
+}
+else
+{
+    <table class="govuk-table app-profile-note-table">
+        <caption class="govuk-visually-hidden">@Model.Heading</caption>
+        <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+                <th scope="col" class="govuk-table__header">@Model.Heading</th>
+                <th scope="col" class="govuk-table__header">Question reference</th>
+            </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+            @foreach (var note in Model.Notes)
+            {
+                <tr class="govuk-table__row">
+                    <td class="govuk-table__cell app-profile-note-table__text">@Html.Raw(note.NoteTextHtml)</td>
+                    <td class="govuk-table__cell">@note.QuestionReferenceDisplay</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

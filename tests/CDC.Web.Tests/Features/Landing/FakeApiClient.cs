@@ -4,7 +4,7 @@ using CDC.Web.Models;
 namespace CDC.Web.Tests.Features.Landing;
 
 // Test double for IApiClient so controller/health-check unit tests don't need a real HTTP call.
-internal sealed class FakeApiClient(
+internal sealed class FakeApiClient( // NOSONAR
     ApiHealthResponse? response = null,
     Exception? throwOnGetHealth = null,
     IReadOnlyList<ProfileSearchResultDto>? searchResults = null,
@@ -13,12 +13,26 @@ internal sealed class FakeApiClient(
     Exception? throwOnGetProfileAttributes = null,
     UpdateProfileTitleResult? updateProfileTitleResult = null,
     ManageProfileViewModel? manageProfile = null,
-    Exception? throwOnGetManageProfile = null) : IApiClient
+    Exception? throwOnGetManageProfile = null,
+    IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
+    UpdateProfileStatusResult? updateProfileStatusResult = null,
+    IReadOnlyList<StaticReportListItemDto>? staticReports = null,
+    Exception? throwOnGetCurrentStaticReports = null,
+    CreateNewProfileVersionResult? createNewProfileVersionResult = null,
+    DeleteProfileVersionResult? deleteProfileVersionResult = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
+    private readonly IReadOnlyList<ProfileStatusTypeDto> _profileStatusTypes = profileStatusTypes ?? [];
+    private readonly IReadOnlyList<StaticReportListItemDto> _staticReports = staticReports ?? [];
     private readonly UpdateProfileTitleResult _updateProfileTitleResult =
         updateProfileTitleResult ?? new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null);
+    private readonly UpdateProfileStatusResult _updateProfileStatusResult =
+        updateProfileStatusResult ?? new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null);
+    private readonly CreateNewProfileVersionResult _createNewProfileVersionResult =
+        createNewProfileVersionResult ?? new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, Guid.NewGuid(), null);
+    private readonly DeleteProfileVersionResult _deleteProfileVersionResult =
+        deleteProfileVersionResult ?? new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, false, null);
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         throwOnGetHealth is not null
@@ -30,6 +44,7 @@ internal sealed class FakeApiClient(
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        SearchForType searchForType,
         CancellationToken cancellationToken = default) =>
         throwOnSearchProfiles is not null
             ? Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(throwOnSearchProfiles)
@@ -51,4 +66,31 @@ internal sealed class FakeApiClient(
         throwOnGetManageProfile is not null
             ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
             : Task.FromResult(manageProfile);
+
+    public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(_profileStatusTypes);
+
+    public Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
+        Guid profileId,
+        Guid profileStatusId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_updateProfileStatusResult);
+
+    public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
+        bool isUserManual = false,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default) =>
+        throwOnGetCurrentStaticReports is not null
+            ? Task.FromException<IReadOnlyList<StaticReportListItemDto>>(throwOnGetCurrentStaticReports)
+            : Task.FromResult(_staticReports);
+
+    public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
+        Guid profileVersionId,
+        bool isPublished,
+        bool isPublic,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_createNewProfileVersionResult);
+
+    public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_deleteProfileVersionResult);
 }
