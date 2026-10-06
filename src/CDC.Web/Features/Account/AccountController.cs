@@ -1,4 +1,5 @@
 using CDC.Auth.Cidm;
+using CDC.Auth.Entra;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -51,6 +52,45 @@ public class AccountController : Controller
         }
 
         return SignOut(properties, CidmAuthenticationDefaults.AuthenticationScheme);
+    }
+
+    [AllowAnonymous]
+    public IActionResult LoginInternal()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToAction("Internal", "Landing");
+        }
+
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action("Internal", "Landing")
+        };
+
+        return Challenge(properties, EntraAuthenticationDefaults.AuthenticationScheme);
+    }
+
+    [AllowAnonymous]
+    public async Task<IActionResult> LogoutInternal()
+    {
+        // Same id_token_hint-before-clearing-cookie subtlety as Logout() above - OpenIdConnectHandler's
+        // sign-out only reads id_token_hint off AuthenticationProperties or, failing that, the cookie
+        // scheme, which finds nothing once that cookie has already been cleared.
+        var cookieResult = await HttpContext.AuthenticateAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        var idToken = cookieResult?.Properties?.GetTokenValue("id_token");
+
+        await HttpContext.SignOutAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action(nameof(SignedOut))
+        };
+        if (!string.IsNullOrEmpty(idToken))
+        {
+            properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = idToken }]);
+        }
+
+        return SignOut(properties, EntraAuthenticationDefaults.AuthenticationScheme);
     }
 
     [AllowAnonymous]

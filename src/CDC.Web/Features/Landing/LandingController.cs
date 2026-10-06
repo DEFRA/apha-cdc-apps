@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,14 +15,17 @@ public class LandingController(IApiClient apiClient) : Controller
         return View();
     }
 
-    [AllowAnonymous]
+    // Requires authentication - the app's fallback authorization policy resolves to Entra ID's
+    // cookie scheme (this app is predominantly used by internal/Entra-authenticated staff), so no
+    // explicit scheme needs naming here, unlike External() below.
     public IActionResult Internal()
     {
         return View();
     }
 
-    // Requires authentication (via the app's default authorization policy) - only reachable after a
-    // successful CIDM sign-in.
+    // Requires authentication against CIDM specifically, not the app's fallback policy (which
+    // resolves to Entra ID's cookie scheme) - only reachable after a successful CIDM sign-in.
+    [Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme)]
     public IActionResult External()
     {
         return View();

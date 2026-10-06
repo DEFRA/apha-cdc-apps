@@ -58,7 +58,7 @@ public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUs
 
         var request = new ResolveExternalUserRequestDto
         {
-            CidmSsoId = cidmSsoId,
+            SsoUserIdExt = cidmSsoId,
             Email = email,
             FirstName = firstName,
             LastName = lastName,

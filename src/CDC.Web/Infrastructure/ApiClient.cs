@@ -40,6 +40,10 @@ public interface IApiClient
     /// <c>POST /api/users/external/resolve</c>.</summary>
     Task<ResolveExternalUserResult> ResolveExternalUserAsync(ResolveExternalUserRequestDto request, CancellationToken cancellationToken = default);
 
+    /// <summary>Resolves the internal user matching the given Entra ID claims via
+    /// <c>POST /api/users/internal/resolve</c>.</summary>
+    Task<ResolveInternalUserResult> ResolveInternalUserAsync(ResolveInternalUserRequestDto request, CancellationToken cancellationToken = default);
+
     /// <summary>Gets every profile status a profile can be set to, from <c>GET /api/profiles/status-types</c>.</summary>
     Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default);
 
@@ -243,6 +247,26 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         }
 
         return new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null);
+    }
+
+    public async Task<ResolveInternalUserResult> ResolveInternalUserAsync(
+        ResolveInternalUserRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("/api/users/internal/resolve", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var user = await response.Content.ReadFromJsonAsync<InternalUserDto>(cancellationToken);
+            return new ResolveInternalUserResult(ResolveInternalUserOutcome.Success, user);
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return new ResolveInternalUserResult(ResolveInternalUserOutcome.NotPermitted, null);
+        }
+
+        return new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null);
     }
 
     public async Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default)

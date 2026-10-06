@@ -18,4 +18,18 @@ public static class ExternalUserClaimTypes
     /// "is this an external user".
     /// </summary>
     public const string AuthenticationProvider = "authenticationProvider";
+
+    /// <summary>
+    /// Whether the user can author/publish profiles, from <c>[dbo].[User].IsProfileEditor</c>.
+    /// <see langword="false"/> for an internal user with no matching row (legacy's "limited
+    /// access" - authenticated, but with no profile-authoring privileges).
+    /// </summary>
+    public const string IsProfileEditor = "isProfileEditor";
+
+    /// <summary>
+    /// Whether the user is a policy profile user (contributions report only), from
+    /// <c>[dbo].[User].IsPolicyProfileUser</c>. <see langword="false"/> for an internal user with
+    /// no matching row.
+    /// </summary>
+    public const string IsPolicyProfileUser = "isPolicyProfileUser";
 }

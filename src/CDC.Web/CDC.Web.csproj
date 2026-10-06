@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CDC.Common\CDC.Common.csproj" />
     <ProjectReference Include="..\CDC.Auth.Cidm\CDC.Auth.Cidm.csproj" />
+    <ProjectReference Include="..\CDC.Auth.Entra\CDC.Auth.Entra.csproj" />
   </ItemGroup>
 
 </Project>
