@@ -29,6 +29,14 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Program.cs reads Api:BaseUrl from builder.Configuration before builder.Build() runs, earlier
+        // than ConfigureAppConfiguration below ever applies - UseSetting is the only config source that
+        // lands in time. Api:BaseUrl now lives only in appsettings.Development.json, which is never
+        // loaded unless ASPNETCORE_ENVIRONMENT=Development; CI runners don't set that env var (unlike
+        // this machine, apparently), so the test host there defaults to Production and has no value
+        // for it at all unless supplied here.
+        builder.UseSetting("Api:BaseUrl", "http://cdc-api.test");
+
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Cidm:Address"] = "https://cidm.test/idphub/b2c",

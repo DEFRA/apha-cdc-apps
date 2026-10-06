@@ -44,8 +44,16 @@ public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUs
         var relationships = CidmClaimsMapper.ParseRelationships(
             principal.FindAll(CidmClaimTypes.RawRelationships).Select(claim => claim.Value));
         var currentRelationshipId = principal.FindFirst(CidmClaimTypes.CurrentRelationshipId)?.Value;
-        var currentRelationship = relationships.FirstOrDefault(r => r.RelationshipId == currentRelationshipId)
-            ?? relationships.FirstOrDefault();
+        RelationshipInfo? currentRelationship = null;
+        foreach (var relationship in relationships)
+        {
+            if (relationship.RelationshipId == currentRelationshipId)
+            {
+                currentRelationship = relationship;
+                break;
+            }
+        }
+        currentRelationship ??= relationships.Count > 0 ? relationships[0] : null;
         var organisation = currentRelationship?.OrganisationName ?? string.Empty;
 
         var request = new ResolveExternalUserRequestDto
