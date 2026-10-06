@@ -46,9 +46,9 @@ builder.Services.AddSwaggerDocumentation();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
-// Scaffold for the review-due notification scheduled job (see ReviewNotificationsJob) -
-// registered here rather than in AddApplication/AddInfrastructure since it has no feature
-// service/repository pair yet, just a single job-mode entry point.
+// The review-due notification scheduled job (see ReviewNotificationsJob) is registered here
+// rather than in AddApplication, since it is a job-mode entry point rather than a service
+// resolved by a request handler. Its repository is registered in AddInfrastructure.
 builder.Services.AddScoped<ReviewNotificationsJob>();
 
 var app = builder.Build();

@@ -1,0 +1,48 @@
+@model CDC.Web.Models.UserSubscriptionTableViewModel
+
+<table class="govuk-table">
+    <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">@Model.Caption</caption>
+    <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Name</th>
+            <th scope="col" class="govuk-table__header">Username</th>
+            <th scope="col" class="govuk-table__header">Organisation</th>
+            @if (Model.ShowEmailAddress)
+            {
+                <th scope="col" class="govuk-table__header">Email address</th>
+            }
+            <th scope="col" class="govuk-table__header">Review emails</th>
+            <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+        @foreach (var user in Model.Users)
+        {
+            <tr class="govuk-table__row">
+                <th scope="row" class="govuk-table__header govuk-!-font-weight-regular">@user.FullName</th>
+                <td class="govuk-table__cell">@user.UserName</td>
+                <td class="govuk-table__cell">@user.Organisation</td>
+                @if (Model.ShowEmailAddress)
+                {
+                    <td class="govuk-table__cell">@(string.IsNullOrWhiteSpace(user.EmailAddress) ? "Not recorded" : user.EmailAddress)</td>
+                }
+                <td class="govuk-table__cell">
+                    @if (user.SubscribedToReviewEmails)
+                    {
+                        <strong class="govuk-tag govuk-tag--green">Subscribed</strong>
+                    }
+                    else
+                    {
+                        <strong class="govuk-tag govuk-tag--grey">Unsubscribed</strong>
+                    }
+                </td>
+                <td class="govuk-table__cell">
+                    <a class="govuk-link" asp-page="/UserAdmin/ReviewEmailSubscription"
+                       asp-route-userId="@user.Id" asp-route-userType="@Model.UserType">
+                        Change<span class="govuk-visually-hidden"> review email subscription for @user.FullName</span>
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

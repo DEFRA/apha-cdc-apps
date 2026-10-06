@@ -8,4 +8,45 @@
 }
 
 <h1 class="govuk-heading-l">Global users</h1>
-<p class="govuk-body">This page is for Global users. It will allow administrators to maintain global user accounts.</p>
+<p class="govuk-body">
+    Internal user accounts. Change whether a user receives review notification emails when a
+    section they contribute to is due review.
+</p>
+
+@if (Model.SuccessMessage is not null)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="global-users-success-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="global-users-success-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+        </div>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="global-users-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="global-users-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">Unable to load the global user list. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+else if (Model.Users.Count == 0)
+{
+    <p class="govuk-body">There are no global users.</p>
+}
+else
+{
+    var table = new UserSubscriptionTableViewModel(
+        "global",
+        "Global users and their review email subscriptions",
+        ShowEmailAddress: false,
+        Model.Users);
+
+    <partial name="_UserSubscriptionTable" model="table" />
+}

@@ -67,6 +67,13 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IUserAdminApiService, UserAdminApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 

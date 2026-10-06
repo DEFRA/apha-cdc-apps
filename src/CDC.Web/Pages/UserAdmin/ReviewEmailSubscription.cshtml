@@ -1,0 +1,125 @@
+@page "{userId:guid}"
+@model CDC.Web.Pages.UserAdmin.ReviewEmailSubscriptionModel
+@{
+    var hasErrors = !ViewData.ModelState.IsValid;
+    var question = $"Should {Model.FullName} receive review emails?";
+    ViewData["Title"] = hasErrors ? $"Error: {question}" : question;
+    var choiceHasError = ViewData.ModelState[nameof(Model.SubscribedToReviewEmails)]?.Errors.Count > 0;
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/Index">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="@Model.ListPage">@Model.ListPageName</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Review emails
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        @if (hasErrors)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="subscription-error-summary-title">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title" id="subscription-error-summary-title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            @foreach (var (key, message) in ViewData.ModelState.SelectMany(entry => entry.Value!.Errors.Select(error => (entry.Key, error.ErrorMessage))))
+                            {
+                                @if (key == nameof(Model.SubscribedToReviewEmails))
+                                {
+                                    <li><a href="#SubscribedToReviewEmails">@message</a></li>
+                                }
+                                else
+                                {
+                                    <li>@message</li>
+                                }
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <form method="post">
+            <input type="hidden" asp-for="LastUpdated" />
+            <input type="hidden" asp-for="UserType" />
+
+            <div class="govuk-form-group@(choiceHasError ? " govuk-form-group--error" : string.Empty)">
+                <fieldset class="govuk-fieldset" aria-describedby="subscription-hint@(choiceHasError ? " subscription-error" : string.Empty)">
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
+                        <h1 class="govuk-fieldset__heading">@question</h1>
+                    </legend>
+
+                    <div id="subscription-hint" class="govuk-hint">
+                        Subscribed users are emailed when a profile section they contribute to is due
+                        review. Unsubscribed users are not emailed.
+                    </div>
+
+                    @if (choiceHasError)
+                    {
+                        <p class="govuk-error-message" id="subscription-error">
+                            <span class="govuk-visually-hidden">Error:</span>
+                            @ViewData.ModelState[nameof(Model.SubscribedToReviewEmails)]!.Errors[0].ErrorMessage
+                        </p>
+                    }
+
+                    <div class="govuk-radios" data-module="govuk-radios">
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="SubscribedToReviewEmails" name="SubscribedToReviewEmails"
+                                   type="radio" value="true" checked="@(Model.SubscribedToReviewEmails == true ? "checked" : null)" />
+                            <label class="govuk-label govuk-radios__label" for="SubscribedToReviewEmails">
+                                Yes, subscribe to review emails
+                            </label>
+                        </div>
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="SubscribedToReviewEmails-no" name="SubscribedToReviewEmails"
+                                   type="radio" value="false" checked="@(Model.SubscribedToReviewEmails == false ? "checked" : null)" />
+                            <label class="govuk-label govuk-radios__label" for="SubscribedToReviewEmails-no">
+                                No, unsubscribe from review emails
+                            </label>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <dl class="govuk-summary-list govuk-summary-list--no-border">
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Username</dt>
+                    <dd class="govuk-summary-list__value">@Model.UserName</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Organisation</dt>
+                    <dd class="govuk-summary-list__value">@Model.Organisation</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Email address</dt>
+                    <dd class="govuk-summary-list__value">
+                        @(string.IsNullOrWhiteSpace(Model.EmailAddress) ? "Not recorded" : Model.EmailAddress)
+                    </dd>
+                </div>
+            </dl>
+
+            @if (string.IsNullOrWhiteSpace(Model.EmailAddress))
+            {
+                <div class="govuk-inset-text">
+                    No email address is recorded for this user, so no review emails can be sent to
+                    them until one is added.
+                </div>
+            }
+
+            <div class="govuk-button-group">
+                <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+                <a class="govuk-link govuk-link--no-visited-state" asp-page="@Model.ListPage">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
