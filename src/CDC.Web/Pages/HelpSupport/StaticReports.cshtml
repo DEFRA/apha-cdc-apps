@@ -1,0 +1,131 @@
+@page
+@model CDC.Web.Pages.HelpSupport.StaticReportsModel
+@{
+    ViewData["Title"] = Model.IsUserManual ? "Help Using D2R2" : "Static reports";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<h1 class="govuk-heading-l">@(Model.IsUserManual ? "Help Using D2R2" : "Static reports")</h1>
+
+@if (Model.IsUserManual)
+{
+    <p class="govuk-body">
+        Below is a list of manuals for using D2R2. Each manual has been tailored according to the particular privileges
+        that you may have as a user of D2R2. Please click on the title of any of the manuals to open the document.
+        If you have any general questions or suggestions for improving the system, then you can contact us using the
+        following email address: <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>.
+    </p>
+    <p class="govuk-body">
+        If you are experiencing any problems with the system, then you can contact the APHA ITU helpdesk at
+        <a class="govuk-link" href="mailto:aphaservicedesk@apha.gov.uk">aphaservicedesk@apha.gov.uk</a>.
+        <br /><i>N.B. This service is not provided on UK Bank Holidays.</i>
+    </p>
+}
+else
+{
+    <p class="govuk-body">
+        Below is the list of general reports that have been created for publication on this website. These reports have
+        been generated from information held within the D2R2 Database. If the report you are seeking is not listed below
+        then please contact us using the following email address:
+        <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>
+    </p>
+}
+
+@if (Model.Reports.Count == 0)
+{
+    <p class="govuk-body">@(Model.IsUserManual ? "There are no user manuals to display." : "There are no reports to display.")</p>
+}
+else
+{
+    <form method="get" id="static-reports-form">
+        <input type="hidden" name="UserManual" value="@Model.UserManual" />
+        <input type="hidden" id="PageNumber" name="PageNumber" value="1" />
+        <div class="app-results-toolbar govuk-!-margin-bottom-3">
+            <div class="govuk-form-group govuk-!-margin-bottom-0">
+                <label class="govuk-label" for="PageSize">Items per page:</label>
+                <select class="govuk-select" id="PageSize" name="PageSize" onchange="this.form.requestSubmit()">
+                    @foreach (var option in CDC.Web.Pages.HelpSupport.StaticReportsModel.PageSizeOptions)
+                    {
+                        <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </form>
+
+    <table class="govuk-table">
+        <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+                <th scope="col" class="govuk-table__header">Title</th>
+                <th scope="col" class="govuk-table__header">Version</th>
+                @if (!Model.IsUserManual)
+                {
+                    <th scope="col" class="govuk-table__header">Public?</th>
+                }
+                <th scope="col" class="govuk-table__header">Effective dates</th>
+                <th scope="col" class="govuk-table__header"></th>
+                <th scope="col" class="govuk-table__header"></th>
+            </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+            @foreach (var report in Model.PagedReports)
+            {
+                <tr class="govuk-table__row">
+                    <td class="govuk-table__cell">
+                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" target="_blank" rel="noopener noreferrer">@report.Title</a>
+                    </td>
+                    <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
+                    @if (!Model.IsUserManual)
+                    {
+                        <td class="govuk-table__cell">@(report.IsPublic ? "Yes" : "No")</td>
+                    }
+                    <td class="govuk-table__cell">@CDC.Web.Pages.HelpSupport.StaticReportsModel.FormatEffectiveDates(report)</td>
+                    <td class="govuk-table__cell"><a class="govuk-link" href="#">History</a></td>
+                    <td class="govuk-table__cell"><a class="govuk-link" href="#">Delete</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Model.TotalPages > 1)
+    {
+        <div class="app-pagination-center">
+            <nav class="govuk-pagination" aria-label="Static reports pages">
+                @if (Model.PageNumber > 1)
+                {
+                    <div class="govuk-pagination__prev">
+                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                            <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                            </svg>
+                            <span class="govuk-pagination__link-title">Previous</span>
+                        </a>
+                    </div>
+                }
+
+                <ul class="govuk-pagination__list">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                        </li>
+                    }
+                </ul>
+
+                @if (Model.PageNumber < Model.TotalPages)
+                {
+                    <div class="govuk-pagination__next">
+                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                            <span class="govuk-pagination__link-title">Next</span>
+                            <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                            </svg>
+                        </a>
+                    </div>
+                }
+            </nav>
+        </div>
+    }
+}

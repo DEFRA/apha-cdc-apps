@@ -1,5 +1,6 @@
 using CDC.Web.Models;
 using CDC.Web.Pages;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Tests.Pages;
 
@@ -56,6 +57,19 @@ public class ViewSpeciesDataModelTests
 
         Assert.False(pageModel.HasError);
         Assert.Empty(pageModel.SpeciesTree.Nodes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_RedirectsToEditSpecies_WhenASpeciesIsSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService());
+        pageModel.Species = CattleId.ToString();
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/EditSpecies", redirect.PageName);
+        Assert.Equal(CattleId, Assert.IsType<Guid>(redirect.RouteValues!["speciesId"]));
     }
 
     private static ViewSpeciesDataModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>

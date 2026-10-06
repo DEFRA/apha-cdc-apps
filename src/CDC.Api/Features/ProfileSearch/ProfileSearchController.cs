@@ -23,6 +23,7 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
     /// <param name="displayPublished">Include published versions (default: true).</param>
     /// <param name="displayDraft">Include draft versions (default: false).</param>
     /// <param name="displayScenarios">Include scenario versions (default: false).</param>
+    /// <param name="searchForType">Whether <paramref name="searchText"/> is matched as one phrase or as all of its words.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>List of profiles matching the search criteria.</returns>
     [HttpGet("search")]
@@ -32,6 +33,7 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
         [FromQuery] bool displayPublished = true,
         [FromQuery] bool displayDraft = false,
         [FromQuery] bool displayScenarios = false,
+        [FromQuery] SearchForType searchForType = SearchForType.ExactWordOrPhrase,
         CancellationToken cancellationToken = default)
     {
         var results = await profileSearchService.GetProfileSearchResultsAsync(
@@ -39,6 +41,7 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
             displayPublished,
             displayDraft,
             displayScenarios,
+            searchForType,
             cancellationToken);
 
         return Ok(results);

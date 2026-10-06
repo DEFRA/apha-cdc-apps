@@ -9,7 +9,7 @@
     <div class="govuk-breadcrumbs">
         <ol class="govuk-breadcrumbs__list">
             <li class="govuk-breadcrumbs__list-item">
-                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/Index">D2R2 Home</a>
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
             </li>
             <li class="govuk-breadcrumbs__list-item" aria-current="page">
                 Search Disease Profiles
@@ -164,18 +164,20 @@
 
                             <div class="govuk-checkboxes">
                                 <div class="govuk-checkboxes__item">
-                                    <input class="govuk-checkboxes__input" id="SearchForExactPhrase" name="SearchForExactPhrase" type="checkbox" value="true" @(Model.SearchForExactPhrase ? "checked" : null) />
+                                    <input class="govuk-checkboxes__input" id="SearchForExactPhrase" name="SearchForExactPhrase" type="checkbox" value="true" data-app-search-mode @(Model.SearchForExactPhrase ? "checked" : null) />
                                     <label class="govuk-label govuk-checkboxes__label" for="SearchForExactPhrase">
                                         this exact word or phrase
                                     </label>
                                 </div>
+                                <input type="hidden" name="SearchForExactPhrase" value="false" />
 
                                 <div class="govuk-checkboxes__item">
-                                    <input class="govuk-checkboxes__input" id="SearchForAllWords" name="SearchForAllWords" type="checkbox" value="true" @(Model.SearchForAllWords ? "checked" : null) />
+                                    <input class="govuk-checkboxes__input" id="SearchForAllWords" name="SearchForAllWords" type="checkbox" value="true" data-app-search-mode @(Model.SearchForAllWords ? "checked" : null) />
                                     <label class="govuk-label govuk-checkboxes__label" for="SearchForAllWords">
                                         all these words
                                     </label>
                                 </div>
+                                <input type="hidden" name="SearchForAllWords" value="false" />
                             </div>
                         </fieldset>
 
@@ -209,4 +211,5 @@
     <script src="~/js/tree-view.js" asp-append-version="true"></script>
     <script src="~/js/filters-toggle.js" asp-append-version="true"></script>
     <script src="~/js/search-filters.js" asp-append-version="true"></script>
+    <script src="~/js/search-mode.js" asp-append-version="true"></script>
 }
