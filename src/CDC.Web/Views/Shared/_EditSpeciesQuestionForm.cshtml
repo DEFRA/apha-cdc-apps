@@ -37,36 +37,29 @@ else
                     }
                     else if (string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase))
                     {
-                        <fieldset class="govuk-fieldset">
-                            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
-                            <div class="govuk-radios govuk-radios--small" data-module="govuk-radios">
-                                @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                        // Legacy DropDownListProfileField: a single-select dropdown, not radios.
+                        <div class="govuk-form-group">
+                            <label class="govuk-label" for="@fieldName">@field.Label</label>
+                            <select class="govuk-select" id="@fieldName" name="@fieldName">
+                                <option value="">Please select...</option>
+                                @foreach (var option in field.Options)
                                 {
-                                    var option = field.Options[optionIndex];
-                                    var optionId = $"{fieldName}-{optionIndex}";
-                                    <div class="govuk-radios__item">
-                                        <input class="govuk-radios__input" id="@optionId" name="@fieldName" type="radio" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
-                                        <label class="govuk-label govuk-radios__label" for="@optionId">@option.Text</label>
-                                    </div>
+                                    <option value="@option.Id" selected="@(option.IsChecked ? "selected" : null)">@option.Text</option>
                                 }
-                            </div>
-                        </fieldset>
+                            </select>
+                        </div>
                     }
                     else if (string.Equals(field.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
                     {
-                        <fieldset class="govuk-fieldset">
-                            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
-                            <div class="govuk-radios govuk-radios--inline govuk-radios--small" data-module="govuk-radios">
-                                <div class="govuk-radios__item">
-                                    <input class="govuk-radios__input" id="@(fieldName)-yes" name="@fieldName" type="radio" value="true" checked="@(field.BooleanValue == true ? "checked" : null)" />
-                                    <label class="govuk-label govuk-radios__label" for="@(fieldName)-yes">Yes</label>
-                                </div>
-                                <div class="govuk-radios__item">
-                                    <input class="govuk-radios__input" id="@(fieldName)-no" name="@fieldName" type="radio" value="false" checked="@(field.BooleanValue == false ? "checked" : null)" />
-                                    <label class="govuk-label govuk-radios__label" for="@(fieldName)-no">No</label>
-                                </div>
-                            </div>
-                        </fieldset>
+                        // Legacy BooleanProfileField: a Yes/No dropdown, not a checkbox or radios.
+                        <div class="govuk-form-group">
+                            <label class="govuk-label" for="@fieldName">@field.Label</label>
+                            <select class="govuk-select" id="@fieldName" name="@fieldName">
+                                <option value="">Please select...</option>
+                                <option value="true" selected="@(field.BooleanValue == true ? "selected" : null)">Yes</option>
+                                <option value="false" selected="@(field.BooleanValue == false ? "selected" : null)">No</option>
+                            </select>
+                        </div>
                     }
                     else
                     {

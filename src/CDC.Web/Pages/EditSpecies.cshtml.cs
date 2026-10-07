@@ -240,8 +240,9 @@ public class EditSpeciesModel : PageModel
     public string? BuildSectionUrl(string sectionKey) =>
         Url.Page("/EditSpecies", new { speciesId = SpeciesId, section = sectionKey, edit = Edit ? true : (bool?)null });
 
-    /// <summary>Builds one field's editable view: checkbox options for a "MultiValueList" field, radio
-    /// options for a "List" field, a boolean yes/no for a "Boolean" field, or plain text otherwise.</summary>
+    /// <summary>Builds one field's editable view: checkbox options for a "MultiValueList" field, dropdown
+    /// options for a "List" field (legacy <c>DropDownListProfileField</c>), a Yes/No dropdown for a
+    /// "Boolean" field (legacy <c>BooleanProfileField</c>), or plain text otherwise.</summary>
     private static EditableFieldView BuildEditableFieldView(
         SpeciesFieldMetadataDto field,
         IReadOnlyList<SpeciesFieldValueDto> recordedValues,
