@@ -294,6 +294,64 @@ public class SpeciesControllerTests
         ok.Value.Should().BeSameAs(auditTrail);
     }
 
+    [Fact]
+    public async Task AddSpecies_ReturnsCreated()
+    {
+        var addResult = new AddSpeciesResultDto { SpeciesId = SpeciesTestData.SpeciesId };
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<AddSpeciesCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(addResult));
+
+        var request = new AddSpeciesRequestDto
+        {
+            Name = "Jersey",
+            ParentId = SpeciesTestData.SectionId,
+            Reason = "New breed added to the taxonomy"
+        };
+
+        var response = await CreateController().AddSpecies(request, CancellationToken.None);
+
+        var created = response.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        created.StatusCode.Should().Be(StatusCodes.Status201Created);
+        created.Value.Should().BeSameAs(addResult);
+        created.RouteValues!["speciesId"].Should().Be(SpeciesTestData.SpeciesId);
+    }
+
+    [Fact]
+    public async Task AddSpecies_SetsUserIdFromConfiguredAuditOptions_NotFromTheRequestBody()
+    {
+        AddSpeciesCommand? capturedCommand = null;
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<AddSpeciesCommand>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((request, _) => capturedCommand = (AddSpeciesCommand)request)
+            .ReturnsAsync(Result.Success(new AddSpeciesResultDto { SpeciesId = SpeciesTestData.SpeciesId }));
+
+        var request = new AddSpeciesRequestDto { Name = "Jersey", ParentId = Guid.Empty, Reason = "New breed" };
+
+        await CreateController().AddSpecies(request, CancellationToken.None);
+
+        capturedCommand.Should().NotBeNull();
+        capturedCommand!.UserId.Should().Be(AuditUserId);
+        capturedCommand.ParentId.Should().Be(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task AddSpecies_ReturnsConflict_WhenTheNameIsAlreadyInUse()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<AddSpeciesCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Conflict<AddSpeciesResultDto>("Save failed: there is already a species with this name"));
+
+        var request = new AddSpeciesRequestDto { Name = "Cattle", ParentId = Guid.Empty, Reason = "Duplicate" };
+
+        var response = await CreateController().AddSpecies(request, CancellationToken.None);
+
+        var problem = AssertProblem(response.Result, StatusCodes.Status409Conflict);
+        problem.Detail.Should().Be("Save failed: there is already a species with this name");
+    }
+
     private static ProblemDetails AssertProblem(ActionResult? result, int expectedStatusCode)
     {
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;

@@ -1,11 +1,161 @@
 @page
 @model CDC.Web.Pages.CrossProfileAdmin.CrossCuttingIssueScoresModel
 @{
-    ViewData["Title"] = "Maintain cross-cutting issue scores";
+    ViewData["Title"] = Model.ModelState.IsValid
+        ? "Maintain cross-cutting issue scores"
+        : "Error: Maintain cross-cutting issue scores";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
 <h1 class="govuk-heading-l">Maintain cross-cutting issue scores</h1>
-<p class="govuk-body">This page is for Maintain cross-cutting issue scores. It will allow administrators to maintain scoring for cross-cutting issues.</p>
+<p class="govuk-body">
+    Use this function to maintain the scores associated with cross-cutting issues. If you make and
+    confirm changes to this information, this will trigger an automatic recalculation of all
+    cross-cutting issue scores.
+</p>
+
+@if (!Model.ModelState.IsValid)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <ul class="govuk-list govuk-error-summary__list">
+                    @foreach (var (key, entry) in Model.ModelState.Where(state => state.Value?.Errors.Count > 0))
+                    {
+                        <li><a href="#@key.Replace("[", "_").Replace("]", "_")">@entry!.Errors[0].ErrorMessage</a></li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.HasPendingChanges)
+{
+    <div class="govuk-warning-text">
+        <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+        <strong class="govuk-warning-text__text">
+            <span class="govuk-visually-hidden">Warning</span>
+            You have pending changes. To save these changes, select Update.
+        </strong>
+    </div>
+}
+
+@if (Model.StatusMessage is not null)
+{
+    <div class="govuk-notification-banner @(Model.StatusMessage.StartsWith("Your changes", StringComparison.Ordinal) ? "govuk-notification-banner--success" : "")"
+         role="alert" aria-labelledby="cci-status-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="cci-status-title">Important</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.StatusMessage</p>
+        </div>
+    </div>
+}
+
+<form method="post" asp-page-handler="Update" id="update-scores-form">
+    @if (Model.CategoryId.HasValue)
+    {
+        <input type="hidden" name="CategoryId" value="@Model.CategoryId" />
+    }
+    <div class="govuk-button-group app-button-group--right">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Update</button>
+    </div>
+</form>
+
+<form method="get">
+    <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="CategoryId">Cross-cutting issue</label>
+        <select class="govuk-select" id="CategoryId" name="CategoryId" asp-items="Model.CategoryOptions"></select>
+    </div>
+    <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Show criteria</button>
+</form>
+
+@if (Model.SelectedCategory is not null)
+{
+    <h2 class="govuk-heading-m">@Model.SelectedCategory.Name</h2>
+
+    <table class="govuk-table">
+        <caption class="govuk-table__caption govuk-visually-hidden">Criteria for @Model.SelectedCategory.Name</caption>
+        <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+                <th scope="col" class="govuk-table__header">Criterion</th>
+            </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+            @foreach (var criterion in Model.SelectedCategory.Criteria)
+            {
+                <tr class="govuk-table__row">
+                    <td class="govuk-table__cell">
+                        <a class="govuk-link" asp-page="/CrossProfileAdmin/CrossCuttingIssueScores"
+                           asp-route-CategoryId="@Model.SelectedCategory.Id" asp-route-CriterionId="@criterion.Id">@criterion.Name</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (Model.SelectedCriterion is not null)
+{
+    <form method="post" asp-page-handler="Apply" novalidate>
+        <input type="hidden" name="CategoryId" value="@Model.CategoryId" />
+        <input type="hidden" name="CriterionId" value="@Model.SelectedCriterion.Id" />
+
+        <fieldset class="govuk-fieldset">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">@Model.SelectedCriterion.Name</legend>
+
+            <table class="govuk-table">
+                <caption class="govuk-table__caption govuk-visually-hidden">Scores for @Model.SelectedCriterion.Name</caption>
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Value</th>
+                        <th scope="col" class="govuk-table__header">Score</th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @foreach (var value in Model.SelectedCriterionValues)
+                    {
+                        var fieldName = $"Scores[{value.Id}]";
+                        var fieldId = fieldName.Replace("[", "_").Replace("]", "_");
+                        var error = Model.ModelState[fieldName]?.Errors.FirstOrDefault()?.ErrorMessage;
+
+                        <tr class="govuk-table__row">
+                            <th scope="row" class="govuk-table__header">
+                                <label class="govuk-label" for="@fieldId">@value.Value</label>
+                            </th>
+                            <td class="govuk-table__cell">
+                                <div class="govuk-form-group @(error is not null ? "govuk-form-group--error" : "") govuk-!-margin-bottom-0">
+                                    @if (error is not null)
+                                    {
+                                        <p class="govuk-error-message" id="@(fieldId)-error">
+                                            <span class="govuk-visually-hidden">Error:</span> @error
+                                        </p>
+                                    }
+                                    <input class="govuk-input govuk-input--width-3 @(error is not null ? "govuk-input--error" : "")"
+                                           id="@fieldId" name="@fieldName" type="text" inputmode="numeric" maxlength="3"
+                                           value="@value.Score" @(error is not null ? $"aria-describedby={fieldId}-error" : "") />
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </fieldset>
+
+        <div class="govuk-button-group app-button-group--right">
+            <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+            <a class="govuk-button govuk-button--secondary" data-module="govuk-button"
+               asp-page="/CrossProfileAdmin/CrossCuttingIssueScores" asp-route-CategoryId="@Model.CategoryId">Cancel</a>
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <script src="~/js/cross-cutting-issue-scores.js" asp-append-version="true"></script>
+}
+

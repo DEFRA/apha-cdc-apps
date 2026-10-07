@@ -287,6 +287,51 @@ public class SpeciesApiServiceTests
         Assert.Empty(values);
     }
 
+    [Fact]
+    public async Task AddSpeciesAsync_ReturnsTheNewIdentifier_OnCreated()
+    {
+        const string json = """
+            { "speciesId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f" }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Created, json));
+
+        var result = await service.AddSpeciesAsync(new CDC.Web.Models.AddSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Success, result.Outcome);
+        Assert.Equal(Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f"), result.SpeciesId);
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_ReturnsConflict_OnHttp409()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Conflict, string.Empty));
+
+        var result = await service.AddSpeciesAsync(new CDC.Web.Models.AddSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Conflict, result.Outcome);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_ReturnsValidationFailed_OnHttp400()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, string.Empty));
+
+        var result = await service.AddSpeciesAsync(new CDC.Web.Models.AddSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.ValidationFailed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_ReturnsError_OnUnexpectedStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await service.AddSpeciesAsync(new CDC.Web.Models.AddSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
+    }
+
     private static SpeciesApiService CreateService(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };
