@@ -111,4 +111,20 @@ public class ProfileTitleHtmlFormatterTests
             "Fasciola hepatica\u00A0(Liver Fluke)",
             ProfileTitleHtmlFormatter.ToPlainText("Fasciola hepatica&nbsp;(Liver Fluke)"));
     }
+
+    [Fact]
+    public void ToPlainText_StripsAdjacentTags_WithNoTextBetweenThem()
+    {
+        Assert.Equal(
+            "Anthrax",
+            ProfileTitleHtmlFormatter.ToPlainText("<strong><em>Anthrax</em></strong>"));
+    }
+
+    [Fact]
+    public void ToPlainText_StripsSelfClosingTag()
+    {
+        Assert.Equal(
+            "Line oneLine two",
+            ProfileTitleHtmlFormatter.ToPlainText("Line one<br/>Line two"));
+    }
 }

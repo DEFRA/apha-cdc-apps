@@ -1,9 +1,6 @@
-namespace CDC.Web.Models;
+namespace CDC.Api.Features.StaticReports.Dtos;
 
 /// <summary>
-/// One version of a static report (general report or user manual) returned by
-/// <c>GET /api/static-reports</c> on CDC.Api. Field names and types mirror the API's
-/// <c>StaticReportVersionDto</c> exactly, so this deserialises directly from JSON.
 /// One version of a static report (general report or user manual).
 /// </summary>
 public sealed record StaticReportVersionDto

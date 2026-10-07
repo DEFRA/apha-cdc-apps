@@ -1,0 +1,130 @@
+@page
+@model CDC.Web.Pages.HelpSupport.HelpUsingD2R2Model
+@{
+    ViewData["Title"] = "Help using D2R2";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<h1 class="govuk-heading-l">Help using D2R2</h1>
+<p class="govuk-body">Below is a list of manuals for using D2R2. Each manual has been tailored according to the particular privileges that you may have as a user of D2R2. Please click on the title of any of the manuals to open the document. If you have any general questions or suggestions for improving the system, then you can contact us using the following email address: <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>.</p>
+<p class="govuk-body">If you are experiencing any problems with the system, then you can contact the APHA ITU helpdesk at <a class="govuk-link" href="mailto:aphaservicedesk@apha.gov.uk">aphaservicedesk@apha.gov.uk</a>.</p>
+<p class="govuk-body"><em>N.B. This service is not provided on UK Bank Holidays.</em></p>
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    if (Model.StatusIsError)
+    {
+        <div class="govuk-error-summary" data-module="govuk-error-summary" role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">@Model.StatusMessage</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-help-manual-success-title" data-module="govuk-notification-banner">
+            <div class="govuk-notification-banner__header">
+                <h2 class="govuk-notification-banner__title" id="app-help-manual-success-title">Success</h2>
+            </div>
+            <div class="govuk-notification-banner__content">
+                <p class="govuk-notification-banner__heading">@Model.StatusMessage</p>
+            </div>
+        </div>
+    }
+}
+
+@if (Model.Documents.Count > 0)
+{
+    <div class="govuk-grid-row govuk-!-margin-bottom-3">
+        <div class="govuk-grid-column-full govuk-!-text-align-right">
+            <form method="get" class="govuk-!-display-inline-block">
+                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                    <label class="govuk-label govuk-!-display-inline" for="PageSize">Items per page:</label>
+                    <select class="govuk-select govuk-!-display-inline" id="PageSize" name="PageSize" style="min-width: 5rem; width: 5rem;" onchange="this.form.submit()">
+                        @foreach (var option in CDC.Web.Pages.HelpSupport.HelpUsingD2R2Model.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+                <input type="hidden" name="pageNumber" value="1" />
+            </form>
+        </div>
+    </div>
+}
+
+<table class="govuk-table">
+    <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Title</th>
+            <th scope="col" class="govuk-table__header">Version</th>
+            <th scope="col" class="govuk-table__header">Effective date</th>
+            @if (Model.CanViewHistory)
+            {
+                <th scope="col" class="govuk-table__header">History</th>
+            }
+            @if (Model.CanManageDocuments)
+            {
+                <th scope="col" class="govuk-table__header">Delete</th>
+            }
+        </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+        @foreach (var document in Model.GetPagedDocuments())
+        {
+            <tr class="govuk-table__row">
+                <td class="govuk-table__cell">
+                    <a class="govuk-link" asp-page="/HelpSupport/HelpUsingD2R2" asp-page-handler="Download" asp-route-documentId="@document.Id" target="_blank" rel="noopener noreferrer">@document.Title</a>
+                </td>
+                <td class="govuk-table__cell">@(document.VersionMajor).0</td>
+                <td class="govuk-table__cell">@document.EffectiveDateFrom.ToString("dd/MM/yyyy")@(document.EffectiveDateTo is null ? " -" : $" - {document.EffectiveDateTo.Value:dd/MM/yyyy}")</td>
+                @if (Model.CanViewHistory)
+                {
+                    <td class="govuk-table__cell">
+                        <a class="govuk-link" asp-page="/HelpSupport/DocumentHistory" asp-route-staticReportId="@document.StaticReportId">History</a>
+                    </td>
+                }
+                @if (Model.CanManageDocuments)
+                {
+                    <td class="govuk-table__cell">
+                        <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Are you sure you want to delete this user manual?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="documentId" value="@document.Id" />
+                            <button type="submit" class="govuk-link govuk-link--no-visited-state govuk-button govuk-button--secondary" style="padding: 0; border: none; background: none; text-align: left;">Delete</button>
+                        </form>
+                    </td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.TotalPages > 1)
+{
+    <partial name="_Pagination" model='new PaginationViewModel(Model.PageNumber, Model.TotalPages, Model.BuildPageUrl, "Manual pages")' />
+}
+
+@if (Model.CanManageDocuments)
+{
+    <div class="govuk-!-margin-bottom-4">
+        <button type="button" class="govuk-button govuk-button--success govuk-!-margin-bottom-0" data-module="govuk-button" aria-expanded="@Model.ShowUploadPanel.ToString().ToLowerInvariant()" aria-controls="app-help-manual-upload" onclick="document.getElementById('app-help-manual-upload').hidden = !document.getElementById('app-help-manual-upload').hidden; this.setAttribute('aria-expanded', String(!document.getElementById('app-help-manual-upload').hidden));">
+            Add
+        </button>
+    </div>
+
+    <div id="app-help-manual-upload" @(Model.ShowUploadPanel ? null : "hidden") class="govuk-!-margin-bottom-4">
+        <form method="post" enctype="multipart/form-data" asp-page-handler="Upload">
+            @Html.AntiForgeryToken()
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="document">User manual:</label>
+                <input class="govuk-file-upload" id="document" name="document" type="file" accept="application/pdf">
+            </div>
+            <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+            <a class="govuk-button govuk-button--secondary" asp-page="/HelpSupport/HelpUsingD2R2">Cancel</a>
+        </form>
+    </div>
+}
+

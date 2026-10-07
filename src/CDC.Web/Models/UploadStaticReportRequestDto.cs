@@ -1,8 +1,6 @@
-namespace CDC.Api.Features.StaticReports.Dtos;
+namespace CDC.Web.Models;
 
-/// <summary>
-/// Request body for uploading a new static report version.
-/// </summary>
+/// <summary>Request body for uploading a new static report version.</summary>
 public sealed record UploadStaticReportRequestDto
 {
     /// <summary>Gets the report title. An existing report with this title gains a new version.</summary>
@@ -12,8 +10,8 @@ public sealed record UploadStaticReportRequestDto
     public byte[] PdfData { get; init; } = [];
 
     /// <summary>Gets a value indicating whether this is a user manual rather than a general report.</summary>
-    public required bool IsUserManual { get; init; }
+    public bool IsUserManual { get; init; }
 
     /// <summary>Gets a value indicating whether this version is visible to unauthenticated users.</summary>
-    public required bool IsPublic { get; init; }
+    public bool IsPublic { get; init; }
 }
