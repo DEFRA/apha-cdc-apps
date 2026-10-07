@@ -55,6 +55,8 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
+builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
+
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -72,6 +74,30 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 // CDC.Api; swap this registration for a typed HttpClient when they do.
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IReferenceDataService, InMemoryReferenceDataService>();
+// In-memory pending a CDC.Api endpoint for cross-cutting issue scores; singleton so edits
+// persist across requests for the lifetime of the process.
+builder.Services.AddSingleton<ICrossCuttingIssueScoreService, InMemoryCrossCuttingIssueScoreService>();
+
+// Holds uncommitted cross-cutting issue score edits until the user selects Update.
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+});
+builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
@@ -103,6 +129,8 @@ app.UseSerilogRequestLogging();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseSession();
 
 app.MapHealthEndpoints();
 

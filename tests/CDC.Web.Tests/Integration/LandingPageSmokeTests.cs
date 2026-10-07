@@ -9,6 +9,7 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
 
     public LandingPageSmokeTests(WebApplicationFactory<Program> factory)
     {
+        WebTestEnvironment.EnsureConfigured();
         _factory = factory;
     }
 
@@ -28,7 +29,8 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
-    [InlineData("/HelpSupport/HelpUsingD2R2")]
+    [InlineData("/HelpSupport/StaticReports")]
+    [InlineData("/HelpSupport/StaticReports?UserManual=1")]
     [InlineData("/HelpSupport/QualityStatement")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/UserAdmin/GlobalUsers")]

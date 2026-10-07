@@ -32,7 +32,7 @@ public class MaintainModelTests
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
 
-        await pageModel.OnGetAsync(saved: true, CancellationToken.None);
+        await pageModel.OnGetAsync(saved: true, added: false, CancellationToken.None);
 
         Assert.False(pageModel.HasError);
         Assert.NotEmpty(pageModel.SpeciesTree.Nodes);
@@ -44,7 +44,7 @@ public class MaintainModelTests
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
 
-        await pageModel.OnGetAsync(saved: false, CancellationToken.None);
+        await pageModel.OnGetAsync(saved: false, added: false, CancellationToken.None);
 
         Assert.True(pageModel.HasError);
         Assert.False(string.IsNullOrWhiteSpace(pageModel.ErrorMessage));
@@ -189,6 +189,124 @@ public class MaintainModelTests
 
         Assert.True(pageModel.ShowAuditTrail);
         Assert.Single(pageModel.AuditTrail);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsSuccessBanner_WhenASpeciesWasAdded()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnGetAsync(saved: false, added: true, CancellationToken.None);
+
+        Assert.False(string.IsNullOrWhiteSpace(pageModel.SuccessMessage));
+    }
+
+    [Fact]
+    public async Task OnPostAddAsync_OpensPanel_WithEveryActiveSpeciesAsAParentChoice()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostAddAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowAddPanel);
+        Assert.Null(pageModel.AddInput.Name);
+        Assert.Null(pageModel.AddInput.ParentId);
+        Assert.Null(pageModel.AddInput.Reason);
+        Assert.Equal(["Cattle", "Dairy cattle"], pageModel.ParentChoices.Select(choice => choice.Name));
+    }
+
+    [Fact]
+    public async Task OnPostAddAsync_DoesNotOpenPanel_WhenTheSpeciesListFailsToLoad()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
+
+        await pageModel.OnPostAddAsync(CancellationToken.None);
+
+        Assert.True(pageModel.HasError);
+        Assert.False(pageModel.ShowAddPanel);
+    }
+
+    [Fact]
+    public async Task OnPostSaveNewAsync_FailsValidation_WhenEveryFieldIsMissing()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.AddInput = new AddSpeciesInput();
+
+        await pageModel.OnPostSaveNewAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowAddPanel);
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.Equal(
+            "You need to provide a new name for this species",
+            pageModel.ModelState["AddInput.Name"]!.Errors[0].ErrorMessage);
+        Assert.Equal(
+            "You must select a new parent for the species",
+            pageModel.ModelState["AddInput.ParentId"]!.Errors[0].ErrorMessage);
+        Assert.Equal(
+            "You need to provide a reason for this change",
+            pageModel.ModelState["AddInput.Reason"]!.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostSaveNewAsync_AcceptsTheRootSpeciesChoice()
+    {
+        var api = new FakeSpeciesApiService(Species);
+        var pageModel = CreatePageModel(api);
+        pageModel.AddInput = new AddSpeciesInput { Name = "Deer", ParentId = Guid.Empty, Reason = "New group" };
+
+        var result = await pageModel.OnPostSaveNewAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.Equal(Guid.Empty, api.LastAddRequest?.ParentId);
+    }
+
+    [Fact]
+    public async Task OnPostSaveNewAsync_RedirectsToTheNewSpecies_WhenValid()
+    {
+        var newSpeciesId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var api = new FakeSpeciesApiService(
+            Species,
+            addResult: new AddSpeciesResult { Outcome = SpeciesUpdateOutcome.Success, SpeciesId = newSpeciesId });
+        var pageModel = CreatePageModel(api);
+        pageModel.AddInput = new AddSpeciesInput { Name = "  Jersey  ", ParentId = CattleId, Reason = "  New breed  " };
+
+        var result = await pageModel.OnPostSaveNewAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.Equal(newSpeciesId, redirect.RouteValues!["species"]);
+        Assert.True(redirect.RouteValues["added"] as bool?);
+        Assert.Equal("Jersey", api.LastAddRequest?.Name);
+        Assert.Equal("New breed", api.LastAddRequest?.Reason);
+    }
+
+    [Fact]
+    public async Task OnPostSaveNewAsync_ReopensPanelWithAnError_WhenTheNameIsAlreadyInUse()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(
+            Species,
+            addResult: new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = "There is already a species with this name."
+            }));
+        pageModel.AddInput = new AddSpeciesInput { Name = "Cattle", ParentId = Guid.Empty, Reason = "Duplicate" };
+
+        await pageModel.OnPostSaveNewAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowAddPanel);
+        Assert.False(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostCancelAddAsync_HidesPanel_WithoutAdding()
+    {
+        var api = new FakeSpeciesApiService(Species);
+        var pageModel = CreatePageModel(api);
+
+        await pageModel.OnPostCancelAddAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowAddPanel);
+        Assert.Null(api.LastAddRequest);
     }
 
     private static MaintainModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>

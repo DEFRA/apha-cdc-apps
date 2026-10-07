@@ -81,11 +81,81 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
     }
 
     /// <inheritdoc />
+    public async Task<AddSpeciesResult> AddSpeciesAsync(
+        AddSpeciesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync("/api/species", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var created = await response.Content.ReadFromJsonAsync<AddSpeciesResultDto>(cancellationToken);
+
+            return new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Success,
+                SpeciesId = created?.SpeciesId ?? Guid.Empty
+            };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = "There is already a species with this name. Enter a different name."
+            },
+            HttpStatusCode.BadRequest => new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "Enter a name, select a parent and give a reason for this change."
+            },
+            _ => new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "We could not add this species. Try again later."
+            }
+        };
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken = default)
     {
         var entries = await httpClient.GetFromJsonAsync<IReadOnlyList<SpeciesAuditTrailEntryDto>>(
             "/api/species/audit-trail", cancellationToken);
 
         return entries ?? [];
+    }
+
+    /// <inheritdoc />
+    public async Task<SpeciesMetadataDto> GetSpeciesMetadataAsync(CancellationToken cancellationToken = default)
+    {
+        var metadata = await httpClient.GetFromJsonAsync<SpeciesMetadataDto>("/api/species/metadata", cancellationToken);
+
+        return metadata ?? new SpeciesMetadataDto();
+    }
+
+    /// <inheritdoc />
+    public async Task<SpeciesAnswerDataDto?> GetSpeciesAnswerDataAsync(Guid speciesId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync($"/api/species/{speciesId}/answers", cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<SpeciesAnswerDataDto>(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default)
+    {
+        var values = await httpClient.GetFromJsonAsync<IReadOnlyList<ReferenceValueDto>>(
+            $"/api/reference-data/{referenceTableId}/values", cancellationToken);
+
+        return values ?? [];
     }
 }

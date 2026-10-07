@@ -25,7 +25,8 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// they contain columns that are meaningless without a real user or that duplicate column names.
 /// Result set 2 is skipped entirely: everything it carries (which profile/scenario a version
 /// belongs to) is already present in result set 3. Result set 4 is not read in this first pass -
-/// <see cref="ProfileSearchResultDto.AffectedSpecies"/> is always empty until that is added.
+/// <see cref="CDC.Common.Contracts.ProfileSearchResultContract{THistoryItem,TScenario}.AffectedSpecies"/>
+/// is always empty until that is added.
 /// </para>
 /// </remarks>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
@@ -126,12 +127,18 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         {
             VersionId = row.VersionId,
             VersionNumber = row.VersionNumber,
+            VersionMinor = row.VersionMinor,
             Title = title,
             CreatedAtUtc = row.EffectiveDate,
+            EffectiveToUtc = row.EffectiveDateTo,
             IsScenario = row.ScenarioId != row.RootProfileId
         };
 
-        GetBucket(accumulator, row.RootProfileId, historyItem.IsScenario, row.StateName).Add(historyItem);
+        // Bucketed by (profile, scenario) - not just profile - so each "what-if" scenario keeps
+        // its own independent published/draft history, never merged with the profile's own
+        // (current-situation) history or with any other scenario's.
+        RegisterScenario(accumulator, row.RootProfileId, row.ScenarioId);
+        GetBucket(accumulator, row.RootProfileId, row.ScenarioId, row.StateName).Add(historyItem);
 
         UpdateEarliest(accumulator, row.RootProfileId, row.EffectiveDate);
         UpdateLatest(accumulator, row.RootProfileId, row.LastUpdated);
@@ -147,30 +154,45 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             ScenarioId: reader.GetGuid(1),
             RootProfileId: reader.GetGuid(2),
             VersionNumber: ReadInt32(reader, 3),
+            VersionMinor: ReadInt32(reader, 4),
             StateName: ReadNullableString(reader, 5),
             EffectiveDate: effectiveDate,
+            EffectiveDateTo: ReadNullableDateTime(reader, 7),
             IsPublic: ReadBoolean(reader, 8),
             LastUpdated: ReadNullableDateTime(reader, 9) ?? effectiveDate);
     }
 
-    /// <summary>Picks which per-profile bucket (scenario/published/draft) a version belongs in.</summary>
+    /// <summary>Records that <paramref name="scenarioId"/> is one of <paramref name="profileId"/>'s
+    /// version lineages (the profile's own current-situation lineage, or a "what-if" scenario),
+    /// the first time a version belonging to it is seen.</summary>
+    private static void RegisterScenario(ProfileVersionAccumulator accumulator, Guid profileId, Guid scenarioId)
+    {
+        var scenarioIds = accumulator.ScenarioIdsByProfile.GetValueOrDefault(profileId);
+
+        if (scenarioIds is null)
+        {
+            scenarioIds = [];
+            accumulator.ScenarioIdsByProfile[profileId] = scenarioIds;
+        }
+
+        if (!scenarioIds.Contains(scenarioId))
+        {
+            scenarioIds.Add(scenarioId);
+        }
+    }
+
+    /// <summary>Picks which (profile, scenario) bucket a version belongs in: published or draft.</summary>
     private static List<ProfileHistoryItemDto> GetBucket(
         ProfileVersionAccumulator accumulator,
         Guid profileId,
-        bool isScenario,
+        Guid scenarioId,
         string? stateName)
     {
-        if (isScenario)
-        {
-            return GetOrAddBucket(accumulator.Scenarios, profileId);
-        }
+        var key = (profileId, scenarioId);
 
-        if (string.Equals(stateName, PublishedStatus, StringComparison.Ordinal))
-        {
-            return GetOrAddBucket(accumulator.Published, profileId);
-        }
-
-        return GetOrAddBucket(accumulator.Draft, profileId);
+        return string.Equals(stateName, PublishedStatus, StringComparison.Ordinal)
+            ? GetOrAddBucket(accumulator.Published, key)
+            : GetOrAddBucket(accumulator.Draft, key);
     }
 
     private static void UpdateEarliest(ProfileVersionAccumulator accumulator, Guid profileId, DateTime effectiveDate)
@@ -207,23 +229,37 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         Dictionary<Guid, string> titles,
         ProfileVersionAccumulator accumulator)
     {
-        var published = accumulator.Published.GetValueOrDefault(profileId, []);
-        var draft = accumulator.Draft.GetValueOrDefault(profileId, []);
-        var scenarios = accumulator.Scenarios.GetValueOrDefault(profileId, []);
+        // The profile's own current-situation lineage always has the same scenario id as the
+        // profile id itself; every other lineage in this list is a distinct "what-if" scenario.
+        var scenarioIds = accumulator.ScenarioIdsByProfile.GetValueOrDefault(profileId, []);
+        var published = accumulator.Published.GetValueOrDefault((profileId, profileId), []);
+        var draft = accumulator.Draft.GetValueOrDefault((profileId, profileId), []);
+
+        var whatIfScenarios = scenarioIds
+            .Where(scenarioId => scenarioId != profileId)
+            .Select(scenarioId => new ProfileScenarioDto
+            {
+                ScenarioId = scenarioId,
+                PublishedVersions = accumulator.Published.GetValueOrDefault((profileId, scenarioId), []),
+                DraftVersions = accumulator.Draft.GetValueOrDefault((profileId, scenarioId), [])
+            })
+            .ToList();
+
+        var scenarioVersionCount = whatIfScenarios.Sum(scenario => scenario.PublishedVersions.Count + scenario.DraftVersions.Count);
         var createdAtUtc = accumulator.Earliest.GetValueOrDefault(profileId, DateTime.UtcNow);
 
         return new ProfileSearchResultDto
         {
             Id = profileId,
             Title = titles[profileId],
-            Status = DetermineOverallStatus(published.Count, draft.Count, scenarios.Count),
+            Status = DetermineOverallStatus(published.Count, draft.Count, scenarioVersionCount),
             CreatedAtUtc = createdAtUtc,
             ModifiedAtUtc = accumulator.Latest.GetValueOrDefault(profileId, createdAtUtc),
             IsPublic = accumulator.IsPublic.GetValueOrDefault(profileId),
             AffectedSpecies = [],
             PublishedVersions = published,
             DraftVersions = draft,
-            Scenarios = scenarios
+            WhatIfScenarios = whatIfScenarios
         };
     }
 
@@ -249,12 +285,14 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         return DraftStatus;
     }
 
-    private static List<ProfileHistoryItemDto> GetOrAddBucket(Dictionary<Guid, List<ProfileHistoryItemDto>> buckets, Guid profileId)
+    private static List<ProfileHistoryItemDto> GetOrAddBucket(
+        Dictionary<(Guid ProfileId, Guid ScenarioId), List<ProfileHistoryItemDto>> buckets,
+        (Guid ProfileId, Guid ScenarioId) key)
     {
-        if (!buckets.TryGetValue(profileId, out var bucket))
+        if (!buckets.TryGetValue(key, out var bucket))
         {
             bucket = [];
-            buckets[profileId] = bucket;
+            buckets[key] = bucket;
         }
 
         return bucket;
@@ -305,19 +343,25 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         Guid ScenarioId,
         Guid RootProfileId,
         int VersionNumber,
+        int VersionMinor,
         string? StateName,
         DateTime EffectiveDate,
+        DateTime? EffectiveDateTo,
         bool IsPublic,
         DateTime LastUpdated);
 
     /// <summary>Per-profile accumulators built up while result set 3 is read row by row.</summary>
     private sealed class ProfileVersionAccumulator
     {
-        public Dictionary<Guid, List<ProfileHistoryItemDto>> Published { get; } = [];
+        // Keyed by (ProfileId, ScenarioId) so each version lineage - the profile's own
+        // current-situation lineage (ScenarioId == ProfileId) and every "what-if" scenario
+        // (ScenarioId != ProfileId) - keeps its own independent history.
+        public Dictionary<(Guid ProfileId, Guid ScenarioId), List<ProfileHistoryItemDto>> Published { get; } = [];
 
-        public Dictionary<Guid, List<ProfileHistoryItemDto>> Draft { get; } = [];
+        public Dictionary<(Guid ProfileId, Guid ScenarioId), List<ProfileHistoryItemDto>> Draft { get; } = [];
 
-        public Dictionary<Guid, List<ProfileHistoryItemDto>> Scenarios { get; } = [];
+        /// <summary>Every scenario id seen for a profile, in first-seen order.</summary>
+        public Dictionary<Guid, List<Guid>> ScenarioIdsByProfile { get; } = [];
 
         public Dictionary<Guid, DateTime> Earliest { get; } = [];
 

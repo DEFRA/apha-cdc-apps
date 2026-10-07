@@ -15,9 +15,48 @@ html {
   max-width: 1200px;
 }
 
+/* GOV.UK Design System "Back to top" footer link; not bundled in this govuk-frontend CSS build. */
+.govuk-back-to-top-link {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 15px;
+  padding-bottom: 20px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--govuk-link-colour, #1d70b8);
+  text-decoration: underline;
+}
+
+.govuk-back-to-top-link:hover {
+  color: #003078;
+}
+
+.govuk-back-to-top-link__icon {
+  margin-right: 5px;
+}
+
 .app-search-panel {
   padding: 1.5rem 1.5rem 1rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+/* Visual loading state while the results fragment is refreshed asynchronously
+   (see wwwroot/js/search-filters.js); the fragment stays visible but is dimmed
+   and un-clickable rather than disappearing, so the page stays responsive. */
+#search-results-container[aria-busy="true"] {
+  position: relative;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+#search-results-container[aria-busy="true"]::after {
+  content: "Loading results\2026";
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--govuk-text-colour, #0b0c0c);
 }
 
 .app-search-form .govuk-details {
@@ -92,10 +131,130 @@ html {
   min-width: 12rem;
 }
 
+/* Maintain contributors has only the "Items per page" control (no sort-by), so unlike
+   .app-results-toolbar - whose space-between layout relies on a second item to space away from -
+   it is pushed to the right explicitly. */
+.app-contributors-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-contributors-toolbar .govuk-select {
+  min-width: 12rem;
+}
+
+/* Edit profile contributor panel (see MaintainContributors.cshtml). */
+.app-contributor-edit {
+  width: 100%;
+}
+
+/* Section permission checkboxes in 3 columns, matching the legacy panel's layout. */
+.app-contributor-permissions {
+  column-count: 3;
+  column-gap: 2rem;
+}
+
+.app-contributor-permissions__item {
+  break-inside: avoid;
+}
+
+/* OK/Cancel aligned to the bottom-right of the panel, matching the legacy panel. */
+.app-contributor-edit__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
 .app-profile-card {
   padding: 1rem 1.5rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
   background: #fff;
+}
+
+/* Centres the pagination nav as a whole below the results list; govuk-pagination's own
+   space-between layout only spaces prev/list/next apart, it doesn't centre the nav itself. */
+.app-pagination-center {
+  display: flex;
+  justify-content: center;
+}
+
+/* Edit profile title: label, textbox and Save button on a single row. The toolbar and any
+   validation message sit above the textbox inside the wrapper, so the row is bottom-aligned to
+   keep the label and Save button level with the textbox itself, not the wrapper's top. */
+.app-edit-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.app-edit-title-row__label {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+.app-edit-title-row__input-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-edit-title-row__input {
+  width: 100%;
+}
+
+.app-edit-title-row__button {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+/* Edit profile title: formatting toolbar shown above the title textbox. */
+.app-title-toolbar {
+  display: inline-flex;
+  margin-bottom: 4px;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-title-toolbar__button {
+  appearance: none;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--govuk-border-colour, #b1b4b6);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #0b0c0c;
+}
+
+.app-title-toolbar__button:last-child {
+  border-right: none;
+}
+
+.app-title-toolbar__button:hover:not(:disabled) {
+  background: #f3f2f1;
+}
+
+.app-title-toolbar__button:disabled {
+  color: var(--govuk-secondary-text-colour, #505a5f);
+  cursor: not-allowed;
+}
+
+.app-title-toolbar__button--italic {
+  font-style: italic;
+  font-weight: 700;
+  min-width: 2.5rem;
+}
+
+/* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
+   (<i>, <strong>, etc.) render live instead of showing as raw text. */
+.app-title-editor {
+  display: block;
+  min-height: 2.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
 }
 
 .app-profile-card__header {
@@ -131,6 +290,27 @@ html {
 .app-profile-card__version-row:last-child {
   border-bottom: 0;
   padding-bottom: 0;
+}
+
+/* Version | Status | Effective dates as fixed columns, so rows line up whatever their content
+   length - mirrors the legacy col-3/col-3/col-auto grid. */
+.app-profile-card__version-detail {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.app-profile-card__version-number {
+  flex: 0 0 7rem;
+}
+
+.app-profile-card__version-status {
+  flex: 0 0 6rem;
+}
+
+.app-profile-card__version-actions {
+  margin-left: auto;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
@@ -177,18 +357,39 @@ body {
   background-color: #f3f2f1;
 }
 
-.app-tree__group .app-tree__row {
+/* Classic treeview connectors: each item draws a vertical dotted line up to its parent's
+   column, running the item's full height so it keeps connecting to its next sibling below
+   (and carries on behind that sibling's own expanded subtree) - plus a short horizontal tick
+   across to its own toggle/spacer. Attached to the <li> rather than its row, so ancestor
+   columns stack automatically through any depth of nesting instead of needing one rule per
+   level. 16px is half the 32px toggle, aligning the line/tick with the toggle's centre. */
+.app-tree__group > .app-tree__item {
   position: relative;
 }
 
-/* Vertical guide line linking nested rows to their parent. 16px is half the 32px toggle. */
-.app-tree__group .app-tree__row::before {
+.app-tree__group > .app-tree__item::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
-  border-left: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-left: 1px dotted var(--govuk-border-colour, #b1b4b6);
+}
+
+/* The last child has no further sibling to connect to, so its line stops at its own row,
+   forming an "L" corner instead of a "T" junction. */
+.app-tree__group > .app-tree__item:last-child::before {
+  bottom: auto;
+  height: 16px;
+}
+
+.app-tree__group > .app-tree__item::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
+  width: 14px;
+  border-top: 1px dotted var(--govuk-border-colour, #b1b4b6);
 }
 
 /* Icon button: 32x32, above the 24px minimum touch target. */
@@ -256,20 +457,71 @@ body {
   height: 32px;
 }
 
+/* This tree is still single-select - one real <input type="radio"> per row, so assistive tech
+   still announces "radio button" and only one row can ever be checked - but the agreed visual
+   is a square box, not a circle, to read more like a checkbox. Rather than inventing a new shape,
+   this redraws GOV.UK's own checkbox geometry (.govuk-checkboxes__label::before/::after in
+   govuk-frontend-6.5.0.min.css: a square box plus a rotated-border tick) scaled down to this
+   row's 20px box, so colour, focus ring and spacing all still come from GOV.UK tokens. */
 .app-tree__radio .govuk-radios__label::before {
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+}
+
+.app-tree__radio .govuk-radios__label::after {
+  top: 12px;
+  left: 11px;
+  width: 10px;
+  height: 5px;
+  border-width: 0 0 3px 3px;
+  border-top-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  transform: rotate(-45deg);
+}
+
+.app-tree__radio .govuk-radios__input:focus + .govuk-radios__label::before {
+  border-width: 2px;
+}
+
+.app-tree__radio.govuk-checkboxes__item {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.app-tree__radio .govuk-checkboxes__label {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+/* Matches the square radios above so single- and multi-select trees (e.g. Search's species
+   filter) share one row height. These are already real checkboxes, so only resizing down from
+   GOV.UK's native 44px input / 40px box / 23x12px tick is needed - no shape changes. */
+.app-tree__radio .govuk-checkboxes__input {
+  width: 32px;
+  height: 32px;
+}
+
+.app-tree__radio .govuk-checkboxes__label::before {
   top: 6px;
   left: 6px;
   width: 20px;
   height: 20px;
 }
 
-.app-tree__radio .govuk-radios__label::after {
-  top: 11px;
+.app-tree__radio .govuk-checkboxes__label::after {
+  top: 12px;
   left: 11px;
-  border-width: 5px;
+  width: 10px;
+  height: 5px;
+  border-width: 0 0 3px 3px;
 }
 
-.app-tree__radio .govuk-radios__input:focus + .govuk-radios__label::before {
+.app-tree__radio .govuk-checkboxes__input:focus + .govuk-checkboxes__label::before {
   border-width: 2px;
 }
 
@@ -311,6 +563,66 @@ body {
   color: #0b0c0c;
   background-color: var(--govuk-focus-colour, #fd0);
   box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px #0b0c0c;
+}
+
+/* Reusable responsive layout for checkbox groups with many options (profile/species
+   questionnaire "List"/"MultiValueList" fields) - mirrors the legacy Web Forms 3-column grid.
+   Apply alongside .govuk-checkboxes; items flow left-to-right and wrap onto further rows.
+   Breakpoints match govuk-frontend's own tablet/desktop breakpoints (40.0625em / 48.0625em). */
+.app-checkboxes--columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 1.5rem;
+}
+
+@media (min-width: 40.0625em) {
+  .app-checkboxes--columns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 48.0625em) {
+  .app-checkboxes--columns {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Grid row-gap would add to this margin, so rows are spaced by the item's own margin only. */
+.app-checkboxes--columns > .govuk-checkboxes__item {
+  margin-bottom: 10px;
+}
+
+/* References/Further information tables: note text may contain long unbroken URLs, which
+   would otherwise overflow the cell rather than wrap - mirrors .app-title-editor below. */
+.app-profile-note-table__text {
+  overflow-wrap: anywhere;
+}
+
+/* Shared confirmation dialog (e.g. "Create new draft version"): a native <dialog>, styled with
+   GOV.UK tokens since GOV.UK Frontend has no official modal component, and Bootstrap is
+   deliberately being phased out of this app (see _Layout.cshtml). Visibility, centring and
+   stacking all come from the UA/top-layer via confirm-modal.js's showModal()/close() calls. */
+.app-modal {
+  max-width: 560px;
+  width: 90%;
+  padding: 2rem;
+  background-color: #ffffff;
+  border: 4px solid var(--govuk-text-colour, #0b0c0c);
+}
+
+.app-modal::backdrop {
+  background-color: rgba(11, 12, 12, 0.8);
+}
+
+/* Makes a real <button> read and behave visually like a govuk-link, so a mutating action (one
+   that must POST, not navigate via GET) still looks consistent with the other action links. */
+.app-link-button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
@@ -511,6 +823,52 @@ body {
   padding: 10px 0;
 }
 
+/* View species data detail page: left-hand list of fixed sections (Animal identification,
+   Movements, etc.), with a left border marking the one currently shown on the right. */
+.app-subnav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-subnav__item {
+  padding: 0.5rem 0 0.5rem 0.75rem;
+  border-left: 4px solid transparent;
+}
+
+.app-subnav__item--current {
+  border-left-color: var(--govuk-brand-colour, #1d70b8);
+  font-weight: 700;
+}
+
+/* Single active tab labelled with the current section's title, above the question accordion. */
+.app-species-tabs {
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-species-tabs__tab {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: none;
+}
+
+.app-species-panel {
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-top: none;
+  padding: 1rem;
+}
+
+/* Previous/Next section links below the accordion. */
+.app-species-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
 .app-header__help-icon {
   height: 26px;
   width: 26px;
@@ -568,8 +926,67 @@ body {
   white-space: nowrap;
 }
 
+/* govuk-frontend only styles focus on its own link classes, so the logo link needs the
+   GOV.UK focus indicator applied explicitly. */
+.app-banner-row__logo-link {
+  display: inline-flex;
+}
+
+.app-banner-row__logo-link:focus {
+  outline: 3px solid transparent;
+  background-color: #ffdd00;
+  box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+}
+
+/* Reusable tooltip. Shown on hover and on keyboard focus; dismissed with Escape via
+   tooltip.js adding .app-tooltip--dismissed. Meets WCAG 2.2 SC 1.4.13 (hoverable because the
+   tooltip sits inside the hover area of .app-tooltip, persistent, and dismissable). */
+.app-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.app-tooltip__content {
+  display: none;
+  position: absolute;
+  /* Overridden by tooltip.js to track the pointer; the defaults place the tooltip below the
+     trigger, which is what keyboard focus uses. */
+  top: var(--app-tooltip-y, 100%);
+  left: var(--app-tooltip-x, 0);
+  z-index: 100;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(680px, calc(100vw - 30px));
+  padding: 10px 15px;
+  background-color: #ffffff;
+  border: 1px solid #0b0c0c;
+  color: #0b0c0c;
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.app-tooltip:hover .app-tooltip__content,
+.app-tooltip:focus-within .app-tooltip__content {
+  display: block;
+}
+
+.app-tooltip--dismissed .app-tooltip__content {
+  display: none;
+}
+
 /* Home page: brand logo in the right-hand "Quick links" column */
 .app-home__side-logo {
   max-width: 220px;
   height: auto;
+}
+
+/* Right-aligned actions, matching the legacy maintenance screens. Modifies the
+   Design System button group rather than restyling the buttons themselves. */
+.app-button-group--right {
+  justify-content: flex-end;
+}
+
+.app-button-group--right.govuk-button-group {
+  display: flex;
 }

@@ -24,6 +24,7 @@ public interface IProfileSearchService
     /// <param name="displayPublished">Include published versions.</param>
     /// <param name="displayDraft">Include draft versions.</param>
     /// <param name="displayScenarios">Include scenario versions.</param>
+    /// <param name="searchForType">Whether <paramref name="searchText"/> is matched as one phrase or as all of its words.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Enriched profile search results.</returns>
     Task<IReadOnlyList<ProfileSearchResultDto>> GetProfileSearchResultsAsync(
@@ -31,6 +32,7 @@ public interface IProfileSearchService
         bool displayPublished = true,
         bool displayDraft = false,
         bool displayScenarios = false,
+        SearchForType searchForType = SearchForType.ExactWordOrPhrase,
         CancellationToken cancellationToken = default);
 
     /// <summary>

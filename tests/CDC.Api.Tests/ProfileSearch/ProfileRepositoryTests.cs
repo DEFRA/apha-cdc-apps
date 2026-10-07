@@ -1,4 +1,5 @@
 using System.Data;
+using System.Linq;
 using CDC.Api.Features.ProfileSearch.Dtos;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
@@ -9,7 +10,7 @@ using Moq;
 
 namespace CDC.Api.Tests.ProfileSearch;
 
-public class ProfileRepositoryTests : IDisposable
+public sealed class ProfileRepositoryTests : IDisposable
 {
     private static readonly Guid ProfileAId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ProfileBId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -75,14 +76,88 @@ public class ProfileRepositoryTests : IDisposable
 
         profile.PublishedVersions.Should().ContainSingle().Which.VersionId.Should().Be(publishedVersionId);
         profile.DraftVersions.Should().ContainSingle().Which.VersionId.Should().Be(draftVersionId);
-        profile.Scenarios.Should().ContainSingle().Which.VersionId.Should().Be(scenarioVersionId);
-        profile.Scenarios[0].IsScenario.Should().BeTrue();
+        var scenario = profile.WhatIfScenarios.Should().ContainSingle().Subject;
+        scenario.ScenarioId.Should().Be(ScenarioId);
+        scenario.DraftVersions.Should().ContainSingle().Which.VersionId.Should().Be(scenarioVersionId);
+        scenario.PublishedVersions.Should().BeEmpty();
         profile.AffectedSpecies.Should().BeEmpty();
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
         executed.CommandText.Should().Be(ProfileStoredProcedures.GetAllProfiles);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsEffectiveDateToOntoSupersededVersionsOnly()
+    {
+        var currentVersionId = Guid.NewGuid();
+        var supersededVersionId = Guid.NewGuid();
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "Bovine tuberculosis"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [currentVersionId, ProfileAId, ProfileAId, 11, 0, "Published", Utc(2026, 3, 7), null, true, null],
+                    [supersededVersionId, ProfileAId, ProfileAId, 10, 2, "Published", Utc(2025, 1, 16), Utc(2026, 3, 7), true, null]
+                ])
+            ]
+        });
+
+        var profiles = await CreateRepository().GetAllProfilesAsync(CancellationToken.None);
+
+        var versions = profiles.Should().ContainSingle().Subject.PublishedVersions;
+        versions.Single(version => version.VersionId == currentVersionId).EffectiveToUtc.Should().BeNull();
+
+        var superseded = versions.Single(version => version.VersionId == supersededVersionId);
+        superseded.EffectiveToUtc.Should().Be(Utc(2026, 3, 7));
+        superseded.VersionMinor.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_KeepsEachScenarioLineagesVersionHistoryIndependent()
+    {
+        var scenarioBId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var currentSituationPublished = Guid.NewGuid();
+        var scenarioAPublished = Guid.NewGuid();
+        var scenarioADraft = Guid.NewGuid();
+        var scenarioBDraft = Guid.NewGuid();
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [currentSituationPublished, ProfileAId, ProfileAId, 1, 0, "Published", Utc(2026, 1, 1), null, true, Utc(2026, 1, 1)],
+                    [scenarioAPublished, ScenarioId, ProfileAId, 1, 0, "Published", Utc(2026, 1, 2), null, false, Utc(2026, 1, 2)],
+                    [scenarioADraft, ScenarioId, ProfileAId, 2, 0, "Draft", Utc(2026, 1, 3), null, false, Utc(2026, 1, 3)],
+                    [scenarioBDraft, scenarioBId, ProfileAId, 1, 0, "Draft", Utc(2026, 1, 4), null, false, Utc(2026, 1, 4)]
+                ])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        // The profile's own (current-situation) history must contain only its own version.
+        profile.PublishedVersions.Should().ContainSingle().Which.VersionId.Should().Be(currentSituationPublished);
+        profile.DraftVersions.Should().BeEmpty();
+
+        profile.WhatIfScenarios.Should().HaveCount(2);
+
+        var scenarioA = profile.WhatIfScenarios.Single(scenario => scenario.ScenarioId == ScenarioId);
+        scenarioA.PublishedVersions.Should().ContainSingle().Which.VersionId.Should().Be(scenarioAPublished);
+        scenarioA.DraftVersions.Should().ContainSingle().Which.VersionId.Should().Be(scenarioADraft);
+
+        var scenarioB = profile.WhatIfScenarios.Single(scenario => scenario.ScenarioId == scenarioBId);
+        scenarioB.DraftVersions.Should().ContainSingle().Which.VersionId.Should().Be(scenarioBDraft);
+        scenarioB.PublishedVersions.Should().BeEmpty();
     }
 
     [Fact]
@@ -125,7 +200,7 @@ public class ProfileRepositoryTests : IDisposable
         profile.Status.Should().Be("Draft");
         profile.PublishedVersions.Should().BeEmpty();
         profile.DraftVersions.Should().BeEmpty();
-        profile.Scenarios.Should().BeEmpty();
+        profile.WhatIfScenarios.Should().BeEmpty();
     }
 
     [Fact]

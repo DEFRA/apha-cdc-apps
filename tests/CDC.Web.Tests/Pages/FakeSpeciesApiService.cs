@@ -8,9 +8,15 @@ internal sealed class FakeSpeciesApiService(
     IReadOnlyList<SpeciesDto>? species = null,
     Exception? throwOnGetAllSpecies = null,
     SpeciesDetailDto? speciesDetail = null,
+    Exception? throwOnGetSpeciesDetail = null,
     IReadOnlyList<SpeciesValidParentDto>? validParents = null,
     UpdateSpeciesNameParentResult? updateResult = null,
-    IReadOnlyList<SpeciesAuditTrailEntryDto>? auditTrail = null)
+    IReadOnlyList<SpeciesAuditTrailEntryDto>? auditTrail = null,
+    SpeciesMetadataDto? speciesMetadata = null,
+    SpeciesAnswerDataDto? speciesAnswerData = null,
+    Exception? throwOnGetSpeciesAnswerData = null,
+    IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
+    AddSpeciesResult? addResult = null)
     : ISpeciesApiService
 {
     private readonly IReadOnlyList<SpeciesDto> _species = species ?? [];
@@ -23,7 +29,9 @@ internal sealed class FakeSpeciesApiService(
             : Task.FromResult(_species);
 
     public Task<SpeciesDetailDto?> GetSpeciesDetailAsync(Guid speciesId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(speciesDetail);
+        throwOnGetSpeciesDetail is not null
+            ? Task.FromException<SpeciesDetailDto?>(throwOnGetSpeciesDetail)
+            : Task.FromResult(speciesDetail);
 
     public Task<IReadOnlyList<SpeciesValidParentDto>> GetSpeciesValidParentsAsync(Guid speciesId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_validParents);
@@ -33,6 +41,29 @@ internal sealed class FakeSpeciesApiService(
         CancellationToken cancellationToken = default) =>
         Task.FromResult(updateResult ?? new UpdateSpeciesNameParentResult { Outcome = SpeciesUpdateOutcome.Success });
 
+    public AddSpeciesRequestDto? LastAddRequest { get; private set; }
+
+    public Task<AddSpeciesResult> AddSpeciesAsync(AddSpeciesRequestDto request, CancellationToken cancellationToken = default)
+    {
+        LastAddRequest = request;
+
+        return Task.FromResult(addResult ?? new AddSpeciesResult { Outcome = SpeciesUpdateOutcome.Success, SpeciesId = Guid.NewGuid() });
+    }
+
     public Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_auditTrail);
+
+    public Task<SpeciesMetadataDto> GetSpeciesMetadataAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(speciesMetadata ?? new SpeciesMetadataDto());
+
+    public Task<SpeciesAnswerDataDto?> GetSpeciesAnswerDataAsync(Guid speciesId, CancellationToken cancellationToken = default) =>
+        throwOnGetSpeciesAnswerData is not null
+            ? Task.FromException<SpeciesAnswerDataDto?>(throwOnGetSpeciesAnswerData)
+            : Task.FromResult(speciesAnswerData);
+
+    public Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(
+            referenceValuesByTable is not null && referenceValuesByTable.TryGetValue(referenceTableId, out var values)
+                ? values
+                : []);
 }

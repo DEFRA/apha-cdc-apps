@@ -254,6 +254,45 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
     }
 
     /// <inheritdoc />
+    public async Task<ProfileVersionSummary?> GetProfileVersionSummaryAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        if (profileVersionId == Guid.Empty)
+        {
+            return null;
+        }
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    ProfileManagementStoredProcedures.GetProfileVersionInfoById,
+                    new { Id = profileVersionId },
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken),
+                CommandBehavior.Default);
+
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new ProfileVersionSummary
+            {
+                VersionMajor = ReadByte(reader, 3),
+                VersionMinor = ReadByte(reader, 4),
+                IsPublic = ReadBooleanByName(reader, "IsPublic")
+            };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileManagementStoredProcedures.GetProfileVersionInfoById);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<NewProfileDefaults?> GetNewProfileDefaultsAsync(
         Guid cloneProfileVersionId,
         bool isWhatIfScenario,
@@ -892,6 +931,24 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
 
     private static byte ReadByte(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? (byte)0 : reader.GetByte(ordinal);
+
+    /// <summary>
+    /// Reads a boolean column by name rather than a fixed ordinal, so a yet-unverified column
+    /// position (see <see cref="ProfileVersionSummary.IsPublic"/>) degrades to <see
+    /// langword="false"/> instead of silently reading the wrong column.
+    /// </summary>
+    private static bool ReadBooleanByName(DbDataReader reader, string columnName)
+    {
+        try
+        {
+            var ordinal = reader.GetOrdinal(columnName);
+            return !reader.IsDBNull(ordinal) && reader.GetBoolean(ordinal);
+        }
+        catch (IndexOutOfRangeException)
+        {
+            return false;
+        }
+    }
 
     private static byte[] ReadRowVersion(DbDataReader reader, int ordinal)
     {

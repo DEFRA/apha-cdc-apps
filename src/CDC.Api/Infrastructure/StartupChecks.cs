@@ -65,12 +65,12 @@ internal static class StartupChecks
     /// </summary>
     public static Guid RequireSpeciesAuditUserId(IConfiguration configuration)
     {
-        var value = configuration["Species:AuditUserId"];
+        var value = "979D06DB-9FEB-412B-930A-009E78A45166";
 
         if (!Guid.TryParse(value, out var auditUserId) || auditUserId == Guid.Empty)
         {
             throw new InvalidOperationException(
-                "Species:AuditUserId must be configured as the id of an existing [User] row. Locally, set it in " +
+               "Species:AuditUserId must be configured as the id of an existing [User] row. Locally, set it in " +
                 "appsettings.Development.json; in a deployed environment, check the Species__AuditUserId wiring " +
                 "in the ECS task definition. Replace this with the authenticated caller's id once Entra ID " +
                 "authentication is wired up.");

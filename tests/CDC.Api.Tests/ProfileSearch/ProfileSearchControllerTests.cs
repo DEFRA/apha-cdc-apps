@@ -29,15 +29,15 @@ public class ProfileSearchControllerTests
                 AffectedSpecies = [],
                 PublishedVersions = [],
                 DraftVersions = [],
-                Scenarios = []
+                WhatIfScenarios = []
             }
         ];
 
         profileSearchService
-            .Setup(service => service.GetProfileSearchResultsAsync("bovine", true, false, false, It.IsAny<CancellationToken>()))
+            .Setup(service => service.GetProfileSearchResultsAsync("bovine", true, false, false, SearchForType.ExactWordOrPhrase, It.IsAny<CancellationToken>()))
             .ReturnsAsync(results);
 
-        var response = await CreateController().SearchProfiles("bovine", true, false, false, CancellationToken.None);
+        var response = await CreateController().SearchProfiles("bovine", true, false, false, SearchForType.ExactWordOrPhrase, CancellationToken.None);
 
         var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeSameAs(results);
