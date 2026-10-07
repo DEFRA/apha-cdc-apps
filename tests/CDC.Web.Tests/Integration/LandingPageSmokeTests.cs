@@ -9,6 +9,7 @@ public class LandingPageSmokeTests : IClassFixture<WebApplicationFactory<Program
 
     public LandingPageSmokeTests(WebApplicationFactory<Program> factory)
     {
+        WebTestEnvironment.EnsureConfigured();
         _factory = factory;
     }
 

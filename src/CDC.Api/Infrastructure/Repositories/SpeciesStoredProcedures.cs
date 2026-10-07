@@ -42,6 +42,9 @@ public static class SpeciesStoredProcedures
     /// <summary>Updates a species' name and parent, and writes the audit trail entry.</summary>
     public const string UpdateSpecies = "spuSpecies";
 
+    /// <summary>Inserts a new species, and writes the audit trail entry.</summary>
+    public const string InsertSpecies = "spiSpecies";
+
     /// <summary>Returns every recorded species name/parent change.</summary>
     public const string GetSpeciesAuditTrail = "spgaSpeciesTableAuditLog";
 }

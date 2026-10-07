@@ -9,7 +9,7 @@
     <div class="govuk-breadcrumbs">
         <ol class="govuk-breadcrumbs__list">
             <li class="govuk-breadcrumbs__list-item">
-                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Index">D2R2 Home</a>
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
             </li>
             <li class="govuk-breadcrumbs__list-item">
                 <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
@@ -121,7 +121,7 @@
                 @if (Model.Profile.LinkVisibility.CanMaintainContributorsAndReviewers)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./MaintainContributorsAndReviewers" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
+                        <a class="govuk-link" asp-page="./MaintainContributors" asp-route-profileId="@Model.ProfileId">Maintain contributors and reviewers</a>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanViewContributionsReport)

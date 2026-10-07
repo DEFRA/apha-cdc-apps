@@ -45,6 +45,7 @@ public class SurveillanceProfilesSearchIntegrationTests
     [Fact]
     public async Task Search_RendersResultsPartial_ForAjaxRequest()
     {
+        WebTestEnvironment.EnsureConfigured();
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {

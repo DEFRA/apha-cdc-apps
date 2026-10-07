@@ -218,6 +218,41 @@ public class SpeciesHandlerTests
         result.Error.Should().Be("Edited by another user.");
     }
 
+    [Fact]
+    public async Task AddSpeciesCommandHandler_ReturnsSuccess()
+    {
+        var command = SpeciesTestData.AddSpeciesCommand();
+        var addResult = new AddSpeciesResultDto { SpeciesId = SpeciesTestData.SpeciesId };
+
+        service
+            .Setup(svc => svc.AddSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(addResult);
+
+        var result = await CreateAddCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(addResult);
+    }
+
+    [Fact]
+    public async Task AddSpeciesCommandHandler_ReturnsConflict_WhenTheNameIsAlreadyInUse()
+    {
+        var command = SpeciesTestData.AddSpeciesCommand();
+
+        service
+            .Setup(svc => svc.AddSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DuplicateSpeciesNameException("Save failed: there is already a species with this name"));
+
+        var result = await CreateAddCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("Save failed: there is already a species with this name");
+    }
+
+    private AddSpeciesCommandHandler CreateAddCommandHandler() =>
+        new(service.Object, NullLogger<AddSpeciesCommandHandler>.Instance);
+
     private UpdateSpeciesNameParentCommandHandler CreateNameParentCommandHandler() =>
         new(service.Object, NullLogger<UpdateSpeciesNameParentCommandHandler>.Instance);
 
