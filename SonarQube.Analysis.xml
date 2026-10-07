@@ -9,7 +9,6 @@
   **/wwwroot/lib/**,
   govuk-tree-picker/**,
   docs/**,
-  tests/**,
   **/wwwroot/js/**/*.min.js,
   **/wwwroot/js/tree-view.js,
   src/CDC.Web/wwwroot/js/**,
@@ -30,6 +29,12 @@
   src/CDC.Web/Pages/SurveillanceProfiles/PublishPublic.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/ViewContributionsReport.cshtml.cs
 </Property>
+
+  <!-- The SonarScanner for .NET auto-detects test projects and analyses them as a separate "Test"
+       source set (sonar.tests), which sonar.exclusions above does NOT apply to - test files are
+       still measured for coverage (see sonar.coverage.exclusions below) but must be excluded here
+       to drop code-smell/bug analysis entirely. -->
+  <Property Name="sonar.test.exclusions">tests/**</Property>
 
 
   <!-- Entry points and boilerplate with no meaningful branches to cover -->
