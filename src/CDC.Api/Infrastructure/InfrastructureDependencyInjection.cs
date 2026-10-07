@@ -32,11 +32,11 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileContributorsRepository, ProfileContributorsRepository>();
         services.AddScoped<IProfileNoteRepository, ProfileNoteRepository>();
         services.AddScoped<IProfileQuestionRepository, ProfileQuestionRepository>();
-        services.AddScoped<IProfileSectionRepository, ProfileSectionRepository>();
         services.AddScoped<IProfileReportRepository, ProfileReportRepository>();
         services.AddScoped<IStaticReportRepository, StaticReportRepository>();
-        services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
         services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
+        services.AddScoped<IProfileSectionRepository, ProfileSectionRepository>();
+        services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
 
         return services;
     }
