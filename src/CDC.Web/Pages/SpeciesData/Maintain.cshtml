@@ -75,7 +75,10 @@ else
         }
 
         <div class="govuk-button-group">
-            <button type="submit" asp-page-handler="EditNameParent" class="govuk-button" data-module="govuk-button">
+            <button type="submit" asp-page-handler="Add" formnovalidate class="govuk-button" data-module="govuk-button">
+                Add
+            </button>
+            <button type="submit" asp-page-handler="EditNameParent" class="govuk-button govuk-button--secondary" data-module="govuk-button">
                 Edit name/parent
             </button>
             @* A GET submit button loses its formaction query string (the browser replaces it
@@ -87,6 +90,83 @@ else
             </a>
         </div>
     </form>
+}
+
+@if (Model.ShowAddPanel)
+{
+    var newEntry = CDC.Web.Pages.SpeciesData.MaintainModel.NewEntryPlaceholder;
+    var rootSpeciesLabel = CDC.Web.Pages.SpeciesData.MaintainModel.RootSpeciesLabel;
+
+    <div class="govuk-!-margin-top-6" id="add-species-panel">
+        <h2 class="govuk-heading-m">Add species data value</h2>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="add-error-summary-title">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title" id="add-error-summary-title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            @foreach (var (key, message) in ViewData.ModelState.SelectMany(entry => entry.Value!.Errors.Select(error => (entry.Key, error.ErrorMessage))))
+                            {
+                                @if (key.Length == 0)
+                                {
+                                    <li>@message</li>
+                                }
+                                else
+                                {
+                                    <li><a href="#@(key.Replace('.', '_'))">@message</a></li>
+                                }
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <form method="post">
+            <div class="govuk-form-group">
+                <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
+                <p class="govuk-body" id="add-old-name">@newEntry</p>
+            </div>
+
+            <div class="govuk-form-group@(ViewData.ModelState["AddInput.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                <label class="govuk-label" asp-for="AddInput.Name">New name</label>
+                <span class="govuk-error-message" asp-validation-for="AddInput.Name"></span>
+                <input class="govuk-input" asp-for="AddInput.Name" maxlength="50" autocomplete="off" />
+            </div>
+
+            <div class="govuk-form-group">
+                <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
+                <p class="govuk-body" id="add-old-parent">@newEntry</p>
+            </div>
+
+            <div class="govuk-form-group@(ViewData.ModelState["AddInput.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                <label class="govuk-label" asp-for="AddInput.ParentId">New parent</label>
+                <span class="govuk-error-message" asp-validation-for="AddInput.ParentId"></span>
+                <select class="govuk-select" asp-for="AddInput.ParentId">
+                    <option value="">Please select</option>
+                    <option value="@Guid.Empty">@rootSpeciesLabel</option>
+                    @foreach (var parentChoice in Model.ParentChoices)
+                    {
+                        <option value="@parentChoice.Id">@parentChoice.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="govuk-form-group@(ViewData.ModelState["AddInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                <label class="govuk-label" asp-for="AddInput.Reason">Reason for change</label>
+                <div class="govuk-hint">Explain why this species is being added. Required.</div>
+                <span class="govuk-error-message" asp-validation-for="AddInput.Reason"></span>
+                <textarea class="govuk-textarea" asp-for="AddInput.Reason" rows="4" maxlength="255"></textarea>
+            </div>
+
+            <div class="govuk-button-group">
+                <button type="submit" asp-page-handler="SaveNew" class="govuk-button" data-module="govuk-button">Save</button>
+                <button type="submit" asp-page-handler="CancelAdd" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+            </div>
+        </form>
+    </div>
 }
 
 @if (Model.ShowEditPanel && Model.SpeciesDetail is not null)

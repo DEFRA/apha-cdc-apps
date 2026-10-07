@@ -32,6 +32,9 @@ on:
 # Pull-request release-label contract:
 # - API: release:api:patch, release:api:minor or release:api:major
 # - Web: release:web:patch, release:web:minor or release:web:major
+# A changed component requires exactly one matching label. Release labels for
+# unchanged components are ignored with a warning.
+
 # A changed component requires exactly one matching label. An unchanged
 # component must not have a release label.
 #
@@ -188,8 +191,7 @@ jobs:
             fi
 
             if [[ "${changed}" == "false" && "${#labels[@]}" -ne 0 ]]; then
-              echo "::error::${component} did not change, so remove its release label."
-              return 1
+              echo "::warning::${component} did not change; ignoring its release label(s)."
             fi
           }
 
@@ -521,8 +523,7 @@ jobs:
               fi
 
               if [[ "${changed}" == "false" && "${#labels[@]}" -ne 0 ]]; then
-                echo "::error::PR #${PR_NUMBER} has a release label for unchanged component ${component}." >&2
-                return 1
+                echo "::warning::PR #${PR_NUMBER} has release label(s) for unchanged component ${component}; they will be ignored." >&2
               fi
 
               if [[ "${changed}" == "true" ]]; then

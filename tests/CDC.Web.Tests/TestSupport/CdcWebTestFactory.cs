@@ -95,7 +95,11 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
 
     // The app cookie may be Secure-only (CookieSecurePolicy.Always) - TestServer's default http://
     // client scheme means the CookieContainer silently drops it between requests unless every
-    // request through this client is treated as HTTPS.
+    // request through this client is treated as HTTPS. This override alone is NOT sufficient:
+    // WebApplicationFactory<T>.CreateClient(options) applies options.BaseAddress (default
+    // http://localhost) AFTER calling ConfigureClient, silently reverting this back to http - every
+    // caller must also request the client via CdcWebTestFactoryExtensions.SignedInClientAsync (or
+    // pass WebApplicationFactoryClientOptions.BaseAddress explicitly) to actually get https.
     protected override void ConfigureClient(HttpClient client) => client.BaseAddress = new Uri("https://localhost");
 
     private sealed class TestSignInStartupFilter : IStartupFilter
@@ -125,5 +129,26 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
 
             next(app);
         };
+    }
+}
+
+/// <summary>
+/// Shared helper so every integration test that needs an authenticated session can sign in
+/// without duplicating the test-only sign-in call.
+/// </summary>
+public static class CdcWebTestFactoryExtensions
+{
+    /// <summary>Creates a client and signs it in via the test-only endpoint. Every page is
+    /// authenticated by default, so most integration tests need this instead of plain
+    /// <see cref="WebApplicationFactory{TEntryPoint}.CreateClient()"/>. Explicitly requests the
+    /// https:// base address - <see cref="WebApplicationFactoryClientOptions.BaseAddress"/> is
+    /// applied after <c>ConfigureClient</c> runs, so relying on that override alone silently leaves
+    /// the client on http://, which drops any Secure-only cookie (session, auth) between requests.
+    /// </summary>
+    public static async Task<HttpClient> SignedInClientAsync(this WebApplicationFactory<Program> factory)
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        return client;
     }
 }

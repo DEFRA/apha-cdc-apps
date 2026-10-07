@@ -1,0 +1,56 @@
+@page
+@model CDC.Web.Pages.CrossProfileAdmin.ReferenceDataAuditModel
+@{
+    ViewData["Title"] = "Reference data audit trail";
+}
+@section Breadcrumbs {
+    <a class="govuk-back-link" asp-page="/CrossProfileAdmin/ReferenceData" asp-route-tableId="@Model.TableId">Back to reference data</a>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.Table is not null)
+        {
+            <span class="govuk-caption-l">@Model.Table.Name</span>
+        }
+        <h1 class="govuk-heading-l">Reference data audit trail</h1>
+
+        @if (Model.Entries.Count == 0)
+        {
+            <p class="govuk-body">No changes have been recorded@(Model.Table is not null ? $" for {Model.Table.Name}" : string.Empty).</p>
+        }
+        else
+        {
+            <table class="govuk-table">
+                <caption class="govuk-visually-hidden">Reference data changes, most recent first</caption>
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Old value</th>
+                        <th scope="col" class="govuk-table__header">New value</th>
+                        <th scope="col" class="govuk-table__header">User</th>
+                        <th scope="col" class="govuk-table__header">Date of change</th>
+                        <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Action</span></th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @foreach (var entry in Model.Entries)
+                    {
+                        <tr class="govuk-table__row">
+                            <td class="govuk-table__cell">@entry.OldLookupValue</td>
+                            <td class="govuk-table__cell">@entry.NewLookupValue</td>
+                            <td class="govuk-table__cell">@entry.UserFullName</td>
+                            <td class="govuk-table__cell">@entry.LogDate.UtcDateTime.ToString("d MMMM yyyy, HH:mm")</td>
+                            <td class="govuk-table__cell">
+                                <a class="govuk-link govuk-link--no-visited-state"
+                                   asp-page="/CrossProfileAdmin/ReferenceDataAuditDetails"
+                                   asp-route-auditId="@entry.Id">
+                                    View details<span class="govuk-visually-hidden"> of the change from @entry.OldLookupValue to @entry.NewLookupValue</span>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

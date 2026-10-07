@@ -7,5 +7,94 @@
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
-<h1 class="govuk-heading-l">Maintain reference data</h1>
-<p class="govuk-body">This page is for Maintain reference data. It will allow administrators to maintain reference data shared across profiles.</p>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        @if (!string.IsNullOrWhiteSpace(Model.ConfirmationMessage))
+        {
+            <div class="govuk-notification-banner govuk-notification-banner--success" role="alert"
+                 aria-labelledby="govuk-notification-banner-title" data-module="govuk-notification-banner">
+                <div class="govuk-notification-banner__header">
+                    <h2 class="govuk-notification-banner__title" id="govuk-notification-banner-title">Success</h2>
+                </div>
+                <div class="govuk-notification-banner__content">
+                    <p class="govuk-notification-banner__heading">@Model.ConfirmationMessage</p>
+                </div>
+            </div>
+        }
+
+        <h1 class="govuk-heading-l">Maintain reference data</h1>
+
+        <form method="get">
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="tableId">Reference table</label>
+                <div id="tableId-hint" class="govuk-hint">Choose a table, then select &#8216;Show reference data&#8217; to list its values.</div>
+                <select class="govuk-select" id="tableId" name="tableId" aria-describedby="tableId-hint">
+                    <option value="">Choose a reference table</option>
+                    @foreach (var table in Model.Tables)
+                    {
+                        <option value="@table.Id" selected="@(table.Id == Model.SelectedTableId)">@table.Name</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="govuk-button" data-module="govuk-button">Show reference data</button>
+        </form>
+    </div>
+</div>
+
+@if (Model.SelectedTable is not null)
+{
+    <div class="govuk-grid-row">
+        <div class="govuk-grid-column-full">
+            <table class="govuk-table">
+                <caption class="govuk-table__caption govuk-table__caption--m">@Model.SelectedTable.Name</caption>
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Value</th>
+                        <th scope="col" class="govuk-table__header">Effective date</th>
+                        <th scope="col" class="govuk-table__header">Status</th>
+                        <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Action</span></th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @if (Model.Values.Count == 0)
+                    {
+                        <tr class="govuk-table__row">
+                            <td class="govuk-table__cell" colspan="4">This reference table has no values.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var value in Model.Values)
+                        {
+                            <tr class="govuk-table__row">
+                                <td class="govuk-table__cell">@value.LookupValue</td>
+                                <td class="govuk-table__cell">
+                                    @(value.EffectiveDateFrom?.ToString("d MMMM yyyy") ?? "Not recorded")
+                                </td>
+                                <td class="govuk-table__cell">
+                                    <strong class="govuk-tag @(value.IsActive ? "govuk-tag--green" : "govuk-tag--grey")">@value.Status</strong>
+                                </td>
+                                <td class="govuk-table__cell">
+                                    <a class="govuk-link govuk-link--no-visited-state"
+                                       asp-page="/CrossProfileAdmin/EditReferenceValue"
+                                       asp-route-tableId="@Model.SelectedTable.Id"
+                                       asp-route-valueId="@value.Id">
+                                        Change<span class="govuk-visually-hidden"> @value.LookupValue</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+
+            <p class="govuk-body">
+                <a class="govuk-link govuk-link--no-visited-state"
+                   asp-page="/CrossProfileAdmin/ReferenceDataAudit"
+                   asp-route-tableId="@Model.SelectedTable.Id">
+                    View audit trail for @Model.SelectedTable.Name
+                </a>
+            </p>
+        </div>
+    </div>
+}

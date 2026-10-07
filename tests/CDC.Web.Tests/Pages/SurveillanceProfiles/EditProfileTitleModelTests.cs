@@ -27,7 +27,7 @@ public class EditProfileTitleModelTests
                 profileAttributes: profileAttributes,
                 throwOnGetProfileAttributes: throwOnGetProfileAttributes,
                 updateProfileTitleResult: updateProfileTitleResult),
-            NullLogger<EditProfileTitleModel>.Instance)
+            new AlwaysEnabledLogger<EditProfileTitleModel>())
         {
             ProfileId = ProfileId,
             PageContext = new PageContext

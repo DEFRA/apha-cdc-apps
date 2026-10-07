@@ -15,6 +15,7 @@ public class HealthEndpointsTests : IClassFixture<CdcWebTestFactory>
 
     public HealthEndpointsTests(CdcWebTestFactory factory)
     {
+        WebTestEnvironment.EnsureConfigured();
         _factory = factory;
     }
 

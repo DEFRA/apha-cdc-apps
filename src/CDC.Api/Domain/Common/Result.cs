@@ -16,7 +16,10 @@ public enum ResultStatus
     Conflict = 2,
 
     /// <summary>The caller is not permitted to perform the operation.</summary>
-    Forbidden = 3
+    Forbidden = 3,
+
+    /// <summary>The request failed a business validation rule.</summary>
+    ValidationFailed = 4
 }
 
 /// <summary>
@@ -79,4 +82,10 @@ public static class Result
     /// <param name="error">Description of why the operation is not permitted.</param>
     /// <returns>A forbidden <see cref="Result{T}"/>.</returns>
     public static Result<T> Forbidden<T>(string error) => new(ResultStatus.Forbidden, default, error);
+
+    /// <summary>Creates a "failed business validation" result.</summary>
+    /// <typeparam name="T">Type of the value the operation would have produced.</typeparam>
+    /// <param name="error">Description of the validation failure.</param>
+    /// <returns>A validation-failed <see cref="Result{T}"/>.</returns>
+    public static Result<T> ValidationFailed<T>(string error) => new(ResultStatus.ValidationFailed, default, error);
 }

@@ -14,6 +14,16 @@ namespace CDC.Web.Pages.SpeciesData;
 public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<MaintainModel> logger)
     : BreadcrumbPageModelBase("Maintain species data")
 {
+    /// <summary>Shown in place of the old name and old parent when adding a species, as the legacy screen did.</summary>
+    public const string NewEntryPlaceholder = "- new entry -";
+
+    /// <summary>Label for the all-zero parent identifier, which puts a species at the top of the hierarchy.</summary>
+    public const string RootSpeciesLabel = "- root species -";
+
+    private const int NameMaxLength = 50;
+
+    private const int ReasonMaxLength = 255;
+
     private const string SpeciesKey = "species";
 
     /// <summary>Gets the species hierarchy, built from every active species returned by the API.</summary>
@@ -33,6 +43,12 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
 
     /// <summary>Gets a value indicating whether the "Edit name/parent" section should be shown.</summary>
     public bool ShowEditPanel { get; private set; }
+
+    /// <summary>Gets a value indicating whether the "Add species data value" section should be shown.</summary>
+    public bool ShowAddPanel { get; private set; }
+
+    /// <summary>Gets the parent choices offered when adding a species: every active species.</summary>
+    public IReadOnlyList<SpeciesValidParentDto> ParentChoices { get; private set; } = [];
 
     /// <summary>Gets the species being edited, for the read-only "old name"/"old parent" display.</summary>
     public SpeciesDetailDto? SpeciesDetail { get; private set; }
@@ -54,16 +70,25 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     [BindProperty]
     public EditNameParentInput Input { get; set; } = new();
 
+    /// <summary>Gets or sets the "Add species data value" form fields.</summary>
+    [BindProperty]
+    public AddSpeciesInput AddInput { get; set; } = new();
+
     /// <summary>Loads the species list and, if requested, re-selects a species on the tree.</summary>
-    /// <param name="saved">Set by the redirect after a successful save, to show the confirmation banner.</param>
+    /// <param name="saved">Set by the redirect after a successful name/parent save, to show the confirmation banner.</param>
+    /// <param name="added">Set by the redirect after a species has been added, to show the confirmation banner.</param>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task OnGetAsync(bool saved, CancellationToken cancellationToken)
+    public async Task OnGetAsync(bool saved, bool added, CancellationToken cancellationToken)
     {
         await LoadTreeAsync(cancellationToken);
 
         if (saved)
         {
             SuccessMessage = "The species name and parent were updated.";
+        }
+        else if (added)
+        {
+            SuccessMessage = "The new species was added to the hierarchy.";
         }
     }
 
@@ -180,6 +205,121 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         return Page();
     }
 
+    /// <summary>Opens the "Add species data value" section for a brand new species.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostAddAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        AddInput = new AddSpeciesInput();
+        await OpenAddPanelAsync(cancellationToken);
+
+        return Page();
+    }
+
+    /// <summary>Validates and adds a new species to the hierarchy.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostSaveNewAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        ValidateAddInput();
+
+        if (!ModelState.IsValid)
+        {
+            await OpenAddPanelAsync(cancellationToken);
+            return Page();
+        }
+
+        var result = await speciesApiService.AddSpeciesAsync(
+            new AddSpeciesRequestDto
+            {
+                Name = AddInput.Name!.Trim(),
+                ParentId = AddInput.ParentId,
+                Reason = AddInput.Reason!.Trim()
+            },
+            cancellationToken);
+
+        if (result.Outcome != SpeciesUpdateOutcome.Success)
+        {
+            logger.AddFailed(result.Outcome);
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "We could not add this species. Try again later.");
+            await OpenAddPanelAsync(cancellationToken);
+            return Page();
+        }
+
+        logger.Added(result.SpeciesId);
+
+        // Post-redirect-get: selects the new species on the reloaded tree and shows the
+        // confirmation banner without resubmitting the form on refresh.
+        return RedirectToPage(new { species = result.SpeciesId, added = true });
+    }
+
+    /// <summary>Closes the "Add species data value" section without adding anything.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostCancelAddAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        ShowAddPanel = false;
+
+        return Page();
+    }
+
+    private async Task OpenAddPanelAsync(CancellationToken cancellationToken)
+    {
+        // A species that does not exist yet has no "valid parents" endpoint to call, and no
+        // descendants to exclude, so every active species is a legal choice.
+        var species = await speciesApiService.GetAllSpeciesAsync(cancellationToken);
+
+        ParentChoices =
+        [
+            .. species
+                .Where(item => item.IsActive)
+                .OrderBy(item => item.Description, StringComparer.OrdinalIgnoreCase)
+                .Select(item => new SpeciesValidParentDto { Id = item.Id, Name = item.Description })
+        ];
+
+        ShowAddPanel = true;
+    }
+
+    private void ValidateAddInput()
+    {
+        if (string.IsNullOrWhiteSpace(AddInput.Name))
+        {
+            ModelState.AddModelError("AddInput.Name", "You need to provide a new name for this species");
+        }
+        else if (AddInput.Name.Trim().Length > NameMaxLength)
+        {
+            ModelState.AddModelError("AddInput.Name", $"The new species name must be no longer than {NameMaxLength} characters");
+        }
+
+        // Guid.Empty is the deliberate "- root species -" choice, so only an absent value fails.
+        if (AddInput.ParentId is null)
+        {
+            ModelState.AddModelError("AddInput.ParentId", "You must select a new parent for the species");
+        }
+
+        if (string.IsNullOrWhiteSpace(AddInput.Reason))
+        {
+            ModelState.AddModelError("AddInput.Reason", "You need to provide a reason for this change");
+        }
+        else if (AddInput.Reason.Trim().Length > ReasonMaxLength)
+        {
+            ModelState.AddModelError("AddInput.Reason", $"The reason for change must be no longer than {ReasonMaxLength} characters");
+        }
+    }
+
     private async Task OpenEditPanelAsync(SpeciesDetailDto detail, CancellationToken cancellationToken)
     {
         SpeciesDetail = detail;
@@ -208,18 +348,18 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         {
             ModelState.AddModelError("Input.Name", "You need to provide a new name for this species.");
         }
-        else if (Input.Name.Trim().Length > 50)
+        else if (Input.Name.Trim().Length > NameMaxLength)
         {
-            ModelState.AddModelError("Input.Name", "The name must be no longer than 50 characters.");
+            ModelState.AddModelError("Input.Name", $"The name must be no longer than {NameMaxLength} characters.");
         }
 
         if (string.IsNullOrWhiteSpace(Input.Reason))
         {
             ModelState.AddModelError("Input.Reason", "You need to provide a reason for this change.");
         }
-        else if (Input.Reason.Trim().Length > 255)
+        else if (Input.Reason.Trim().Length > ReasonMaxLength)
         {
-            ModelState.AddModelError("Input.Reason", "The reason for change must be no longer than 255 characters.");
+            ModelState.AddModelError("Input.Reason", $"The reason for change must be no longer than {ReasonMaxLength} characters.");
         }
     }
 
@@ -269,5 +409,11 @@ internal static partial class MaintainLog
 
     [LoggerMessage(EventId = 2102, Level = LogLevel.Information, Message = "Saved name/parent change for species {SpeciesId}")]
     public static partial void Saved(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 2103, Level = LogLevel.Warning, Message = "Failed to add a new species: {Outcome}")]
+    public static partial void AddFailed(this ILogger logger, SpeciesUpdateOutcome outcome);
+
+    [LoggerMessage(EventId = 2104, Level = LogLevel.Information, Message = "Added species {SpeciesId} to the hierarchy")]
+    public static partial void Added(this ILogger logger, Guid speciesId);
 }
 

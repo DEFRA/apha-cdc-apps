@@ -587,6 +587,78 @@ public class SpeciesRepositoryTests : IDisposable
         VerifyErrorLogged();
     }
 
+    [Fact]
+    public async Task AddSpeciesAsync_ExecutesInsertProcedureAndReturnsTheNewIdentifier()
+    {
+        connection.Script(SpeciesStoredProcedures.InsertSpecies, new FakeCommandScript());
+
+        var command = SpeciesTestData.AddSpeciesCommand();
+
+        var speciesId = await CreateRepository().AddSpeciesAsync(command, CancellationToken.None);
+
+        speciesId.Should().NotBeEmpty();
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(SpeciesStoredProcedures.InsertSpecies);
+        executed.Parameters.Should().ContainKey("SpeciesId").WhoseValue.Should().Be(speciesId);
+        executed.Parameters.Should().ContainKey("Name").WhoseValue.Should().Be("Jersey");
+        executed.Parameters.Should().ContainKey("ParentId").WhoseValue.Should().Be(SpeciesTestData.SectionId);
+        executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(command.UserId);
+        // spiSpecies allocates the sequence number itself and takes no row version.
+        executed.Parameters.Should().NotContainKey("LastUpdated");
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_SendsNullParentId_ForARootSpecies()
+    {
+        connection.Script(SpeciesStoredProcedures.InsertSpecies, new FakeCommandScript());
+
+        var command = SpeciesTestData.AddSpeciesCommand() with { ParentId = Guid.Empty };
+
+        await CreateRepository().AddSpeciesAsync(command, CancellationToken.None);
+
+        connection.Executed.Should().ContainSingle()
+            .Which.Parameters.Should().ContainKey("ParentId").WhoseValue.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_RejectsNullCommand()
+    {
+        var act = async () => await CreateRepository().AddSpeciesAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_ThrowsDuplicateName_WhenTheNameIsAlreadyInUse()
+    {
+        connection.Script(SpeciesStoredProcedures.InsertSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Save failed: there is already a species with this name")
+        });
+
+        var act = async () => await CreateRepository()
+            .AddSpeciesAsync(SpeciesTestData.AddSpeciesCommand(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<DuplicateSpeciesNameException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task AddSpeciesAsync_Rethrows_WhenAnotherDatabaseErrorOccurs()
+    {
+        connection.Script(SpeciesStoredProcedures.InsertSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Deadlock victim")
+        });
+
+        var act = async () => await CreateRepository()
+            .AddSpeciesAsync(SpeciesTestData.AddSpeciesCommand(), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<FakeDbException>()).WithMessage("Deadlock victim");
+        VerifyErrorLogged();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

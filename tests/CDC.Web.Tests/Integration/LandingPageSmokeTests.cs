@@ -17,6 +17,7 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
 
     public LandingPageSmokeTests(CdcWebTestFactory factory)
     {
+        WebTestEnvironment.EnsureConfigured();
         _factory = factory;
     }
 
@@ -131,7 +132,7 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/SurveillanceProfiles/CloneNewScenario/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/AllowPublicAccess/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/CreateNewDraftVersion/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
-    [InlineData("/SurveillanceProfiles/MaintainContributorsAndReviewers/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/MaintainContributors/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/EditProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/ManageProfile/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/EditProfileTitle/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
@@ -169,7 +170,7 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/SurveillanceProfiles/CloneNewScenario/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/AllowPublicAccess/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/CreateNewDraftVersion/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
-    [InlineData("/SurveillanceProfiles/MaintainContributorsAndReviewers/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/MaintainContributors/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/EditProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/ManageProfile/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/EditProfileTitle/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
