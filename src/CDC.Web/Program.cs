@@ -4,6 +4,7 @@ using CDC.Common.Health;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,8 +55,6 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
-builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
-
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -69,7 +68,43 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IStaticReportsApiService, StaticReportsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+// Reference data is served from an in-process store until the reference data endpoints exist on
+// CDC.Api; swap this registration for a typed HttpClient when they do.
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IReferenceDataService, InMemoryReferenceDataService>();
+// In-memory pending a CDC.Api endpoint for cross-cutting issue scores; singleton so edits
+// persist across requests for the lifetime of the process.
+builder.Services.AddSingleton<ICrossCuttingIssueScoreService, InMemoryCrossCuttingIssueScoreService>();
+
+// Holds uncommitted cross-cutting issue score edits until the user selects Update.
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+});
+
+builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
@@ -105,6 +140,8 @@ app.UseSerilogRequestLogging();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseSession();
 
 app.MapHealthEndpoints();
 

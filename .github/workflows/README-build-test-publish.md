@@ -279,7 +279,8 @@ Correct:
 release:api:minor
 ```
 Label exists for an unchanged component
-Remove the label belonging to the component that did not change.
+The workflow logs a warning and ignores the unchanged component label.
+Removing it is still recommended to keep release intent clear.
 Generic release label used
 Replace `release:patch`, `release:minor` or `release:major` with the appropriate
 component-specific label.

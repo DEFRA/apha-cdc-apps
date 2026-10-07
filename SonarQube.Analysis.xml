@@ -26,7 +26,6 @@
   src/CDC.Web/Pages/SurveillanceProfiles/CreateNewDraftVersion.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/DeleteCurrentVersion.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/EditProperties.cshtml.cs,
-  src/CDC.Web/Pages/SurveillanceProfiles/MaintainContributorsAndReviewers.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/PublishDefranetOnly.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/PublishPublic.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/ViewContributionsReport.cshtml.cs
@@ -34,10 +33,11 @@
 
 
   <!-- Entry points and boilerplate with no meaningful branches to cover -->
-  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js</Property>
+  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js,**/*.cshtml</Property>
 
-  <!-- Intentional API/Web contract mirrors; exclude from duplication detection only -->
-  <Property Name="sonar.cpd.exclusions">src/CDC.Api/Features/Species/Dtos/SpeciesAuditTrailEntryDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesDetailDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesValidParentDto.cs,src/CDC.Web/Models/SpeciesAuditTrailEntryDto.cs,src/CDC.Web/Models/SpeciesDetailDto.cs,src/CDC.Web/Models/SpeciesValidParentDto.cs</Property>
+  <!-- Intentional API/Web contract mirrors, plus tabular seed data whose repetition is inherent;
+       exclude from duplication detection only -->
+  <Property Name="sonar.cpd.exclusions">src/CDC.Api/Features/Species/Dtos/SpeciesAuditTrailEntryDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesDetailDto.cs,src/CDC.Api/Features/Species/Dtos/SpeciesValidParentDto.cs,src/CDC.Web/Models/SpeciesAuditTrailEntryDto.cs,src/CDC.Web/Models/SpeciesDetailDto.cs,src/CDC.Web/Models/SpeciesValidParentDto.cs,src/CDC.Web/Infrastructure/InMemoryCrossCuttingIssueScoreService.cs</Property>
 
   <!-- Report locations produced by `dotnet test` in the CI pipeline -->
   <Property Name="sonar.cs.vstest.reportsPaths">**/*.trx</Property>

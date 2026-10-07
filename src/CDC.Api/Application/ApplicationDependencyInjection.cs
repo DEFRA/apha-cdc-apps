@@ -1,4 +1,6 @@
 using CDC.Api.Application.Behaviours;
+using CDC.Api.Features.ProfileContributors;
+using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileNotes;
@@ -15,8 +17,6 @@ using CDC.Api.Features.ReferenceData;
 using CDC.Api.Features.ReferenceData.Interfaces;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
-using CDC.Api.Features.StaticReports;
-using CDC.Api.Features.StaticReports.Interfaces;
 using FluentValidation;
 using MediatR;
 
@@ -45,11 +45,11 @@ public static class ApplicationDependencyInjection
         services.AddScoped<ISpeciesService, SpeciesService>();
         services.AddScoped<IProfileSearchService, ProfileSearchService>();
         services.AddScoped<IProfileManagementService, ProfileManagementService>();
+        services.AddScoped<IProfileContributorsService, ProfileContributorsService>();
         services.AddScoped<IProfileNoteService, ProfileNoteService>();
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();
         services.AddScoped<IProfileSectionService, ProfileSectionService>();
         services.AddScoped<IProfileReportService, ProfileReportService>();
-        services.AddScoped<IStaticReportService, StaticReportService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
 
         return services;
