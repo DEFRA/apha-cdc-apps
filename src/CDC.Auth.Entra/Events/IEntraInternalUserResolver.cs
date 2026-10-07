@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CDC.Common.Auth;
 
 namespace CDC.Auth.Entra.Events;
 
@@ -19,7 +20,7 @@ public interface IEntraInternalUserResolver
 }
 
 /// <summary>Outcome of <see cref="IEntraInternalUserResolver.ResolveAsync"/>.</summary>
-public sealed record EntraInternalUserResolution
+public sealed record EntraInternalUserResolution : IIdentityResolution
 {
     /// <summary>Gets a value indicating whether sign-in is permitted.</summary>
     public required bool IsAllowed { get; init; }

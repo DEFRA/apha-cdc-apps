@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\CDC.Common\CDC.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="CDC.Auth.Entra.Tests" />
   </ItemGroup>
 

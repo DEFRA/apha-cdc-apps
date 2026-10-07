@@ -1,7 +1,7 @@
 using System.Security.Claims;
+using CDC.Common.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace CDC.Auth.Entra.Events;
@@ -28,41 +28,15 @@ public sealed partial class EntraOpenIdConnectEvents : OpenIdConnectEvents
             return;
         }
 
-        // Resolved per-request rather than constructor-injected (this class is a singleton) - if
-        // the consuming app hasn't registered one (or RequestServices isn't set, as in some unit
-        // test contexts), sign-in proceeds exactly as before this hook existed.
-        var resolver = context.HttpContext.RequestServices?.GetService<IEntraInternalUserResolver>();
-        if (resolver is null)
-        {
-            return;
-        }
-
-        var resolution = await resolver.ResolveAsync(context.Principal, context.HttpContext.RequestAborted);
-        if (!resolution.IsAllowed)
-        {
-            // Runs before the OIDC handler ever signs the principal into the cookie scheme, so
-            // denying here means no local session is ever created for this sign-in attempt.
-            context.HandleResponse();
-            context.HttpContext.Response.Redirect(resolution.DenialRedirectPath ?? "/");
-            return;
-        }
-
-        foreach (var (claimType, claimValue) in resolution.Claims ?? new Dictionary<string, string>())
-        {
-            identity.AddClaim(new Claim(claimType, claimValue));
-        }
+        await OpenIdConnectEventHelpers.ResolveOrDenyAsync<IEntraInternalUserResolver, EntraInternalUserResolution>(
+            context,
+            identity,
+            (resolver, principal, cancellationToken) => resolver.ResolveAsync(principal, cancellationToken));
     }
 
     /// <inheritdoc />
-    public override Task RemoteFailure(RemoteFailureContext context)
-    {
-        // Never surface raw OIDC/Entra ID failure detail to the user - log it server-side only and
-        // show a generic error page.
-        LogAuthenticationFailed(context.Failure);
-        context.HandleResponse();
-        context.Response.Redirect("/Landing/Error");
-        return Task.CompletedTask;
-    }
+    public override Task RemoteFailure(RemoteFailureContext context) =>
+        OpenIdConnectEventHelpers.HandleRemoteFailureAsync(context, LogAuthenticationFailed);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Entra ID authentication failed")]
     private partial void LogAuthenticationFailed(Exception? exception);

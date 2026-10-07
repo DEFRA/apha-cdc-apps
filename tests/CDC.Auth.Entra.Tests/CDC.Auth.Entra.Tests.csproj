@@ -15,6 +15,10 @@
          semicolon) - coverlet's glob-list parser silently stops excluding anything once more than
          one semicolon-separated pattern is present. -->
     <ExcludeByFile>**/EntraAuthenticationExtensions.cs,**/Logging.g.cs</ExcludeByFile>
+    <!-- CDC.Common's Contracts/Correlation/Health code is unrelated to this project and already
+         measured by CDC.Api.Tests/CDC.Web.Tests - only its Auth/ helpers (exercised here via
+         EntraOpenIdConnectEvents) should count towards this project's own coverage threshold. -->
+    <Exclude>[CDC.Common]CDC.Common.Contracts.*,[CDC.Common]CDC.Common.Correlation.*,[CDC.Common]CDC.Common.Health.*</Exclude>
   </PropertyGroup>
 
   <ItemGroup>

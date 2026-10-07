@@ -16,6 +16,8 @@
   <ItemGroup>
     <!-- Serilog.Context (LogContext) lives in the base package; no need for Serilog.AspNetCore here. -->
     <PackageReference Include="Serilog" Version="4.3.0" />
+    <!-- Needed for OpenIdConnectEvents context types used by Auth/OpenIdConnectEventHelpers.cs. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.11" />
   </ItemGroup>
 
 </Project>
