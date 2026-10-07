@@ -14,8 +14,6 @@ namespace CDC.Web.Tests.Integration;
 // data (including a second page, so the pagination nav itself renders) to exercise the whole view.
 public partial class MaintainContributorsIntegrationTests
 {
-    static MaintainContributorsIntegrationTests() => WebTestEnvironment.EnsureConfigured();
-
     [Fact]
     public async Task MaintainContributors_RendersTheTableManageProfileLinkAndPagination_WhenContributorsExist()
     {

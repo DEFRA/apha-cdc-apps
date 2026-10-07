@@ -55,6 +55,8 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
+builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
+
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -63,24 +65,6 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
-{
-    client.BaseAddress = apiBaseUri;
-})
-    .AddStandardResilienceHandler();
-
-builder.Services.AddHttpClient<IStaticReportsApiService, StaticReportsApiService>(client =>
-{
-    client.BaseAddress = apiBaseUri;
-})
-    .AddStandardResilienceHandler();
-
-builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
-{
-    client.BaseAddress = apiBaseUri;
-})
-    .AddStandardResilienceHandler();
-
-builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
@@ -103,6 +87,17 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.IdleTimeout = TimeSpan.FromMinutes(30);
 });
+builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {
