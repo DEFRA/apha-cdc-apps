@@ -99,6 +99,12 @@ builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiSer
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
