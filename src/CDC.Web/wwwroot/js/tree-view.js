@@ -35,6 +35,7 @@
 
             this.$root = $root;
             this.idPrefix = $root.id || 'item';
+            this.multiple = $root.dataset.appTreeMultiple === TRUE;
 
             const $form = $root.closest('form');
             this.$status = $form ? $form.querySelector('.app-tree__status') : null;
@@ -80,6 +81,31 @@
             return group ? Array.from(group.children).filter((element) => element.matches(ITEM)) : [];
         }
 
+        ancestors(item) {
+            const result = [];
+            let current = this.parent(item);
+
+            while (current) {
+                result.push(current);
+                current = this.parent(current);
+            }
+
+            return result;
+        }
+
+        descendants(item) {
+            const result = [];
+            const stack = [...this.children(item)];
+
+            while (stack.length > 0) {
+                const current = stack.pop();
+                result.push(current);
+                stack.push(...this.children(current));
+            }
+
+            return result;
+        }
+
         siblings(item) {
             return Array.from(item.parentElement.children).filter((element) => element.matches(ITEM));
         }
@@ -110,7 +136,10 @@
             const row = item.querySelector(ROW);
             const group = this.group(item);
 
-            row.style.setProperty('--app-tree-depth', this.depth(item));
+            // Set on the <li>, not just its row, so the guide-line connectors drawn on the
+            // <li> itself (see site.css) can read the same depth without relying on inheritance
+            // from a sibling element.
+            item.style.setProperty('--app-tree-depth', this.depth(item));
 
             if (group) {
                 row.insertBefore(this.createToggle(item, group, index), row.firstElementChild);
@@ -218,9 +247,33 @@
         onChange(event) {
             const input = event.target;
 
-            if (input instanceof HTMLInputElement && (input.type === 'radio' || input.type === 'checkbox')) {
-                this.updateSelectedStatus();
+            if (!(input instanceof HTMLInputElement) || (input.type !== 'radio' && input.type !== 'checkbox')) {
+                return;
             }
+
+            if (this.multiple && input.checked) {
+                this.enforceHierarchyExclusivity(input.closest(ITEM));
+            }
+
+            this.updateSelectedStatus();
+        }
+
+        // Multi-select trees only (Model.AllowMultipleSelection): checking a node means "this
+        // whole branch", which would be redundant/contradictory alongside an ancestor (the
+        // broader group it belongs to) or a descendant (a more specific part of it) also being
+        // checked, so both are cleared.
+        enforceHierarchyExclusivity(item) {
+            if (!item) {
+                return;
+            }
+
+            [...this.ancestors(item), ...this.descendants(item)].forEach((relative) => {
+                const input = this.radio(relative);
+
+                if (input) {
+                    input.checked = false;
+                }
+            });
         }
 
         // When the tree defines an empty-selection label (data-app-tree-empty-label), the status
