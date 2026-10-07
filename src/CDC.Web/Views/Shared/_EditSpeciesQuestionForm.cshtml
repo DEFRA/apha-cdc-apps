@@ -1,0 +1,90 @@
+@model CDC.Web.Pages.EditSpeciesModel
+@if (Model.EditableQuestions.Count == 0)
+{
+    <p class="govuk-body">No sub-sections are available for this section.</p>
+}
+else
+{
+    <form method="post" asp-page-handler="Save" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key" asp-route-edit="true">
+        <input type="hidden" name="LastUpdatedBase64" value="@Convert.ToBase64String(Model.AnswerDataLastUpdated)" />
+
+        @foreach (var question in Model.EditableQuestions)
+        {
+            var anchor = question.Number.Replace(".", "-");
+            <div class="govuk-form-group" id="question-@anchor">
+                <h3 class="govuk-heading-s">@question.Number @question.Text</h3>
+
+                @foreach (var field in question.Fields)
+                {
+                    var fieldName = $"field_{field.FieldId}";
+
+                    if (string.Equals(field.DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <fieldset class="govuk-fieldset">
+                            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
+                            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                                {
+                                    var option = field.Options[optionIndex];
+                                    var optionId = $"{fieldName}-{optionIndex}";
+                                    <div class="govuk-checkboxes__item">
+                                        <input class="govuk-checkboxes__input" id="@optionId" name="@fieldName" type="checkbox" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
+                                        <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                                    </div>
+                                }
+                            </div>
+                        </fieldset>
+                    }
+                    else if (string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <fieldset class="govuk-fieldset">
+                            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
+                            <div class="govuk-radios govuk-radios--small" data-module="govuk-radios">
+                                @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                                {
+                                    var option = field.Options[optionIndex];
+                                    var optionId = $"{fieldName}-{optionIndex}";
+                                    <div class="govuk-radios__item">
+                                        <input class="govuk-radios__input" id="@optionId" name="@fieldName" type="radio" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
+                                        <label class="govuk-label govuk-radios__label" for="@optionId">@option.Text</label>
+                                    </div>
+                                }
+                            </div>
+                        </fieldset>
+                    }
+                    else if (string.Equals(field.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <fieldset class="govuk-fieldset">
+                            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
+                            <div class="govuk-radios govuk-radios--inline govuk-radios--small" data-module="govuk-radios">
+                                <div class="govuk-radios__item">
+                                    <input class="govuk-radios__input" id="@(fieldName)-yes" name="@fieldName" type="radio" value="true" checked="@(field.BooleanValue == true ? "checked" : null)" />
+                                    <label class="govuk-label govuk-radios__label" for="@(fieldName)-yes">Yes</label>
+                                </div>
+                                <div class="govuk-radios__item">
+                                    <input class="govuk-radios__input" id="@(fieldName)-no" name="@fieldName" type="radio" value="false" checked="@(field.BooleanValue == false ? "checked" : null)" />
+                                    <label class="govuk-label govuk-radios__label" for="@(fieldName)-no">No</label>
+                                </div>
+                            </div>
+                        </fieldset>
+                    }
+                    else
+                    {
+                        <div class="govuk-form-group">
+                            <label class="govuk-label" for="@fieldName">@field.Label</label>
+                            <textarea class="govuk-textarea" id="@fieldName" name="@fieldName" rows="3">@field.TextValue</textarea>
+                        </div>
+                    }
+                }
+            </div>
+        }
+
+        <div class="govuk-button-group">
+            <button type="submit" class="govuk-button" data-module="govuk-button">Save</button>
+            <a asp-page="/EditSpecies" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key"
+                class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                View data
+            </a>
+        </div>
+    </form>
+}

@@ -380,6 +380,115 @@ public partial class SpeciesDataIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task EditSpecies_RendersEditForm_WithTitleAndAllSixCategories_WhenEditModeIsRequested()
+    {
+        var answerData = new SpeciesAnswerDataDto
+        {
+            SpeciesId = DairyId,
+            SpeciesName = "Dairy cattle",
+            LastUpdated = [0, 0, 0, 0, 0, 0, 0, 1],
+            Sections = []
+        };
+
+        using var factory = CreateFactory(new FakeSpeciesApiService(
+            Species,
+            speciesMetadata: new SpeciesMetadataDto(),
+            speciesAnswerData: answerData));
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/EditSpecies/{DairyId}?edit=true");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Edit species data - dairy cattle", body);
+        Assert.Contains("Animal identification", body);
+        Assert.Contains("Movements", body);
+        Assert.Contains("Animal locations and number", body);
+        Assert.Contains("Bio-security", body);
+        Assert.Contains("Surveillance", body);
+        Assert.Contains("International trade", body);
+    }
+
+    [Fact]
+    public async Task EditSpecies_SavesAnswerData_AndShowsSuccessBanner()
+    {
+        var sectionId = Guid.NewGuid();
+        var questionId = Guid.NewGuid();
+        var booleanFieldId = Guid.NewGuid();
+
+        var metadata = new SpeciesMetadataDto
+        {
+            Sections =
+            [
+                new SpeciesSectionMetadataDto
+                {
+                    Id = sectionId,
+                    // Must match the first entry in EditSpeciesSectionCatalog, the page's default.
+                    Name = "Animal identification",
+                    ShortName = "Ident",
+                    SectionNumber = 1,
+                    Questions =
+                    [
+                        new SpeciesQuestionMetadataDto
+                        {
+                            Id = questionId,
+                            SectionId = sectionId,
+                            Name = "Can individual animals be identified?",
+                            ShortName = "Identifiable",
+                            QuestionNumber = 1,
+                            Fields =
+                            [
+                                new SpeciesFieldMetadataDto
+                                {
+                                    Id = booleanFieldId,
+                                    QuestionId = questionId,
+                                    Name = "Is it possible?",
+                                    FieldNumber = 1,
+                                    DataTypeName = "Boolean"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var answerData = new SpeciesAnswerDataDto
+        {
+            SpeciesId = DairyId,
+            SpeciesName = "Dairy cattle",
+            LastUpdated = [0, 0, 0, 0, 0, 0, 0, 1],
+            Sections = []
+        };
+
+        var fakeService = new FakeSpeciesApiService(Species, speciesMetadata: metadata, speciesAnswerData: answerData);
+        using var factory = CreateFactory(fakeService);
+        var client = factory.CreateClient();
+
+        var getResponse = await client.GetAsync($"/EditSpecies/{DairyId}?edit=true");
+        var page = await getResponse.Content.ReadAsStringAsync();
+        var token = AntiforgeryTokenRegex().Match(page).Groups[1].Value;
+
+        Assert.False(string.IsNullOrEmpty(token));
+
+        var form = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["LastUpdatedBase64"] = Convert.ToBase64String(answerData.LastUpdated),
+            [$"field_{booleanFieldId}"] = "true"
+        };
+
+        var response = await client.PostAsync($"/EditSpecies/{DairyId}?handler=Save&edit=true", new FormUrlEncodedContent(form));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("The species data was updated.", body);
+        Assert.NotNull(fakeService.LastUpdateAnswerDataRequest);
+        Assert.Equal(DairyId, fakeService.LastUpdateAnswerDataRequest!.SpeciesId);
+        Assert.Single(fakeService.LastUpdateAnswerDataRequest.Changes);
+        Assert.Equal(true, fakeService.LastUpdateAnswerDataRequest.Changes[0].BooleanValue);
+    }
+
     // Razor Pages validates an antiforgery token on every POST, so the form has to be round-tripped.
     private static async Task<string> PostAsync(HttpClient client, string handler, IDictionary<string, string> fields)
     {

@@ -154,7 +154,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
             return Page();
         }
 
-        return RedirectToPage("/EditSpecies", new { SpeciesId = SelectedSpeciesId.Value });
+        return RedirectToPage("/EditSpecies", new { SpeciesId = SelectedSpeciesId.Value, edit = true });
     }
 
     /// <summary>Validates that a delete action only runs when a species is selected.</summary>

@@ -16,7 +16,8 @@ internal sealed class FakeSpeciesApiService(
     SpeciesAnswerDataDto? speciesAnswerData = null,
     Exception? throwOnGetSpeciesAnswerData = null,
     IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
-    AddSpeciesResult? addResult = null)
+    AddSpeciesResult? addResult = null,
+    UpdateSpeciesAnswerDataResult? updateAnswerDataResult = null)
     : ISpeciesApiService
 {
     private readonly IReadOnlyList<SpeciesDto> _species = species ?? [];
@@ -66,4 +67,15 @@ internal sealed class FakeSpeciesApiService(
             referenceValuesByTable is not null && referenceValuesByTable.TryGetValue(referenceTableId, out var values)
                 ? values
                 : []);
+
+    public UpdateSpeciesAnswerDataRequestDto? LastUpdateAnswerDataRequest { get; private set; }
+
+    public Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
+        UpdateSpeciesAnswerDataRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        LastUpdateAnswerDataRequest = request;
+
+        return Task.FromResult(updateAnswerDataResult ?? new UpdateSpeciesAnswerDataResult { Outcome = SpeciesUpdateOutcome.Success });
+    }
 }

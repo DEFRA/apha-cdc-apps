@@ -60,4 +60,12 @@ public interface ISpeciesApiService
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The reference values; an empty list when the table has none.</returns>
     Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/species/answers</c> to save question responses for one species.</summary>
+    /// <param name="request">The changes to apply.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the call.</returns>
+    Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
+        UpdateSpeciesAnswerDataRequestDto request,
+        CancellationToken cancellationToken = default);
 }

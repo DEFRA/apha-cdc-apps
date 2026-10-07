@@ -158,4 +158,38 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
 
         return values ?? [];
     }
+
+    /// <inheritdoc />
+    public async Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
+        UpdateSpeciesAnswerDataRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync("/api/species/answers", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var updated = await response.Content.ReadFromJsonAsync<UpdateSpeciesAnswerDataResultDto>(cancellationToken);
+
+            return new UpdateSpeciesAnswerDataResult { Outcome = SpeciesUpdateOutcome.Success, LastUpdated = updated?.LastUpdated };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new UpdateSpeciesAnswerDataResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+            },
+            HttpStatusCode.BadRequest => new UpdateSpeciesAnswerDataResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "The submitted answers were not valid."
+            },
+            _ => new UpdateSpeciesAnswerDataResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "We could not save this change. Try again later."
+            }
+        };
+    }
 }

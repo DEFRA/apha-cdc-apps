@@ -2,7 +2,8 @@
 @model CDC.Web.Pages.EditSpeciesModel
 @{
     var speciesLabel = Model.SpeciesName?.ToLowerInvariant();
-    ViewData["Title"] = speciesLabel is null ? "View species data" : $"View species data - {speciesLabel}";
+    var pageHeading = Model.Edit ? "Edit species data" : "View species data";
+    ViewData["Title"] = speciesLabel is null ? pageHeading : $"{pageHeading} - {speciesLabel}";
 
     var subnavModel = new SectionSubnavViewModel(
         "Species data sections",
@@ -53,7 +54,31 @@
 }
 else
 {
-    <h1 class="govuk-heading-l">View species data - @speciesLabel</h1>
+    <h1 class="govuk-heading-l">@pageHeading - @speciesLabel</h1>
+
+    @if (Model.SuccessMessage is not null)
+    {
+        <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="species-data-success-title" data-module="govuk-notification-banner">
+            <div class="govuk-notification-banner__header">
+                <h2 class="govuk-notification-banner__title" id="species-data-success-title">Success</h2>
+            </div>
+            <div class="govuk-notification-banner__content">
+                <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+            </div>
+        </div>
+    }
+
+    @if (Model.SaveErrorMessage is not null)
+    {
+        <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="species-data-save-error-title">
+            <div role="alert">
+                <h2 class="govuk-error-summary__title" id="species-data-save-error-title">There is a problem</h2>
+                <div class="govuk-error-summary__body">
+                    <p class="govuk-body">@Model.SaveErrorMessage</p>
+                </div>
+            </div>
+        </div>
+    }
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-one-quarter">
@@ -65,7 +90,14 @@ else
             </div>
 
             <div class="app-species-panel">
-                <partial name="_QuestionAccordion" model="accordionModel" />
+                @if (Model.Edit)
+                {
+                    <partial name="_EditSpeciesQuestionForm" model="Model" />
+                }
+                else
+                {
+                    <partial name="_QuestionAccordion" model="accordionModel" />
+                }
             </div>
 
             <partial name="_SectionPagination" model="paginationModel" />
