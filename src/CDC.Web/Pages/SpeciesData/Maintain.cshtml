@@ -64,6 +64,12 @@ else
                 </div>
 
                 <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+
+                <div class="app-tree__actions">
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
+                        Remove selection
+                    </button>
+                </div>
             </fieldset>
         </div>
 
@@ -81,6 +87,18 @@ else
             <button type="submit" asp-page-handler="EditNameParent" class="govuk-button govuk-button--secondary" data-module="govuk-button">
                 Edit name/parent
             </button>
+            <button type="submit" asp-page-handler="EditData" class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                Edit data
+            </button>
+            <button type="submit" asp-page-handler="Delete" class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                Delete
+            </button>
+            <button type="submit" asp-page-handler="Inactivate" class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                Inactivate
+            </button>
+            <button type="submit" asp-page-handler="ReorderList" class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                Reorder list
+            </button>
             @* A GET submit button loses its formaction query string (the browser replaces it
                with the serialised form fields), so this is a plain link instead. It has a real
                href and behaves like ordinary navigation, so no button role or JS is needed. *@
@@ -91,6 +109,8 @@ else
         </div>
     </form>
 }
+
+<script src="~/js/tree-view.js" asp-append-version="true"></script>
 
 @if (Model.ShowAddPanel)
 {

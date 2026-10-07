@@ -137,6 +137,86 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         return Page();
     }
 
+    /// <summary>Routes a selected species to the data editor for the legacy Maintain Species Data flow.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostEditDataAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to edit.";
+            return Page();
+        }
+
+        return RedirectToPage("/EditSpecies", new { SpeciesId = SelectedSpeciesId.Value });
+    }
+
+    /// <summary>Validates that a delete action only runs when a species is selected.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostDeleteAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to edit.";
+            return Page();
+        }
+
+        return Page();
+    }
+
+    /// <summary>Validates that the inactivate action only runs when a species is selected.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostInactivateAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to edit.";
+            return Page();
+        }
+
+        return Page();
+    }
+
+    /// <summary>Validates that the reorder-list action only runs when a species is selected.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostReorderListAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to edit.";
+            return Page();
+        }
+
+        return Page();
+    }
+
     /// <summary>Validates and applies a name/parent change.</summary>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
     public async Task<IActionResult> OnPostSaveAsync(CancellationToken cancellationToken)

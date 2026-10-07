@@ -79,6 +79,52 @@ public partial class SpeciesDataIntegrationTests
     }
 
     [Fact]
+    public async Task Maintain_RendersLegacyTreeControls_AndSelectionRemovalAction()
+    {
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species));
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/SpeciesData/Maintain");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("app-tree__toggle-all", body);
+        Assert.Contains("Open all", body);
+        Assert.Contains("Remove selection", body);
+        Assert.Contains("app-tree__status", body);
+    }
+
+    [Fact]
+    public async Task Maintain_RendersEveryLegacyActionButton()
+    {
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species));
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/SpeciesData/Maintain");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Add", body);
+        Assert.Contains("Edit name/parent", body);
+        Assert.Contains("Edit data", body);
+        Assert.Contains("Delete", body);
+        Assert.Contains("Inactivate", body);
+        Assert.Contains("Reorder list", body);
+        Assert.Contains("View audit trail", body);
+    }
+
+    [Fact]
+    public async Task Maintain_RequiresASelection_ForActionsThatNeedOne()
+    {
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species));
+        var client = factory.CreateClient();
+
+        var body = await PostAsync(client, "EditData", new Dictionary<string, string>());
+
+        Assert.Contains("Select a species or species group to edit.", body);
+    }
+
+    [Fact]
     public async Task ViewSpeciesData_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
