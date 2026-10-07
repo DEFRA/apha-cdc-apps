@@ -1,6 +1,5 @@
 using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.PrioritisationVariables.Interfaces;
-using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileNotes.Interfaces;
 using CDC.Api.Features.ProfileQuestions.Interfaces;
