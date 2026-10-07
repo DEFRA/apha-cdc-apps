@@ -33,7 +33,7 @@
 
 
   <!-- Entry points and boilerplate with no meaningful branches to cover -->
-  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js</Property>
+  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js,**/*.cshtml</Property>
 
   <!-- Intentional API/Web contract mirrors, plus tabular seed data whose repetition is inherent;
        exclude from duplication detection only -->

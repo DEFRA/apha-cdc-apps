@@ -1,0 +1,42 @@
+@page
+@model CDC.Web.Pages.CrossProfileAdmin.ReferenceDataAuditDetailsModel
+@{
+    ViewData["Title"] = "Change details";
+}
+@section Breadcrumbs {
+    <a class="govuk-back-link" asp-page="/CrossProfileAdmin/ReferenceDataAudit" asp-route-tableId="@Model.Entry?.ReferenceTableId">Back to audit trail</a>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <span class="govuk-caption-l">@Model.Entry?.TableName</span>
+        <h1 class="govuk-heading-l">Change details</h1>
+
+        <dl class="govuk-summary-list">
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Old value</dt>
+                <dd class="govuk-summary-list__value">@Model.Entry?.OldLookupValue</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">New value</dt>
+                <dd class="govuk-summary-list__value">@Model.Entry?.NewLookupValue</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Reason for change</dt>
+                <dd class="govuk-summary-list__value">@Model.Entry?.Reason</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Changed by</dt>
+                <dd class="govuk-summary-list__value">@Model.Entry?.UserFullName</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Date of change</dt>
+                <dd class="govuk-summary-list__value">@Model.Entry?.LogDate.UtcDateTime.ToString("d MMMM yyyy, HH:mm")</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Effective date</dt>
+                <dd class="govuk-summary-list__value">@Model.Entry?.EffectiveDate.UtcDateTime.ToString("d MMMM yyyy")</dd>
+            </div>
+        </dl>
+    </div>
+</div>
