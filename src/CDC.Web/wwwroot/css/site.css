@@ -131,6 +131,41 @@ html {
   min-width: 12rem;
 }
 
+/* Maintain contributors has only the "Items per page" control (no sort-by), so unlike
+   .app-results-toolbar - whose space-between layout relies on a second item to space away from -
+   it is pushed to the right explicitly. */
+.app-contributors-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-contributors-toolbar .govuk-select {
+  min-width: 12rem;
+}
+
+/* Edit profile contributor panel (see MaintainContributors.cshtml). */
+.app-contributor-edit {
+  width: 100%;
+}
+
+/* Section permission checkboxes in 3 columns, matching the legacy panel's layout. */
+.app-contributor-permissions {
+  column-count: 3;
+  column-gap: 2rem;
+}
+
+.app-contributor-permissions__item {
+  break-inside: avoid;
+}
+
+/* OK/Cancel aligned to the bottom-right of the panel, matching the legacy panel. */
+.app-contributor-edit__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
 .app-profile-card {
   padding: 1rem 1.5rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
@@ -322,18 +357,39 @@ body {
   background-color: #f3f2f1;
 }
 
-.app-tree__group .app-tree__row {
+/* Classic treeview connectors: each item draws a vertical dotted line up to its parent's
+   column, running the item's full height so it keeps connecting to its next sibling below
+   (and carries on behind that sibling's own expanded subtree) - plus a short horizontal tick
+   across to its own toggle/spacer. Attached to the <li> rather than its row, so ancestor
+   columns stack automatically through any depth of nesting instead of needing one rule per
+   level. 16px is half the 32px toggle, aligning the line/tick with the toggle's centre. */
+.app-tree__group > .app-tree__item {
   position: relative;
 }
 
-/* Vertical guide line linking nested rows to their parent. 16px is half the 32px toggle. */
-.app-tree__group .app-tree__row::before {
+.app-tree__group > .app-tree__item::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
-  border-left: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-left: 1px dotted var(--govuk-border-colour, #b1b4b6);
+}
+
+/* The last child has no further sibling to connect to, so its line stops at its own row,
+   forming an "L" corner instead of a "T" junction. */
+.app-tree__group > .app-tree__item:last-child::before {
+  bottom: auto;
+  height: 16px;
+}
+
+.app-tree__group > .app-tree__item::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: calc((var(--app-tree-depth, 1) - 1) * 30px + 16px);
+  width: 14px;
+  border-top: 1px dotted var(--govuk-border-colour, #b1b4b6);
 }
 
 /* Icon button: 32x32, above the 24px minimum touch target. */
@@ -401,20 +457,71 @@ body {
   height: 32px;
 }
 
+/* This tree is still single-select - one real <input type="radio"> per row, so assistive tech
+   still announces "radio button" and only one row can ever be checked - but the agreed visual
+   is a square box, not a circle, to read more like a checkbox. Rather than inventing a new shape,
+   this redraws GOV.UK's own checkbox geometry (.govuk-checkboxes__label::before/::after in
+   govuk-frontend-6.5.0.min.css: a square box plus a rotated-border tick) scaled down to this
+   row's 20px box, so colour, focus ring and spacing all still come from GOV.UK tokens. */
 .app-tree__radio .govuk-radios__label::before {
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+}
+
+.app-tree__radio .govuk-radios__label::after {
+  top: 12px;
+  left: 11px;
+  width: 10px;
+  height: 5px;
+  border-width: 0 0 3px 3px;
+  border-top-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  transform: rotate(-45deg);
+}
+
+.app-tree__radio .govuk-radios__input:focus + .govuk-radios__label::before {
+  border-width: 2px;
+}
+
+.app-tree__radio.govuk-checkboxes__item {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.app-tree__radio .govuk-checkboxes__label {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+/* Matches the square radios above so single- and multi-select trees (e.g. Search's species
+   filter) share one row height. These are already real checkboxes, so only resizing down from
+   GOV.UK's native 44px input / 40px box / 23x12px tick is needed - no shape changes. */
+.app-tree__radio .govuk-checkboxes__input {
+  width: 32px;
+  height: 32px;
+}
+
+.app-tree__radio .govuk-checkboxes__label::before {
   top: 6px;
   left: 6px;
   width: 20px;
   height: 20px;
 }
 
-.app-tree__radio .govuk-radios__label::after {
-  top: 11px;
+.app-tree__radio .govuk-checkboxes__label::after {
+  top: 12px;
   left: 11px;
-  border-width: 5px;
+  width: 10px;
+  height: 5px;
+  border-width: 0 0 3px 3px;
 }
 
-.app-tree__radio .govuk-radios__input:focus + .govuk-radios__label::before {
+.app-tree__radio .govuk-checkboxes__input:focus + .govuk-checkboxes__label::before {
   border-width: 2px;
 }
 
@@ -872,4 +979,14 @@ body {
 .app-home__side-logo {
   max-width: 220px;
   height: auto;
+}
+
+/* Right-aligned actions, matching the legacy maintenance screens. Modifies the
+   Design System button group rather than restyling the buttons themselves. */
+.app-button-group--right {
+  justify-content: flex-end;
+}
+
+.app-button-group--right.govuk-button-group {
+  display: flex;
 }

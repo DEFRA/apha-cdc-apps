@@ -41,6 +41,70 @@ function buildTree() {
   return { tree, status, toggleAllButton, clearButton };
 }
 
+// Mirrors the Search page's species filter: a multi-select (checkbox) tree with one branch
+// (Poultry) and four leaves, used to verify ancestor/descendant exclusivity.
+function buildMultiSelectTree() {
+  document.body.innerHTML = `
+    <form>
+      <output class="app-tree__status" id="species-status" hidden></output>
+      <div class="app-tree" data-module="app-tree-view" data-app-tree-multiple="true" data-app-tree-name="species" data-app-tree-name-plural="species">
+        <li class="app-tree__item" data-app-tree-expanded="true">
+          <div class="app-tree__row">
+            <div class="govuk-checkboxes__item app-tree__radio">
+              <input class="govuk-checkboxes__input" id="species-poultry" name="species" type="checkbox" value="poultry">
+              <label class="govuk-label govuk-checkboxes__label" for="species-poultry">Poultry - domestic and commercial</label>
+            </div>
+          </div>
+          <ul class="app-tree__group">
+            <li class="app-tree__item">
+              <div class="app-tree__row">
+                <div class="govuk-checkboxes__item app-tree__radio">
+                  <input class="govuk-checkboxes__input" id="species-turkeys" name="species" type="checkbox" value="turkeys">
+                  <label class="govuk-label govuk-checkboxes__label" for="species-turkeys">Turkeys</label>
+                </div>
+              </div>
+            </li>
+            <li class="app-tree__item">
+              <div class="app-tree__row">
+                <div class="govuk-checkboxes__item app-tree__radio">
+                  <input class="govuk-checkboxes__input" id="species-chickens" name="species" type="checkbox" value="chickens">
+                  <label class="govuk-label govuk-checkboxes__label" for="species-chickens">Chickens</label>
+                </div>
+              </div>
+            </li>
+            <li class="app-tree__item">
+              <div class="app-tree__row">
+                <div class="govuk-checkboxes__item app-tree__radio">
+                  <input class="govuk-checkboxes__input" id="species-ducks" name="species" type="checkbox" value="ducks">
+                  <label class="govuk-label govuk-checkboxes__label" for="species-ducks">Ducks</label>
+                </div>
+              </div>
+            </li>
+            <li class="app-tree__item">
+              <div class="app-tree__row">
+                <div class="govuk-checkboxes__item app-tree__radio">
+                  <input class="govuk-checkboxes__input" id="species-geese" name="species" type="checkbox" value="geese">
+                  <label class="govuk-label govuk-checkboxes__label" for="species-geese">Geese</label>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </li>
+      </div>
+    </form>
+  `;
+
+  const tree = document.querySelector('[data-module="app-tree-view"]');
+
+  return { tree };
+}
+
+function check(input) {
+  input.checked = true;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+
 describe('tree-view', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -95,5 +159,68 @@ describe('tree-view', () => {
     childRadio.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
 
     expect(document.activeElement).toBe(parentRadio);
+  });
+
+  it('unchecks every descendant when a parent is checked (multi-select only)', () => {
+    const { tree } = buildMultiSelectTree();
+    new window.TreeView(tree);
+
+    const poultry = tree.querySelector('input[value="poultry"]');
+    const turkeys = tree.querySelector('input[value="turkeys"]');
+    const chickens = tree.querySelector('input[value="chickens"]');
+    check(turkeys);
+    check(chickens);
+
+    check(poultry);
+
+    expect(poultry.checked).toBe(true);
+    expect(turkeys.checked).toBe(false);
+    expect(chickens.checked).toBe(false);
+    expect(tree.querySelector('input[value="ducks"]').checked).toBe(false);
+    expect(tree.querySelector('input[value="geese"]').checked).toBe(false);
+  });
+
+  it('unchecks the parent when a child is checked (multi-select only)', () => {
+    const { tree } = buildMultiSelectTree();
+    new window.TreeView(tree);
+
+    const poultry = tree.querySelector('input[value="poultry"]');
+    const ducks = tree.querySelector('input[value="ducks"]');
+    check(poultry);
+
+    check(ducks);
+
+    expect(ducks.checked).toBe(true);
+    expect(poultry.checked).toBe(false);
+  });
+
+  it('leaves unrelated siblings checked when a child is checked (multi-select only)', () => {
+    const { tree } = buildMultiSelectTree();
+    new window.TreeView(tree);
+
+    const turkeys = tree.querySelector('input[value="turkeys"]');
+    const ducks = tree.querySelector('input[value="ducks"]');
+    check(turkeys);
+
+    check(ducks);
+
+    expect(turkeys.checked).toBe(true);
+    expect(ducks.checked).toBe(true);
+  });
+
+  it('does not cascade unchecking (single-select trees are unaffected)', () => {
+    const { tree } = buildTree();
+    new window.TreeView(tree);
+
+    const parentRadio = tree.querySelector('input[value="animals"]');
+    const childRadio = tree.querySelector('input[value="cattle"]');
+    check(parentRadio);
+
+    check(childRadio);
+
+    // Native radio "name" grouping - not the new hierarchy logic - is what clears parentRadio
+    // here, so this also confirms enforceHierarchyExclusivity is skipped for single-select.
+    expect(parentRadio.checked).toBe(false);
+    expect(childRadio.checked).toBe(true);
   });
 });

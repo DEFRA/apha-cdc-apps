@@ -29,7 +29,7 @@ public class StaticReportsModelTests
         return new StaticReportsModel(
             new FakeApiClient(staticReports: staticReports, throwOnGetCurrentStaticReports: throwOnGetCurrentStaticReports),
             Options.Create(new ApiOptions { BaseUrl = baseUrl ?? string.Empty }),
-            NullLogger<StaticReportsModel>.Instance)
+            new AlwaysEnabledLogger<StaticReportsModel>())
         {
             PageContext = new PageContext
             {

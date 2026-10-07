@@ -53,4 +53,13 @@ internal static partial class SpeciesLog
 
     [LoggerMessage(EventId = 1015, Level = LogLevel.Information, Message = "Retrieved {EntryCount} species audit trail entries")]
     public static partial void RetrievedSpeciesAuditTrail(this ILogger logger, int entryCount);
+
+    [LoggerMessage(EventId = 1016, Level = LogLevel.Information, Message = "Adding a new species to the hierarchy")]
+    public static partial void AddingSpecies(this ILogger logger);
+
+    [LoggerMessage(EventId = 1017, Level = LogLevel.Information, Message = "Added species {SpeciesId} to the hierarchy")]
+    public static partial void AddedSpecies(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1018, Level = LogLevel.Warning, Message = "Rejected a species name that is already in use")]
+    public static partial void DuplicateSpeciesName(this ILogger logger);
 }

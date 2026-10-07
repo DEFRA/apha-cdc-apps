@@ -31,7 +31,7 @@ public class ManageProfileModelTests
                 updateProfileStatusResult: updateProfileStatusResult,
                 createNewProfileVersionResult: createNewProfileVersionResult,
                 deleteProfileVersionResult: deleteProfileVersionResult),
-            NullLogger<ManageProfileModel>.Instance)
+            new AlwaysEnabledLogger<ManageProfileModel>())
         {
             ProfileId = ProfileId,
             PageContext = new PageContext

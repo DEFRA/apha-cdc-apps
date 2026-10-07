@@ -1,0 +1,422 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.MaintainContributorsModel
+@{
+    ViewData["Title"] = Model.ProfileTitle is not null ? $"Maintain contributors for {Model.ProfileTitle}" : "Maintain contributors";
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Maintain contributors
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.HasError)
+        {
+            <h1 class="govuk-heading-l">Maintain contributors</h1>
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">Unable to load contributors for this profile. Please try again.</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <h1 class="govuk-heading-l">Maintain contributors for<br />@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)</h1>
+            <p class="govuk-body">
+                <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@Model.ProfileId">Manage profile</a>
+            </p>
+
+            @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+            {
+                <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-contributor-saved-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="app-contributor-saved-title">Success</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.DeleteErrorMessage))
+            {
+                <div class="govuk-error-summary" data-module="govuk-error-summary">
+                    <div role="alert">
+                        <h2 class="govuk-error-summary__title">There is a problem</h2>
+                        <div class="govuk-error-summary__body">
+                            <p class="govuk-body">@Model.DeleteErrorMessage</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Model.Contributors.Count == 0)
+            {
+                <p class="govuk-body">This profile has no contributors.</p>
+            }
+            else
+            {
+                <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                    <div class="govuk-form-group govuk-!-margin-bottom-0">
+                        <label class="govuk-label" for="PageSize">Items per page:</label>
+                        <select class="govuk-select" id="PageSize" name="PageSize" form="contributors-page-size-form" onchange="this.form.requestSubmit()">
+                            @foreach (var option in CDC.Web.Pages.SurveillanceProfiles.MaintainContributorsModel.PageSizeOptions)
+                            {
+                                <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <form method="get" id="contributors-page-size-form">
+                    <input type="hidden" name="PageNumber" value="1" />
+                </form>
+
+                <table class="govuk-table">
+                    <caption class="govuk-table__caption govuk-visually-hidden">Contributors</caption>
+                    <thead class="govuk-table__head">
+                        <tr class="govuk-table__row">
+                            <th scope="col" class="govuk-table__header">Username</th>
+                            <th scope="col" class="govuk-table__header">Full name</th>
+                            <th scope="col" class="govuk-table__header">Organisation</th>
+                            <th scope="col" class="govuk-table__header">Role</th>
+                            <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
+                            <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
+                        </tr>
+                    </thead>
+                    <tbody class="govuk-table__body">
+                        @foreach (var contributor in Model.Contributors)
+                        {
+                            <tr class="govuk-table__row">
+                                <td class="govuk-table__cell">@contributor.UserName</td>
+                                <td class="govuk-table__cell">@contributor.FullName</td>
+                                <td class="govuk-table__cell">@contributor.Organisation</td>
+                                <td class="govuk-table__cell">@contributor.Role</td>
+                                <td class="govuk-table__cell">
+                                    <a class="govuk-link" href="@Model.BuildEditUrl(contributor.Id)">Edit<span class="govuk-visually-hidden"> contributor @contributor.FullName</span></a>
+                                </td>
+                                <td class="govuk-table__cell">
+                                    <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-contributor-@contributor.Id">Delete<span class="govuk-visually-hidden"> contributor @contributor.FullName</span></button>
+                                    <dialog class="app-modal" id="delete-contributor-@contributor.Id" aria-labelledby="delete-contributor-@(contributor.Id)-title">
+                                        <h2 class="govuk-heading-m" id="delete-contributor-@(contributor.Id)-title">Confirm</h2>
+                                        <p class="govuk-body">Are you sure you want to delete this contributor?</p>
+                                        <form method="post" asp-page-handler="DeleteContributor">
+                                            <input type="hidden" name="ContributorId" value="@contributor.Id" />
+                                            <input type="hidden" name="LastUpdated" value="@Convert.ToBase64String(contributor.LastUpdated)" />
+                                            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                            <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                            <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                        </form>
+                                    </dialog>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="app-pagination-center">
+                        <nav class="govuk-pagination" aria-label="Contributors pages">
+                            @if (Model.PageNumber > 1)
+                            {
+                                <div class="govuk-pagination__prev">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                                        <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                            <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                                        </svg>
+                                        <span class="govuk-pagination__link-title">Previous</span>
+                                    </a>
+                                </div>
+                            }
+
+                            <ul class="govuk-pagination__list">
+                                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                                {
+                                    <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                    </li>
+                                }
+                            </ul>
+
+                            @if (Model.PageNumber < Model.TotalPages)
+                            {
+                                <div class="govuk-pagination__next">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                                        <span class="govuk-pagination__link-title">Next</span>
+                                        <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                            <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                                        </svg>
+                                    </a>
+                                </div>
+                            }
+                        </nav>
+                    </div>
+                }
+            }
+
+            <a class="govuk-button" href="@Model.BuildAddUrl()">Add</a>
+
+            @if (Model.AddContributor)
+            {
+                <form method="post" asp-page-handler="LookupUser" class="app-contributor-edit govuk-!-margin-top-6">
+                    <input type="hidden" asp-for="PageNumber" />
+                    <input type="hidden" asp-for="PageSize" />
+                    <input type="hidden" asp-for="AddContributor" value="true" />
+
+                    <h2 class="govuk-heading-m">Add profile contributor</h2>
+
+                    @if (!string.IsNullOrEmpty(Model.LookupErrorMessage))
+                    {
+                        <div class="govuk-error-summary" data-module="govuk-error-summary">
+                            <div role="alert">
+                                <h3 class="govuk-error-summary__title">There is a problem</h3>
+                                <div class="govuk-error-summary__body">
+                                    <p class="govuk-body">@Model.LookupErrorMessage</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (Model.VerifiedUser is null)
+                    {
+                        <div class="govuk-form-group">
+                            <label class="govuk-label" asp-for="LookupUserName">Username</label>
+                            <input class="govuk-input govuk-input--width-20" asp-for="LookupUserName" maxlength="50" />
+                        </div>
+                        <button type="submit" class="govuk-button govuk-button--secondary">Look up</button>
+                        <a class="govuk-button govuk-button--secondary" href="@Model.BuildCloseEditUrl()">Cancel</a>
+                    }
+                </form>
+            }
+
+            @if (Model.AddContributor && Model.VerifiedUser is not null)
+            {
+                <form method="post" asp-page-handler="AddContributor" class="app-contributor-edit">
+                    <input type="hidden" asp-for="ContributorId" />
+                    <input type="hidden" asp-for="LookupUserName" />
+                    <input type="hidden" asp-for="IsSsoUser" />
+                    <input type="hidden" asp-for="IsNewUser" />
+                    <input type="hidden" asp-for="PageNumber" />
+                    <input type="hidden" asp-for="PageSize" />
+
+                    @if (Model.AddValidationErrors.Count > 0)
+                    {
+                        <div class="govuk-error-summary" data-module="govuk-error-summary">
+                            <div role="alert">
+                                <h3 class="govuk-error-summary__title">There is a problem</h3>
+                                <div class="govuk-error-summary__body">
+                                    <ul class="govuk-list govuk-error-summary__list">
+                                        @foreach (var error in Model.AddValidationErrors)
+                                        {
+                                            <li>@error</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(Model.LookupWarningMessage))
+                    {
+                        <div class="govuk-warning-text">
+                            <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+                            <strong class="govuk-warning-text__text">
+                                <span class="govuk-visually-hidden">Warning</span>
+                                @Model.LookupWarningMessage
+                            </strong>
+                        </div>
+                    }
+
+                    <div class="govuk-grid-row">
+                        <div class="govuk-grid-column-one-half">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" for="app-contributor-add-username">Username</label>
+                                <input class="govuk-input govuk-input--width-20" id="app-contributor-add-username" type="text" value="@Model.LookupUserName" readonly disabled aria-readonly="true" />
+                            </div>
+                        </div>
+                        <div class="govuk-grid-column-one-half">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" asp-for="RoleId">Role</label>
+                                <select class="govuk-select govuk-input--width-20" asp-for="RoleId" data-module="app-contributor-role" data-permissions-target="app-contributor-add-permissions">
+                                    <option value="" selected="@(Model.RoleId == Guid.Empty ? "selected" : null)">Please select...</option>
+                                    @foreach (var role in Model.ProfileUserRoles)
+                                    {
+                                        var isSelected = role.Id == Model.RoleId;
+                                        <option value="@role.Id" data-is-contributor="@role.IsContributor.ToString().ToLowerInvariant()" selected="@(isSelected ? "selected" : null)">@role.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" for="FullName">Full name</label>
+                                @if (Model.IsSsoUser)
+                                {
+                                    <input class="govuk-input govuk-input--width-20" id="FullName" type="text" value="@Model.FullName" readonly disabled aria-readonly="true" />
+                                    <input type="hidden" asp-for="FullName" />
+                                }
+                                else
+                                {
+                                    <input class="govuk-input govuk-input--width-20" asp-for="FullName" maxlength="100" />
+                                }
+                            </div>
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" for="Organisation">Organisation</label>
+                                @if (Model.IsSsoUser)
+                                {
+                                    <input class="govuk-input govuk-input--width-20" id="Organisation" type="text" value="@Model.Organisation" readonly disabled aria-readonly="true" />
+                                    <input type="hidden" asp-for="Organisation" />
+                                }
+                                else
+                                {
+                                    <input class="govuk-input govuk-input--width-20" asp-for="Organisation" maxlength="100" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <fieldset class="govuk-fieldset app-contributor-permissions-fieldset" id="app-contributor-add-permissions" hidden="@(Model.IsCurrentRoleContributor ? null : "hidden")">
+                        <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">Section permissions</legend>
+                        <div class="app-contributor-permissions">
+                            @foreach (var permissionSection in Model.PermissionSections)
+                            {
+                                var inputId = "add-section-permission-" + permissionSection.Id;
+                                var isChecked = Model.SelectedSectionIds.Contains(permissionSection.Id);
+                                <div class="govuk-checkboxes__item govuk-checkboxes--small app-contributor-permissions__item">
+                                    <input class="govuk-checkboxes__input" id="@inputId" type="checkbox" name="SelectedSectionIds" value="@permissionSection.Id" checked="@(isChecked ? "checked" : null)" />
+                                    <label class="govuk-label govuk-checkboxes__label" for="@inputId">@permissionSection.ShortName</label>
+                                </div>
+                            }
+                        </div>
+                        <p>
+                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-contributor-permissions-action="check-all">Tick all</button>
+                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-contributor-permissions-action="uncheck-all">Untick all</button>
+                        </p>
+                    </fieldset>
+
+                    <div class="app-contributor-edit__actions">
+                        <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
+                        <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseEditUrl()">Cancel</a>
+                    </div>
+                </form>
+            }
+
+            @if (Model.EditContributorId.HasValue && Model.EditingContributor is not null)
+            {
+                var contributor = Model.EditingContributor;
+                <form method="post" asp-page-handler="SaveContributor" class="app-contributor-edit govuk-!-margin-top-6">
+                    <input type="hidden" asp-for="ContributorId" />
+                    <input type="hidden" asp-for="PageNumber" />
+                    <input type="hidden" asp-for="PageSize" />
+                    <input type="hidden" asp-for="LastUpdated" />
+
+                    <h2 class="govuk-heading-m">Edit profile contributor</h2>
+
+                    @if (Model.EditValidationErrors.Count > 0)
+                    {
+                        <div class="govuk-error-summary" data-module="govuk-error-summary">
+                            <div role="alert">
+                                <h3 class="govuk-error-summary__title">There is a problem</h3>
+                                <div class="govuk-error-summary__body">
+                                    <ul class="govuk-list govuk-error-summary__list">
+                                        @foreach (var error in Model.EditValidationErrors)
+                                        {
+                                            <li>@error</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="govuk-grid-row">
+                        <div class="govuk-grid-column-one-half">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" for="app-contributor-username">Username</label>
+                                <input class="govuk-input govuk-input--width-20" id="app-contributor-username" type="text" value="@contributor.UserName" readonly disabled aria-readonly="true" />
+                            </div>
+                        </div>
+                        <div class="govuk-grid-column-one-half">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" asp-for="RoleId">Role</label>
+                                <select class="govuk-select govuk-input--width-20" asp-for="RoleId" data-module="app-contributor-role" data-permissions-target="app-contributor-permissions">
+                                    @foreach (var role in Model.ProfileUserRoles)
+                                    {
+                                        var isSelected = role.Id == Model.RoleId;
+                                        <option value="@role.Id" data-is-contributor="@role.IsContributor.ToString().ToLowerInvariant()" selected="@(isSelected ? "selected" : null)">@role.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" for="FullName">Full name</label>
+                                @if (contributor.IsSsoUser)
+                                {
+                                    <input class="govuk-input govuk-input--width-20" id="FullName" type="text" value="@contributor.FullName" readonly disabled aria-readonly="true" />
+                                    <input type="hidden" asp-for="FullName" />
+                                }
+                                else
+                                {
+                                    <input class="govuk-input govuk-input--width-20" asp-for="FullName" maxlength="100" />
+                                }
+                            </div>
+                            <div class="govuk-form-group">
+                                <label class="govuk-label" for="Organisation">Organisation</label>
+                                @if (contributor.IsSsoUser)
+                                {
+                                    <input class="govuk-input govuk-input--width-20" id="Organisation" type="text" value="@contributor.Organisation" readonly disabled aria-readonly="true" />
+                                    <input type="hidden" asp-for="Organisation" />
+                                }
+                                else
+                                {
+                                    <input class="govuk-input govuk-input--width-20" asp-for="Organisation" maxlength="100" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <fieldset class="govuk-fieldset app-contributor-permissions-fieldset" id="app-contributor-permissions" hidden="@(Model.IsCurrentRoleContributor ? null : "hidden")">
+                        <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">Section permissions</legend>
+                        <div class="app-contributor-permissions">
+                            @foreach (var permissionSection in Model.PermissionSections)
+                            {
+                                var inputId = "section-permission-" + permissionSection.Id;
+                                var isChecked = Model.SelectedSectionIds.Contains(permissionSection.Id);
+                                <div class="govuk-checkboxes__item govuk-checkboxes--small app-contributor-permissions__item">
+                                    <input class="govuk-checkboxes__input" id="@inputId" type="checkbox" name="SelectedSectionIds" value="@permissionSection.Id" checked="@(isChecked ? "checked" : null)" />
+                                    <label class="govuk-label govuk-checkboxes__label" for="@inputId">@permissionSection.ShortName</label>
+                                </div>
+                            }
+                        </div>
+                        <p>
+                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-contributor-permissions-action="check-all">Tick all</button>
+                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-contributor-permissions-action="uncheck-all">Untick all</button>
+                        </p>
+                    </fieldset>
+
+                    <div class="app-contributor-edit__actions">
+                        <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
+                        <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseEditUrl()">Cancel</a>
+                    </div>
+                </form>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/contributor-edit.js" asp-append-version="true"></script>
+}

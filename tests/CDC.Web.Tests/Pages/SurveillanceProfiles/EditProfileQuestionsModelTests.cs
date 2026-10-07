@@ -42,7 +42,7 @@ public class EditProfileQuestionsModelTests
                 noteTypes: noteTypes,
                 notesByNoteType: notesByNoteType,
                 throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes),
-            NullLogger<EditProfileQuestionsModel>.Instance)
+            new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
             Section = section,
