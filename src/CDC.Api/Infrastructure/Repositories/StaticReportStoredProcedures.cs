@@ -1,22 +1,20 @@
 namespace CDC.Api.Infrastructure.Repositories;
 
 /// <summary>
-/// Names of the Surveillance Profiles stored procedures backing the static reports feature.
+/// Names of the Surveillance Profiles stored procedures backing the static reports and user
+/// manuals feature.
 /// </summary>
 public static class StaticReportStoredProcedures
 {
-    /// <summary>Returns the current version of every report, optionally filtered to user manuals.</summary>
-    public const string GetCurrent = "spgaCurrentStaticReport";
+    /// <summary>Reads the current version of every static report or user manual.</summary>
+    public const string GetCurrentStaticReports = "spgaCurrentStaticReport";
 
-    /// <summary>Returns every version of one report.</summary>
-    public const string GetHistory = "spgStaticReportHistory";
+    /// <summary>Reads every version of one static report or user manual.</summary>
+    public const string GetStaticReportHistory = "spgStaticReportHistory";
 
-    /// <summary>Returns one version's PDF content, visibility and title.</summary>
-    public const string GetData = "spgStaticReportVersionData";
+    /// <summary>Reads the stored document bytes for one version.</summary>
+    public const string GetStaticReportVersionData = "spgStaticReportVersionData";
 
-    /// <summary>Uploads a new version, superseding the previous current version for that title.</summary>
-    public const string Upload = "spiStaticReport";
-
-    /// <summary>Deletes a current version, reinstating the previous version as current if one exists.</summary>
-    public const string Delete = "spdStaticReportVersion";
+    /// <summary>Deletes one version.</summary>
+    public const string DeleteStaticReportVersion = "spdStaticReportVersion";
 }
