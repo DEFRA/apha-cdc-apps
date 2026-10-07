@@ -44,7 +44,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetBySsoUserIdExtAsync_MapsRow_WhenFound()
     {
-        connection.Script(UserStoredProcedures.GetBySsoUserIdExt, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             ResultSets =
             [
@@ -64,7 +64,7 @@ public class UserRepositoryTests : IDisposable
         user.SsoUserId.Should().Be(SsoUserId);
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(UserStoredProcedures.GetBySsoUserIdExt);
+        executed.CommandText.Should().Be(UserStoredProcedures.GetUserAuthorisation);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("SsoUserIdExt").WhoseValue.Should().Be(SsoUserIdExt);
     }
@@ -72,7 +72,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetBySsoUserIdExtAsync_ReturnsNull_WhenNotFound()
     {
-        connection.Script(UserStoredProcedures.GetBySsoUserIdExt, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             ResultSets = [FakeResultSet.Empty(UserColumns)]
         });
@@ -85,7 +85,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetBySsoUserIdExtAsync_LogsAndRethrows_WhenTheProcedureFails()
     {
-        connection.Script(UserStoredProcedures.GetBySsoUserIdExt, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });
@@ -244,7 +244,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetBySsoUserIdIntAsync_MapsRow_WhenFound()
     {
-        connection.Script(UserStoredProcedures.GetBySsoUserIdInt, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             ResultSets =
             [
@@ -263,7 +263,7 @@ public class UserRepositoryTests : IDisposable
         user.SsoUserIdInt.Should().Be(SsoUserIdInt);
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(UserStoredProcedures.GetBySsoUserIdInt);
+        executed.CommandText.Should().Be(UserStoredProcedures.GetUserAuthorisation);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("SsoUserIdInt").WhoseValue.Should().Be(SsoUserIdInt);
     }
@@ -271,7 +271,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetBySsoUserIdIntAsync_ReturnsNull_WhenNotFound()
     {
-        connection.Script(UserStoredProcedures.GetBySsoUserIdInt, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             ResultSets = [FakeResultSet.Empty(InternalUserColumns)]
         });
@@ -284,7 +284,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetBySsoUserIdIntAsync_LogsAndRethrows_WhenTheProcedureFails()
     {
-        connection.Script(UserStoredProcedures.GetBySsoUserIdInt, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });
@@ -297,7 +297,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetByUserNameAsync_MapsRow_WhenFound()
     {
-        connection.Script(UserStoredProcedures.GetByUserName, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             ResultSets =
             [
@@ -320,7 +320,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetByUserNameAsync_ReturnsNull_WhenNotFound()
     {
-        connection.Script(UserStoredProcedures.GetByUserName, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             ResultSets = [FakeResultSet.Empty(InternalUserColumns)]
         });
@@ -333,7 +333,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetByUserNameAsync_LogsAndRethrows_WhenTheProcedureFails()
     {
-        connection.Script(UserStoredProcedures.GetByUserName, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });

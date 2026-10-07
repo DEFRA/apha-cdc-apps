@@ -8,7 +8,7 @@ namespace CDC.Api.Features.Users.Interfaces;
 /// </summary>
 public interface IUserRepository
 {
-    /// <summary>Reads the user row matching a CIDM 'sub' claim via <c>spgUserBySsoUserIdExt</c>.</summary>
+    /// <summary>Reads the user row matching a CIDM 'sub' claim via <c>spgUserAuthorisation</c>.</summary>
     /// <param name="ssoUserIdExt">The CIDM 'sub' claim from the validated id_token.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>The matching row, or <see langword="null"/> when none exists.</returns>
@@ -32,13 +32,13 @@ public interface IUserRepository
     /// <returns>The same row passed in, once persisted.</returns>
     Task<Domain.Entities.ExternalUser> CreateExternalUserAsync(Domain.Entities.ExternalUser newUser, CancellationToken cancellationToken);
 
-    /// <summary>Reads the user row matching an Entra ID 'oid' claim via <c>spgUserBySsoUserIdInt</c>.</summary>
+    /// <summary>Reads the user row matching an Entra ID 'oid' claim via <c>spgUserAuthorisation</c>.</summary>
     /// <param name="ssoUserIdInt">The Entra ID 'oid' claim from the validated id_token.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>The matching row, or <see langword="null"/> when none exists.</returns>
     Task<Domain.Entities.InternalUser?> GetBySsoUserIdIntAsync(Guid ssoUserIdInt, CancellationToken cancellationToken);
 
-    /// <summary>Reads the user row matching a user name via <c>spgUserByUserName</c>.</summary>
+    /// <summary>Reads the user row matching a user name via <c>spgUserAuthorisation</c>.</summary>
     /// <param name="userName">The Windows-style user name built from Entra ID on-premises claims.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>The matching row, or <see langword="null"/> when none exists.</returns>

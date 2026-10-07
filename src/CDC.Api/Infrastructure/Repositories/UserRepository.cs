@@ -23,7 +23,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<UserRow>(new CommandDefinition(
-                UserStoredProcedures.GetBySsoUserIdExt,
+                UserStoredProcedures.GetUserAuthorisation,
                 new { SsoUserIdExt = ssoUserIdExt },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
@@ -32,7 +32,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetBySsoUserIdExt);
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetUserAuthorisation);
             throw;
         }
     }
@@ -119,7 +119,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<InternalUserRow>(new CommandDefinition(
-                UserStoredProcedures.GetBySsoUserIdInt,
+                UserStoredProcedures.GetUserAuthorisation,
                 new { SsoUserIdInt = ssoUserIdInt },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
@@ -128,7 +128,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetBySsoUserIdInt);
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetUserAuthorisation);
             throw;
         }
     }
@@ -141,7 +141,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<InternalUserRow>(new CommandDefinition(
-                UserStoredProcedures.GetByUserName,
+                UserStoredProcedures.GetUserAuthorisation,
                 new { UserName = userName },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
@@ -150,7 +150,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetByUserName);
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetUserAuthorisation);
             throw;
         }
     }
@@ -176,9 +176,9 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     }
 
     // SsoUserIdExt, SsoUserId and EmailAddress are nullable in the database (every internal row has
-    // none of them) - a row returned by GetBySsoUserIdExt/GetByEmailAddress always has SsoUserIdExt and
-    // EmailAddress, since both procedures filter on one of them, but the mapped type must still
-    // declare them nullable.
+    // none of them) - a row returned by GetBySsoUserIdExtAsync/GetByEmailAddressAsync always has
+    // SsoUserIdExt and EmailAddress, since both procedures filter on one of them, but the mapped
+    // type must still declare them nullable.
     private static ExternalUser? ToEntity(UserRow? row) => row is null
         ? null
         : new ExternalUser
@@ -195,8 +195,8 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         };
 
     // SsoUserIdInt is nullable in the database (every external/legacy row has none of it) - a row
-    // returned by GetBySsoUserIdInt/GetByUserName always has UserName, since both procedures filter
-    // on one of them, but the mapped type must still declare it nullable.
+    // returned by GetBySsoUserIdIntAsync/GetByUserNameAsync always has UserName, since both calls
+    // filter on one of them, but the mapped type must still declare it nullable.
     private static InternalUser? ToEntity(InternalUserRow? row) => row is null
         ? null
         : new InternalUser
