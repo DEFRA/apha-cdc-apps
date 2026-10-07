@@ -72,7 +72,15 @@ internal sealed class FakeCommandScript
 /// <param name="Rows">Row values, matching <paramref name="Columns"/>.</param>
 internal sealed record FakeResultSet(string[] Columns, IReadOnlyList<object?[]> Rows)
 {
+    /// <summary>Optional column types, used when <see cref="Rows"/> is empty and type cannot be
+    /// inferred from a value (needed for Dapper's constructor-matching materialization of
+    /// positional records against an empty result set).</summary>
+    public Type[]? ColumnTypes { get; init; }
+
     public static FakeResultSet Empty(params string[] columns) => new(columns, []);
+
+    /// <summary>Creates an empty result set with explicit column types, for positional-record materialization.</summary>
+    public static FakeResultSet Empty(string[] columns, Type[] columnTypes) => new(columns, []) { ColumnTypes = columnTypes };
 }
 
 /// <summary>A command as executed, captured for assertions.</summary>
@@ -331,7 +339,7 @@ internal sealed class FakeDbDataReader(IReadOnlyList<FakeResultSet> resultSets) 
             }
         }
 
-        return typeof(object);
+        return Current.ColumnTypes?[ordinal] ?? typeof(object);
     }
 
     public override float GetFloat(int ordinal) => Convert.ToSingle(GetValue(ordinal), Culture);

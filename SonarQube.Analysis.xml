@@ -26,7 +26,6 @@
   src/CDC.Web/Pages/SurveillanceProfiles/CreateNewDraftVersion.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/DeleteCurrentVersion.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/EditProperties.cshtml.cs,
-  src/CDC.Web/Pages/SurveillanceProfiles/MaintainContributorsAndReviewers.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/PublishDefranetOnly.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/PublishPublic.cshtml.cs,
   src/CDC.Web/Pages/SurveillanceProfiles/ViewContributionsReport.cshtml.cs
