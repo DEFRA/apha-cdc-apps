@@ -91,6 +91,95 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("Cattle", body);
     }
 
+    [Fact]
+    public async Task Maintain_RendersEditPanel_WhenSpeciesSelectedForEditing()
+    {
+        IReadOnlyList<SpeciesValidParentDto> validParents =
+        [
+            new SpeciesValidParentDto { Id = CattleId, Name = "Cattle" }
+        ];
+        var fakeService = new FakeSpeciesApiService(Species, speciesDetail: DairyDetail, validParents: validParents);
+        using var factory = CreateFactory(fakeService);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var token = await AntiForgeryTokenExtractor.GetTokenFromPageAsync(client, "/SpeciesData/Maintain");
+
+        var editResponse = await client.PostAsync(
+            "/SpeciesData/Maintain?handler=EditNameParent",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("species", DairyId.ToString()),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ]));
+
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+
+        var editHtml = await editResponse.Content.ReadAsStringAsync();
+
+        Assert.Contains("Dairy cattle", editHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Reason for change", editHtml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Maintain_RendersSelectionError_WhenNoSpeciesSelectedForEditing()
+    {
+        var fakeService = new FakeSpeciesApiService(Species);
+        using var factory = CreateFactory(fakeService);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var token = await AntiForgeryTokenExtractor.GetTokenFromPageAsync(client, "/SpeciesData/Maintain");
+
+        var editResponse = await client.PostAsync(
+            "/SpeciesData/Maintain?handler=EditNameParent",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ]));
+
+        var editHtml = await editResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+        Assert.Contains("Select a species or species group to edit.", editHtml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Maintain_RendersValidationErrorSummary_WhenSaveSubmittedWithoutRequiredFields()
+    {
+        var fakeService = new FakeSpeciesApiService(Species, speciesDetail: DairyDetail);
+        using var factory = CreateFactory(fakeService);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var token = await AntiForgeryTokenExtractor.GetTokenFromPageAsync(client, "/SpeciesData/Maintain");
+
+        var saveResponse = await client.PostAsync(
+            "/SpeciesData/Maintain?handler=Save",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("Input.SpeciesId", DairyId.ToString()),
+                new KeyValuePair<string, string>("Input.Name", string.Empty),
+                new KeyValuePair<string, string>("Input.Reason", string.Empty),
+                new KeyValuePair<string, string>("Input.LastUpdatedBase64", Convert.ToBase64String(DairyDetail.LastUpdated)),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ]));
+
+        var saveHtml = await saveResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
+        Assert.Contains("There is a problem", saveHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("You need to provide a new name for this species.", saveHtml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly SpeciesDetailDto DairyDetail = new()
+    {
+        Id = DairyId,
+        Name = "Dairy cattle",
+        ParentId = CattleId,
+        ParentName = "Cattle",
+        IsActive = true,
+        IsInUse = true,
+        LastUpdated = [1, 2, 3, 4]
+    };
+
     private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService)
     {
         WebTestEnvironment.EnsureConfigured();

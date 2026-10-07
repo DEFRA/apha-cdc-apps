@@ -71,6 +71,23 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.False(string.IsNullOrEmpty(body!.Status));
     }
 
+    [Fact]
+    public async Task HealthReady_ReturnsNotFound_WhenKeyLengthDiffersFromConfiguredValue()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+                configBuilder.AddInMemoryCollection(
+                [
+                    new KeyValuePair<string, string?>("HealthCheck:ReadinessKey", "test-readiness-key")
+                ])));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(ReadinessKeyFilter.HeaderName, "short");
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private sealed class HealthResponse
     {
         public string? Status { get; set; }
