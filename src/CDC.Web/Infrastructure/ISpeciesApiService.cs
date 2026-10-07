@@ -32,6 +32,12 @@ public interface ISpeciesApiService
         UpdateSpeciesNameParentRequestDto request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>POST /api/species</c> to add a new species or species group.</summary>
+    /// <param name="request">The species to add.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the call, including the new species identifier on success.</returns>
+    Task<AddSpeciesResult> AddSpeciesAsync(AddSpeciesRequestDto request, CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/species/audit-trail</c>.</summary>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The audit trail, most recent entry first.</returns>
