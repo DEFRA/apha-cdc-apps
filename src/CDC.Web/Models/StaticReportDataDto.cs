@@ -3,6 +3,7 @@ namespace CDC.Web.Models;
 /// <summary>
 /// The PDF content of a single static report version, returned by
 /// <c>GET /api/static-reports/{id}/data</c> on CDC.Api.
+/// The PDF content of a single static report version.
 /// </summary>
 public sealed record StaticReportDataDto
 {

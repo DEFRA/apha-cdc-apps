@@ -104,6 +104,12 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30);
 });
 
+builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
