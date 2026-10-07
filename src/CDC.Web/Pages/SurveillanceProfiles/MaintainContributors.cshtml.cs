@@ -13,6 +13,8 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 /// </summary>
 public class MaintainContributorsModel : PageModel
 {
+    private const string PageRoute = "/SurveillanceProfiles/MaintainContributors";
+
     private static readonly Action<ILogger, Guid, Exception?> LogProfileNotFoundMessage =
         LoggerMessage.Define<Guid>(
             LogLevel.Warning,
@@ -248,7 +250,7 @@ public class MaintainContributorsModel : PageModel
             SuccessMessage = "Your changes were successfully saved";
 
             return RedirectToPage(
-                "/SurveillanceProfiles/MaintainContributors",
+                PageRoute,
                 new { profileId = ProfileId, PageNumber, PageSize });
         }
 
@@ -307,7 +309,6 @@ public class MaintainContributorsModel : PageModel
                     await LoadRolesAndPermissionSectionsAsync(cancellationToken);
                     break;
 
-                case UserVerificationOutcome.ExistingUser:
                 default:
                     await PopulateExistingUserAddFieldsAsync(verification, cancellationToken);
                     break;
@@ -368,7 +369,7 @@ public class MaintainContributorsModel : PageModel
             SuccessMessage = "The contributor was successfully added";
 
             return RedirectToPage(
-                "/SurveillanceProfiles/MaintainContributors",
+                PageRoute,
                 new { profileId = ProfileId, PageNumber, PageSize });
         }
 
@@ -420,7 +421,7 @@ public class MaintainContributorsModel : PageModel
             DeleteErrorMessage = "We could not remove this contributor. Try again later.";
         }
 
-        return RedirectToPage("/SurveillanceProfiles/MaintainContributors", new { profileId = ProfileId, PageNumber, PageSize });
+        return RedirectToPage(PageRoute, new { profileId = ProfileId, PageNumber, PageSize });
     }
 
     /// <summary>Loads an existing global user's current detail on this profile (if any) for step 2
@@ -452,19 +453,19 @@ public class MaintainContributorsModel : PageModel
 
     /// <summary>Builds the querystring URL for a results page link, preserving <see cref="PageSize"/>.</summary>
     public string? BuildPageUrl(int page) =>
-        Url.Page("/SurveillanceProfiles/MaintainContributors", new { ProfileId, PageSize, PageNumber = page });
+        Url.Page(PageRoute, new { ProfileId, PageSize, PageNumber = page });
 
     /// <summary>Builds the querystring URL that opens the "Add profile contributor" panel.</summary>
     public string? BuildAddUrl() =>
-        Url.Page("/SurveillanceProfiles/MaintainContributors", new { ProfileId, PageSize, PageNumber, AddContributor = true });
+        Url.Page(PageRoute, new { ProfileId, PageSize, PageNumber, AddContributor = true });
 
     /// <summary>Builds the querystring URL that opens the "Edit profile contributor" panel for one row.</summary>
     public string? BuildEditUrl(Guid contributorId) =>
-        Url.Page("/SurveillanceProfiles/MaintainContributors", new { ProfileId, PageSize, PageNumber, EditContributorId = contributorId });
+        Url.Page(PageRoute, new { ProfileId, PageSize, PageNumber, EditContributorId = contributorId });
 
     /// <summary>Builds the querystring URL that closes the "Edit profile contributor" panel.</summary>
     public string? BuildCloseEditUrl() =>
-        Url.Page("/SurveillanceProfiles/MaintainContributors", new { ProfileId, PageSize, PageNumber });
+        Url.Page(PageRoute, new { ProfileId, PageSize, PageNumber });
 
     /// <summary>Uses the same profile retrieval as Manage profile (<c>GET /api/profiles/{profileId}/manage</c>),
     /// so the page title always matches what Manage profile shows for this profile.</summary>

@@ -12,7 +12,7 @@ namespace CDC.Web.Tests.Integration;
 // The default WebApplicationFactory<Program> has no live CDC.Api, so this page would only ever
 // render its "no contributors" empty state. This test swaps in fakes with real, fully populated
 // data (including a second page, so the pagination nav itself renders) to exercise the whole view.
-public class MaintainContributorsIntegrationTests
+public partial class MaintainContributorsIntegrationTests
 {
     [Fact]
     public async Task MaintainContributors_RendersTheTableManageProfileLinkAndPagination_WhenContributorsExist()
@@ -735,10 +735,13 @@ public class MaintainContributorsIntegrationTests
     private static async Task<string> ExtractAntiforgeryTokenAsync(HttpResponseMessage response)
     {
         var body = await response.Content.ReadAsStringAsync();
-        var match = Regex.Match(body, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        var match = AntiforgeryTokenRegex().Match(body);
 
         Assert.True(match.Success, "Could not find the antiforgery token in the response body.");
 
         return match.Groups[1].Value;
     }
+
+    [GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"")]
+    private static partial Regex AntiforgeryTokenRegex();
 }

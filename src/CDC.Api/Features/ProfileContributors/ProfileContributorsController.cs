@@ -198,7 +198,7 @@ public sealed record AddContributorRequest
 {
     /// <summary>Gets the user id: the looked-up existing global user's id, or a freshly generated
     /// id for a brand-new username.</summary>
-    public Guid ContributorId { get; init; }
+    public required Guid ContributorId { get; init; }
 
     /// <summary>Gets the contributor's username. Only used when <see cref="ContributorId"/> does
     /// not yet exist as a global user.</summary>
@@ -206,10 +206,10 @@ public sealed record AddContributorRequest
 
     /// <summary>Gets a value indicating whether the looked-up global user is an SSO user. Always
     /// <see langword="false"/> for a brand-new username.</summary>
-    public bool IsSsoUser { get; init; }
+    public required bool IsSsoUser { get; init; }
 
     /// <summary>Gets the contributor's new role.</summary>
-    public Guid RoleId { get; init; }
+    public required Guid RoleId { get; init; }
 
     /// <summary>Gets the user's full name. Ignored for an SSO user.</summary>
     public string FullName { get; init; } = string.Empty;
@@ -225,7 +225,7 @@ public sealed record AddContributorRequest
 public sealed record UpdateContributorRequest
 {
     /// <summary>Gets the contributor's new role.</summary>
-    public Guid RoleId { get; init; }
+    public required Guid RoleId { get; init; }
 
     /// <summary>Gets the user's full name. Ignored for an SSO user.</summary>
     public string FullName { get; init; } = string.Empty;

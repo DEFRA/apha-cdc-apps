@@ -33,13 +33,14 @@ public class ProfileContributorsRepositoryTests : IDisposable
     public async Task GetProfileContributorsAsync_ExecutesStoredProcedureAndMapsRows()
     {
         var contributorId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
         connection.Script(ProfileContributorsStoredProcedures.GetProfileContributorsByProfileId, new FakeCommandScript
         {
             ResultSets =
             [
                 new FakeResultSet(
-                    ["Id", "UserName", "FullName", "Organisation", "Name"],
-                    [[contributorId, "carrie.batten", "Carrie Batten", "Pirbright Institute", "Technical author"]])
+                    ["Id", "UserName", "FullName", "Organisation", "ProfileUserRoleId", "Name", "IsContributor", "SsoUserId", "LastUpdated"],
+                    [[contributorId, "carrie.batten", "Carrie Batten", "Pirbright Institute", roleId, "Technical author", true, Guid.NewGuid(), new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }]])
             ]
         });
 
@@ -51,6 +52,7 @@ public class ProfileContributorsRepositoryTests : IDisposable
         contributors[0].FullName.Should().Be("Carrie Batten");
         contributors[0].Organisation.Should().Be("Pirbright Institute");
         contributors[0].Role.Should().Be("Technical author");
+        contributors[0].LastUpdated.Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
 
         var recorded = connection.Executed.Should().ContainSingle().Subject;
         recorded.CommandText.Should().Be(ProfileContributorsStoredProcedures.GetProfileContributorsByProfileId);
@@ -63,7 +65,9 @@ public class ProfileContributorsRepositoryTests : IDisposable
     {
         connection.Script(ProfileContributorsStoredProcedures.GetProfileContributorsByProfileId, new FakeCommandScript
         {
-            ResultSets = [FakeResultSet.Empty("Id", "UserName", "FullName", "Organisation", "Name")]
+            ResultSets = [FakeResultSet.Empty(
+                ["Id", "UserName", "FullName", "Organisation", "ProfileUserRoleId", "Name", "IsContributor", "SsoUserId", "LastUpdated"],
+                [typeof(Guid), typeof(string), typeof(string), typeof(string), typeof(Guid), typeof(string), typeof(bool), typeof(Guid), typeof(byte[])])]
         });
 
         var contributors = await CreateRepository().GetProfileContributorsAsync(ProfileId, CancellationToken.None);

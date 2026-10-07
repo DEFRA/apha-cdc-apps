@@ -134,13 +134,14 @@ public sealed class ProfileContributorsRepository(IDbConnectionFactory connectio
             var newLastUpdated = await UpsertContributorCoreAsync(
                 connection,
                 transaction,
-                command.ContributorId,
-                contributor.UserName,
-                contributor.IsSsoUser ? contributor.FullName : command.FullName,
-                contributor.IsSsoUser ? contributor.Organisation : command.Organisation,
-                command.RoleId,
-                command.ProfileId,
-                command.LastUpdated,
+                new UpsertContributorParameters(
+                    command.ContributorId,
+                    contributor.UserName,
+                    contributor.IsSsoUser ? contributor.FullName : command.FullName,
+                    contributor.IsSsoUser ? contributor.Organisation : command.Organisation,
+                    command.RoleId,
+                    command.ProfileId,
+                    command.LastUpdated),
                 cancellationToken);
 
             var toAdd = command.SectionPermissionIds.Except(contributor.SectionPermissionIds);
@@ -242,7 +243,10 @@ public sealed class ProfileContributorsRepository(IDbConnectionFactory connectio
             var existingSectionPermissionIds = existingContributor?.SectionPermissionIds ?? [];
 
             await UpsertContributorCoreAsync(
-                connection, transaction, command.ContributorId, userName, fullName, organisation, command.RoleId, command.ProfileId, lastUpdated, cancellationToken);
+                connection,
+                transaction,
+                new UpsertContributorParameters(command.ContributorId, userName, fullName, organisation, command.RoleId, command.ProfileId, lastUpdated),
+                cancellationToken);
 
             foreach (var sectionId in command.SectionPermissionIds.Except(existingSectionPermissionIds))
             {
@@ -362,6 +366,17 @@ public sealed class ProfileContributorsRepository(IDbConnectionFactory connectio
         };
     }
 
+    /// <summary>Bundles <see cref="UpsertContributorCoreAsync"/>'s parameters so the method itself
+    /// stays within the project's authorised parameter-count limit.</summary>
+    private sealed record UpsertContributorParameters(
+        Guid UserId,
+        string UserName,
+        string FullName,
+        string Organisation,
+        Guid RoleId,
+        Guid ProfileId,
+        byte[] LastUpdated);
+
     /// <summary>
     /// Upserts the <c>User</c>/<c>ProfileUser</c> row via <c>spiProfileContributor</c>, which
     /// also checks the row version and raises an error (translated to
@@ -371,33 +386,27 @@ public sealed class ProfileContributorsRepository(IDbConnectionFactory connectio
     private static async Task<byte[]> UpsertContributorCoreAsync(
         DbConnection connection,
         DbTransaction transaction,
-        Guid userId,
-        string userName,
-        string fullName,
-        string organisation,
-        Guid roleId,
-        Guid profileId,
-        byte[] lastUpdated,
+        UpsertContributorParameters parameters,
         CancellationToken cancellationToken)
     {
-        var parameters = new DynamicParameters();
-        parameters.Add("@UserId", userId, DbType.Guid);
-        parameters.Add("@UserName", userName, DbType.AnsiString, size: UserNameMaxLength);
-        parameters.Add("@FullName", fullName, DbType.AnsiString, size: NameMaxLength);
-        parameters.Add("@Organisation", organisation, DbType.AnsiString, size: NameMaxLength);
-        parameters.Add("@RoleId", roleId, DbType.Guid);
-        parameters.Add("@ProfileId", profileId, DbType.Guid);
-        parameters.Add("@LastUpdated", lastUpdated, DbType.Binary, size: RowVersionLength);
-        parameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
+        var dynamicParameters = new DynamicParameters();
+        dynamicParameters.Add("@UserId", parameters.UserId, DbType.Guid);
+        dynamicParameters.Add("@UserName", parameters.UserName, DbType.AnsiString, size: UserNameMaxLength);
+        dynamicParameters.Add("@FullName", parameters.FullName, DbType.AnsiString, size: NameMaxLength);
+        dynamicParameters.Add("@Organisation", parameters.Organisation, DbType.AnsiString, size: NameMaxLength);
+        dynamicParameters.Add("@RoleId", parameters.RoleId, DbType.Guid);
+        dynamicParameters.Add("@ProfileId", parameters.ProfileId, DbType.Guid);
+        dynamicParameters.Add("@LastUpdated", parameters.LastUpdated, DbType.Binary, size: RowVersionLength);
+        dynamicParameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
 
         await connection.ExecuteAsync(new CommandDefinition(
             ProfileContributorsStoredProcedures.UpsertContributor,
-            parameters,
+            dynamicParameters,
             transaction,
             commandType: CommandType.StoredProcedure,
             cancellationToken: cancellationToken));
 
-        return parameters.Get<byte[]?>("@NewLastUpdated") ?? [];
+        return dynamicParameters.Get<byte[]?>("@NewLastUpdated") ?? [];
     }
 
     private static async Task RollbackAsync(DbTransaction transaction, CancellationToken cancellationToken)
@@ -451,32 +460,24 @@ public sealed class ProfileContributorsRepository(IDbConnectionFactory connectio
         }
     }
 
-    // Property-initialised (not positional) so Dapper binds columns by name rather than by
-    // ordinal position. The role name column is unaliased in the stored procedure (it selects
+    // Column names map by Dapper convention (see e.g. ProfileManagementRepository.ProfileStatusTypeRow).
+    // Dapper's constructor-based materialization requires one parameter per column actually
+    // returned by spgProfileContributorsByProfileId's first result set - ProfileUserRoleId,
+    // IsContributor and SsoUserId are unused by the mapping below but must still be declared.
+    // The role name column is unaliased in the stored procedure (it selects
     // [luProfileUserRole].[Name]), so it arrives here as "Name" and is renamed to "Role" above.
-    private sealed record ContributorRow
-    {
-        public Guid Id { get; init; }
-
-        public string UserName { get; init; } = string.Empty;
-
-        public string FullName { get; init; } = string.Empty;
-
-        public string Organisation { get; init; } = string.Empty;
-
-        public string Name { get; init; } = string.Empty;
-
-        public byte[] LastUpdated { get; init; } = [];
-    }
+    private sealed record ContributorRow(
+        Guid Id,
+        string UserName,
+        string FullName,
+        string Organisation,
+        Guid ProfileUserRoleId,
+        string Name,
+        bool IsContributor,
+        Guid? SsoUserId,
+        byte[] LastUpdated);
 
     // The stored procedure selects [Name] (unaliased), so it arrives here as "Name".
-    private sealed record ProfileUserRoleRow
-    {
-        public Guid Id { get; init; }
-
-        public string Name { get; init; } = string.Empty;
-
-        public bool IsContributor { get; init; }
-    }
+    private sealed record ProfileUserRoleRow(Guid Id, string Name, bool IsContributor);
 }
 

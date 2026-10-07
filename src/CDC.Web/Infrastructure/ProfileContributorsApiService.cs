@@ -185,8 +185,5 @@ public sealed class ProfileContributorsApiService(HttpClient httpClient) : IProf
         };
     }
 
-    private sealed record ProblemDetailsBody
-    {
-        public string? Detail { get; init; }
-    }
+    private sealed record ProblemDetailsBody(string? Detail);
 }
