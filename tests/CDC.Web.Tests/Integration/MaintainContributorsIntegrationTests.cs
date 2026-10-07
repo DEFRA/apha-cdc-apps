@@ -3,6 +3,7 @@ using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages.SurveillanceProfiles;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -41,7 +42,7 @@ public partial class MaintainContributorsIntegrationTests
             TotalRecords = 3
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -49,7 +50,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService(contributors));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?PageNumber=2&PageSize=1");
         var body = await response.Content.ReadAsStringAsync();
@@ -72,7 +73,7 @@ public partial class MaintainContributorsIntegrationTests
         var profileId = Guid.NewGuid();
         var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "Avian influenza" };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -80,7 +81,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService());
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -94,7 +95,7 @@ public partial class MaintainContributorsIntegrationTests
     {
         var profileId = Guid.NewGuid();
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -102,7 +103,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService());
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -159,7 +160,7 @@ public partial class MaintainContributorsIntegrationTests
             Sections = [new ProfileSectionMetadataDto { Id = sectionId, Name = "Epidemiology", ShortName = "Epi", SectionNumber = 1 }]
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -170,7 +171,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync(
             $"/SurveillanceProfiles/MaintainContributors/{profileId}?EditContributorId={contributorId}");
@@ -210,7 +211,7 @@ public partial class MaintainContributorsIntegrationTests
             Sections = [new ProfileSectionMetadataDto { Id = sectionId, Name = "Epidemiology", ShortName = "Epi", SectionNumber = 1 }]
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -221,7 +222,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync(
             $"/SurveillanceProfiles/MaintainContributors/{profileId}?EditContributorId={contributorId}");
@@ -262,7 +263,7 @@ public partial class MaintainContributorsIntegrationTests
             ErrorMessage = "Please select a valid role."
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -273,7 +274,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync(
             $"/SurveillanceProfiles/MaintainContributors/{profileId}?EditContributorId={contributorId}");
@@ -326,7 +327,7 @@ public partial class MaintainContributorsIntegrationTests
         };
         var updateResult = new UpdateContributorResult { Outcome = ContributorUpdateOutcome.Success };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -337,7 +338,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync(
             $"/SurveillanceProfiles/MaintainContributors/{profileId}?EditContributorId={contributorId}");
@@ -370,7 +371,7 @@ public partial class MaintainContributorsIntegrationTests
         var profileId = Guid.NewGuid();
         var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "African Horse Sickness (AHS)" };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -378,7 +379,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService());
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?AddContributor=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -413,7 +414,7 @@ public partial class MaintainContributorsIntegrationTests
             TotalRecords = 1
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -421,7 +422,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService(contributors));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -457,7 +458,7 @@ public partial class MaintainContributorsIntegrationTests
         };
         var verification = new UserVerificationResultDto { Outcome = UserVerificationOutcome.ExistingUser, UserId = contributorId };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -468,7 +469,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?AddContributor=true");
         var token = await ExtractAntiforgeryTokenAsync(getResponse);
@@ -504,7 +505,7 @@ public partial class MaintainContributorsIntegrationTests
         };
         var verification = new UserVerificationResultDto { Outcome = UserVerificationOutcome.NewUser };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -515,7 +516,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?AddContributor=true");
         var token = await ExtractAntiforgeryTokenAsync(getResponse);
@@ -544,7 +545,7 @@ public partial class MaintainContributorsIntegrationTests
         var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "African Horse Sickness (AHS)" };
         var verification = new UserVerificationResultDto { Outcome = UserVerificationOutcome.Blocked };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -552,7 +553,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService(verificationResult: verification));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?AddContributor=true");
         var token = await ExtractAntiforgeryTokenAsync(getResponse);
@@ -580,7 +581,7 @@ public partial class MaintainContributorsIntegrationTests
         var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "African Horse Sickness (AHS)" };
         var addResult = new AddContributorResult { Outcome = ContributorAddOutcome.Success };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -588,7 +589,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.RemoveAll<IProfileContributorsApiService>();
                 services.AddSingleton<IProfileContributorsApiService>(new FakeProfileContributorsApiService(addContributorResult: addResult));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?AddContributor=true");
         var token = await ExtractAntiforgeryTokenAsync(getResponse);
@@ -641,7 +642,7 @@ public partial class MaintainContributorsIntegrationTests
         };
         var deleteResult = new DeleteContributorResult { Outcome = ContributorDeleteOutcome.Success };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -650,7 +651,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.AddSingleton<IProfileContributorsApiService>(
                     new FakeProfileContributorsApiService(contributors, deleteContributorResult: deleteResult));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}");
         var token = await ExtractAntiforgeryTokenAsync(getResponse);
@@ -702,7 +703,7 @@ public partial class MaintainContributorsIntegrationTests
             ErrorMessage = "Another user has changed this contributor since the page was loaded. Reload and try again."
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -711,7 +712,7 @@ public partial class MaintainContributorsIntegrationTests
                 services.AddSingleton<IProfileContributorsApiService>(
                     new FakeProfileContributorsApiService(contributors, deleteContributorResult: deleteResult));
             }));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}");
         var token = await ExtractAntiforgeryTokenAsync(getResponse);

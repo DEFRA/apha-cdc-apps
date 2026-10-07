@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Pure DI wiring, exercised end-to-end via CDC.Web.Tests' WebApplicationFactory-based
+         integration tests (which run the real Program.cs -> AddEntraAuthentication path) rather than
+         here - same rationale as CDC.Auth.Cidm.Tests excluding CidmAuthenticationExtensions.cs.
+         Logging.g.cs is the [LoggerMessage] source generator's own boilerplate - tests use
+         NullLogger, whose IsEnabled() always returns false, so the generator's "actually log"
+         branch never executes; in Release builds the smaller line count elsewhere in this project
+         lets that fixed-size gap tip the total below the threshold. Comma-separated (not
+         semicolon) - coverlet's glob-list parser silently stops excluding anything once more than
+         one semicolon-separated pattern is present. -->
+    <ExcludeByFile>**/EntraAuthenticationExtensions.cs,**/Logging.g.cs</ExcludeByFile>
+    <!-- CDC.Common's Contracts/Correlation/Health code is unrelated to this project and already
+         measured by CDC.Api.Tests/CDC.Web.Tests - only its Auth/ helpers (exercised here via
+         EntraOpenIdConnectEvents) should count towards this project's own coverage threshold. -->
+    <Exclude>[CDC.Common]CDC.Common.Contracts.*,[CDC.Common]CDC.Common.Correlation.*,[CDC.Common]CDC.Common.Health.*</Exclude>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="coverlet.msbuild" Version="10.0.1">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CDC.Auth.Entra\CDC.Auth.Entra.csproj" />
+  </ItemGroup>
+
+</Project>

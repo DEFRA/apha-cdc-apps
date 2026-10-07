@@ -287,6 +287,134 @@ public class ApiClientTests
     }
 
     [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsSuccess_WithDeserialisedUser()
+    {
+        const string json = """
+            {
+              "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "fullName": "Jane External",
+              "emailAddress": "user@example.com",
+              "organisation": "ACME Ltd"
+            }
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+        var request = new ResolveExternalUserRequestDto
+        {
+            SsoUserIdExt = Guid.NewGuid(),
+            Email = "user@example.com",
+            FirstName = "Jane",
+            LastName = "External",
+            Organisation = "ACME Ltd"
+        };
+
+        var result = await client.ResolveExternalUserAsync(request);
+
+        Assert.Equal(ResolveExternalUserOutcome.Success, result.Outcome);
+        Assert.Equal("Jane External", result.User!.FullName);
+        Assert.Equal("/api/users/external/resolve", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsNotPermitted_OnForbidden()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Forbidden, "{}"));
+        var request = new ResolveExternalUserRequestDto
+        {
+            SsoUserIdExt = Guid.NewGuid(),
+            Email = "user@example.com",
+            FirstName = "Jane",
+            LastName = "External",
+            Organisation = "ACME Ltd"
+        };
+
+        var result = await client.ResolveExternalUserAsync(request);
+
+        Assert.Equal(ResolveExternalUserOutcome.NotPermitted, result.Outcome);
+        Assert.Null(result.User);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+        var request = new ResolveExternalUserRequestDto
+        {
+            SsoUserIdExt = Guid.NewGuid(),
+            Email = "user@example.com",
+            FirstName = "Jane",
+            LastName = "External",
+            Organisation = "ACME Ltd"
+        };
+
+        var result = await client.ResolveExternalUserAsync(request);
+
+        Assert.Equal(ResolveExternalUserOutcome.Error, result.Outcome);
+        Assert.Null(result.User);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_ReturnsSuccess_WithDeserialisedUser()
+    {
+        const string json = """
+            {
+              "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "fullName": "Jane Internal",
+              "isProfileEditor": true,
+              "isPolicyProfileUser": false
+            }
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+        var request = new ResolveInternalUserRequestDto
+        {
+            SsoUserIdInt = Guid.NewGuid(),
+            UserName = @"DEFRA\jdoe",
+            FullName = "Jane Internal"
+        };
+
+        var result = await client.ResolveInternalUserAsync(request);
+
+        Assert.Equal(ResolveInternalUserOutcome.Success, result.Outcome);
+        Assert.Equal("Jane Internal", result.User!.FullName);
+        Assert.Equal("/api/users/internal/resolve", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_ReturnsNotPermitted_OnNotFound()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, "{}"));
+        var request = new ResolveInternalUserRequestDto
+        {
+            SsoUserIdInt = Guid.NewGuid(),
+            UserName = @"DEFRA\jdoe",
+            FullName = "Jane Internal"
+        };
+
+        var result = await client.ResolveInternalUserAsync(request);
+
+        Assert.Equal(ResolveInternalUserOutcome.NotPermitted, result.Outcome);
+        Assert.Null(result.User);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+        var request = new ResolveInternalUserRequestDto
+        {
+            SsoUserIdInt = Guid.NewGuid(),
+            UserName = @"DEFRA\jdoe",
+            FullName = "Jane Internal"
+        };
+
+        var result = await client.ResolveInternalUserAsync(request);
+
+        Assert.Equal(ResolveInternalUserOutcome.Error, result.Outcome);
+        Assert.Null(result.User);
+    }
+
+    [Fact]
     public async Task GetCurrentStaticReportsAsync_ReturnsReports_OnSuccess()
     {
         const string json = """

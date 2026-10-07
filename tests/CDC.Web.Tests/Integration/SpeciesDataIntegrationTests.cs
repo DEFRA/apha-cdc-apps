@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,7 +12,9 @@ namespace CDC.Web.Tests.Integration;
 
 // The default WebApplicationFactory<Program> has no live CDC.Api to call, so every species page
 // only ever renders its error-banner path. These tests swap in a fake ISpeciesApiService with
-// real data, so the tree/audit-trail/edit-panel views actually render their success paths.
+// real data, so the tree/audit-trail/edit-panel views actually render their success paths. Uses
+// CdcWebTestFactory (not the plain WebApplicationFactory<Program>) since these routes require
+// authentication, and signs in via the test-only endpoint before each request.
 public partial class SpeciesDataIntegrationTests
 {
     private static readonly Guid CattleId = Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f");
@@ -27,7 +30,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -55,7 +58,7 @@ public partial class SpeciesDataIntegrationTests
             }
         ];
         using var factory = CreateFactory(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain?handler=AuditTrail");
         var body = await response.Content.ReadAsStringAsync();
@@ -69,7 +72,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_OffersAnAddAction_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -82,7 +85,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task ViewSpeciesData_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/ViewSpeciesData");
         var body = await response.Content.ReadAsStringAsync();
@@ -91,23 +94,27 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("Cattle", body);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService)
-    {
-        WebTestEnvironment.EnsureConfigured();
-
-        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+    private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService) =>
+        new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton(fakeService);
             }));
+
+    // Every page is authenticated by default, so sign in via the test-only endpoint first.
+    private static async Task<HttpClient> SignedInClientAsync(WebApplicationFactory<Program> factory)
+    {
+        var client = factory.CreateClient();
+        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        return client;
     }
 
     [Fact]
     public async Task Maintain_RendersSuccessBanner_AfterASave()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain?saved=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -121,7 +128,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSuccessBanner_AfterAnAdd()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain?added=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -134,7 +141,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersEmptyState_WhenNoActiveSpeciesExist()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService([]));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -147,7 +154,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersErrorSummary_WhenTheApiIsUnreachable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -160,7 +167,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersAddSpeciesPanel_WhenAddIsPosted()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var body = await PostAsync(client, "Add", new Dictionary<string, string>());
 
@@ -175,7 +182,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersValidationErrors_WhenANewSpeciesIsSavedWithNoValues()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var body = await PostAsync(client, "SaveNew", new Dictionary<string, string>
         {
@@ -194,7 +201,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSelectionError_WhenEditIsPostedWithNoSelection()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>());
 
@@ -217,7 +224,7 @@ public partial class SpeciesDataIntegrationTests
             Species,
             speciesDetail: detail,
             validParents: [new SpeciesValidParentDto { Id = CattleId, Name = "Cattle" }]));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>
         {
@@ -314,7 +321,7 @@ public partial class SpeciesDataIntegrationTests
             speciesMetadata: metadata,
             speciesAnswerData: answerData,
             referenceValuesByTable: referenceValues));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -331,7 +338,7 @@ public partial class SpeciesDataIntegrationTests
         using var factory = CreateFactory(new FakeSpeciesApiService(
             Species,
             throwOnGetSpeciesAnswerData: new HttpRequestException("down")));
-        var client = factory.CreateClient();
+        var client = await SignedInClientAsync(factory);
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
 

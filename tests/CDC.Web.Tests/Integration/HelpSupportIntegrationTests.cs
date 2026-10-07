@@ -2,6 +2,7 @@ using System.Net;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Features.Landing;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,7 +18,7 @@ public class HelpSupportIntegrationTests
     public async Task StaticReports_RendersTheReportTable_WithPublicAndEffectiveDateColumns()
     {
         using var factory = CreateFactory(Reports(3));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/HelpSupport/StaticReports");
         var body = await response.Content.ReadAsStringAsync();
@@ -32,7 +33,7 @@ public class HelpSupportIntegrationTests
     public async Task StaticReports_RendersThePager_WhenThereAreMoreReportsThanOnePage()
     {
         using var factory = CreateFactory(Reports(30));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/HelpSupport/StaticReports?PageNumber=2&PageSize=10");
         var body = await response.Content.ReadAsStringAsync();
@@ -47,7 +48,7 @@ public class HelpSupportIntegrationTests
     public async Task StaticReports_OmitsThePublicColumn_ForUserManuals()
     {
         using var factory = CreateFactory(Reports(2, isUserManual: true));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/HelpSupport/StaticReports?UserManual=1");
         var body = await response.Content.ReadAsStringAsync();
@@ -73,7 +74,7 @@ public class HelpSupportIntegrationTests
         })];
 
     private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<StaticReportListItemDto> reports) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();

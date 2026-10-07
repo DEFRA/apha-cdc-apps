@@ -1,10 +1,11 @@
 @{
     ViewData["Title"] = "D2R2";
+    var fullName = User.FindFirst(ExternalUserClaimTypes.FullName)?.Value;
+    var firstName = string.IsNullOrEmpty(fullName) ? null : fullName.Split(' ')[0];
 }
 
 <span class="govuk-caption-l">D2R2 Home</span>
-<!-- Placeholder until Entra ID sign-in is implemented; first name will come from the authenticated user's claims. -->
-<h1 class="govuk-heading-l">Welcome back, Srinivas</h1>
+<h1 class="govuk-heading-l">@(string.IsNullOrEmpty(firstName) ? "Welcome back" : $"Welcome back, {firstName}")</h1>
 <p class="govuk-body">D2R2 is a comprehensive, peer-reviewed animal disease database and risk ranking tool, focused on the UK situation. Its standardised approach facilitates a transparent mechanism for making policy decisions.</p>
 
 <div class="govuk-grid-row">

@@ -2,18 +2,25 @@ using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages.SurveillanceProfiles;
-using Microsoft.AspNetCore.Mvc.Testing;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CDC.Web.Tests.Integration;
 
-// The default WebApplicationFactory<Program> has no live CDC.Api, so these pages only ever
-// render their "no profile"/empty-state paths. These tests swap in fakes with real, fully
-// populated data so every action link, the confirm modal, the question accordion, section
-// pagination, and the references/further-information note lists actually render.
-public class ManageProfileAndEditProfileQuestionsIntegrationTests
+// The default CdcWebTestFactory has no live CDC.Api, so these pages only ever render their "no
+// profile"/empty-state paths. These tests swap in fakes with real, fully populated data so every
+// action link, the confirm modal, the question accordion, section pagination, and the
+// references/further-information note lists actually render.
+public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixture<CdcWebTestFactory>
 {
+    private readonly CdcWebTestFactory _factory;
+
+    public ManageProfileAndEditProfileQuestionsIntegrationTests(CdcWebTestFactory factory)
+    {
+        _factory = factory;
+    }
+
     [Fact]
     public async Task ManageProfile_RendersEveryActionLinkAndConfirmModal_WhenFullyAuthorised()
     {
@@ -46,7 +53,7 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests
             }
         };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = _factory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -55,6 +62,8 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests
                     profileStatusTypes: [new ProfileStatusTypeDto { Id = profileStatusId, Name = "Draft" }]));
             }));
         var client = factory.CreateClient();
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, signIn.StatusCode);
 
         var response = await client.GetAsync($"/SurveillanceProfiles/ManageProfile/{profileId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -128,7 +137,7 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests
         };
         var note = new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "A relevant paper." };
 
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        using var factory = _factory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -140,6 +149,8 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests
                     notesByNoteType: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>> { [noteTypeId] = [note] }));
             }));
         var client = factory.CreateClient();
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, signIn.StatusCode);
 
         var response = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{profileId}");
         var body = await response.Content.ReadAsStringAsync();

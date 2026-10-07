@@ -2,6 +2,7 @@ using System.Net;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,7 +46,7 @@ public class PrioritisationVariablesIntegrationTests
     public async Task Get_RendersSelectedCategoryCriteriaAndCriterionValueScores()
     {
         using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync(
             $"/CrossProfileAdmin/PrioritisationVariables?SelectedCategoryId={CategoryId}&SelectedCriterionId={CriterionId}");
@@ -57,7 +58,7 @@ public class PrioritisationVariablesIntegrationTests
     }
 
     private static WebApplicationFactory<Program> CreateFactory(IPrioritisationVariablesApiService fakeService) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IPrioritisationVariablesApiService>();

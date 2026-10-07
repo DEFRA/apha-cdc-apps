@@ -6,6 +6,12 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <ExcludeByFile>**/wwwroot/js/tree-view.js,**/*.cshtml</ExcludeByFile>
+    <!-- CDC.Auth.Cidm and CDC.Auth.Entra each have their own dedicated test project (with a 90%
+         gate already); only exercising them indirectly here via DI wiring would otherwise drag
+         this project's own coverage total down. A comma (not semicolon) separates the two patterns -
+         coverlet's glob-list parser silently stops excluding anything once more than one
+         semicolon-separated pattern is present. -->
+    <Exclude>[CDC.Auth.Cidm]*,[CDC.Auth.Entra]*</Exclude>
   </PropertyGroup>
 
   <ItemGroup>

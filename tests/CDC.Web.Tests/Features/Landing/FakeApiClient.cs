@@ -67,6 +67,16 @@ internal sealed class FakeApiClient( // NOSONAR
             ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
             : Task.FromResult(manageProfile);
 
+    public Task<ResolveExternalUserResult> ResolveExternalUserAsync(
+        ResolveExternalUserRequestDto request,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
+
+    public Task<ResolveInternalUserResult> ResolveInternalUserAsync(
+        ResolveInternalUserRequestDto request,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+
     public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_profileStatusTypes);
 
