@@ -81,6 +81,44 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
     }
 
     /// <inheritdoc />
+    public async Task<AddSpeciesResult> AddSpeciesAsync(
+        AddSpeciesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync("/api/species", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var created = await response.Content.ReadFromJsonAsync<AddSpeciesResultDto>(cancellationToken);
+
+            return new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Success,
+                SpeciesId = created?.SpeciesId ?? Guid.Empty
+            };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = "There is already a species with this name. Enter a different name."
+            },
+            HttpStatusCode.BadRequest => new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "Enter a name, select a parent and give a reason for this change."
+            },
+            _ => new AddSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "We could not add this species. Try again later."
+            }
+        };
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken = default)
     {
         var entries = await httpClient.GetFromJsonAsync<IReadOnlyList<SpeciesAuditTrailEntryDto>>(

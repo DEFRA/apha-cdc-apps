@@ -64,7 +64,7 @@ public class SurveillanceProfilesSearchModelTests
         var pageModel = new SurveillanceProfilesSearchModel(
             new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles),
             new FakeSpeciesApiService(species, throwOnGetAllSpecies),
-            NullLogger<SurveillanceProfilesSearchModel>.Instance)
+            new AlwaysEnabledLogger<SurveillanceProfilesSearchModel>())
         {
             PageContext = new PageContext
             {

@@ -139,8 +139,11 @@ public class SurveillanceProfilesSearchIntegrationTests
 
     private static WebApplicationFactory<Program> CreateFactory(
         IReadOnlyList<ProfileSearchResultDto> searchResults,
-        IReadOnlyList<SpeciesDto>? species = null) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        IReadOnlyList<SpeciesDto>? species = null)
+    {
+        WebTestEnvironment.EnsureConfigured();
+
+        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
@@ -148,4 +151,5 @@ public class SurveillanceProfilesSearchIntegrationTests
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService(species ?? []));
             }));
+    }
 }

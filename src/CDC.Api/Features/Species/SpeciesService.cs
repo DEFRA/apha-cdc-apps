@@ -122,6 +122,20 @@ public sealed class SpeciesService(ISpeciesRepository repository, ILogger<Specie
     }
 
     /// <inheritdoc />
+    public async Task<AddSpeciesResultDto> AddSpeciesAsync(AddSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.AddingSpecies();
+
+        var speciesId = await repository.AddSpeciesAsync(command, cancellationToken);
+
+        logger.AddedSpecies(speciesId);
+
+        return new AddSpeciesResultDto { SpeciesId = speciesId };
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken)
     {
         var entries = await repository.GetSpeciesAuditTrailAsync(cancellationToken);

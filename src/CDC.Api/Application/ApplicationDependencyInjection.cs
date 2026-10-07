@@ -1,4 +1,6 @@
 using CDC.Api.Application.Behaviours;
+using CDC.Api.Features.ProfileContributors;
+using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileNotes;
@@ -43,6 +45,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<ISpeciesService, SpeciesService>();
         services.AddScoped<IProfileSearchService, ProfileSearchService>();
         services.AddScoped<IProfileManagementService, ProfileManagementService>();
+        services.AddScoped<IProfileContributorsService, ProfileContributorsService>();
         services.AddScoped<IProfileNoteService, ProfileNoteService>();
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();
         services.AddScoped<IProfileSectionService, ProfileSectionService>();
