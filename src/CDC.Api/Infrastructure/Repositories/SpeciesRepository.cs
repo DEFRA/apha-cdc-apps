@@ -30,10 +30,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     /// <summary>The message <c>spuSpeciesAnswerData</c> raises when the row version has moved on.</summary>
     private const string ConcurrencyMessageFragment = "edited by another user";
 
+    /// <summary>The message <c>spiSpecies</c> and <c>spuSpecies</c> raise for a name clash.</summary>
+    private const string DuplicateNameMessageFragment = "already a species with this name";
+
     private const int RowVersionLength = 8;
 
     /// <summary><c>spuSpecies</c> declares <c>@Name varchar(50)</c>.</summary>
     private const int SpeciesNameMaxLength = 50;
+
+    /// <summary><c>spuSpecies</c> declares <c>@Reason varchar(255)</c>.</summary>
+    private const int ReasonMaxLength = 255;
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Domain.Entities.Species>> GetAllSpeciesAsync(CancellationToken cancellationToken)
@@ -149,8 +155,8 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
                 return null;
             }
 
-            var lastUpdated = ReadRowVersion(reader, 0);
-            var speciesName = ReadString(reader, 1);
+            var lastUpdated = reader.ReadRowVersion(0);
+            var speciesName = reader.ReadString(1);
 
             // Result set 2: every section id, in section order.
             var sectionIds = new List<Guid>();
@@ -181,11 +187,11 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
                     values.Add(new SpeciesFieldValue
                     {
                         Id = reader.GetGuid(1),
-                        BooleanValue = ReadNullableBoolean(reader, 2),
-                        ListValue = ReadNullableGuid(reader, 3),
-                        TextValue = ReadNullableString(reader, 4),
+                        BooleanValue = reader.ReadNullableBoolean(2),
+                        ListValue = reader.ReadNullableGuid(3),
+                        TextValue = reader.ReadNullableString(4),
                         QuestionId = reader.GetGuid(5),
-                        FieldNumber = ReadInt32(reader, 6)
+                        FieldNumber = reader.ReadInt32(6)
                     });
                 }
             }
@@ -344,7 +350,7 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         var parameters = new DynamicParameters();
         parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
         parameters.Add("@UserId", command.UserId, DbType.Guid);
-        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: 255);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
         parameters.Add("@ParentId", command.ParentId == Guid.Empty ? null : command.ParentId, DbType.Guid);
         parameters.Add("@Name", command.Name, DbType.AnsiString, size: SpeciesNameMaxLength);
         parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
@@ -377,6 +383,47 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             cancellationToken: cancellationToken));
 
         return updated?.LastUpdated ?? [];
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid> AddSpeciesAsync(AddSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        // The legacy CSLA business object allocated the key before calling the procedure, and
+        // spiSpecies still takes it as an input parameter rather than generating one.
+        var speciesId = Guid.NewGuid();
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", speciesId, DbType.Guid);
+        parameters.Add("@UserId", command.UserId, DbType.Guid);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
+        // Guid.Empty means "root species", which spiSpecies expects as a NULL parent.
+        parameters.Add("@ParentId", command.ParentId is null || command.ParentId == Guid.Empty ? null : command.ParentId, DbType.Guid);
+        parameters.Add("@Name", command.Name, DbType.AnsiString, size: SpeciesNameMaxLength);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.InsertSpecies,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.InsertSpecies);
+
+            // spiSpecies RAISERRORs when the name is taken; its own message already says so,
+            // so it is passed through rather than replaced with a generic one.
+            throw IsDuplicateNameViolation(exception)
+                ? new DuplicateSpeciesNameException(exception.Message, exception)
+                : exception;
+        }
+
+        return speciesId;
     }
 
     /// <inheritdoc />
@@ -422,6 +469,15 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     internal static bool IsConcurrencyViolation(DbException exception) =>
         exception is SqlException { Number: UserRaisedErrorNumber } ||
         exception.Message.Contains(ConcurrencyMessageFragment, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Identifies the name clash raised by <c>spiSpecies</c>. Matched on the message because
+    /// it shares error number 50000 with every other <c>RAISERROR</c> the procedure can emit.
+    /// </summary>
+    /// <param name="exception">The database exception to classify.</param>
+    /// <returns><see langword="true"/> when the failure is a duplicate species name.</returns>
+    internal static bool IsDuplicateNameViolation(DbException exception) =>
+        exception.Message.Contains(DuplicateNameMessageFragment, StringComparison.OrdinalIgnoreCase);
 
     private static async Task<byte[]> UpdateRowVersionAsync(
         DbConnection connection,
@@ -529,9 +585,9 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         {
             sections.Add(new SectionMetadataRow(
                 reader.GetGuid(0),
-                ReadString(reader, 1),
-                ReadString(reader, 2),
-                ReadInt32(reader, 3)));
+                reader.ReadString(1),
+                reader.ReadString(2),
+                reader.ReadInt32(3)));
         }
 
         return sections;
@@ -553,9 +609,9 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             questions.Add(new QuestionMetadataRow(
                 reader.GetGuid(0),
                 reader.GetGuid(1),
-                ReadString(reader, 2),
-                ReadInt32(reader, 3),
-                ReadString(reader, 4)));
+                reader.ReadString(2),
+                reader.ReadInt32(3),
+                reader.ReadString(4)));
         }
 
         return questions;
@@ -578,16 +634,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             fields.Add(new FieldMetadataRow(
                 reader.GetGuid(1),
                 reader.GetGuid(2),
-                ReadString(reader, 3),
-                ReadString(reader, 4),
-                ReadInt32(reader, 5),
-                ReadGuid(reader, 6),
-                ReadString(reader, 7),
-                ReadBoolean(reader, 8),
-                ReadGuid(reader, 9),
-                ReadBoolean(reader, 10),
+                reader.ReadString(3),
+                reader.ReadString(4),
+                reader.ReadInt32(5),
+                reader.ReadGuid(6),
+                reader.ReadString(7),
+                reader.ReadBoolean(8),
+                reader.ReadGuid(9),
+                reader.ReadBoolean(10),
                 // Databases that predate the editor field type column simply omit it.
-                reader.FieldCount > editorFieldTypeOrdinal ? ReadInt32(reader, editorFieldTypeOrdinal) : 0));
+                reader.FieldCount > editorFieldTypeOrdinal ? reader.ReadInt32(editorFieldTypeOrdinal) : 0));
         }
 
         return fields;
@@ -667,30 +723,6 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             throw;
         }
     }
-
-    private static byte[] ReadRowVersion(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? [] : (byte[])reader.GetValue(ordinal);
-
-    private static string ReadString(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
-
-    private static string? ReadNullableString(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
-
-    private static Guid ReadGuid(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? Guid.Empty : reader.GetGuid(ordinal);
-
-    private static Guid? ReadNullableGuid(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
-
-    private static bool ReadBoolean(DbDataReader reader, int ordinal) =>
-        !reader.IsDBNull(ordinal) && reader.GetBoolean(ordinal);
-
-    private static bool? ReadNullableBoolean(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetBoolean(ordinal);
-
-    private static int ReadInt32(DbDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);
 
     // Property-initialised (not positional) so Dapper binds columns by name rather than by
     // ordinal position - the actual stored procedure's column order is not guaranteed to match

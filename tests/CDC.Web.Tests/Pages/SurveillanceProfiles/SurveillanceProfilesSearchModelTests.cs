@@ -21,7 +21,7 @@ public class SurveillanceProfilesSearchModelTests
         DateTime? modifiedAtUtc = null,
         IReadOnlyList<ProfileHistoryItemDto>? published = null,
         IReadOnlyList<ProfileHistoryItemDto>? draft = null,
-        IReadOnlyList<ProfileHistoryItemDto>? scenarios = null) => new()
+        IReadOnlyList<ProfileScenarioDto>? whatIfScenarios = null) => new()
         {
             Id = Guid.NewGuid(),
             Title = title,
@@ -32,17 +32,27 @@ public class SurveillanceProfilesSearchModelTests
             AffectedSpecies = [],
             PublishedVersions = published ?? [],
             DraftVersions = draft ?? [],
-            Scenarios = scenarios ?? []
+            WhatIfScenarios = whatIfScenarios ?? []
         };
 
-    private static ProfileHistoryItemDto Version(int number, bool isScenario = false) => new()
+    private static ProfileHistoryItemDto Version(int number, bool isScenario = false, int minor = 0) => new()
     {
         VersionId = Guid.NewGuid(),
         VersionNumber = number,
+        VersionMinor = minor,
         Title = "Title",
         CreatedAtUtc = DateTime.UtcNow,
         IsScenario = isScenario
     };
+
+    private static ProfileScenarioDto Scenario(
+        IReadOnlyList<ProfileHistoryItemDto>? published = null,
+        IReadOnlyList<ProfileHistoryItemDto>? draft = null) => new()
+        {
+            ScenarioId = Guid.NewGuid(),
+            PublishedVersions = published ?? [],
+            DraftVersions = draft ?? []
+        };
 
     private static SurveillanceProfilesSearchModel CreatePageModel(
         IReadOnlyList<ProfileSearchResultDto>? searchResults = null,
@@ -54,7 +64,7 @@ public class SurveillanceProfilesSearchModelTests
         var pageModel = new SurveillanceProfilesSearchModel(
             new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles),
             new FakeSpeciesApiService(species, throwOnGetAllSpecies),
-            NullLogger<SurveillanceProfilesSearchModel>.Instance)
+            new AlwaysEnabledLogger<SurveillanceProfilesSearchModel>())
         {
             PageContext = new PageContext
             {
@@ -115,6 +125,18 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Equal("Bovine tuberculosis", pageModel.SearchResults[0].Title);
     }
 
+    [Fact]
+    public async Task PerformSearchAsync_FiltersBySelectedLetter_IgnoringLeadingHtmlMarkup()
+    {
+        var pageModel = CreatePageModel([Profile("<p>Leptospirosis (Weil's Disease)</p>"), Profile("Avian influenza")]);
+        pageModel.SelectedLetter = "L";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.TotalResultCount);
+        Assert.Equal("<p>Leptospirosis (Weil's Disease)</p>", pageModel.SearchResults[0].Title);
+    }
+
     [Theory]
     [InlineData("Az", "Avian influenza", "Bovine tuberculosis")]
     [InlineData("Za", "Bovine tuberculosis", "Avian influenza")]
@@ -122,6 +144,20 @@ public class SurveillanceProfilesSearchModelTests
     public async Task PerformSearchAsync_SortsByTitle(string sortBy, string expectedFirst, string expectedSecond)
     {
         var pageModel = CreatePageModel([Profile("Bovine tuberculosis"), Profile("Avian influenza")]);
+        pageModel.SortBy = sortBy;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedFirst, pageModel.SearchResults[0].Title);
+        Assert.Equal(expectedSecond, pageModel.SearchResults[1].Title);
+    }
+
+    [Theory]
+    [InlineData("Az", "<p>Leptospirosis (Weil's Disease)</p>", "<em>Zika virus</em>")]
+    [InlineData("Za", "<em>Zika virus</em>", "<p>Leptospirosis (Weil's Disease)</p>")]
+    public async Task PerformSearchAsync_SortsByTitle_IgnoringHtmlMarkup(string sortBy, string expectedFirst, string expectedSecond)
+    {
+        var pageModel = CreatePageModel([Profile("<em>Zika virus</em>"), Profile("<p>Leptospirosis (Weil's Disease)</p>")]);
         pageModel.SortBy = sortBy;
 
         await pageModel.OnGetAsync(CancellationToken.None);
@@ -259,56 +295,191 @@ public class SurveillanceProfilesSearchModelTests
     }
 
     [Fact]
-    public void GetCurrentVersion_PrefersPublished_ThenDraft_ThenScenario()
+    public void GetVersionGroups_CarriesTheProfileId_ForBrowseProfileLinks()
     {
-        var published = Version(2);
-        var draft = Version(3);
-        var scenario = Version(1, isScenario: true);
+        var profile = Profile("A", draft: [Version(1)]);
 
-        var profileWithPublished = Profile("A", published: [published], draft: [draft], scenarios: [scenario]);
-        Assert.Same(published, SurveillanceProfilesSearchModel.GetCurrentVersion(profileWithPublished));
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
 
-        var profileWithDraftOnly = Profile("B", draft: [draft], scenarios: [scenario]);
-        Assert.Same(draft, SurveillanceProfilesSearchModel.GetCurrentVersion(profileWithDraftOnly));
-
-        var profileWithScenarioOnly = Profile("C", scenarios: [scenario]);
-        Assert.Same(scenario, SurveillanceProfilesSearchModel.GetCurrentVersion(profileWithScenarioOnly));
-
-        var profileWithNoVersions = Profile("D");
-        Assert.Null(SurveillanceProfilesSearchModel.GetCurrentVersion(profileWithNoVersions));
-    }
-
-    [Theory]
-    [InlineData(true, false, false, "Published current version")]
-    [InlineData(false, true, false, "Draft current version")]
-    [InlineData(false, false, true, "Scenario version")]
-    [InlineData(false, false, false, "Version")]
-    public void GetCurrentVersionLabel_MatchesTheBucketWithVersions(bool hasPublished, bool hasDraft, bool hasScenario, string expectedLabel)
-    {
-        var profile = Profile(
-            "A",
-            published: hasPublished ? [Version(1)] : [],
-            draft: hasDraft ? [Version(1)] : [],
-            scenarios: hasScenario ? [Version(1, isScenario: true)] : []);
-
-        Assert.Equal(expectedLabel, SurveillanceProfilesSearchModel.GetCurrentVersionLabel(profile));
+        Assert.All(groups, group => Assert.Equal(profile.Id, group.ProfileId));
     }
 
     [Fact]
-    public void GetPreviousVersions_ExcludesCurrentVersion_AndOrdersByVersionNumberDescending()
+    public void GetVersionGroups_DraftOnlyProfile_ShowsPlaceholderPublishedCard_ThenRealDraftCard_WhenBothFiltersOn()
     {
-        var current = Version(3);
-        var older = Version(2);
-        var oldest = Version(1);
-        var profile = Profile("A", published: [current, older], draft: [oldest]);
+        var draftVersion = Version(1);
+        var profile = Profile("A", draft: [draftVersion]);
 
-        var previous = SurveillanceProfilesSearchModel.GetPreviousVersions(profile);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
 
-        Assert.Equal(2, previous.Count);
-        Assert.Equal(older.VersionId, previous[0].Version.VersionId);
-        Assert.Equal("Published", previous[0].Status);
-        Assert.Equal(oldest.VersionId, previous[1].Version.VersionId);
-        Assert.Equal("Draft", previous[1].Status);
+        Assert.Equal(2, groups.Count);
+
+        var publishedCard = groups[0];
+        Assert.Equal("Published current version", publishedCard.CurrentVersionLabel);
+        Assert.Null(publishedCard.CurrentVersion);
+        Assert.Equal("(No current published version)", publishedCard.NoVersionMessage);
+        Assert.Null(publishedCard.ProfileStatus);
+
+        var draftCard = groups[1];
+        Assert.Equal("Draft current version", draftCard.CurrentVersionLabel);
+        Assert.Same(draftVersion, draftCard.CurrentVersion);
+        Assert.Null(draftCard.NoVersionMessage);
+    }
+
+    [Fact]
+    public void GetVersionGroups_PlaceholderCard_HasNoProfileStatus_RegardlessOfProfilesOverallStatus()
+    {
+        var profile = Profile("A", status: "Draft", draft: [Version(1)]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
+
+        Assert.Null(groups[0].ProfileStatus);
+    }
+
+    [Fact]
+    public void GetVersionGroups_DraftCard_NeverShowsTheViewReportsLink()
+    {
+        var profile = Profile("A", published: [Version(2)], draft: [Version(1)]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
+
+        Assert.True(groups[0].ShowViewReportsLink);
+        Assert.False(groups[1].ShowViewReportsLink);
+    }
+
+    [Fact]
+    public void GetVersionGroups_VersionHistoryRows_ShowViewReportsForPublishedOnly()
+    {
+        var profile = Profile(
+            "A",
+            published: [Version(2), Version(1)],
+            draft: [Version(4), Version(3)]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
+
+        Assert.All(groups[0].VersionHistory, row => Assert.True(row.ShowViewReportsLink));
+        Assert.All(groups[1].VersionHistory, row => Assert.False(row.ShowViewReportsLink));
+    }
+
+    [Fact]
+    public void GetVersionGroups_VersionHistory_IncludesTheCurrentVersion_NewestFirst()
+    {
+        var profile = Profile("A", published: [Version(11), Version(13), Version(12)]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: false, includeWhatIfScenarios: false);
+
+        Assert.Equal([13, 12, 11], groups[0].VersionHistory.Select(row => row.Version.VersionNumber));
+        Assert.Equal(13, groups[0].CurrentVersion!.VersionNumber);
+    }
+
+    [Fact]
+    public void GetVersionGroups_VersionHistory_OrdersByMajorThenMinor()
+    {
+        var profile = Profile(
+            "A",
+            draft: [Version(12, minor: 1), Version(11, minor: 2), Version(12, minor: 2), Version(11, minor: 10)]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, includeWhatIfScenarios: false);
+
+        Assert.Equal(
+            [(12, 2), (12, 1), (11, 10), (11, 2)],
+            groups[0].VersionHistory.Select(row => (row.Version.VersionNumber, row.Version.VersionMinor)));
+        Assert.Equal((12, 2), (groups[0].CurrentVersion!.VersionNumber, groups[0].CurrentVersion!.VersionMinor));
+    }
+
+    [Fact]
+    public void GetVersionGroups_VersionHistoryRows_CarryTheEffectiveEndDate()
+    {
+        var endedOn = new DateTime(2026, 3, 7, 0, 0, 0, DateTimeKind.Utc);
+        var superseded = Version(9) with { EffectiveToUtc = endedOn };
+        var profile = Profile("A", published: [Version(10), superseded]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: false, includeWhatIfScenarios: false);
+
+        Assert.Null(groups[0].CurrentVersion!.EffectiveToUtc);
+        var previous = groups[0].VersionHistory.Single(row => row.Version.VersionNumber == 9);
+        Assert.Equal(endedOn, previous.Version.EffectiveToUtc);
+    }
+
+    [Fact]
+    public void GetVersionGroups_DraftOnlyProfile_ShowsOnlyTheDraftCard_WhenOnlyDraftFilterIsOn()
+    {
+        var draftVersion = Version(1);
+        var profile = Profile("A", draft: [draftVersion]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, includeWhatIfScenarios: false);
+
+        var draftCard = Assert.Single(groups);
+        Assert.Same(draftVersion, draftCard.CurrentVersion);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void GetVersionGroups_DraftAndPublishedProfile_ShowsOnlyTheRequestedCard(bool displayPublished, bool displayDraft)
+    {
+        var published = Version(2);
+        var draft = Version(1);
+        var profile = Profile("A", published: [published], draft: [draft]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished, displayDraft, includeWhatIfScenarios: false);
+
+        var card = Assert.Single(groups);
+        Assert.Same(displayPublished ? published : draft, card.CurrentVersion);
+    }
+
+    [Fact]
+    public void GetVersionGroups_DraftAndPublishedProfile_ShowsPublishedCardFirst_ThenDraftCard()
+    {
+        var published = Version(2);
+        var draft = Version(1);
+        var profile = Profile("A", published: [published], draft: [draft]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
+
+        Assert.Equal(2, groups.Count);
+        Assert.Same(published, groups[0].CurrentVersion);
+        Assert.Same(draft, groups[1].CurrentVersion);
+    }
+
+    [Fact]
+    public void GetVersionGroups_PublishedCard_NeverIncludesTheProfilesOwnDraftVersions_OrWhatIfScenarioVersions()
+    {
+        var published = Version(2);
+        var olderPublished = Version(1);
+        var draft = Version(3);
+        var scenarioVersion = Version(9, isScenario: true);
+        var profile = Profile(
+            "A",
+            published: [published, olderPublished],
+            draft: [draft],
+            whatIfScenarios: [Scenario(draft: [scenarioVersion])]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: false);
+
+        var publishedCard = groups[0];
+        Assert.Same(published, publishedCard.CurrentVersion);
+        Assert.DoesNotContain(publishedCard.VersionHistory, row => row.Version.VersionId == draft.VersionId);
+        Assert.DoesNotContain(publishedCard.VersionHistory, row => row.Version.VersionId == scenarioVersion.VersionId);
+        Assert.Contains(publishedCard.VersionHistory, row => row.Version.VersionId == olderPublished.VersionId);
+    }
+
+    [Fact]
+    public void GetVersionGroups_IgnoresWhatIfScenarioCards_AndShowsOnlyPublishedAndDraftCards()
+    {
+        var currentSituationVersion = Version(1);
+        var scenarioAPublished = Version(2, isScenario: true);
+        var scenarioBDraft = Version(1, isScenario: true);
+        var profile = Profile(
+            "A",
+            published: [currentSituationVersion],
+            whatIfScenarios: [Scenario(published: [scenarioAPublished]), Scenario(draft: [scenarioBDraft])]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, includeWhatIfScenarios: true);
+
+        Assert.Equal(2, groups.Count);
+        Assert.Same(currentSituationVersion, groups[0].CurrentVersion);
+        Assert.Same(groups[1].CurrentVersion, groups[1].CurrentVersion);
     }
 
     [Fact]
@@ -349,6 +520,25 @@ public class SurveillanceProfilesSearchModelTests
         var url = pageModel.BuildLetterUrl("All");
 
         Assert.Null(url);
+    }
+
+    // The legacy page used a radio group, so exactly one mode was always active and
+    // "this exact word or phrase" won; these cover every combination the querystring can carry.
+    [Theory]
+    [InlineData(true, false, SearchForType.ExactWordOrPhrase)]
+    [InlineData(false, true, SearchForType.AllWords)]
+    [InlineData(true, true, SearchForType.ExactWordOrPhrase)]
+    [InlineData(false, false, SearchForType.ExactWordOrPhrase)]
+    public void SearchForType_ResolvesTheTwoCheckboxesToASingleMode(
+        bool searchForExactPhrase,
+        bool searchForAllWords,
+        SearchForType expected)
+    {
+        var pageModel = CreatePageModel([]);
+        pageModel.SearchForExactPhrase = searchForExactPhrase;
+        pageModel.SearchForAllWords = searchForAllWords;
+
+        Assert.Equal(expected, pageModel.SearchForType);
     }
 
     private static FakeUrlHelper CreateUrlHelper() => new(values =>

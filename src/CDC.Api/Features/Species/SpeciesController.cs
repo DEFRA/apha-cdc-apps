@@ -309,4 +309,62 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
 
         return result.ToActionResult(this);
     }
+
+    /// <summary>
+    /// Adds a new species or species group to the hierarchy.
+    /// </summary>
+    /// <remarks>
+    /// Records an audit trail entry whose old name and old parent are both
+    /// <c>- new entry -</c>, together with who made the change, when, and the mandatory
+    /// reason for change. Send <c>parentId</c> as the all-zero GUID to create a root species;
+    /// omitting it entirely is rejected, because the parent is a required choice.
+    ///
+    /// Sample request:
+    ///
+    ///     POST /api/species
+    ///     {
+    ///       "name": "Jersey",
+    ///       "parentId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+    ///       "reason": "New breed added to the taxonomy"
+    ///     }
+    ///
+    /// Sample response:
+    ///
+    ///     {
+    ///       "speciesId": "9f8e7d6c-5b4a-3928-1706-5f4e3d2c1b0a"
+    ///     }
+    /// </remarks>
+    /// <param name="request">The species to add.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The identifier assigned to the new species.</returns>
+    /// <response code="201">The species was added.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="409">Another species already uses this name.</response>
+    [HttpPost]
+    [ProducesResponseType(typeof(AddSpeciesResultDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AddSpeciesResultDto>> AddSpecies(
+        [FromBody] AddSpeciesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // UserId is set here from the configured placeholder audit user, never taken from the
+        // request body, so the audit trail cannot be spoofed by the client. Replace with the
+        // authenticated caller's id once Entra ID authentication is wired up.
+        var command = new AddSpeciesCommand
+        {
+            Name = request.Name,
+            ParentId = request.ParentId,
+            Reason = request.Reason,
+            UserId = speciesAuditOptions.AuditUserId
+        };
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetSpeciesDetail), new { speciesId = result.Value.SpeciesId }, result.Value)
+            : result.ToActionResult(this);
+    }
 }
