@@ -33,6 +33,10 @@ public static class ResultExtensions
                 detail: result.Error,
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Conflicting change"),
+            ResultStatus.ValidationFailed => controller.Problem(
+                detail: result.Error,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Validation failed"),
             _ => controller.Problem(
                 detail: result.Error,
                 statusCode: StatusCodes.Status500InternalServerError,
@@ -63,6 +67,10 @@ public static class ResultExtensions
                 detail: result.Error,
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Conflicting change"),
+            ResultStatus.ValidationFailed => controller.Problem(
+                detail: result.Error,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Validation failed"),
             _ => controller.Problem(
                 detail: result.Error,
                 statusCode: StatusCodes.Status500InternalServerError,

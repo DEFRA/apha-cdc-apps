@@ -71,6 +71,12 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
