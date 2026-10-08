@@ -263,7 +263,7 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
         // Legacy infers IsUserManual/the title for the history page from the first returned row,
         // falling back to the UserManual querystring flag when the report has since been deleted.
-        var firstVersion = Reports.FirstOrDefault();
+        var firstVersion = Reports.Count > 0 ? Reports[0] : null;
         var isUserManual = firstVersion?.IsUserManual ?? IsUserManual;
         var pageName = firstVersion is not null ? $"History for {firstVersion.Title}" : "History";
         var parentPageName = isUserManual ? "Help Using D2R2" : "Static reports";
