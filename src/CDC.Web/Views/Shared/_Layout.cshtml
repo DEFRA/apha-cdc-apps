@@ -1,5 +1,10 @@
 ﻿<!DOCTYPE html>
 <html lang="en" class="govuk-template">
+@using CDC.Auth.Cidm
+@using CDC.Auth.Cidm.Options
+@using Microsoft.Extensions.Options
+@inject IOptions<CidmOptions> CidmOptionsAccessor
+@inject IUserDisplayNameService UserDisplayNameService
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -57,12 +62,30 @@
 
     <div class="govuk-width-container">
         <div class="app-banner-row">
-            <img class="app-banner-row__logo" src="~/assets/images/apha-logo-dark.png" alt="Animal and Plant Health Agency" />
-            @if (!(ViewData["HideAccountBar"] as bool? ?? false))
+            <span class="app-tooltip" data-module="app-tooltip">
+                <a class="app-banner-row__logo-link"
+                   href="https://defra.sharepoint.com/sites/APHAIntranet"
+                   rel="noopener noreferrer"
+                   aria-label="Animal and Plant Health Agency - go to the APHA Intranet"
+                   aria-describedby="apha-logo-tooltip">
+                    <img class="app-banner-row__logo" src="~/assets/images/apha-logo-dark.png" alt="" />
+                </a>
+                <span class="app-tooltip__content" id="apha-logo-tooltip" role="tooltip">
+                    This is the Animal &amp; Plant Health Agency logo, this is hyperlinked to navigate you towards the APHA Intranet (https://defra.sharepoint.com/sites/APHAIntranet)
+                </span>
+            </span>
+            @if (!(ViewData["HideAccountBar"] as bool? ?? false) && User.Identity?.IsAuthenticated == true)
             {
-                <!-- Placeholder until Entra ID sign-in is implemented; username will come from the authenticated user's claims. -->
+                var isExternalUser = User.HasClaim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme);
+                var displayName = UserDisplayNameService.GetDisplayName(User);
+
                 <p class="govuk-body-s app-banner-row__account">
-                    Signed in as <strong>Srinivas Bharadwaj Dodla</strong> &middot; <a class="govuk-link" asp-action="Index">Sign out</a>
+                    Signed in as <strong>@displayName</strong>
+                    @if (isExternalUser)
+                    {
+                        <text>&middot; <a class="govuk-link" href="@CidmOptionsAccessor.Value.AccountPortalUrl" target="_blank" rel="noopener noreferrer">CIDM account</a></text>
+                        <text>&middot; <a class="govuk-link" asp-controller="Account" asp-action="Logout">Sign out</a></text>
+                    }
                 </p>
             }
         </div>

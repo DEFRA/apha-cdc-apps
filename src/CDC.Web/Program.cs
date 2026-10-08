@@ -1,8 +1,16 @@
 using System.Globalization;
+using CDC.Auth.Cidm;
+using CDC.Auth.Cidm.Events;
+using CDC.Auth.Entra;
+using CDC.Auth.Entra.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Web.Authorization;
+using CDC.Web.Features.Account;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
@@ -55,6 +63,8 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
+builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
+
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -63,24 +73,6 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
-{
-    client.BaseAddress = apiBaseUri;
-})
-    .AddStandardResilienceHandler();
-
-builder.Services.AddHttpClient<IStaticReportsApiService, StaticReportsApiService>(client =>
-{
-    client.BaseAddress = apiBaseUri;
-})
-    .AddStandardResilienceHandler();
-
-builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
-{
-    client.BaseAddress = apiBaseUri;
-})
-    .AddStandardResilienceHandler();
-
-builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
@@ -103,6 +95,17 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.IdleTimeout = TimeSpan.FromMinutes(30);
 });
+builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributorsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {
@@ -113,6 +116,10 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
+// Centralized policy-based authorization (replaces legacy CSLA Profile.CanXxx() checks). See
+// src/CDC.Web/Authorization/AuthorizationDependencyInjection.cs.
+builder.Services.AddCdcWebAuthorization(builder.Configuration);
+
 // Allow views to be located under Features/{Controller}/Views and Features/Shared
 builder.Services.Configure<RazorViewEngineOptions>(options =>
 {
@@ -120,10 +127,51 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
     options.ViewLocationFormats.Insert(1, "/Features/Shared/{0}.cshtml");
 });
 
-// NOTE: real authentication (Entra ID SAML for internal users, CIDM/GOV.UK One Login OIDC for
-// external users) is not wired up yet. It will replace this placeholder Landing selection screen.
+// External-user auth (CIDM OIDC) and internal-user auth (Entra ID OIDC) each register their own
+// Cookie + OIDC scheme pair additively, so they coexist without conflicting. AddEntraAuthentication
+// must run AFTER AddCidmAuthentication - whichever call registers last wins the app-wide default
+// scheme, and this app is predominantly used by internal (Entra-authenticated) staff, so Entra's
+// cookie should be the fallback for every page that doesn't explicitly request CIDM.
+builder.AddCidmAuthentication();
+builder.AddEntraAuthentication();
+
+// Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see
+// CidmOpenIdConnectEvents.TokenValidated, which calls this via ICidmExternalUserResolver.
+builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();
+
+// Resolves the Entra ID-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in -
+// see EntraOpenIdConnectEvents.TokenValidated, which calls this via IEntraInternalUserResolver.
+builder.Services.AddScoped<IEntraInternalUserResolver, InternalUserResolver>();
+
+// Resolves the signed-in user's display name for the page header, independent of provider - see
+// src/CDC.Web/Features/Account/UserDisplayNameService.cs. Stateless, so a singleton is safe.
+builder.Services.AddSingleton<IUserDisplayNameService, UserDisplayNameService>();
+
+// Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
+// page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
+// the only pages so far explicitly marked anonymous. The CIDM-specific external-user journey
+// (LandingController.External) overrides this with its own explicit [Authorize(AuthenticationSchemes = ...)]
+// attribute, since the fallback below resolves to Entra's cookie scheme.
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 var app = builder.Build();
+
+// Must run before anything reads Request.Scheme/Host (including UseExceptionHandler and the OIDC
+// handlers) - the ALB terminates TLS and talks plain HTTP to this ECS task, so without this,
+// Request.Scheme is always "http" and the OIDC redirect_uri sent to Entra/CIDM is built wrong.
+// KnownNetworks/KnownProxies are cleared because the ALB's ENI is never in the default loopback-
+// only trusted list, and it's the only thing that can reach this task (private subnet, no public
+// ingress), so trusting any upstream proxy here is safe.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownIPNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -145,6 +193,7 @@ app.UseSession();
 
 app.MapHealthEndpoints();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

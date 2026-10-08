@@ -33,6 +33,10 @@ public static class ResultExtensions
                 detail: result.Error,
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Conflicting change"),
+            ResultStatus.Forbidden => controller.Problem(
+                detail: result.Error,
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Not permitted"),
             ResultStatus.ValidationFailed => controller.Problem(
                 detail: result.Error,
                 statusCode: StatusCodes.Status400BadRequest,

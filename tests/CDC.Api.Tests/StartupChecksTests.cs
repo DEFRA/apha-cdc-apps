@@ -21,6 +21,42 @@ public class StartupChecksTests
     }
 
     [Fact]
+    public void RequireDatabaseOptions_ReturnsOptions_WithIntegratedSecurity_WhenUserAndPasswordOmitted()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Database:Host"] = "(localdb)\\MSSQLLocalDB",
+                ["Database:Name"] = "db",
+                ["Database:IntegratedSecurity"] = "true"
+                // User and Password deliberately omitted
+            })
+            .Build();
+
+        var options = StartupChecks.RequireDatabaseOptions(configuration);
+
+        Assert.True(options.IntegratedSecurity);
+        Assert.Null(options.User);
+        Assert.Null(options.Password);
+    }
+
+    [Fact]
+    public void RequireDatabaseOptions_Throws_WhenIntegratedSecurityFalse_AndUserOrPasswordMissing()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Database:Host"] = "host",
+                ["Database:Name"] = "db",
+                ["Database:IntegratedSecurity"] = "false"
+                // User and Password deliberately omitted
+            })
+            .Build();
+
+        Assert.Throws<InvalidOperationException>(() => StartupChecks.RequireDatabaseOptions(configuration));
+    }
+
+    [Fact]
     public void RequireDatabaseOptions_ReturnsOptions_WhenAllValuesPresent()
     {
         var configuration = new ConfigurationBuilder()
