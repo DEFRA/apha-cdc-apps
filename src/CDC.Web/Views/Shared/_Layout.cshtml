@@ -4,6 +4,7 @@
 @using CDC.Auth.Cidm.Options
 @using Microsoft.Extensions.Options
 @inject IOptions<CidmOptions> CidmOptionsAccessor
+@inject IUserDisplayNameService UserDisplayNameService
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -76,8 +77,7 @@
             @if (!(ViewData["HideAccountBar"] as bool? ?? false) && User.Identity?.IsAuthenticated == true)
             {
                 var isExternalUser = User.HasClaim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme);
-                var externalFullName = User.FindFirst(ExternalUserClaimTypes.FullName)?.Value;
-                var displayName = isExternalUser ? externalFullName : User.Identity!.Name;
+                var displayName = UserDisplayNameService.GetDisplayName(User);
 
                 <p class="govuk-body-s app-banner-row__account">
                     Signed in as <strong>@displayName</strong>
