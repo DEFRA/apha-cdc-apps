@@ -3,11 +3,11 @@ namespace CDC.Api.Features.StaticReports.Dtos;
 /// <summary>Outcome of <see cref="Interfaces.IStaticReportService.UploadStaticReportAsync"/>.</summary>
 public enum UploadStaticReportOutcome
 {
-    /// <inheritdoc/>
+    /// <summary>The report or user manual version was uploaded successfully.</summary>
     Success,
-    /// <inheritdoc/>
+    /// <summary>The caller is not permitted to upload the report or user manual version.</summary>
     Forbidden,
-    /// <inheritdoc/>
+    /// <summary>The upload failed validation.</summary>
     ValidationFailed
 }
 
@@ -17,10 +17,10 @@ public sealed record UploadStaticReportResult(UploadStaticReportOutcome Outcome,
 /// <summary>Outcome of <see cref="Interfaces.IStaticReportService.DeleteStaticReportVersionAsync"/>.</summary>
 public enum DeleteStaticReportVersionOutcome
 {
-    /// <inheritdoc/>
+    /// <summary>The report version was deleted successfully.</summary>
     Success,
-    /// <inheritdoc/>
+    /// <summary>The report version could not be found.</summary>
     NotFound,
-    /// <inheritdoc/>
+    /// <summary>The caller is not permitted to delete the report version.</summary>
     Forbidden
 }
