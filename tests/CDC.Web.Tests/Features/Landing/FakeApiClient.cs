@@ -18,6 +18,10 @@ internal sealed class FakeApiClient( // NOSONAR
     UpdateProfileStatusResult? updateProfileStatusResult = null,
     IReadOnlyList<StaticReportListItemDto>? staticReports = null,
     Exception? throwOnGetCurrentStaticReports = null,
+    IReadOnlyList<StaticReportListItemDto>? staticReportHistory = null,
+    bool canUploadStaticReports = true,
+    UploadStaticReportResult? uploadStaticReportResult = null,
+    DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
     CreateNewProfileVersionResult? createNewProfileVersionResult = null,
     DeleteProfileVersionResult? deleteProfileVersionResult = null) : IApiClient
 {
@@ -25,6 +29,11 @@ internal sealed class FakeApiClient( // NOSONAR
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
     private readonly IReadOnlyList<ProfileStatusTypeDto> _profileStatusTypes = profileStatusTypes ?? [];
     private readonly IReadOnlyList<StaticReportListItemDto> _staticReports = staticReports ?? [];
+    private readonly IReadOnlyList<StaticReportListItemDto> _staticReportHistory = staticReportHistory ?? [];
+    private readonly UploadStaticReportResult _uploadStaticReportResult =
+        uploadStaticReportResult ?? new UploadStaticReportResult(UploadStaticReportOutcome.Success, null);
+    private readonly DeleteStaticReportVersionResult _deleteStaticReportVersionResult =
+        deleteStaticReportVersionResult ?? new DeleteStaticReportVersionResult(DeleteStaticReportVersionOutcome.Success, null);
     private readonly UpdateProfileTitleResult _updateProfileTitleResult =
         updateProfileTitleResult ?? new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null);
     private readonly UpdateProfileStatusResult _updateProfileStatusResult =
@@ -83,6 +92,28 @@ internal sealed class FakeApiClient( // NOSONAR
         throwOnGetCurrentStaticReports is not null
             ? Task.FromException<IReadOnlyList<StaticReportListItemDto>>(throwOnGetCurrentStaticReports)
             : Task.FromResult(_staticReports);
+
+    public Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
+        Guid staticReportId,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_staticReportHistory);
+
+    public Task<bool> CanUploadStaticReportsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(canUploadStaticReports);
+
+    public Task<UploadStaticReportResult> UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_uploadStaticReportResult);
+
+    public Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_deleteStaticReportVersionResult);
 
     public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
         Guid profileVersionId,

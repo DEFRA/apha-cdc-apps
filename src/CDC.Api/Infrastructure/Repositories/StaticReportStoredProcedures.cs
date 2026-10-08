@@ -17,4 +17,7 @@ public static class StaticReportStoredProcedures
 
     /// <summary>Deletes one version.</summary>
     public const string DeleteStaticReportVersion = "spdStaticReportVersion";
+
+    /// <summary>Inserts a new static report or user manual version.</summary>
+    public const string UploadStaticReport = "spiStaticReport";
 }

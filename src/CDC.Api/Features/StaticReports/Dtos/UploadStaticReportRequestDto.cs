@@ -17,3 +17,4 @@ public sealed record UploadStaticReportRequestDto
     /// <summary>Gets a value indicating whether this version is visible to unauthenticated users.</summary>
     public bool IsPublic { get; init; }
 }
+

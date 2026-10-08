@@ -49,6 +49,28 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
 
+    public Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
+        Guid staticReportId,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
+
+    public Task<bool> CanUploadStaticReportsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(false);
+
+    public Task<UploadStaticReportResult> UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new UploadStaticReportResult(UploadStaticReportOutcome.Forbidden, "Not implemented in this fake."));
+
+    public Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new DeleteStaticReportVersionResult(DeleteStaticReportVersionOutcome.Error, "Not implemented in this fake."));
+
     public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
         Guid profileVersionId,
         bool isPublished,
