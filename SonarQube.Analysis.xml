@@ -37,8 +37,10 @@
   <Property Name="sonar.test.exclusions">tests/**</Property>
 
 
-  <!-- Entry points and boilerplate with no meaningful branches to cover -->
-  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js,**/CidmAuthenticationExtensions.cs,**/*.cshtml</Property>
+  <!-- Entry points and boilerplate with no meaningful branches to cover. The two Authorization
+       Constants files are const string declarations (nameof(X) literals) - these compile to no
+       IL at all, so Coverlet can never instrument them regardless of test coverage. -->
+  <Property Name="sonar.coverage.exclusions">**/Program.cs,**/Properties/AssemblyInfo.cs,tests/**,**/wwwroot/js/header-menu.js,**/CidmAuthenticationExtensions.cs,**/*.cshtml,src/CDC.Web/Authorization/Constants/AuthorizationPolicies.cs,src/CDC.Web/Authorization/Constants/AuthorizationRoles.cs</Property>
 
   <!-- Intentional API/Web contract mirrors, plus tabular seed data whose repetition is inherent;
        exclude from duplication detection only -->

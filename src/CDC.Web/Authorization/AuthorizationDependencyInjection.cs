@@ -10,7 +10,7 @@ namespace CDC.Web.Authorization;
 /// Registers the authorization framework: settings, the temporary current-user service, the
 /// navigation authorization service, the allowed-roles handler, and every policy. One call from
 /// <c>Program.cs</c> - see <c>src/CDC.Web/Program.cs</c> for pipeline registration
-/// (<c>app.UsePlaceholderUserContext()</c> before <c>app.UseAuthorization()</c>).
+/// (<c>app.UseAuthentication()</c> before <c>app.UseAuthorization()</c>).
 /// </summary>
 public static class AuthorizationDependencyInjection
 {

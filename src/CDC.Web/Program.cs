@@ -6,7 +6,6 @@ using CDC.Auth.Entra.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
 using CDC.Web.Authorization;
-using CDC.Web.Authorization.Middleware;
 using CDC.Web.Features.Account;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;

@@ -22,11 +22,35 @@ public class UserDisplayNameServiceTests
     }
 
     [Fact]
+    public void GetDisplayName_ReturnsFallback_WhenPrincipalHasNoIdentity()
+    {
+        var principal = new ClaimsPrincipal();
+
+        Assert.Equal(UserDisplayNameService.FallbackDisplayName, service.GetDisplayName(principal));
+    }
+
+    [Fact]
     public void GetDisplayName_Internal_PrefersNameClaim()
     {
         var principal = CreateInternalPrincipal(name: "Jane Internal", givenName: "Jane", surname: "Internal", email: "jane@defra.gov.uk");
 
         Assert.Equal("Jane Internal", service.GetDisplayName(principal));
+    }
+
+    [Fact]
+    public void GetDisplayName_Internal_FallsBackToRawNameClaim_WhenMappedNameClaimMissing()
+    {
+        var principal = CreateInternalPrincipalWithClaims(new Claim("name", "Jane Raw"));
+
+        Assert.Equal("Jane Raw", service.GetDisplayName(principal));
+    }
+
+    [Fact]
+    public void GetDisplayName_Internal_PrefersDisplayNameClaim_WhenNameMissing()
+    {
+        var principal = CreateInternalPrincipalWithClaims(new Claim("displayname", "Jane Display"));
+
+        Assert.Equal("Jane Display", service.GetDisplayName(principal));
     }
 
     [Fact]
@@ -46,11 +70,37 @@ public class UserDisplayNameServiceTests
     }
 
     [Fact]
+    public void GetDisplayName_Internal_FallsBackToRawGivenAndFamilyNameClaims_WhenMappedClaimsMissing()
+    {
+        var principal = CreateInternalPrincipalWithClaims(
+            new Claim("given_name", "Jane"),
+            new Claim("family_name", "Raw"));
+
+        Assert.Equal("Jane Raw", service.GetDisplayName(principal));
+    }
+
+    [Fact]
+    public void GetDisplayName_Internal_PrefersPreferredUsername_WhenNameAndGivenSurnameMissing()
+    {
+        var principal = CreateInternalPrincipalWithClaims(new Claim("preferred_username", "jane.internal"));
+
+        Assert.Equal("jane.internal", service.GetDisplayName(principal));
+    }
+
+    [Fact]
     public void GetDisplayName_Internal_FallsBackToEmail_WhenOnlyEmailPresent()
     {
         var principal = CreateInternalPrincipal(name: null, givenName: null, surname: null, email: "jane@defra.gov.uk");
 
         Assert.Equal("jane@defra.gov.uk", service.GetDisplayName(principal));
+    }
+
+    [Fact]
+    public void GetDisplayName_Internal_FallsBackToRawEmailClaim_WhenMappedEmailClaimMissing()
+    {
+        var principal = CreateInternalPrincipalWithClaims(new Claim("email", "jane.raw@defra.gov.uk"));
+
+        Assert.Equal("jane.raw@defra.gov.uk", service.GetDisplayName(principal));
     }
 
     [Fact]
@@ -109,6 +159,19 @@ public class UserDisplayNameServiceTests
         {
             claims.Add(new Claim(ClaimTypes.Email, email));
         }
+
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuthType"));
+    }
+
+    // Isolates each claim-priority tier (raw/unmapped claim types, displayname, preferred_username)
+    // without the other CreateInternalPrincipal fields interfering with FirstNonEmpty's fallthrough.
+    private static ClaimsPrincipal CreateInternalPrincipalWithClaims(params Claim[] extraClaims)
+    {
+        var claims = new List<Claim>
+        {
+            new(ExternalUserClaimTypes.AuthenticationProvider, EntraAuthenticationDefaults.AuthenticationScheme)
+        };
+        claims.AddRange(extraClaims);
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuthType"));
     }
