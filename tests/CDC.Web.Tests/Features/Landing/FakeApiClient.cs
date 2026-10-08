@@ -19,6 +19,7 @@ internal sealed class FakeApiClient( // NOSONAR
     IReadOnlyList<StaticReportListItemDto>? staticReports = null,
     Exception? throwOnGetCurrentStaticReports = null,
     IReadOnlyList<StaticReportListItemDto>? staticReportHistory = null,
+    Exception? throwOnGetStaticReportHistory = null,
     bool canUploadStaticReports = true,
     UploadStaticReportResult? uploadStaticReportResult = null,
     DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
@@ -107,7 +108,9 @@ internal sealed class FakeApiClient( // NOSONAR
         Guid staticReportId,
         bool publicOnly = true,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(_staticReportHistory);
+        throwOnGetStaticReportHistory is not null
+            ? Task.FromException<IReadOnlyList<StaticReportListItemDto>>(throwOnGetStaticReportHistory)
+            : Task.FromResult(_staticReportHistory);
 
     public Task<bool> CanUploadStaticReportsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(canUploadStaticReports);

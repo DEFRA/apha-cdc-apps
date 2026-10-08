@@ -24,6 +24,9 @@ internal sealed class FakeDbConnection : DbConnection
     /// <summary>Transactions started on this connection.</summary>
     public List<FakeDbTransaction> Transactions { get; } = [];
 
+    /// <summary>When set, thrown from <see cref="Open"/>/<c>OpenAsync</c>, to simulate a connection failure.</summary>
+    public Exception? ThrowOnOpen { get; set; }
+
     [AllowNull]
     public override string ConnectionString { get; set; } = "Fake";
 
@@ -41,7 +44,15 @@ internal sealed class FakeDbConnection : DbConnection
 
     public override void Close() => state = ConnectionState.Closed;
 
-    public override void Open() => state = ConnectionState.Open;
+    public override void Open()
+    {
+        if (ThrowOnOpen is not null)
+        {
+            throw ThrowOnOpen;
+        }
+
+        state = ConnectionState.Open;
+    }
 
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {

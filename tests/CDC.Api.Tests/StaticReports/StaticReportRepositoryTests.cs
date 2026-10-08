@@ -284,6 +284,17 @@ public sealed class StaticReportRepositoryTests : IDisposable
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    [Fact]
+    public async Task OpenConnectionAsync_RethrowsAndLogsAndDisposesConnection_WhenOpenFails()
+    {
+        connection.ThrowOnOpen = new FakeDbException("connection refused");
+
+        var act = () => CreateRepository().GetCurrentStaticReportsAsync(false, false, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        connection.Executed.Should().BeEmpty();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

@@ -175,6 +175,17 @@ public sealed class StaticReportServiceTests
     }
 
     [Fact]
+    public async Task UploadStaticReportAsync_ReturnsValidationFailed_WhenTitleIsEmpty()
+    {
+        var request = new UploadStaticReportRequestDto { Title = "   ", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
+
+        var result = await CreateService().UploadStaticReportAsync(request, CancellationToken.None);
+
+        result.Outcome.Should().Be(UploadStaticReportOutcome.ValidationFailed);
+        result.ErrorMessage.Should().Be("Please choose a file to upload.");
+    }
+
+    [Fact]
     public async Task UploadStaticReportAsync_UploadsAndReturnsSuccess()
     {
         repository
