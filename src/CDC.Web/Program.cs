@@ -5,6 +5,7 @@ using CDC.Auth.Entra;
 using CDC.Auth.Entra.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Web.Authorization;
 using CDC.Web.Features.Account;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
@@ -115,6 +116,10 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
+// Centralized policy-based authorization (replaces legacy CSLA Profile.CanXxx() checks). See
+// src/CDC.Web/Authorization/AuthorizationDependencyInjection.cs.
+builder.Services.AddCdcWebAuthorization(builder.Configuration);
+
 // Allow views to be located under Features/{Controller}/Views and Features/Shared
 builder.Services.Configure<RazorViewEngineOptions>(options =>
 {
@@ -137,6 +142,10 @@ builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();
 // Resolves the Entra ID-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in -
 // see EntraOpenIdConnectEvents.TokenValidated, which calls this via IEntraInternalUserResolver.
 builder.Services.AddScoped<IEntraInternalUserResolver, InternalUserResolver>();
+
+// Resolves the signed-in user's display name for the page header, independent of provider - see
+// src/CDC.Web/Features/Account/UserDisplayNameService.cs. Stateless, so a singleton is safe.
+builder.Services.AddSingleton<IUserDisplayNameService, UserDisplayNameService>();
 
 // Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
 // page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
