@@ -5,9 +5,9 @@ using CDC.Auth.Entra;
 using CDC.Auth.Entra.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
-using CDC.Web.Features.Account;
 using CDC.Web.Authorization;
 using CDC.Web.Authorization.Middleware;
+using CDC.Web.Features.Account;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -143,6 +143,10 @@ builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();
 // see EntraOpenIdConnectEvents.TokenValidated, which calls this via IEntraInternalUserResolver.
 builder.Services.AddScoped<IEntraInternalUserResolver, InternalUserResolver>();
 
+// Resolves the signed-in user's display name for the page header, independent of provider - see
+// src/CDC.Web/Features/Account/UserDisplayNameService.cs. Stateless, so a singleton is safe.
+builder.Services.AddSingleton<IUserDisplayNameService, UserDisplayNameService>();
+
 // Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
 // page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
 // the only pages so far explicitly marked anonymous. The CIDM-specific external-user journey
@@ -176,9 +180,6 @@ app.UseSession();
 app.MapHealthEndpoints();
 
 app.UseAuthentication();
-// TEMPORARY: simulates an authenticated user from config until real authentication (Entra ID
-// SAML) is integrated - see src/CDC.Web/Authorization/Middleware/PlaceholderUserContextMiddleware.cs.
-app.UsePlaceholderUserContext();
 app.UseAuthorization();
 
 app.MapStaticAssets();
