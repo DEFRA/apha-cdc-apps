@@ -157,7 +157,7 @@ public sealed class StaticReportServiceTests
     [Fact]
     public async Task UploadStaticReportAsync_ReturnsForbidden_WhenUserCannotUpload()
     {
-        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true };
+        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
 
         var result = await CreateService(isProfileEditor: false).UploadStaticReportAsync(request, CancellationToken.None);
 
@@ -167,7 +167,7 @@ public sealed class StaticReportServiceTests
     [Fact]
     public async Task UploadStaticReportAsync_ReturnsValidationFailed_WhenNoFileSupplied()
     {
-        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [], IsUserManual = true };
+        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [], IsUserManual = true, IsPublic = false };
 
         var result = await CreateService().UploadStaticReportAsync(request, CancellationToken.None);
 
@@ -181,7 +181,7 @@ public sealed class StaticReportServiceTests
             .Setup(repo => repo.UploadStaticReportAsync("Manual", It.IsAny<byte[]>(), true, false, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true };
+        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
 
         var result = await CreateService().UploadStaticReportAsync(request, CancellationToken.None);
 

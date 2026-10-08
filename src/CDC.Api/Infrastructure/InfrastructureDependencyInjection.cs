@@ -9,7 +9,6 @@ using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ReferenceData.Interfaces;
 using CDC.Api.Features.Species.Interfaces;
 using CDC.Api.Features.StaticReports.Interfaces;
-using CDC.Api.Features.Users.Interfaces;
 using CDC.Api.Infrastructure.Repositories;
 
 namespace CDC.Api.Infrastructure;
@@ -38,7 +37,6 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
         services.AddScoped<IProfileSectionRepository, ProfileSectionRepository>();
         services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
-        services.AddScoped<IUserRepository, UserRepository>();
 
         return services;
     }

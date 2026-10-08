@@ -128,7 +128,7 @@ public sealed class StaticReportsControllerTests
     [Fact]
     public async Task UploadStaticReport_ReturnsNoContent_OnSuccess()
     {
-        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true };
+        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
 
         service
             .Setup(svc => svc.UploadStaticReportAsync(request, It.IsAny<CancellationToken>()))
@@ -142,7 +142,7 @@ public sealed class StaticReportsControllerTests
     [Fact]
     public async Task UploadStaticReport_ReturnsForbidden_WhenUserCannotUpload()
     {
-        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true };
+        var request = new UploadStaticReportRequestDto { Title = "Manual", PdfData = [1, 2, 3], IsUserManual = true, IsPublic = false };
 
         service
             .Setup(svc => svc.UploadStaticReportAsync(request, It.IsAny<CancellationToken>()))
@@ -156,7 +156,7 @@ public sealed class StaticReportsControllerTests
     [Fact]
     public async Task UploadStaticReport_ReturnsBadRequest_OnValidationFailure()
     {
-        var request = new UploadStaticReportRequestDto { Title = string.Empty, PdfData = [], IsUserManual = true };
+        var request = new UploadStaticReportRequestDto { Title = string.Empty, PdfData = [], IsUserManual = true, IsPublic = false };
 
         service
             .Setup(svc => svc.UploadStaticReportAsync(request, It.IsAny<CancellationToken>()))
