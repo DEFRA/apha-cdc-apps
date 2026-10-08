@@ -21,7 +21,6 @@ public class PrioritisationVariablesControllerTests
 
     private PrioritisationVariablesController CreateController() => new(mediator.Object)
     {
-        // ControllerBase.Problem() resolves this from the request services at runtime.
         ProblemDetailsFactory = new TestProblemDetailsFactory(),
         ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
     };
@@ -29,7 +28,7 @@ public class PrioritisationVariablesControllerTests
     [Fact]
     public async Task GetCategories_ReturnsOk()
     {
-        IReadOnlyList<PrioritisationCategoryDto> categories = [new PrioritisationCategoryDto { Name = "Animal welfare" }];
+        IReadOnlyList<PrioritisationCategoryDto> categories = [new PrioritisationCategoryDto { Id = Guid.NewGuid(), Name = "Animal welfare" }];
 
         mediator
             .Setup(sender => sender.Send(It.IsAny<GetPrioritisationCategoriesQuery>(), It.IsAny<CancellationToken>()))
@@ -43,45 +42,46 @@ public class PrioritisationVariablesControllerTests
     [Fact]
     public async Task UpdateCriterion_ReturnsNoContent()
     {
-        UpdateCriterionCommand? sentCommand = null;
-
-        mediator
-            .Setup(sender => sender.Send(It.IsAny<UpdateCriterionCommand>(), It.IsAny<CancellationToken>()))
-            .Callback<IRequest<Result<Unit>>, CancellationToken>((command, _) => sentCommand = (UpdateCriterionCommand)command)
-            .ReturnsAsync(Result.Success(Unit.Value));
-
         var request = new UpdateCriterionRequestDto
         {
             Weight = 42,
-            ValueScores = [new UpdateCriterionValueScoreRequestDto { ValueId = ValueId, Score = 7 }]
+            ValueScores = [new UpdateCriterionValueScoreRequestDto { ValueId = ValueId, Score = 99 }]
         };
+
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<UpdateCriterionCommand>(command =>
+                    command.CriterionId == CriterionId &&
+                    command.Weight == 42 &&
+                    command.ValueScores.Count == 1 &&
+                    command.ValueScores[0].ValueId == ValueId &&
+                    command.ValueScores[0].Score == 99),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
 
         var response = await CreateController().UpdateCriterion(CriterionId, request, CancellationToken.None);
 
         response.Should().BeOfType<NoContentResult>();
-        sentCommand!.ValueScores.Should().ContainSingle().Which.ValueId.Should().Be(ValueId);
     }
 
-
     [Fact]
-    public async Task UpdateCriterion_ReturnsNotFound()
+    public async Task UpdateCriterion_ReturnsNotFound_WhenCriterionMissing()
     {
+        var request = new UpdateCriterionRequestDto { Weight = 42 };
+
         mediator
             .Setup(sender => sender.Send(It.IsAny<UpdateCriterionCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.NotFound<Unit>("not found"));
 
-        var request = new UpdateCriterionRequestDto { Weight = 42 };
-
         var response = await CreateController().UpdateCriterion(CriterionId, request, CancellationToken.None);
 
-        var objectResult = response.Should().BeOfType<ObjectResult>().Subject;
-        objectResult.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+        AssertProblem(response, StatusCodes.Status404NotFound);
     }
 
     [Fact]
     public async Task GetRankingRange_ReturnsOk()
     {
-        var dto = new PrioritisationRankingRangeDto { LowerBound = 10, UpperBound = 90 };
+        var dto = new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" };
 
         mediator
             .Setup(sender => sender.Send(It.IsAny<GetRankingRangeQuery>(), It.IsAny<CancellationToken>()))
@@ -95,30 +95,41 @@ public class PrioritisationVariablesControllerTests
     [Fact]
     public async Task UpdateRankingRange_ReturnsOk()
     {
-        var dto = new PrioritisationRankingRangeDto { LowerBound = 10, UpperBound = 90, RowVersion = "AQIDBAUGBwg=" };
+        var request = new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" };
+        var updated = request with { RowVersion = "CQoLDA0ODxA=" };
 
         mediator
-            .Setup(sender => sender.Send(It.IsAny<UpdateRankingRangeCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success(dto));
+            .Setup(sender => sender.Send(
+                It.Is<UpdateRankingRangeCommand>(command =>
+                    command.LowerBound == 15 && command.UpperBound == 35 && command.RowVersion == "AQIDBAUGBwg="),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(updated));
 
-        var response = await CreateController().UpdateRankingRange(dto, CancellationToken.None);
+        var response = await CreateController().UpdateRankingRange(request, CancellationToken.None);
 
-        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(updated);
     }
 
     [Fact]
-    public async Task UpdateRankingRange_ReturnsConflict()
+    public async Task UpdateRankingRange_ReturnsConflict_WhenRowVersionIsStale()
     {
+        var request = new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" };
+
         mediator
             .Setup(sender => sender.Send(It.IsAny<UpdateRankingRangeCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Conflict<PrioritisationRankingRangeDto>("conflict"));
+            .ReturnsAsync(Result.Conflict<PrioritisationRankingRangeDto>("edited by another user"));
 
-        var dto = new PrioritisationRankingRangeDto { LowerBound = 10, UpperBound = 90, RowVersion = "AQIDBAUGBwg=" };
+        var response = await CreateController().UpdateRankingRange(request, CancellationToken.None);
 
-        var response = await CreateController().UpdateRankingRange(dto, CancellationToken.None);
+        AssertProblem(response.Result!, StatusCodes.Status409Conflict);
+    }
 
-        var objectResult = response.Result.Should().BeOfType<ObjectResult>().Subject;
-        objectResult.StatusCode.Should().Be(StatusCodes.Status409Conflict);
+    private static ProblemDetails AssertProblem(IActionResult result, int expectedStatusCode)
+    {
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(expectedStatusCode);
+
+        return objectResult.Value.Should().BeOfType<ProblemDetails>().Subject;
     }
 
     /// <summary>Minimal factory so <c>ControllerBase.Problem()</c> works without the MVC pipeline.</summary>

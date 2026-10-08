@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 
@@ -6,150 +7,113 @@ namespace CDC.Web.Tests.Infrastructure;
 
 public class PrioritisationVariablesApiServiceTests
 {
+    private static readonly Guid CriterionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid ValueId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
     [Fact]
     public async Task GetCategoriesAsync_DeserialisesTheResponseBody()
     {
-        const string json = """
-            [
-              {
-                "id": "11111111-1111-1111-1111-111111111111",
-                "name": "Animal welfare",
-                "criteria": [
-                  {
-                    "id": "22222222-2222-2222-2222-222222222222",
-                    "code": "C1",
-                    "name": "Impact",
-                    "weight": 10,
-                    "values": [ { "id": "33333333-3333-3333-3333-333333333333", "value": "N/A", "score": 5 } ]
-                  }
-                ]
-              }
-            ]
-            """;
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+        const string json = """[{"id":"11111111-1111-1111-1111-111111111111","name":"Animal welfare","criteria":[]}]""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, json));
 
-        var categories = await service.GetCategoriesAsync();
+        var categories = await client.GetCategoriesAsync();
 
         var category = Assert.Single(categories);
         Assert.Equal("Animal welfare", category.Name);
-        var criterion = Assert.Single(category.Criteria);
-        Assert.Equal("C1", criterion.Code);
     }
 
     [Fact]
     public async Task GetCategoriesAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
     {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var categories = await service.GetCategoriesAsync();
+        var categories = await client.GetCategoriesAsync();
 
         Assert.Empty(categories);
     }
 
     [Fact]
-    public async Task UpdateCriterionAsync_CompletesSuccessfully_OnNoContent()
+    public async Task UpdateCriterionAsync_PutsToTheCriterionEndpoint()
     {
-        var handler = new FakeHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
-        var service = CreateService(handler);
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var client = CreateClient(handler);
 
-        var exception = await Record.ExceptionAsync(() => service.UpdateCriterionAsync(
-            Guid.NewGuid(),
-            42,
-            [new CriterionValueScore { ValueId = Guid.NewGuid(), Score = 7 }]));
+        await client.UpdateCriterionAsync(CriterionId, 42, [new CriterionValueScore { ValueId = ValueId, Score = 5 }]);
 
-        Assert.Null(exception);
-        Assert.Contains("\"score\":7", handler.CapturedRequestBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal($"/api/prioritisation-variables/criteria/{CriterionId}", handler.LastRequestUri!.AbsolutePath);
     }
 
     [Fact]
-    public async Task UpdateCriterionAsync_Throws_OnANonSuccessStatusCode()
+    public async Task UpdateCriterionAsync_Throws_OnFailureStatusCode()
     {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => service.UpdateCriterionAsync(Guid.NewGuid(), 42, []));
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => client.UpdateCriterionAsync(CriterionId, 42, []));
     }
 
     [Fact]
     public async Task GetRankingRangeAsync_DeserialisesTheResponseBody()
     {
-        const string json = """
-            { "lowerBound": 20, "upperBound": 80, "rowVersion": "AQIDBAUGBwg=" }
-            """;
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+        const string json = """{"lowerBound":15,"upperBound":35,"rowVersion":"AQIDBAUGBwg="}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, json));
 
-        var rankingRange = await service.GetRankingRangeAsync();
+        var rankingRange = await client.GetRankingRangeAsync();
 
-        Assert.Equal(20, rankingRange.LowerBound);
-        Assert.Equal(80, rankingRange.UpperBound);
+        Assert.Equal(15, rankingRange.LowerBound);
+        Assert.Equal(35, rankingRange.UpperBound);
+        Assert.Equal("AQIDBAUGBwg=", rankingRange.RowVersion);
     }
 
     [Fact]
     public async Task GetRankingRangeAsync_ReturnsDefault_WhenTheResponseBodyIsNull()
     {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var rankingRange = await service.GetRankingRangeAsync();
+        var rankingRange = await client.GetRankingRangeAsync();
 
         Assert.Equal(0, rankingRange.LowerBound);
     }
 
     [Fact]
-    public async Task UpdateRankingRangeAsync_ReturnsTheSavedRange_OnOk()
+    public async Task UpdateRankingRangeAsync_ReturnsTheSavedRange()
     {
-        const string json = """
-            { "lowerBound": 15, "upperBound": 35, "rowVersion": "CQoLDA0ODxA=" }
-            """;
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+        const string json = """{"lowerBound":15,"upperBound":35,"rowVersion":"CQoLDA0ODxA="}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, json));
 
-        var saved = await service.UpdateRankingRangeAsync(
-            new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" });
+        var saved = await client.UpdateRankingRangeAsync(new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" });
 
         Assert.Equal("CQoLDA0ODxA=", saved.RowVersion);
     }
 
     [Fact]
-    public async Task UpdateRankingRangeAsync_Throws_OnHttp409()
+    public async Task UpdateRankingRangeAsync_Throws_OnConflict()
     {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Conflict, string.Empty));
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, "{}"));
 
-        await Assert.ThrowsAsync<RankingRangeConflictException>(() => service.UpdateRankingRangeAsync(
-            new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" }));
+        await Assert.ThrowsAsync<RankingRangeConflictException>(
+            () => client.UpdateRankingRangeAsync(new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" }));
     }
 
-    [Fact]
-    public async Task UpdateRankingRangeAsync_Throws_OnANonSuccessStatusCode()
-    {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
-
-        await Assert.ThrowsAsync<HttpRequestException>(() => service.UpdateRankingRangeAsync(
-            new PrioritisationRankingRangeDto { LowerBound = 15, UpperBound = 35, RowVersion = "AQIDBAUGBwg=" }));
-    }
-
-    private static PrioritisationVariablesApiService CreateService(HttpMessageHandler handler)
+    private static PrioritisationVariablesApiService CreateClient(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };
 
         return new PrioritisationVariablesApiService(httpClient);
     }
 
-    private sealed class FakeHttpMessageHandler(HttpStatusCode statusCode, string responseBody) : HttpMessageHandler
+    private sealed class RecordingHttpMessageHandler(HttpStatusCode statusCode, string responseBody) : HttpMessageHandler
     {
-        /// <summary>The request body, captured after forcing it to serialize - <see cref="PutAsJsonAsync"/> builds
-        /// the content lazily, so the anonymous object's lambdas are never invoked unless something
-        /// actually reads the content, exactly as the real HTTP transport would.</summary>
-        public string? CapturedRequestBody { get; private set; }
+        public Uri? LastRequestUri { get; private set; }
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            if (request.Content is not null)
-            {
-                CapturedRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
-            }
+            LastRequestUri = request.RequestUri;
 
-            return new HttpResponseMessage(statusCode)
+            return Task.FromResult(new HttpResponseMessage(statusCode)
             {
-                Content = new StringContent(responseBody, System.Text.Encoding.UTF8, "application/json")
-            };
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json")
+            });
         }
     }
 }

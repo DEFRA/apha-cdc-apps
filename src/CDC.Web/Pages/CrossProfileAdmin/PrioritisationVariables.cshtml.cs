@@ -114,7 +114,8 @@ public class PrioritisationVariablesModel(
     {
         SuccessMessage = null;
 
-        ValidateRangeAndCriterionInputs();
+        ValidateRankingRange();
+        ValidateSelectedCriterion();
 
         if (!ModelState.IsValid)
         {
@@ -125,6 +126,46 @@ public class PrioritisationVariablesModel(
             return Page();
         }
 
+        await SaveRankingRangeAndCriterionAsync(cancellationToken);
+
+        CategorisationSummary = BuildCategorisationSummary();
+        await LoadPrioritisationDataAsync(cancellationToken);
+        return Page();
+    }
+
+    private void ValidateRankingRange()
+    {
+        if (LowerBound >= UpperBound)
+        {
+            ModelState.AddModelError(
+                nameof(LowerBound),
+                "Lower bound must be a positive integer that is lower than upper bound");
+        }
+    }
+
+    private void ValidateSelectedCriterion()
+    {
+        if (SelectedCriterionId is null)
+        {
+            return;
+        }
+
+        if (CriterionWeight is < 1 or > 999)
+        {
+            ModelState.AddModelError(nameof(CriterionWeight), "Criterion weight must be a positive integer");
+        }
+
+        for (var i = 0; i < CriterionValueScores.Count; i++)
+        {
+            if (CriterionValueScores[i].Score is < 0 or > 999)
+            {
+                ModelState.AddModelError($"{nameof(CriterionValueScores)}[{i}].{nameof(CriterionValueScoreInput.Score)}", "Score must be a positive integer");
+            }
+        }
+    }
+
+    private async Task SaveRankingRangeAndCriterionAsync(CancellationToken cancellationToken)
+    {
         try
         {
             var updatedRange = await prioritisationVariablesApiService.UpdateRankingRangeAsync(
@@ -156,42 +197,6 @@ public class PrioritisationVariablesModel(
             logger.CriterionWeightUpdateFailed(exception);
             PublishedProfileScoresRecalculated = false;
             ModelState.AddModelError(string.Empty, "We could not save your changes. Try again later.");
-        }
-
-        CategorisationSummary = BuildCategorisationSummary();
-        await LoadPrioritisationDataAsync(cancellationToken);
-        return Page();
-    }
-
-    /// <summary>
-    /// Validates the ranking range bounds and, when a criterion is selected, its weighting and
-    /// every value's score - split out of <see cref="OnPostUpdate"/> to keep its complexity down.
-    /// </summary>
-    private void ValidateRangeAndCriterionInputs()
-    {
-        if (LowerBound >= UpperBound)
-        {
-            ModelState.AddModelError(
-                nameof(LowerBound),
-                "Lower bound must be a positive integer that is lower than upper bound");
-        }
-
-        if (SelectedCriterionId is null)
-        {
-            return;
-        }
-
-        if (CriterionWeight is < 1 or > 999)
-        {
-            ModelState.AddModelError(nameof(CriterionWeight), "Criterion weight must be a positive integer");
-        }
-
-        for (var i = 0; i < CriterionValueScores.Count; i++)
-        {
-            if (CriterionValueScores[i].Score is < 0 or > 999)
-            {
-                ModelState.AddModelError($"{nameof(CriterionValueScores)}[{i}].{nameof(CriterionValueScoreInput.Score)}", "Score must be a positive integer");
-            }
         }
     }
 
@@ -250,3 +255,4 @@ internal static partial class PrioritisationVariablesLog
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to save a criterion weighting change")]
     public static partial void CriterionWeightUpdateFailed(this ILogger logger, Exception exception);
 }
+

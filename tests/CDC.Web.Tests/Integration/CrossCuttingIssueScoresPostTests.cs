@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CDC.Web.Tests.Integration;
@@ -8,27 +9,26 @@ namespace CDC.Web.Tests.Integration;
 /// Drives the real HTTP request pipeline so model binding runs. The page-model unit tests invoke
 /// handlers directly and therefore cannot catch binding-level faults.
 /// </summary>
-public class CrossCuttingIssueScoresPostTests : IClassFixture<WebApplicationFactory<Program>>
+public class CrossCuttingIssueScoresPostTests : IClassFixture<CdcWebTestFactory>
 {
     private const string PagePath = "/CrossProfileAdmin/CrossCuttingIssueScores";
 
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly CdcWebTestFactory factory;
 
-    public CrossCuttingIssueScoresPostTests(WebApplicationFactory<Program> factory)
+    public CrossCuttingIssueScoresPostTests(CdcWebTestFactory factory)
     {
-        WebTestEnvironment.EnsureConfigured();
         this.factory = factory;
     }
 
-    // The session cookie is marked Secure, so it is only returned over HTTPS. Browsers make an
-    // exception for localhost; HttpClient does not.
-    private HttpClient CreateClient() =>
-        factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+    // Every page is authenticated by default, so sign in via the test-only endpoint first. The
+    // session cookie is marked Secure, so it is only returned over HTTPS - CdcWebTestFactory
+    // configures the client's BaseAddress for this, unlike the plain WebApplicationFactory.
+    private async Task<HttpClient> CreateClientAsync() => await factory.SignedInClientAsync();
 
     [Fact]
     public async Task Update_WithNothingSelected_DoesNotRenderBindingErrors()
     {
-        var client = CreateClient();
+        var client = await CreateClientAsync();
         var token = await GetAntiforgeryTokenAsync(client, PagePath);
 
         var response = await client.PostAsync(
@@ -50,7 +50,7 @@ public class CrossCuttingIssueScoresPostTests : IClassFixture<WebApplicationFact
     [Fact]
     public async Task Update_WithCategorySelected_DoesNotRenderBindingErrors()
     {
-        var client = CreateClient();
+        var client = await CreateClientAsync();
         var bioSecurityId = "E0C3A33E-CFAC-4033-83C0-A88AD53417B7";
         var url = $"{PagePath}?CategoryId={bioSecurityId}";
         var token = await GetAntiforgeryTokenAsync(client, url);
@@ -72,7 +72,7 @@ public class CrossCuttingIssueScoresPostTests : IClassFixture<WebApplicationFact
     [Fact]
     public async Task AmendScoreThenUpdate_SavesWithoutRenderingErrors()
     {
-        var client = CreateClient();
+        var client = await CreateClientAsync();
         var bioSecurityId = "E0C3A33E-CFAC-4033-83C0-A88AD53417B7";
         var livestockContactsId = "10F04FB1-FEFA-49B6-B1C0-BA204C12B1B4";
 

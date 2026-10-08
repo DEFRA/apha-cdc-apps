@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +26,7 @@ public static class HealthEndpoints
                 uptimeSeconds = Math.Round(uptimeSeconds, 0),
                 timestampUtc = DateTime.UtcNow
             });
-        });
+        }).AllowAnonymous();
 
         // Runs the registered health checks (e.g. database or downstream-dependency
         // connectivity - see the checks registered in Program.cs). Deliberately separate from
@@ -35,6 +36,7 @@ public static class HealthEndpoints
         // required header anyway. For on-demand/manual diagnostics and internal monitoring only.
         app.MapGroup("/health/ready")
             .AddEndpointFilter<ReadinessKeyFilter>()
-            .MapHealthChecks("", new HealthCheckOptions { ResponseWriter = HealthCheckResponseWriter.WriteResponse });
+            .MapHealthChecks("", new HealthCheckOptions { ResponseWriter = HealthCheckResponseWriter.WriteResponse })
+            .AllowAnonymous();
     }
 }

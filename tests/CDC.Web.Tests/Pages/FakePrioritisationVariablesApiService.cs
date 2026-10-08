@@ -61,3 +61,4 @@ internal sealed class FakePrioritisationVariablesApiService(
         return Task.FromResult(_rankingRange);
     }
 }
+

@@ -11,9 +11,10 @@ modern .NET, running on AWS ECS Fargate.
 ## Tech stack
 
 - .NET 10 / ASP.NET Core MVC (Razor views)
-- Single portal for both internal (Microsoft Entra ID / SAML) and external (GOV.UK One Login via CIDM /
-  OIDC) users - authentication is not yet implemented; the current landing page is a placeholder that lets
-  a user pick "Internal" or "External".
+- Single portal for both internal (Microsoft Entra ID, future work) and external (GOV.UK One Login via
+  DEFRA CIDM / OIDC, implemented) users. External users sign in via the CIDM OIDC integration (see
+  "CIDM authentication" section below); the internal-user path remains a placeholder pending Entra ID
+  integration.
 
 ## Project structure
 
@@ -52,6 +53,33 @@ dotnet build CDC.slnx
 # run the web app
 dotnet run --project src/CDC.Web/CDC.Web.csproj
 ```
+
+## CIDM authentication (CDC.Web - external users)
+
+External users sign in via [DEFRA Customer Identity (CIDM)](https://www.gov.uk/using-your-gov-uk-one-login),
+using OpenID Connect. Internal/Entra ID sign-in is not yet implemented (see "Tech stack" above).
+
+Configuration is supplied via `IConfiguration` - never hardcoded or committed to source control:
+
+| Config key           | Purpose                                    |
+| -------------------- | ------------------------------------------- |
+| `Cidm:Address`       | CIDM/IdP Hub base address                   |
+| `Cidm:Policy`        | B2C policy name for the target environment  |
+| `Cidm:ClientId`      | OIDC client ID                              |
+| `Cidm:ClientSecret`  | OIDC client secret                          |
+| `Cidm:ServiceId`     | DEFRA-specific `serviceId` authorize param  |
+
+For local development, set them via `dotnet user-secrets`:
+
+```powershell
+cd src/CDC.Web
+dotnet user-secrets set "Cidm:Address" "https://<cidm-tenant>.b2clogin.com/<tenant>.onmicrosoft.com"
+dotnet user-secrets set "Cidm:Policy" "<policy-name>"
+dotnet user-secrets set "Cidm:ClientId" "<client-id>"
+dotnet user-secrets set "Cidm:ClientSecret" "<client-secret>"
+dotnet user-secrets set "Cidm:ServiceId" "<service-id>"
+```
+
 
 ## Code style & pre-commit checks
 

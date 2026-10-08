@@ -1,16 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
 using CDC.Common.Health;
-using Microsoft.AspNetCore.Mvc.Testing;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.Extensions.Configuration;
 
 namespace CDC.Web.Tests.Integration;
 
-public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+// AddCidmAuthentication() requires Cidm config to be present for host startup validation, so this
+// uses CdcWebTestFactory (not the plain WebApplicationFactory<Program>) even though these tests are
+// unrelated to auth.
+public class HealthEndpointsTests : IClassFixture<CdcWebTestFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly CdcWebTestFactory _factory;
 
-    public HealthEndpointsTests(WebApplicationFactory<Program> factory)
+    public HealthEndpointsTests(CdcWebTestFactory factory)
     {
         WebTestEnvironment.EnsureConfigured();
         _factory = factory;

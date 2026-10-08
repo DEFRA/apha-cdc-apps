@@ -13,15 +13,23 @@ public sealed class SqlConnectionFactory(IConfiguration configuration) : IDbConn
     public IDbConnection CreateConnection()
     {
         var options = StartupChecks.RequireDatabaseOptions(configuration);
-        var connectionString = new SqlConnectionStringBuilder
+        var builder = new SqlConnectionStringBuilder
         {
             DataSource = options.Host,
             InitialCatalog = options.Name,
-            UserID = options.User,
-            Password = options.Password,
             TrustServerCertificate = options.TrustServerCertificate
-        }.ConnectionString;
+        };
 
-        return new SqlConnection(connectionString);
+        if (options.IntegratedSecurity)
+        {
+            builder.IntegratedSecurity = true;
+        }
+        else
+        {
+            builder.UserID = options.User;
+            builder.Password = options.Password;
+        }
+
+        return new SqlConnection(builder.ConnectionString);
     }
 }
