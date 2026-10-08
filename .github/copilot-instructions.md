@@ -123,7 +123,7 @@ Authentication source:
 
 Requirements:
 
-- SAML 2.0 authentication
+- OIDC authentication
 - Validate assertions
 - Extract identity and role claims
 - Implement RBAC using claims

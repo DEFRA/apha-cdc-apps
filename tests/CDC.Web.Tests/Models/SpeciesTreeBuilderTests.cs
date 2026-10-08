@@ -82,4 +82,28 @@ public class SpeciesTreeBuilderTests
 
         Assert.Empty(tree);
     }
+
+    [Fact]
+    public void Build_StopsRecursion_WhenAParentIdChainFormsACycle()
+    {
+        // A root (Cattle) with a child (Dairy) whose own child re-declares the root's Id as its
+        // ParentId, forming a cycle back up the chain being built. The cycle guard must stop the
+        // recursion as soon as that repeated Id is reached, rather than recursing indefinitely.
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true },
+            new SpeciesDto { Id = DairyId, ParentId = CattleId, Description = "Dairy cattle", IsActive = true },
+            new SpeciesDto { Id = CattleId, ParentId = DairyId, Description = "Cattle (cyclic duplicate)", IsActive = true }
+        ];
+
+        var tree = SpeciesTreeBuilder.Build(species);
+
+        var root = Assert.Single(tree);
+        Assert.Equal("Cattle", root.Label);
+        var dairy = Assert.Single(root.Children);
+        Assert.Equal("Dairy cattle", dairy.Label);
+        var cyclicNode = Assert.Single(dairy.Children);
+        Assert.Equal("Cattle (cyclic duplicate)", cyclicNode.Label);
+        Assert.Empty(cyclicNode.Children);
+    }
 }

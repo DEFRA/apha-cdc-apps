@@ -19,6 +19,8 @@ using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
 using CDC.Api.Features.StaticReports;
 using CDC.Api.Features.StaticReports.Interfaces;
+using CDC.Api.Features.Users;
+using CDC.Api.Features.Users.Interfaces;
 using FluentValidation;
 using MediatR;
 
@@ -54,6 +56,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileReportService, ProfileReportService>();
         services.AddScoped<IStaticReportService, StaticReportService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
+        services.AddScoped<IUserService, UserService>();
 
         return services;
     }

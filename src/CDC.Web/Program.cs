@@ -1,10 +1,16 @@
 using System.Globalization;
+using CDC.Auth.Cidm;
+using CDC.Auth.Cidm.Events;
+using CDC.Auth.Entra;
+using CDC.Auth.Entra.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Web.Features.Account;
 using CDC.Web.Authorization;
 using CDC.Web.Authorization.Middleware;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
@@ -121,8 +127,31 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
     options.ViewLocationFormats.Insert(1, "/Features/Shared/{0}.cshtml");
 });
 
-// NOTE: real authentication (Entra ID SAML for internal users, CIDM/GOV.UK One Login OIDC for
-// external users) is not wired up yet. It will replace this placeholder Landing selection screen.
+// External-user auth (CIDM OIDC) and internal-user auth (Entra ID OIDC) each register their own
+// Cookie + OIDC scheme pair additively, so they coexist without conflicting. AddEntraAuthentication
+// must run AFTER AddCidmAuthentication - whichever call registers last wins the app-wide default
+// scheme, and this app is predominantly used by internal (Entra-authenticated) staff, so Entra's
+// cookie should be the fallback for every page that doesn't explicitly request CIDM.
+builder.AddCidmAuthentication();
+builder.AddEntraAuthentication();
+
+// Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see
+// CidmOpenIdConnectEvents.TokenValidated, which calls this via ICidmExternalUserResolver.
+builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();
+
+// Resolves the Entra ID-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in -
+// see EntraOpenIdConnectEvents.TokenValidated, which calls this via IEntraInternalUserResolver.
+builder.Services.AddScoped<IEntraInternalUserResolver, InternalUserResolver>();
+
+// Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
+// page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
+// the only pages so far explicitly marked anonymous. The CIDM-specific external-user journey
+// (LandingController.External) overrides this with its own explicit [Authorize(AuthenticationSchemes = ...)]
+// attribute, since the fallback below resolves to Entra's cookie scheme.
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 var app = builder.Build();
 
@@ -146,6 +175,7 @@ app.UseSession();
 
 app.MapHealthEndpoints();
 
+app.UseAuthentication();
 // TEMPORARY: simulates an authenticated user from config until real authentication (Entra ID
 // SAML) is integrated - see src/CDC.Web/Authorization/Middleware/PlaceholderUserContextMiddleware.cs.
 app.UsePlaceholderUserContext();

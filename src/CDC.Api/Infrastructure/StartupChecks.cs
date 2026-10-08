@@ -13,19 +13,24 @@ internal static class StartupChecks
     /// compose. TrustServerCertificate defaults to false (secure by
     /// default, correct for RDS's valid certificate) and should only be
     /// set true locally, for a self-signed dev SQL Server certificate.
+    /// Database:IntegratedSecurity (local LocalDB development only) connects
+    /// with the current Windows identity instead, so User/Password are not
+    /// required in that case.
     /// </summary>
     public static DatabaseOptions RequireDatabaseOptions(IConfiguration configuration)
     {
         var host = configuration["Database:Host"];
         var name = configuration["Database:Name"];
+        var integratedSecurity = configuration.GetValue("Database:IntegratedSecurity", false);
         var user = configuration["Database:User"];
         var password = configuration["Database:Password"];
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(name) ||
-            string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(password))
+            (!integratedSecurity && (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(password))))
         {
             throw new InvalidOperationException(
-                "Database:Host, Database:Name, Database:User and Database:Password must all be configured. " +
+                "Database:Host and Database:Name must always be configured, and Database:User and " +
+                "Database:Password must also be configured unless Database:IntegratedSecurity is true. " +
                 "Locally, set them in appsettings.Development.json; in a deployed environment, check the " +
                 "Database__Host / Database__Name / Database__User / Database__Password secret wiring in the " +
                 "ECS task definition.");
@@ -33,7 +38,7 @@ internal static class StartupChecks
 
         var trustServerCertificate = configuration.GetValue("Database:TrustServerCertificate", false);
 
-        return new DatabaseOptions(host, name, user, password, trustServerCertificate);
+        return new DatabaseOptions(host, name, user, password, trustServerCertificate, integratedSecurity);
     }
 
     /// <summary>

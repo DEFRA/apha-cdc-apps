@@ -236,4 +236,68 @@ public class ProfileManagementHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(statusTypes);
     }
+
+    [Fact]
+    public async Task GetAffectedSpeciesQueryHandler_ReturnsNotFound_WhenServiceReturnsNull()
+    {
+        service
+            .Setup(svc => svc.GetAffectedSpeciesAsync(ProfileManagementTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AffectedSpeciesDto?)null);
+
+        var result = await new GetAffectedSpeciesQueryHandler(service.Object)
+            .Handle(new GetAffectedSpeciesQuery(ProfileManagementTestData.SpeciesId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task GetAffectedSpeciesQueryHandler_ReturnsSuccess()
+    {
+        var dto = new AffectedSpeciesDto { SpeciesId = ProfileManagementTestData.SpeciesId, Name = "Cattle", Type = "Profiled", IsActive = true };
+
+        service
+            .Setup(svc => svc.GetAffectedSpeciesAsync(ProfileManagementTestData.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await new GetAffectedSpeciesQueryHandler(service.Object)
+            .Handle(new GetAffectedSpeciesQuery(ProfileManagementTestData.SpeciesId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetNewProfileDefaultsQueryHandler_ReturnsNotFound_WhenServiceReturnsNull()
+    {
+        service
+            .Setup(svc => svc.GetNewProfileDefaultsAsync(ProfileManagementTestData.ProfileVersionId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NewProfileDefaultsDto?)null);
+
+        var result = await new GetNewProfileDefaultsQueryHandler(service.Object)
+            .Handle(new GetNewProfileDefaultsQuery(ProfileManagementTestData.ProfileVersionId, false), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task GetNewProfileDefaultsQueryHandler_ReturnsSuccess()
+    {
+        var dto = new NewProfileDefaultsDto
+        {
+            Title = "Bovine tuberculosis",
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
+
+        service
+            .Setup(svc => svc.GetNewProfileDefaultsAsync(ProfileManagementTestData.ProfileVersionId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await new GetNewProfileDefaultsQueryHandler(service.Object)
+            .Handle(new GetNewProfileDefaultsQuery(ProfileManagementTestData.ProfileVersionId, true), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
+    }
 }
