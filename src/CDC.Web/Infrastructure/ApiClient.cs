@@ -59,6 +59,31 @@ public interface IApiClient
         bool publicOnly = true,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Gets every version of one static report or manual from
+    /// <c>GET /api/static-reports/{staticReportId}/history</c>.</summary>
+    Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
+        Guid staticReportId,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Gets whether the current user may upload static reports or user manuals from
+    /// <c>GET /api/static-reports/upload-permission</c>.</summary>
+    Task<bool> CanUploadStaticReportsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Uploads a new static report or user manual version via <c>POST /api/static-reports</c>.</summary>
+    Task<UploadStaticReportResult> UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a static report or user manual version via
+    /// <c>DELETE /api/static-reports/versions/{staticReportVersionId}</c>.</summary>
+    Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Creates a new version of a profile via <c>POST /api/profiles/versions</c>.</summary>
     /// <param name="profileVersionId">The profile version to base the new version on. Must be the latest version.</param>
     /// <param name="isPublished">Whether the new version is published rather than a draft.</param>
@@ -315,6 +340,80 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
 
         var reports = await httpClient.GetFromJsonAsync<IReadOnlyList<StaticReportListItemDto>>(url, cancellationToken);
         return reports ?? [];
+    }
+
+    public async Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
+        Guid staticReportId,
+        bool publicOnly = true,
+        CancellationToken cancellationToken = default)
+    {
+        var url = QueryHelpers.AddQueryString(
+            $"/api/static-reports/{staticReportId}/history",
+            new Dictionary<string, string?> { ["publicOnly"] = publicOnly.ToString() });
+
+        var versions = await httpClient.GetFromJsonAsync<IReadOnlyList<StaticReportListItemDto>>(url, cancellationToken);
+        return versions ?? [];
+    }
+
+    public async Task<bool> CanUploadStaticReportsAsync(CancellationToken cancellationToken = default)
+    {
+        var permission = await httpClient.GetFromJsonAsync<StaticReportUploadPermissionDto>(
+            "/api/static-reports/upload-permission", cancellationToken);
+
+        return permission?.CanUpload ?? false;
+    }
+
+    public async Task<UploadStaticReportResult> UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new { Title = title, PdfData = pdfData, IsUserManual = isUserManual, IsPublic = isPublic };
+        var response = await httpClient.PostAsJsonAsync("/api/static-reports", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new UploadStaticReportResult(UploadStaticReportOutcome.Success, null);
+        }
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Forbidden => new UploadStaticReportResult(
+                UploadStaticReportOutcome.Forbidden, problem?.Detail ?? "You do not have permission to upload documents."),
+            _ => new UploadStaticReportResult(
+                UploadStaticReportOutcome.ValidationFailed, problem?.Detail ?? "The document could not be uploaded. Please try again.")
+        };
+    }
+
+    public async Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.DeleteAsync($"/api/static-reports/versions/{staticReportVersionId}", cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new DeleteStaticReportVersionResult(DeleteStaticReportVersionOutcome.Success, null);
+        }
+
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return new DeleteStaticReportVersionResult(
+                DeleteStaticReportVersionOutcome.Forbidden, "You do not have permission to delete this document.");
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return new DeleteStaticReportVersionResult(
+                DeleteStaticReportVersionOutcome.NotFound, "This document could not be found. Another user may have already deleted it.");
+        }
+
+        return new DeleteStaticReportVersionResult(
+            DeleteStaticReportVersionOutcome.Error, "The document could not be deleted. Please try again.");
     }
 }
 

@@ -131,12 +131,25 @@ html {
   min-width: 12rem;
 }
 
-/* Maintain contributors has only the "Items per page" control (no sort-by), so unlike
-   .app-results-toolbar - whose space-between layout relies on a second item to space away from -
-   it is pushed to the right explicitly. */
+/* Maintain contributors (and Static reports) have only the "Items per page" control (no
+   sort-by), so unlike .app-results-toolbar - whose space-between layout relies on a second item
+   to space away from - it is pushed to the right explicitly. The label and select sit on a single
+   row rather than the govuk-form-group default of stacking the label above the field. */
 .app-contributors-toolbar {
   display: flex;
   justify-content: flex-end;
+}
+
+.app-contributors-toolbar .govuk-form-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.app-contributors-toolbar .govuk-label {
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .app-contributors-toolbar .govuk-select {
