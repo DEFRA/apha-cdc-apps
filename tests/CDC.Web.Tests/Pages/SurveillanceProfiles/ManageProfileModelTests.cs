@@ -218,4 +218,88 @@ public class ManageProfileModelTests
 
         Assert.IsType<NotFoundResult>(result);
     }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ShowsSuccessMessage_WhenSuccessful()
+    {
+        var newVersionId = Guid.NewGuid();
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Successfully published this profile and made it public.", pageModel.StatusMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ReturnsPageWithError_WhenPublishFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(
+                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for publishing."));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var pageModel = CreatePageModel(manageProfile: null);
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ShowsSuccessMessage_WhenSuccessful()
+    {
+        var newVersionId = Guid.NewGuid();
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Successfully published this profile but did not make it public.", pageModel.StatusMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ReturnsPageWithError_WhenPublishFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(
+                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for publishing."));
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var pageModel = CreatePageModel(manageProfile: null);
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
 }

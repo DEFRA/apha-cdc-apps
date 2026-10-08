@@ -50,6 +50,16 @@ public class ManageProfileModel : PageModel
             LogLevel.Error,
             new EventId(8, nameof(LogFailedToDeleteProfileVersionMessage)),
             "Failed to delete the current version for profile '{ProfileId}': {ErrorMessage}");
+    private static readonly Action<ILogger, Guid, bool, Exception?> LogPublishedProfileMessage =
+        LoggerMessage.Define<Guid, bool>(
+            LogLevel.Information,
+            new EventId(9, nameof(LogPublishedProfileMessage)),
+            "Published profile '{ProfileId}' as a new version (public: {IsPublic})");
+    private static readonly Action<ILogger, Guid, bool, string, Exception?> LogFailedToPublishProfileMessage =
+        LoggerMessage.Define<Guid, bool, string>(
+            LogLevel.Error,
+            new EventId(10, nameof(LogFailedToPublishProfileMessage)),
+            "Failed to publish profile '{ProfileId}' (public: {IsPublic}): {ErrorMessage}");
 
     private readonly IApiClient apiClient;
     private readonly ILogger<ManageProfileModel> logger;
@@ -174,6 +184,50 @@ public class ManageProfileModel : PageModel
 
         return Page();
     }
+
+    /// <summary>
+    /// Publishes the profile's current draft version (<c>LatestVersionId</c>) as a new published
+    /// version, matching the legacy <c>lnkPublish_Click</c> handler shared by <c>lnkPublishPublic</c>
+    /// and <c>lnkPublish</c> (<c>profileData.Publish(makePublic)</c>). Redisplays Manage profile
+    /// with a success banner afterwards - the legacy redirect target, <c>ProfileReports.aspx</c>,
+    /// has no modern equivalent yet. On failure, redisplays Manage profile with an inline error,
+    /// matching the legacy page.
+    /// </summary>
+    private async Task<IActionResult> PublishAsync(bool isPublic, string successMessage, CancellationToken cancellationToken)
+    {
+        var loaded = await LoadProfileAsync(cancellationToken);
+
+        if (!loaded)
+        {
+            return HasError ? Page() : NotFound();
+        }
+
+        var result = await apiClient.CreateNewProfileVersionAsync(
+            Profile!.LatestVersionId, isPublished: true, isPublic: isPublic, cancellationToken);
+
+        if (result.Outcome == CreateNewProfileVersionOutcome.Success)
+        {
+            LogPublishedProfileMessage(logger, ProfileId, isPublic, null);
+            StatusMessage = successMessage;
+        }
+        else
+        {
+            LogFailedToPublishProfileMessage(logger, ProfileId, isPublic, result.ErrorMessage ?? string.Empty, null);
+            StatusErrorMessage = result.ErrorMessage;
+        }
+
+        loaded = await LoadProfileAsync(cancellationToken);
+
+        return loaded || HasError ? Page() : NotFound();
+    }
+
+    /// <summary>Publishes the profile publicly - see <see cref="PublishAsync"/>.</summary>
+    public Task<IActionResult> OnPostPublishPublicAsync(CancellationToken cancellationToken) =>
+        PublishAsync(isPublic: true, "Successfully published this profile and made it public.", cancellationToken);
+
+    /// <summary>Publishes the profile for DefraNet only (not public) - see <see cref="PublishAsync"/>.</summary>
+    public Task<IActionResult> OnPostPublishDefranetOnlyAsync(CancellationToken cancellationToken) =>
+        PublishAsync(isPublic: false, "Successfully published this profile but did not make it public.", cancellationToken);
 
     private async Task<bool> LoadProfileAsync(CancellationToken cancellationToken)
     {
