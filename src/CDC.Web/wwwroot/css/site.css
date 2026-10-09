@@ -357,6 +357,24 @@ body {
   background-color: #f3f2f1;
 }
 
+/* Highlights the row of the currently selected species/species group - most visible in
+   Reorder mode, where the AC requires the selected item to read as highlighted. */
+.app-tree__row:has(.govuk-radios__input:checked),
+.app-tree__row:has(.govuk-checkboxes__input:checked) {
+  background-color: #d2e2f1;
+}
+
+/* Inactivated species/species groups stay visible in Maintain species data, with their
+   hierarchy position retained, but greyed out and tagged so they read as no longer active. */
+.app-tree__label--inactive {
+  color: #505a5f;
+}
+
+.app-tree__inactive-tag {
+  margin-left: 5px;
+  font-style: italic;
+}
+
 /* Classic treeview connectors: each item draws a vertical dotted line up to its parent's
    column, running the item's full height so it keeps connecting to its next sibling below
    (and carries on behind that sibling's own expanded subtree) - plus a short horizontal tick
@@ -526,7 +544,6 @@ body {
 }
 
 .app-tree__panel {
-  max-width: 70%;
   max-height: 480px;
   padding: 10px 15px 10px 5px;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
@@ -537,6 +554,48 @@ body {
   display: flex;
   justify-content: flex-start;
   margin-bottom: 10px;
+}
+
+/* Maintain species data: the tree and its action buttons sit side by side, with the
+   buttons stacked vertically to the right - see Maintain.cshtml. Wraps to a stacked,
+   full-width layout below tablet so the actions remain reachable on narrow viewports. */
+.app-species-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.app-tree__column {
+  flex: 1 1 320px;
+  min-width: 0;
+  max-width: 70%;
+}
+
+.app-species-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.app-species-actions .govuk-button {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+/* Audit trail "Items per page" control: label and select sit on one line rather than
+   stacking, aligned to the right of the page, per Maintain.cshtml. */
+.app-audit-trail-page-size {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Sits directly above .app-audit-trail-page-size, per Maintain.cshtml. */
+.app-audit-trail-back-link {
+  text-align: right;
 }
 
 .app-tree__toggle-all {

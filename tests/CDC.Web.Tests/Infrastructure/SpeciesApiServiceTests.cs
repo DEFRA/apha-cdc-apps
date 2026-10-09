@@ -332,6 +332,174 @@ public class SpeciesApiServiceTests
         Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
     }
 
+    [Fact]
+    public async Task ChangeSpeciesPositionAsync_ReturnsSuccess_OnOk()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, string.Empty));
+
+        var result = await service.ChangeSpeciesPositionAsync(Guid.NewGuid(), isMovingUp: true);
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Success, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ChangeSpeciesPositionAsync_ReturnsValidationFailed_OnHttp400_UsingTheProblemDetail()
+    {
+        const string json = """{ "detail": "This species cannot be moved in that direction." }""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, json));
+
+        var result = await service.ChangeSpeciesPositionAsync(Guid.NewGuid(), isMovingUp: true);
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("This species cannot be moved in that direction.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ChangeSpeciesPositionAsync_ReturnsError_OnUnexpectedStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await service.ChangeSpeciesPositionAsync(Guid.NewGuid(), isMovingUp: false);
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_ReturnsSuccess_OnOk()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, string.Empty));
+
+        var result = await service.InactivateSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.InactivateSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Success, result.Outcome);
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_ReturnsConflict_OnHttp409()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Conflict, string.Empty));
+
+        var result = await service.InactivateSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.InactivateSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Conflict, result.Outcome);
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_ReturnsValidationFailed_OnHttp400()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, string.Empty));
+
+        var result = await service.InactivateSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.InactivateSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.ValidationFailed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_ReturnsError_OnUnexpectedStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await service.InactivateSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.InactivateSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ReturnsSuccess_OnOk()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, string.Empty));
+
+        var result = await service.DeleteSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.DeleteSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Success, result.Outcome);
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ReturnsConflict_OnHttp409()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Conflict, string.Empty));
+
+        var result = await service.DeleteSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.DeleteSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Conflict, result.Outcome);
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ReturnsError_OnHttp404()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var result = await service.DeleteSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.DeleteSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ReturnsValidationFailed_OnHttp400_FallingBackWhenTheProblemBodyIsMalformed()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, "not-json"));
+
+        var result = await service.DeleteSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.DeleteSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("We could not delete this species. Try again later.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ReturnsError_OnUnexpectedStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await service.DeleteSpeciesAsync(Guid.NewGuid(), new CDC.Web.Models.DeleteSpeciesRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesAnswerDataAsync_ReturnsSuccess_OnOk()
+    {
+        const string json = """
+            { "speciesId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f", "lastUpdated": "AAAAAAAAAAI=" }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var result = await service.UpdateSpeciesAnswerDataAsync(new CDC.Web.Models.UpdateSpeciesAnswerDataRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Success, result.Outcome);
+        Assert.NotNull(result.LastUpdated);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesAnswerDataAsync_ReturnsConflict_OnHttp409()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Conflict, string.Empty));
+
+        var result = await service.UpdateSpeciesAnswerDataAsync(new CDC.Web.Models.UpdateSpeciesAnswerDataRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Conflict, result.Outcome);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesAnswerDataAsync_ReturnsValidationFailed_OnHttp400()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, string.Empty));
+
+        var result = await service.UpdateSpeciesAnswerDataAsync(new CDC.Web.Models.UpdateSpeciesAnswerDataRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.ValidationFailed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task UpdateSpeciesAnswerDataAsync_ReturnsError_OnUnexpectedStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await service.UpdateSpeciesAnswerDataAsync(new CDC.Web.Models.UpdateSpeciesAnswerDataRequestDto());
+
+        Assert.Equal(CDC.Web.Models.SpeciesUpdateOutcome.Error, result.Outcome);
+    }
+
     private static SpeciesApiService CreateService(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

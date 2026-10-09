@@ -12,9 +12,7 @@ namespace CDC.Web.Tests.Integration;
 
 // The default WebApplicationFactory<Program> has no live CDC.Api to call, so every species page
 // only ever renders its error-banner path. These tests swap in a fake ISpeciesApiService with
-// real data, so the tree/audit-trail/edit-panel views actually render their success paths. Uses
-// CdcWebTestFactory (not the plain WebApplicationFactory<Program>) since these routes require
-// authentication, and signs in via the test-only endpoint before each request.
+// real data, so the tree/audit-trail/edit-panel views actually render their success paths.
 public partial class SpeciesDataIntegrationTests
 {
     private static readonly Guid CattleId = Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f");
@@ -30,7 +28,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -43,11 +41,12 @@ public partial class SpeciesDataIntegrationTests
     [Fact]
     public async Task Maintain_RendersAuditTrail_WhenHandlerRequested()
     {
+        var auditTrailEntryId = Guid.NewGuid();
         IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail =
         [
             new SpeciesAuditTrailEntryDto
             {
-                Id = Guid.NewGuid(),
+                Id = auditTrailEntryId,
                 OldName = "Dairy cattle",
                 NewName = "Dairy",
                 OldParent = "Cattle",
@@ -58,9 +57,9 @@ public partial class SpeciesDataIntegrationTests
             }
         ];
         using var factory = CreateFactory(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
-        var response = await client.GetAsync("/SpeciesData/Maintain?handler=AuditTrail");
+        var response = await client.GetAsync($"/SpeciesData/Maintain?handler=AuditTrail&AuditTrailDetailsId={auditTrailEntryId}");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -72,7 +71,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_OffersAnAddAction_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -82,10 +81,56 @@ public partial class SpeciesDataIntegrationTests
     }
 
     [Fact]
+    public async Task Maintain_RendersLegacyTreeControls_AndSelectionRemovalAction()
+    {
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync("/SpeciesData/Maintain");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("app-tree__toggle-all", body);
+        Assert.Contains("Open all", body);
+        Assert.Contains("Remove selection", body);
+        Assert.Contains("app-tree__status", body);
+    }
+
+    [Fact]
+    public async Task Maintain_RendersEveryLegacyActionButton()
+    {
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync("/SpeciesData/Maintain");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Add", body);
+        Assert.Contains("Edit name/parent", body);
+        Assert.Contains("Edit data", body);
+        Assert.Contains("Delete", body);
+        Assert.Contains("Inactivate", body);
+        Assert.Contains("Reorder list", body);
+        Assert.Contains("View audit trail", body);
+    }
+
+    [Fact]
+    public async Task Maintain_RequiresASelection_ForActionsThatNeedOne()
+    {
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await PostAsync(client, "EditData", new Dictionary<string, string>());
+
+        Assert.Contains("Select a species or species group to edit.", body);
+    }
+
+    [Fact]
     public async Task ViewSpeciesData_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/ViewSpeciesData");
         var body = await response.Content.ReadAsStringAsync();
@@ -102,19 +147,11 @@ public partial class SpeciesDataIntegrationTests
                 services.AddSingleton(fakeService);
             }));
 
-    // Every page is authenticated by default, so sign in via the test-only endpoint first.
-    private static async Task<HttpClient> SignedInClientAsync(WebApplicationFactory<Program> factory)
-    {
-        var client = factory.CreateClient();
-        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
-        return client;
-    }
-
     [Fact]
     public async Task Maintain_RendersSuccessBanner_AfterASave()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?saved=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -128,7 +165,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSuccessBanner_AfterAnAdd()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?added=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -141,7 +178,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersEmptyState_WhenNoActiveSpeciesExist()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService([]));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -154,7 +191,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersErrorSummary_WhenTheApiIsUnreachable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -167,7 +204,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersAddSpeciesPanel_WhenAddIsPosted()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "Add", new Dictionary<string, string>());
 
@@ -182,7 +219,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersValidationErrors_WhenANewSpeciesIsSavedWithNoValues()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "SaveNew", new Dictionary<string, string>
         {
@@ -201,7 +238,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSelectionError_WhenEditIsPostedWithNoSelection()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>());
 
@@ -224,7 +261,7 @@ public partial class SpeciesDataIntegrationTests
             Species,
             speciesDetail: detail,
             validParents: [new SpeciesValidParentDto { Id = CattleId, Name = "Cattle" }]));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>
         {
@@ -321,7 +358,7 @@ public partial class SpeciesDataIntegrationTests
             speciesMetadata: metadata,
             speciesAnswerData: answerData,
             referenceValuesByTable: referenceValues));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -338,7 +375,7 @@ public partial class SpeciesDataIntegrationTests
         using var factory = CreateFactory(new FakeSpeciesApiService(
             Species,
             throwOnGetSpeciesAnswerData: new HttpRequestException("down")));
-        var client = await SignedInClientAsync(factory);
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
 

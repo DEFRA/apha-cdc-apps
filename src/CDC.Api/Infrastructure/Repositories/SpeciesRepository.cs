@@ -33,6 +33,9 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     /// <summary>The message <c>spiSpecies</c> and <c>spuSpecies</c> raise for a name clash.</summary>
     private const string DuplicateNameMessageFragment = "already a species with this name";
 
+    /// <summary>The message <c>spuSpeciesSequenceNumber</c> raises when no sibling exists at the resulting sequence number.</summary>
+    private const string ReorderBlockedMessageFragment = "no species above/below this one";
+
     private const int RowVersionLength = 8;
 
     /// <summary><c>spuSpecies</c> declares <c>@Name varchar(50)</c>.</summary>
@@ -121,9 +124,20 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
                     cancellationToken: cancellationToken),
                 CommandBehavior.Default);
 
-            var sections = await ReadSectionMetadataAsync(reader, cancellationToken);
-            var questions = await ReadQuestionMetadataAsync(reader, cancellationToken);
-            var fields = await ReadFieldMetadataAsync(reader, cancellationToken);
+            var sections = await MetadataResultSetReader.ReadCurrentResultSetAsync(
+                reader,
+                static r => new SectionMetadataRow(r.GetGuid(0), r.ReadString(1), r.ReadString(2), r.ReadInt32(3)),
+                cancellationToken);
+
+            var questions = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => new QuestionMetadataRow(r.GetGuid(0), r.GetGuid(1), r.ReadString(2), r.ReadInt32(3), r.ReadString(4)),
+                cancellationToken);
+
+            var fields = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => MapFieldMetadataRow(r),
+                cancellationToken);
 
             return BuildMetadata(sections, questions, fields);
         }
@@ -459,6 +473,95 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         }
     }
 
+    /// <inheritdoc />
+    public async Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, Guid userId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", speciesId, DbType.Guid);
+        parameters.Add("@IsMovingUp", isMovingUp, DbType.Boolean);
+        parameters.Add("@UserId", userId, DbType.Guid);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.ChangeSpeciesPosition,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.ChangeSpeciesPosition);
+
+            // spuSpeciesSequenceNumber RAISERRORs (error 50000) when no sibling exists at the
+            // resulting sequence number - either the species is already first/last, or (as with
+            // legacy data) the adjacent sequence number has a gap. The legacy CSLA business
+            // object surfaced this inline rather than as a crash, so it is passed through here
+            // rather than left to bubble up as an unhandled 500.
+            throw IsReorderBlockedViolation(exception)
+                ? new SpeciesReorderBlockedException(exception.Message, exception)
+                : exception;
+        }
+    }
+
+    /// <inheritdoc />
+    public Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken) =>
+        // sppSpecies takes exactly these four parameters and returns nothing: it raises an
+        // error (caught below) for a stale @LastUpdated, otherwise it sets EffectiveDateTo and
+        // inserts the audit entry itself.
+        ExecuteAuditedSpeciesChangeAsync(command, SpeciesStoredProcedures.InactivateSpecies, cancellationToken);
+
+    /// <inheritdoc />
+    public Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken) =>
+        // spdSpecies takes exactly these four parameters and returns nothing: it raises an
+        // error (caught below) for a stale @LastUpdated, otherwise it writes the audit entry,
+        // decrements later siblings' sequence numbers, and deletes the species' rows itself.
+        ExecuteAuditedSpeciesChangeAsync(command, SpeciesStoredProcedures.DeleteSpecies, cancellationToken);
+
+    /// <summary>
+    /// Runs one of the audited species-change stored procedures (inactivate/delete) that share
+    /// the same four parameters, concurrency-violation handling, and no result set.
+    /// </summary>
+    /// <param name="command">The species, reason and row version for the change.</param>
+    /// <param name="storedProcedureName">The stored procedure to execute.</param>
+    /// <param name="cancellationToken">Propagates notification that the operation should be cancelled.</param>
+    private async Task ExecuteAuditedSpeciesChangeAsync(
+        IAuditedSpeciesChangeCommand command,
+        string storedProcedureName,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
+        parameters.Add("@UserId", command.UserId, DbType.Guid);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
+        parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                storedProcedureName,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, storedProcedureName);
+
+            // Both procedures RAISERROR (error 50000) only for a stale row version, so this is
+            // always a concurrency conflict, unlike spuSpecies which also covers duplicate names.
+            throw IsConcurrencyViolation(exception)
+                ? new ConcurrencyException(exception.Message, exception)
+                : exception;
+        }
+    }
+
     /// <summary>
     /// Identifies the row version clash raised by <c>spuSpeciesAnswerData</c>. The message is
     /// also matched so that providers other than SQL Server - including the fakes used in
@@ -478,6 +581,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     /// <returns><see langword="true"/> when the failure is a duplicate species name.</returns>
     internal static bool IsDuplicateNameViolation(DbException exception) =>
         exception.Message.Contains(DuplicateNameMessageFragment, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Identifies the "no sibling at that position" failure raised by
+    /// <c>spuSpeciesSequenceNumber</c>. Matched on the message because it shares error number
+    /// 50000 with every other <c>RAISERROR</c> the procedure can emit.
+    /// </summary>
+    /// <param name="exception">The database exception to classify.</param>
+    /// <returns><see langword="true"/> when the move was rejected because no sibling exists there.</returns>
+    internal static bool IsReorderBlockedViolation(DbException exception) =>
+        exception.Message.Contains(ReorderBlockedMessageFragment, StringComparison.OrdinalIgnoreCase);
 
     private static async Task<byte[]> UpdateRowVersionAsync(
         DbConnection connection,
@@ -575,78 +688,23 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         }
     }
 
-    private static async Task<List<SectionMetadataRow>> ReadSectionMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var sections = new List<SectionMetadataRow>();
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            sections.Add(new SectionMetadataRow(
-                reader.GetGuid(0),
-                reader.ReadString(1),
-                reader.ReadString(2),
-                reader.ReadInt32(3)));
-        }
-
-        return sections;
-    }
-
-    private static async Task<List<QuestionMetadataRow>> ReadQuestionMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var questions = new List<QuestionMetadataRow>();
-
-        if (!await reader.NextResultAsync(cancellationToken))
-        {
-            return questions;
-        }
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            questions.Add(new QuestionMetadataRow(
-                reader.GetGuid(0),
-                reader.GetGuid(1),
-                reader.ReadString(2),
-                reader.ReadInt32(3),
-                reader.ReadString(4)));
-        }
-
-        return questions;
-    }
-
-    private static async Task<List<FieldMetadataRow>> ReadFieldMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
+    private static FieldMetadataRow MapFieldMetadataRow(DbDataReader reader)
     {
         const int editorFieldTypeOrdinal = 11;
-        var fields = new List<FieldMetadataRow>();
 
-        if (!await reader.NextResultAsync(cancellationToken))
-        {
-            return fields;
-        }
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            fields.Add(new FieldMetadataRow(
-                reader.GetGuid(1),
-                reader.GetGuid(2),
-                reader.ReadString(3),
-                reader.ReadString(4),
-                reader.ReadInt32(5),
-                reader.ReadGuid(6),
-                reader.ReadString(7),
-                reader.ReadBoolean(8),
-                reader.ReadGuid(9),
-                reader.ReadBoolean(10),
-                // Databases that predate the editor field type column simply omit it.
-                reader.FieldCount > editorFieldTypeOrdinal ? reader.ReadInt32(editorFieldTypeOrdinal) : 0));
-        }
-
-        return fields;
+        return new FieldMetadataRow(
+            reader.GetGuid(1),
+            reader.GetGuid(2),
+            reader.ReadString(3),
+            reader.ReadString(4),
+            reader.ReadInt32(5),
+            reader.ReadGuid(6),
+            reader.ReadString(7),
+            reader.ReadBoolean(8),
+            reader.ReadGuid(9),
+            reader.ReadBoolean(10),
+            // Databases that predate the editor field type column simply omit it.
+            reader.FieldCount > editorFieldTypeOrdinal ? reader.ReadInt32(editorFieldTypeOrdinal) : 0);
     }
 
     private static SpeciesMetadata BuildMetadata(

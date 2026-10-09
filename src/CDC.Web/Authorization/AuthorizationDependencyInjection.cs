@@ -1,6 +1,7 @@
 using CDC.Web.Authorization.Models;
 using CDC.Web.Authorization.Policies;
 using CDC.Web.Authorization.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 
@@ -27,6 +28,7 @@ public static class AuthorizationDependencyInjection
         services.AddSingleton<ICurrentUserService, CurrentUserService>();
         services.AddScoped<INavigationAuthorizationService, NavigationAuthorizationService>();
         services.AddSingleton<IAuthorizationHandler, Handlers.AllowedRolesAuthorizationHandler>();
+        services.AddTransient<IClaimsTransformation, InternalRoleClaimsTransformation>();
 
         services.AddAuthorizationBuilder();
         services.Configure<AuthorizationOptions>(options => options.AddCdcWebPolicies());
