@@ -62,9 +62,40 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <summary>Gets every recorded species name/parent change, most recent first.</summary>
     public IReadOnlyList<SpeciesAuditTrailEntryDto> AuditTrail { get; private set; } = [];
 
+    /// <summary>Gets the page of <see cref="AuditTrail"/> entries to display, per <see cref="AuditTrailPage"/>/<see cref="AuditTrailPageSize"/>.</summary>
+    public IReadOnlyList<SpeciesAuditTrailEntryDto> PagedAuditTrail { get; private set; } = [];
+
+    /// <summary>Gets or sets the audit trail page shown, bound from the querystring.</summary>
+    [BindProperty(SupportsGet = true)]
+    public int AuditTrailPage { get; set; } = 1;
+
+    /// <summary>Gets or sets the audit trail page size, bound from the querystring.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string AuditTrailPageSize { get; set; } = AuditTrailPageSizeOptions[0];
+
+    /// <summary>Gets the static, hardcoded options for the audit trail "Items per page" dropdown.</summary>
+    public static IReadOnlyList<string> AuditTrailPageSizeOptions { get; } = ["10", "25", "50", "All"];
+
+    /// <summary>Gets the total number of audit trail pages at the current page size.</summary>
+    public int AuditTrailTotalPages { get; private set; } = 1;
+
+    /// <summary>Gets or sets the audit trail entry whose full details are expanded, bound from the querystring.</summary>
+    [BindProperty(SupportsGet = true)]
+    public Guid? AuditTrailDetailsId { get; set; }
+
     /// <summary>Gets the species selected in the tree, posted under the shared radio field name.</summary>
     [BindProperty(Name = SpeciesKey, SupportsGet = true)]
     public Guid? SelectedSpeciesId { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the hierarchy is in reorder mode ("Reorder list" clicked).</summary>
+    [BindProperty]
+    public bool ReorderMode { get; set; }
+
+    /// <summary>Gets a value indicating whether the selected species has a previous sibling to move up to.</summary>
+    public bool CanMoveSelectedUp { get; private set; }
+
+    /// <summary>Gets a value indicating whether the selected species has a next sibling to move down to.</summary>
+    public bool CanMoveSelectedDown { get; private set; }
 
     /// <summary>Gets or sets the "Edit name/parent" form fields.</summary>
     [BindProperty]
@@ -102,10 +133,31 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         {
             AuditTrail = await speciesApiService.GetSpeciesAuditTrailAsync(cancellationToken);
             ShowAuditTrail = true;
+            ApplyAuditTrailPaging();
         }
 
         return Page();
     }
+
+    /// <summary>Builds the querystring URL for an audit trail page link, preserving the page size.</summary>
+    public string? BuildAuditTrailPageUrl(int page) =>
+        Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage = page, AuditTrailPageSize });
+
+    /// <summary>Slices <see cref="AuditTrail"/> into <see cref="PagedAuditTrail"/> and computes <see cref="AuditTrailTotalPages"/>.</summary>
+    private void ApplyAuditTrailPaging()
+    {
+        var pageSize = ResolveAuditTrailPageSize(AuditTrailPageSize);
+
+        AuditTrailTotalPages = Math.Max(1, (int)Math.Ceiling(AuditTrail.Count / (double)pageSize));
+        AuditTrailPage = Math.Clamp(AuditTrailPage, 1, AuditTrailTotalPages);
+
+        PagedAuditTrail = [.. AuditTrail.Skip((AuditTrailPage - 1) * pageSize).Take(pageSize)];
+    }
+
+    private static int ResolveAuditTrailPageSize(string pageSize) =>
+        string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase)
+            ? int.MaxValue
+            : int.TryParse(pageSize, out var parsed) ? parsed : 10;
 
     /// <summary>Opens the "Edit name/parent" section for the species selected on the tree.</summary>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
@@ -133,86 +185,6 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         }
 
         await OpenEditPanelAsync(detail, cancellationToken);
-
-        return Page();
-    }
-
-    /// <summary>Routes a selected species to the data editor for the legacy Maintain Species Data flow.</summary>
-    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task<IActionResult> OnPostEditDataAsync(CancellationToken cancellationToken)
-    {
-        await LoadTreeAsync(cancellationToken);
-
-        if (HasError)
-        {
-            return Page();
-        }
-
-        if (SelectedSpeciesId is null)
-        {
-            SelectionErrorMessage = "Select a species or species group to edit.";
-            return Page();
-        }
-
-        return RedirectToPage("/EditSpecies", new { SpeciesId = SelectedSpeciesId.Value, edit = true });
-    }
-
-    /// <summary>Validates that a delete action only runs when a species is selected.</summary>
-    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task<IActionResult> OnPostDeleteAsync(CancellationToken cancellationToken)
-    {
-        await LoadTreeAsync(cancellationToken);
-
-        if (HasError)
-        {
-            return Page();
-        }
-
-        if (SelectedSpeciesId is null)
-        {
-            SelectionErrorMessage = "Select a species or species group to edit.";
-            return Page();
-        }
-
-        return Page();
-    }
-
-    /// <summary>Validates that the inactivate action only runs when a species is selected.</summary>
-    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task<IActionResult> OnPostInactivateAsync(CancellationToken cancellationToken)
-    {
-        await LoadTreeAsync(cancellationToken);
-
-        if (HasError)
-        {
-            return Page();
-        }
-
-        if (SelectedSpeciesId is null)
-        {
-            SelectionErrorMessage = "Select a species or species group to edit.";
-            return Page();
-        }
-
-        return Page();
-    }
-
-    /// <summary>Validates that the reorder-list action only runs when a species is selected.</summary>
-    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task<IActionResult> OnPostReorderListAsync(CancellationToken cancellationToken)
-    {
-        await LoadTreeAsync(cancellationToken);
-
-        if (HasError)
-        {
-            return Page();
-        }
-
-        if (SelectedSpeciesId is null)
-        {
-            SelectionErrorMessage = "Select a species or species group to edit.";
-            return Page();
-        }
 
         return Page();
     }
@@ -281,6 +253,77 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         await LoadTreeAsync(cancellationToken);
 
         ShowEditPanel = false;
+
+        return Page();
+    }
+
+    /// <summary>Opens reorder mode for the species selected on the tree.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostReorderListAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Please select a species to edit";
+            return Page();
+        }
+
+        ReorderMode = true;
+        UpdateMoveAvailability();
+
+        return Page();
+    }
+
+    /// <summary>Moves the selected species up one place and reloads the hierarchy in its new order.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public Task<IActionResult> OnPostMoveUpAsync(CancellationToken cancellationToken) =>
+        MoveSelectedSpeciesAsync(isMovingUp: true, cancellationToken);
+
+    /// <summary>Moves the selected species down one place and reloads the hierarchy in its new order.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public Task<IActionResult> OnPostMoveDownAsync(CancellationToken cancellationToken) =>
+        MoveSelectedSpeciesAsync(isMovingUp: false, cancellationToken);
+
+    /// <summary>Exits reorder mode. Each move is saved immediately, so this only changes the display.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostReorderDoneAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        ReorderMode = false;
+
+        return Page();
+    }
+
+    private async Task<IActionResult> MoveSelectedSpeciesAsync(bool isMovingUp, CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        ReorderMode = true;
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Please select a species to edit";
+            return Page();
+        }
+
+        await speciesApiService.ChangeSpeciesPositionAsync(SelectedSpeciesId.Value, isMovingUp, cancellationToken);
+        logger.MovedSpecies(SelectedSpeciesId.Value, isMovingUp);
+
+        // Reload so the hierarchy reflects the new sequence, with the moved species still selected.
+        await LoadTreeAsync(cancellationToken);
+        UpdateMoveAvailability();
 
         return Page();
     }
@@ -476,6 +519,48 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         ItemNamePlural = SpeciesKey,
         Nodes = []
     };
+
+    /// <summary>Sets <see cref="CanMoveSelectedUp"/>/<see cref="CanMoveSelectedDown"/> from the
+    /// selected species' position among its siblings in the just-loaded <see cref="SpeciesTree"/>.</summary>
+    private void UpdateMoveAvailability()
+    {
+        var siblings = SelectedSpeciesId is null
+            ? null
+            : FindSiblingGroup(SpeciesTree.Nodes, SelectedSpeciesId.Value.ToString());
+
+        if (siblings is null)
+        {
+            CanMoveSelectedUp = false;
+            CanMoveSelectedDown = false;
+            return;
+        }
+
+        var index = siblings.FindIndex(node => node.Value == SelectedSpeciesId!.Value.ToString());
+        CanMoveSelectedUp = index > 0;
+        CanMoveSelectedDown = index >= 0 && index < siblings.Count - 1;
+    }
+
+    /// <summary>Finds the sibling list - root nodes or a parent's children - containing the node
+    /// with the given value, searching the whole tree.</summary>
+    private static List<TreeNodeViewModel>? FindSiblingGroup(IReadOnlyList<TreeNodeViewModel> siblings, string value)
+    {
+        if (siblings.Any(node => node.Value == value))
+        {
+            return [.. siblings];
+        }
+
+        foreach (var node in siblings)
+        {
+            var found = FindSiblingGroup(node.Children, value);
+
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
 }
 
 /// <summary>Source-generated structured log messages for <see cref="MaintainModel"/>.</summary>
@@ -495,5 +580,11 @@ internal static partial class MaintainLog
 
     [LoggerMessage(EventId = 2104, Level = LogLevel.Information, Message = "Added species {SpeciesId} to the hierarchy")]
     public static partial void Added(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 2105, Level = LogLevel.Information, Message = "Moved species {SpeciesId} {Direction}")]
+    private static partial void MovedSpeciesCore(this ILogger logger, Guid speciesId, string direction);
+
+    public static void MovedSpecies(this ILogger logger, Guid speciesId, bool isMovingUp) =>
+        logger.MovedSpeciesCore(speciesId, isMovingUp ? "up" : "down");
 }
 

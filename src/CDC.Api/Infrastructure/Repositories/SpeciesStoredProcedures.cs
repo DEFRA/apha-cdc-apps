@@ -47,4 +47,7 @@ public static class SpeciesStoredProcedures
 
     /// <summary>Returns every recorded species name/parent change.</summary>
     public const string GetSpeciesAuditTrail = "spgaSpeciesTableAuditLog";
+
+    /// <summary>Swaps a species' sequence number with its previous or next sibling.</summary>
+    public const string ChangeSpeciesPosition = "spuSpeciesSequenceNumber";
 }

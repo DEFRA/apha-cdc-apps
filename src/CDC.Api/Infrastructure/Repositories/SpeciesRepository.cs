@@ -459,6 +459,31 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         }
     }
 
+    /// <inheritdoc />
+    public async Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, Guid userId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", speciesId, DbType.Guid);
+        parameters.Add("@IsMovingUp", isMovingUp, DbType.Boolean);
+        parameters.Add("@UserId", userId, DbType.Guid);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.ChangeSpeciesPosition,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.ChangeSpeciesPosition);
+            throw;
+        }
+    }
+
     /// <summary>
     /// Identifies the row version clash raised by <c>spuSpeciesAnswerData</c>. The message is
     /// also matched so that providers other than SQL Server - including the fakes used in

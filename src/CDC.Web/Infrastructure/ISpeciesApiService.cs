@@ -61,6 +61,13 @@ public interface ISpeciesApiService
     /// <returns>The reference values; an empty list when the table has none.</returns>
     Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>PUT /api/species/{speciesId}/position</c> to swap the species' sequence
+    /// number with its previous or next sibling.</summary>
+    /// <param name="speciesId">The species to move.</param>
+    /// <param name="isMovingUp">True to swap with the previous sibling; false for the next.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>PUT /api/species/answers</c> to save question responses for one species.</summary>
     /// <param name="request">The changes to apply.</param>
     /// <param name="cancellationToken">Cancels the request.</param>

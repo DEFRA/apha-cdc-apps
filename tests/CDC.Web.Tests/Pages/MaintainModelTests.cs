@@ -192,6 +192,58 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnGetAuditTrailAsync_PagesTheEntries_ByTheSelectedPageSize()
+    {
+        IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail =
+        [
+            .. Enumerable.Range(1, 25).Select(index => new SpeciesAuditTrailEntryDto
+            {
+                Id = Guid.NewGuid(),
+                OldName = $"Species {index}",
+                NewName = $"Species {index}",
+                OldParent = "Cattle",
+                NewParent = "Cattle",
+                ChangedBy = "a.user",
+                LogDate = DateTime.UtcNow,
+                ReasonForChange = "Reordered"
+            })
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
+        pageModel.AuditTrailPageSize = "10";
+        pageModel.AuditTrailPage = 2;
+
+        await pageModel.OnGetAuditTrailAsync(CancellationToken.None);
+
+        Assert.Equal(25, pageModel.AuditTrail.Count);
+        Assert.Equal(10, pageModel.PagedAuditTrail.Count);
+        Assert.Equal(3, pageModel.AuditTrailTotalPages);
+        Assert.Equal("Species 11", pageModel.PagedAuditTrail[0].OldName);
+    }
+
+    [Fact]
+    public async Task OnGetAuditTrailAsync_ShowsEveryEntry_WhenPageSizeIsAll()
+    {
+        IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail =
+        [
+            .. Enumerable.Range(1, 15).Select(index => new SpeciesAuditTrailEntryDto
+            {
+                Id = Guid.NewGuid(),
+                OldName = $"Species {index}",
+                NewName = $"Species {index}",
+                ChangedBy = "a.user",
+                LogDate = DateTime.UtcNow
+            })
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
+        pageModel.AuditTrailPageSize = "All";
+
+        await pageModel.OnGetAuditTrailAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.AuditTrailTotalPages);
+        Assert.Equal(15, pageModel.PagedAuditTrail.Count);
+    }
+
+    [Fact]
     public async Task OnGetAsync_ShowsSuccessBanner_WhenASpeciesWasAdded()
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
@@ -307,6 +359,109 @@ public class MaintainModelTests
 
         Assert.False(pageModel.ShowAddPanel);
         Assert.Null(api.LastAddRequest);
+    }
+
+    [Fact]
+    public async Task OnPostReorderListAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostReorderListAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ReorderMode);
+        Assert.Equal("Please select a species to edit", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostReorderListAsync_EntersReorderMode_AndEnablesBothMoves_ForAMiddleSibling()
+    {
+        var goatId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var sheepId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        IReadOnlyList<SpeciesDto> rootSiblings =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = goatId, ParentId = Guid.Empty, Description = "Goat", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = sheepId, ParentId = Guid.Empty, Description = "Sheep", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(rootSiblings));
+        pageModel.SelectedSpeciesId = goatId;
+
+        await pageModel.OnPostReorderListAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ReorderMode);
+        Assert.Null(pageModel.SelectionErrorMessage);
+        Assert.True(pageModel.CanMoveSelectedUp);
+        Assert.True(pageModel.CanMoveSelectedDown);
+    }
+
+    [Fact]
+    public async Task OnPostReorderListAsync_DisablesMoveUp_ForTheFirstSibling()
+    {
+        var goatId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        IReadOnlyList<SpeciesDto> rootSiblings =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = goatId, ParentId = Guid.Empty, Description = "Goat", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(rootSiblings));
+        pageModel.SelectedSpeciesId = CattleId;
+
+        await pageModel.OnPostReorderListAsync(CancellationToken.None);
+
+        Assert.False(pageModel.CanMoveSelectedUp);
+        Assert.True(pageModel.CanMoveSelectedDown);
+    }
+
+    [Fact]
+    public async Task OnPostMoveUpAsync_CallsTheApi_AndStaysInReorderMode()
+    {
+        var api = new FakeSpeciesApiService(Species);
+        var pageModel = CreatePageModel(api);
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ReorderMode);
+        Assert.Single(api.ChangePositionCalls);
+        Assert.Equal(DairyId, api.ChangePositionCalls[0].SpeciesId);
+        Assert.True(api.ChangePositionCalls[0].IsMovingUp);
+    }
+
+    [Fact]
+    public async Task OnPostMoveDownAsync_CallsTheApi_WithMovingUpFalse()
+    {
+        var api = new FakeSpeciesApiService(Species);
+        var pageModel = CreatePageModel(api);
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostMoveDownAsync(CancellationToken.None);
+
+        Assert.Single(api.ChangePositionCalls);
+        Assert.False(api.ChangePositionCalls[0].IsMovingUp);
+    }
+
+    [Fact]
+    public async Task OnPostMoveUpAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var api = new FakeSpeciesApiService(Species);
+        var pageModel = CreatePageModel(api);
+
+        await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        Assert.Empty(api.ChangePositionCalls);
+        Assert.Equal("Please select a species to edit", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostReorderDoneAsync_ExitsReorderMode()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.ReorderMode = true;
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostReorderDoneAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ReorderMode);
     }
 
     private static MaintainModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>

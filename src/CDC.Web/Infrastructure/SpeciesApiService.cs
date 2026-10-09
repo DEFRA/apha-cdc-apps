@@ -160,6 +160,17 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
     }
 
     /// <inheritdoc />
+    public async Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync(
+            $"/api/species/{speciesId}/position",
+            new ChangeSpeciesPositionRequestDto { IsMovingUp = isMovingUp },
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <inheritdoc />
     public async Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
         UpdateSpeciesAnswerDataRequestDto request,
         CancellationToken cancellationToken = default)

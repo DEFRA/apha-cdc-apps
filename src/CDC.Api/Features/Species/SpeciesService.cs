@@ -143,4 +143,11 @@ public sealed class SpeciesService(ISpeciesRepository repository, ILogger<Specie
 
         return [.. entries.Select(item => item.ToDto())];
     }
+
+    /// <inheritdoc />
+    public async Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, Guid userId, CancellationToken cancellationToken)
+    {
+        await repository.ChangeSpeciesPositionAsync(speciesId, isMovingUp, userId, cancellationToken);
+        logger.ChangedSpeciesPosition(speciesId, isMovingUp);
+    }
 }

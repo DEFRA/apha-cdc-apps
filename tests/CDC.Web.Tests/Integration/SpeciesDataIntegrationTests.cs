@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
-using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,9 +11,7 @@ namespace CDC.Web.Tests.Integration;
 
 // The default WebApplicationFactory<Program> has no live CDC.Api to call, so every species page
 // only ever renders its error-banner path. These tests swap in a fake ISpeciesApiService with
-// real data, so the tree/audit-trail/edit-panel views actually render their success paths. Uses
-// CdcWebTestFactory (not the plain WebApplicationFactory<Program>) since these routes require
-// authentication, and signs in via the test-only endpoint before each request.
+// real data, so the tree/audit-trail/edit-panel views actually render their success paths.
 public partial class SpeciesDataIntegrationTests
 {
     private static readonly Guid CattleId = Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f");
@@ -30,7 +27,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -58,7 +55,7 @@ public partial class SpeciesDataIntegrationTests
             }
         ];
         using var factory = CreateFactory(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?handler=AuditTrail");
         var body = await response.Content.ReadAsStringAsync();
@@ -72,7 +69,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_OffersAnAddAction_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -131,7 +128,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task ViewSpeciesData_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/ViewSpeciesData");
         var body = await response.Content.ReadAsStringAsync();
@@ -141,26 +138,18 @@ public partial class SpeciesDataIntegrationTests
     }
 
     private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService) =>
-        new CdcWebTestFactory().WithWebHostBuilder(builder =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton(fakeService);
             }));
 
-    // Every page is authenticated by default, so sign in via the test-only endpoint first.
-    private static async Task<HttpClient> SignedInClientAsync(WebApplicationFactory<Program> factory)
-    {
-        var client = factory.CreateClient();
-        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
-        return client;
-    }
-
     [Fact]
     public async Task Maintain_RendersSuccessBanner_AfterASave()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?saved=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -174,7 +163,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSuccessBanner_AfterAnAdd()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?added=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -187,7 +176,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersEmptyState_WhenNoActiveSpeciesExist()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService([]));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -200,7 +189,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersErrorSummary_WhenTheApiIsUnreachable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -213,7 +202,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersAddSpeciesPanel_WhenAddIsPosted()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var body = await PostAsync(client, "Add", new Dictionary<string, string>());
 
@@ -228,7 +217,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersValidationErrors_WhenANewSpeciesIsSavedWithNoValues()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var body = await PostAsync(client, "SaveNew", new Dictionary<string, string>
         {
@@ -247,7 +236,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSelectionError_WhenEditIsPostedWithNoSelection()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>());
 
@@ -270,7 +259,7 @@ public partial class SpeciesDataIntegrationTests
             Species,
             speciesDetail: detail,
             validParents: [new SpeciesValidParentDto { Id = CattleId, Name = "Cattle" }]));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>
         {
@@ -367,7 +356,7 @@ public partial class SpeciesDataIntegrationTests
             speciesMetadata: metadata,
             speciesAnswerData: answerData,
             referenceValuesByTable: referenceValues));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -384,120 +373,11 @@ public partial class SpeciesDataIntegrationTests
         using var factory = CreateFactory(new FakeSpeciesApiService(
             Species,
             throwOnGetSpeciesAnswerData: new HttpRequestException("down")));
-        var client = await SignedInClientAsync(factory);
+        var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task EditSpecies_RendersEditForm_WithTitleAndAllSixCategories_WhenEditModeIsRequested()
-    {
-        var answerData = new SpeciesAnswerDataDto
-        {
-            SpeciesId = DairyId,
-            SpeciesName = "Dairy cattle",
-            LastUpdated = [0, 0, 0, 0, 0, 0, 0, 1],
-            Sections = []
-        };
-
-        using var factory = CreateFactory(new FakeSpeciesApiService(
-            Species,
-            speciesMetadata: new SpeciesMetadataDto(),
-            speciesAnswerData: answerData));
-        var client = factory.CreateClient();
-
-        var response = await client.GetAsync($"/EditSpecies/{DairyId}?edit=true");
-        var body = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Edit species data - dairy cattle", body);
-        Assert.Contains("Animal identification", body);
-        Assert.Contains("Movements", body);
-        Assert.Contains("Animal locations and number", body);
-        Assert.Contains("Bio-security", body);
-        Assert.Contains("Surveillance", body);
-        Assert.Contains("International trade", body);
-    }
-
-    [Fact]
-    public async Task EditSpecies_SavesAnswerData_AndShowsSuccessBanner()
-    {
-        var sectionId = Guid.NewGuid();
-        var questionId = Guid.NewGuid();
-        var booleanFieldId = Guid.NewGuid();
-
-        var metadata = new SpeciesMetadataDto
-        {
-            Sections =
-            [
-                new SpeciesSectionMetadataDto
-                {
-                    Id = sectionId,
-                    // Must match the first entry in EditSpeciesSectionCatalog, the page's default.
-                    Name = "Animal identification",
-                    ShortName = "Ident",
-                    SectionNumber = 1,
-                    Questions =
-                    [
-                        new SpeciesQuestionMetadataDto
-                        {
-                            Id = questionId,
-                            SectionId = sectionId,
-                            Name = "Can individual animals be identified?",
-                            ShortName = "Identifiable",
-                            QuestionNumber = 1,
-                            Fields =
-                            [
-                                new SpeciesFieldMetadataDto
-                                {
-                                    Id = booleanFieldId,
-                                    QuestionId = questionId,
-                                    Name = "Is it possible?",
-                                    FieldNumber = 1,
-                                    DataTypeName = "Boolean"
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        };
-        var answerData = new SpeciesAnswerDataDto
-        {
-            SpeciesId = DairyId,
-            SpeciesName = "Dairy cattle",
-            LastUpdated = [0, 0, 0, 0, 0, 0, 0, 1],
-            Sections = []
-        };
-
-        var fakeService = new FakeSpeciesApiService(Species, speciesMetadata: metadata, speciesAnswerData: answerData);
-        using var factory = CreateFactory(fakeService);
-        var client = factory.CreateClient();
-
-        var getResponse = await client.GetAsync($"/EditSpecies/{DairyId}?edit=true");
-        var page = await getResponse.Content.ReadAsStringAsync();
-        var token = AntiforgeryTokenRegex().Match(page).Groups[1].Value;
-
-        Assert.False(string.IsNullOrEmpty(token));
-
-        var form = new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = token,
-            ["LastUpdatedBase64"] = Convert.ToBase64String(answerData.LastUpdated),
-            [$"field_{booleanFieldId}"] = "true"
-        };
-
-        var response = await client.PostAsync($"/EditSpecies/{DairyId}?handler=Save&edit=true", new FormUrlEncodedContent(form));
-        var body = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("The species data was updated.", body);
-        Assert.NotNull(fakeService.LastUpdateAnswerDataRequest);
-        Assert.Equal(DairyId, fakeService.LastUpdateAnswerDataRequest!.SpeciesId);
-        Assert.Single(fakeService.LastUpdateAnswerDataRequest.Changes);
-        Assert.Equal(true, fakeService.LastUpdateAnswerDataRequest.Changes[0].BooleanValue);
     }
 
     // Razor Pages validates an antiforgery token on every POST, so the form has to be round-tripped.

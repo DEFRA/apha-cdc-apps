@@ -548,6 +548,36 @@ public class SpeciesRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeSpeciesPositionAsync_ExecutesTheSequenceNumberProcedure()
+    {
+        connection.Script(SpeciesStoredProcedures.ChangeSpeciesPosition, new FakeCommandScript());
+
+        await CreateRepository().ChangeSpeciesPositionAsync(SpeciesTestData.SpeciesId, isMovingUp: true, SpeciesTestData.AuditUserId, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(SpeciesStoredProcedures.ChangeSpeciesPosition);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters.Should().ContainKey("SpeciesId").WhoseValue.Should().Be(SpeciesTestData.SpeciesId);
+        executed.Parameters.Should().ContainKey("IsMovingUp").WhoseValue.Should().Be(true);
+        executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(SpeciesTestData.AuditUserId);
+    }
+
+    [Fact]
+    public async Task ChangeSpeciesPositionAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(SpeciesStoredProcedures.ChangeSpeciesPosition, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Timeout expired")
+        });
+
+        var act = async () => await CreateRepository()
+            .ChangeSpeciesPositionAsync(SpeciesTestData.SpeciesId, isMovingUp: false, SpeciesTestData.AuditUserId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
     public async Task GetSpeciesAuditTrailAsync_MapsRows_MostRecentFirst()
     {
         var earlier = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);

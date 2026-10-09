@@ -37,6 +37,111 @@
         </div>
     </div>
 }
+else if (Model.ShowAuditTrail)
+{
+    <h2 class="govuk-heading-m">Species name/parent audit trail</h2>
+
+    @if (Model.AuditTrail.Count == 0)
+    {
+        <p class="govuk-body">No species name or parent changes have been recorded.</p>
+    }
+    else
+    {
+        <div class="govuk-form-group govuk-!-margin-bottom-3">
+            <label class="govuk-label" for="AuditTrailPageSize">Items per page:</label>
+            <select class="govuk-select" id="AuditTrailPageSize" name="AuditTrailPageSize" form="audit-trail-page-size-form" onchange="this.form.requestSubmit()">
+                @foreach (var option in CDC.Web.Pages.SpeciesData.MaintainModel.AuditTrailPageSizeOptions)
+                {
+                    <option value="@option" selected="@(option == Model.AuditTrailPageSize ? "selected" : null)">@option</option>
+                }
+            </select>
+        </div>
+        <form method="get" asp-page-handler="AuditTrail" id="audit-trail-page-size-form">
+            <input type="hidden" name="AuditTrailPage" value="1" />
+        </form>
+
+        <table class="govuk-table">
+            <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Species name/parent audit trail</caption>
+            <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                    <th scope="col" class="govuk-table__header">Old name</th>
+                    <th scope="col" class="govuk-table__header">New name</th>
+                    <th scope="col" class="govuk-table__header">User</th>
+                    <th scope="col" class="govuk-table__header">Date of change</th>
+                    <th scope="col" class="govuk-table__header">View details</th>
+                </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+                @foreach (var entry in Model.PagedAuditTrail)
+                {
+                    <tr class="govuk-table__row">
+                        <td class="govuk-table__cell">@entry.OldName</td>
+                        <td class="govuk-table__cell">@entry.NewName</td>
+                        <td class="govuk-table__cell">@entry.ChangedBy</td>
+                        <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm")</td>
+                        <td class="govuk-table__cell">
+                            <details class="govuk-details govuk-!-margin-bottom-0" data-module="govuk-details">
+                                <summary class="govuk-details__summary">
+                                    <span class="govuk-details__summary-text">View details</span>
+                                </summary>
+                                <div class="govuk-details__text">
+                                    <dl class="govuk-summary-list govuk-summary-list--no-border">
+                                        <div class="govuk-summary-list__row">
+                                            <dt class="govuk-summary-list__key">Old parent</dt>
+                                            <dd class="govuk-summary-list__value">@entry.OldParent</dd>
+                                        </div>
+                                        <div class="govuk-summary-list__row">
+                                            <dt class="govuk-summary-list__key">New parent</dt>
+                                            <dd class="govuk-summary-list__value">@entry.NewParent</dd>
+                                        </div>
+                                        <div class="govuk-summary-list__row">
+                                            <dt class="govuk-summary-list__key">Reason for change</dt>
+                                            <dd class="govuk-summary-list__value">@entry.ReasonForChange</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            </details>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Model.AuditTrailTotalPages > 1)
+        {
+            <nav class="govuk-pagination" aria-label="Audit trail pages">
+                @if (Model.AuditTrailPage > 1)
+                {
+                    <div class="govuk-pagination__prev">
+                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildAuditTrailPageUrl(Model.AuditTrailPage - 1)" rel="prev">
+                            <span class="govuk-pagination__link-title">Previous</span>
+                        </a>
+                    </div>
+                }
+                <ul class="govuk-pagination__list">
+                    @for (var pageNumber = 1; pageNumber <= Model.AuditTrailTotalPages; pageNumber++)
+                    {
+                        <li class="govuk-pagination__item @(pageNumber == Model.AuditTrailPage ? "govuk-pagination__item--current" : string.Empty)">
+                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildAuditTrailPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.AuditTrailPage ? "page" : null)">@(pageNumber)</a>
+                        </li>
+                    }
+                </ul>
+                @if (Model.AuditTrailPage < Model.AuditTrailTotalPages)
+                {
+                    <div class="govuk-pagination__next">
+                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildAuditTrailPageUrl(Model.AuditTrailPage + 1)" rel="next">
+                            <span class="govuk-pagination__link-title">Next</span>
+                        </a>
+                    </div>
+                }
+            </nav>
+        }
+    }
+
+    <p class="govuk-body">
+        <a class="govuk-link" asp-page="./Maintain">Back to Maintain species data</a>
+    </p>
+}
 else if (Model.SpeciesTree.Nodes.Count == 0)
 {
     <p class="govuk-body">No active species data is available.</p>
@@ -44,6 +149,7 @@ else if (Model.SpeciesTree.Nodes.Count == 0)
 else
 {
     <form method="post">
+        <input type="hidden" asp-for="ReorderMode" />
         <div class="govuk-form-group app-tree__form-group">
             <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
                 <legend class="govuk-visually-hidden">Species and species groups</legend>
@@ -64,12 +170,6 @@ else
                 </div>
 
                 <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
-
-                <div class="app-tree__actions">
-                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
-                        Remove selection
-                    </button>
-                </div>
             </fieldset>
         </div>
 
@@ -80,35 +180,46 @@ else
             </p>
         }
 
-        <div class="govuk-button-group">
-            <button type="submit" asp-page-handler="Add" formnovalidate class="govuk-button" data-module="govuk-button">
-                Add
-            </button>
-            <button type="submit" asp-page-handler="EditNameParent" class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                Edit name/parent
-            </button>
-            <button type="submit" asp-page-handler="EditData" class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                Edit data
-            </button>
-            <button type="submit" asp-page-handler="Delete" class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                Delete
-            </button>
-            <button type="submit" asp-page-handler="Inactivate" class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                Inactivate
-            </button>
-            <button type="submit" asp-page-handler="ReorderList" class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                Reorder list
-            </button>
-            @* A GET submit button loses its formaction query string (the browser replaces it
-               with the serialised form fields), so this is a plain link instead. It has a real
-               href and behaves like ordinary navigation, so no button role or JS is needed. *@
-            <a asp-page="./Maintain" asp-page-handler="AuditTrail"
-                class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                View audit trail
-            </a>
-        </div>
+        @if (Model.ReorderMode)
+        {
+            <div class="govuk-button-group">
+                <button type="submit" asp-page-handler="MoveUp" formnovalidate disabled="@(!Model.CanMoveSelectedUp ? "disabled" : null)"
+                    class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                    Move up
+                </button>
+                <button type="submit" asp-page-handler="MoveDown" formnovalidate disabled="@(!Model.CanMoveSelectedDown ? "disabled" : null)"
+                    class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                    Move down
+                </button>
+                <button type="submit" asp-page-handler="ReorderDone" formnovalidate class="govuk-button" data-module="govuk-button">
+                    Done
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="govuk-button-group">
+                <button type="submit" asp-page-handler="Add" formnovalidate class="govuk-button" data-module="govuk-button">
+                    Add
+                </button>
+                <button type="submit" asp-page-handler="EditNameParent" class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                    Edit name/parent
+                </button>
+                <button type="submit" asp-page-handler="ReorderList" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                    Reorder list
+                </button>
+                @* A GET submit button loses its formaction query string (the browser replaces it
+                   with the serialised form fields), so this is a plain link instead. It has a real
+                   href and behaves like ordinary navigation, so no button role or JS is needed. *@
+                <a asp-page="./Maintain" asp-page-handler="AuditTrail"
+                    class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                    View audit trail
+                </a>
+            </div>
+        }
     </form>
 }
+
 
 @if (Model.ShowAddPanel)
 {
@@ -262,49 +373,6 @@ else
                 <button type="submit" asp-page-handler="Cancel" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
             </div>
         </form>
-    </div>
-}
-
-@if (Model.ShowAuditTrail)
-{
-    <div class="govuk-!-margin-top-6">
-        <h2 class="govuk-heading-m">Species name/parent audit trail</h2>
-
-        @if (Model.AuditTrail.Count == 0)
-        {
-            <p class="govuk-body">No species name or parent changes have been recorded.</p>
-        }
-        else
-        {
-            <table class="govuk-table">
-                <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Species name/parent audit trail</caption>
-                <thead class="govuk-table__head">
-                    <tr class="govuk-table__row">
-                        <th scope="col" class="govuk-table__header">Date of change</th>
-                        <th scope="col" class="govuk-table__header">Changed by</th>
-                        <th scope="col" class="govuk-table__header">Old name</th>
-                        <th scope="col" class="govuk-table__header">New name</th>
-                        <th scope="col" class="govuk-table__header">Old parent</th>
-                        <th scope="col" class="govuk-table__header">New parent</th>
-                        <th scope="col" class="govuk-table__header">Reason for change</th>
-                    </tr>
-                </thead>
-                <tbody class="govuk-table__body">
-                    @foreach (var entry in Model.AuditTrail)
-                    {
-                        <tr class="govuk-table__row">
-                            <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm")</td>
-                            <td class="govuk-table__cell">@entry.ChangedBy</td>
-                            <td class="govuk-table__cell">@entry.OldName</td>
-                            <td class="govuk-table__cell">@entry.NewName</td>
-                            <td class="govuk-table__cell">@entry.OldParent</td>
-                            <td class="govuk-table__cell">@entry.NewParent</td>
-                            <td class="govuk-table__cell">@entry.ReasonForChange</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
     </div>
 }
 

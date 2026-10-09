@@ -367,4 +367,37 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
             ? CreatedAtAction(nameof(GetSpeciesDetail), new { speciesId = result.Value.SpeciesId }, result.Value)
             : result.ToActionResult(this);
     }
+
+    /// <summary>
+    /// Moves a species or species group up or down within its parent's sequence.
+    /// </summary>
+    /// <remarks>
+    /// Swaps the sequence number with the previous (<c>isMovingUp</c> true) or next (false)
+    /// sibling under the same parent. The caller is expected to only offer the move when a
+    /// sibling exists in that direction.
+    ///
+    /// Sample request:
+    ///
+    ///     PUT /api/species/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f/position
+    ///     { "isMovingUp": true }
+    /// </remarks>
+    /// <param name="speciesId">The species to move.</param>
+    /// <param name="request">Direction of the move.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The move was applied.</response>
+    [HttpPut("{speciesId:guid}/position")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> ChangeSpeciesPosition(
+        Guid speciesId,
+        [FromBody] ChangeSpeciesPositionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        // UserId is set here from the configured placeholder audit user, never taken from the
+        // request body, so the audit trail cannot be spoofed by the client.
+        var result = await mediator.Send(
+            new ChangeSpeciesPositionCommand(speciesId, request.IsMovingUp, speciesAuditOptions.AuditUserId),
+            cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
 }

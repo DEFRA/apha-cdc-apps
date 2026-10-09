@@ -352,6 +352,24 @@ public class SpeciesControllerTests
         problem.Detail.Should().Be("Save failed: there is already a species with this name");
     }
 
+    [Fact]
+    public async Task ChangeSpeciesPosition_ReturnsNoContent()
+    {
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<ChangeSpeciesPositionCommand>(command =>
+                    command.SpeciesId == SpeciesTestData.SpeciesId && command.IsMovingUp && command.UserId == AuditUserId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().ChangeSpeciesPosition(
+            SpeciesTestData.SpeciesId,
+            new ChangeSpeciesPositionRequestDto { IsMovingUp = true },
+            CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
     private static ProblemDetails AssertProblem(ActionResult? result, int expectedStatusCode)
     {
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;

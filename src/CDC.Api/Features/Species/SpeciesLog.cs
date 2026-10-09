@@ -62,4 +62,10 @@ internal static partial class SpeciesLog
 
     [LoggerMessage(EventId = 1018, Level = LogLevel.Warning, Message = "Rejected a species name that is already in use")]
     public static partial void DuplicateSpeciesName(this ILogger logger);
+
+    [LoggerMessage(EventId = 1019, Level = LogLevel.Information, Message = "Moved species {SpeciesId} {Direction}")]
+    private static partial void ChangedSpeciesPositionCore(this ILogger logger, Guid speciesId, string direction);
+
+    public static void ChangedSpeciesPosition(this ILogger logger, Guid speciesId, bool isMovingUp) =>
+        logger.ChangedSpeciesPositionCore(speciesId, isMovingUp ? "up" : "down");
 }

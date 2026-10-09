@@ -68,6 +68,15 @@ internal sealed class FakeSpeciesApiService(
                 ? values
                 : []);
 
+    public List<(Guid SpeciesId, bool IsMovingUp)> ChangePositionCalls { get; } = [];
+
+    public Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, CancellationToken cancellationToken = default)
+    {
+        ChangePositionCalls.Add((speciesId, isMovingUp));
+
+        return Task.CompletedTask;
+    }
+
     public UpdateSpeciesAnswerDataRequestDto? LastUpdateAnswerDataRequest { get; private set; }
 
     public Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
