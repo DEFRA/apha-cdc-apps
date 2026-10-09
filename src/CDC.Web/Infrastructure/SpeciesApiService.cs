@@ -14,6 +14,8 @@ namespace CDC.Web.Infrastructure;
 /// <param name="httpClient">Typed client pointing at CDC.Api.</param>
 public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiService
 {
+    private const string ConflictErrorMessage = "Another user has changed this species since it was opened. Reload and try again.";
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<SpeciesDto>> GetAllSpeciesAsync(CancellationToken cancellationToken = default)
     {
@@ -65,7 +67,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             HttpStatusCode.Conflict => new UpdateSpeciesNameParentResult
             {
                 Outcome = SpeciesUpdateOutcome.Conflict,
-                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+                ErrorMessage = ConflictErrorMessage
             },
             HttpStatusCode.BadRequest => new UpdateSpeciesNameParentResult
             {
@@ -209,7 +211,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             HttpStatusCode.Conflict => new InactivateSpeciesResult
             {
                 Outcome = SpeciesUpdateOutcome.Conflict,
-                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+                ErrorMessage = ConflictErrorMessage
             },
             HttpStatusCode.BadRequest => new InactivateSpeciesResult
             {
@@ -246,7 +248,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             HttpStatusCode.Conflict => new DeleteSpeciesResult
             {
                 Outcome = SpeciesUpdateOutcome.Conflict,
-                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+                ErrorMessage = ConflictErrorMessage
             },
             HttpStatusCode.NotFound => new DeleteSpeciesResult
             {
@@ -307,7 +309,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             HttpStatusCode.Conflict => new UpdateSpeciesAnswerDataResult
             {
                 Outcome = SpeciesUpdateOutcome.Conflict,
-                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+                ErrorMessage = ConflictErrorMessage
             },
             HttpStatusCode.BadRequest => new UpdateSpeciesAnswerDataResult
             {

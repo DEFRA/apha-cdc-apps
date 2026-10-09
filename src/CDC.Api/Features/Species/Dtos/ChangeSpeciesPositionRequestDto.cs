@@ -4,5 +4,5 @@ namespace CDC.Api.Features.Species.Dtos;
 public sealed record ChangeSpeciesPositionRequestDto
 {
     /// <summary>Gets a value indicating the move direction: true to swap with the previous sibling, false for the next.</summary>
-    public bool IsMovingUp { get; init; }
+    public required bool IsMovingUp { get; init; }
 }

@@ -9,7 +9,7 @@ namespace CDC.Api.Features.Species.Commands;
 /// active, not referenced by a current profile, and has no children before this is sent - the
 /// legacy <c>spdSpecies</c> procedure itself performs no such checks.
 /// </summary>
-public sealed record DeleteSpeciesCommand : IRequest<Result<Unit>>
+public sealed record DeleteSpeciesCommand : IRequest<Result<Unit>>, IAuditedSpeciesChangeCommand
 {
     /// <summary>Gets the species being deleted.</summary>
     public Guid SpeciesId { get; init; }

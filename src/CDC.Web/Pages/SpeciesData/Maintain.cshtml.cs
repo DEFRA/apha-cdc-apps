@@ -201,10 +201,15 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         PagedAuditTrail = [.. AuditTrail.Skip((AuditTrailPage - 1) * pageSize).Take(pageSize)];
     }
 
-    private static int ResolveAuditTrailPageSize(string? pageSize) =>
-        string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase)
-            ? int.MaxValue
-            : int.TryParse(pageSize, out var parsed) ? parsed : 10;
+    private static int ResolveAuditTrailPageSize(string? pageSize)
+    {
+        if (string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            return int.MaxValue;
+        }
+
+        return int.TryParse(pageSize, out var parsed) ? parsed : 10;
+    }
 
     /// <summary>Opens the "Edit name/parent" section for the species selected on the tree.</summary>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>

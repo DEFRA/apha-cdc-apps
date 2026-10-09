@@ -7,7 +7,7 @@ namespace CDC.Api.Features.Species.Commands;
 /// Marks a species or species group inactive, transactionally with an audit trail entry. The
 /// species row, its answer data and its hierarchy relationships are retained unchanged.
 /// </summary>
-public sealed record InactivateSpeciesCommand : IRequest<Result<Unit>>
+public sealed record InactivateSpeciesCommand : IRequest<Result<Unit>>, IAuditedSpeciesChangeCommand
 {
     /// <summary>Gets the species being inactivated.</summary>
     public Guid SpeciesId { get; init; }

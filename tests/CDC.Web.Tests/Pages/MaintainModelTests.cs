@@ -774,6 +774,294 @@ public class MaintainModelTests
         Assert.False(pageModel.ReorderMode);
     }
 
+    [Theory]
+    [InlineData(nameof(MaintainModel.OnPostEditNameParentAsync))]
+    [InlineData(nameof(MaintainModel.OnPostSaveAsync))]
+    [InlineData(nameof(MaintainModel.OnPostEditDataAsync))]
+    [InlineData(nameof(MaintainModel.OnPostDeleteAsync))]
+    [InlineData(nameof(MaintainModel.OnPostConfirmDeleteAsync))]
+    [InlineData(nameof(MaintainModel.OnPostInactivateAsync))]
+    [InlineData(nameof(MaintainModel.OnPostConfirmInactivateAsync))]
+    [InlineData(nameof(MaintainModel.OnPostReorderListAsync))]
+    public async Task PostHandlers_ReturnPage_WhenTheSpeciesListFailsToLoad(string handlerName)
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
+
+        var result = handlerName switch
+        {
+            nameof(MaintainModel.OnPostEditNameParentAsync) => await pageModel.OnPostEditNameParentAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostSaveAsync) => await pageModel.OnPostSaveAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostEditDataAsync) => await pageModel.OnPostEditDataAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostDeleteAsync) => await pageModel.OnPostDeleteAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostConfirmDeleteAsync) => await pageModel.OnPostConfirmDeleteAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostInactivateAsync) => await pageModel.OnPostInactivateAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostConfirmInactivateAsync) => await pageModel.OnPostConfirmInactivateAsync(CancellationToken.None),
+            nameof(MaintainModel.OnPostReorderListAsync) => await pageModel.OnPostReorderListAsync(CancellationToken.None),
+            _ => throw new InvalidOperationException()
+        };
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnPostInactivateAsync_ShowsSelectionError_WhenSpeciesNotFound()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostInactivateAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowInactivatePanel);
+        Assert.Equal("The selected species could not be found. It may have been removed.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmInactivateAsync_ReopensPanelWithAnError_WhenTheLastUpdatedTokenIsNotValidBase64()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.InactivateInput = new InactivateInput
+        {
+            SpeciesId = DairyId,
+            Reason = "No longer surveyed",
+            LastUpdatedBase64 = "not valid base64 !!"
+        };
+
+        var result = await pageModel.OnPostConfirmInactivateAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.ShowInactivatePanel);
+        Assert.False(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_ShowsSelectionError_WhenSpeciesNotFound()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowDeletePanel);
+        Assert.Equal("The selected species could not be found. It may have been removed.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_PreventsTheAction_WhenTheSpeciesIsInactive()
+    {
+        var inactiveDetail = DairyDetail with { IsActive = false, IsInUse = false };
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: inactiveDetail));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowDeletePanel);
+        Assert.Equal("You cannot delete a species that is inactive", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_PreventsTheAction_WhenTheSpeciesHasChildren()
+    {
+        var detailWithChildren = DairyDetail with { IsInUse = false, ChildCount = 2 };
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: detailWithChildren));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowDeletePanel);
+        Assert.Equal("You cannot delete a species that has children", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmDeleteAsync_ReopensPanelWithAnError_WhenTheLastUpdatedTokenIsNotValidBase64()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.DeleteInput = new DeleteInput
+        {
+            SpeciesId = DairyId,
+            Reason = "Duplicate",
+            LastUpdatedBase64 = "not valid base64 !!"
+        };
+
+        var result = await pageModel.OnPostConfirmDeleteAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.ShowDeletePanel);
+        Assert.False(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnGetAuditTrailAsync_PopulatesDetailsEntry_WhenAuditTrailDetailsIdIsRequested()
+    {
+        var entryId = Guid.NewGuid();
+        IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail = [new SpeciesAuditTrailEntryDto { Id = entryId, OldName = "Dairy cattle" }];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
+        pageModel.AuditTrailDetailsId = entryId;
+
+        await pageModel.OnGetAuditTrailAsync(CancellationToken.None);
+
+        Assert.NotNull(pageModel.AuditTrailDetailsEntry);
+        Assert.Equal("Dairy cattle", pageModel.AuditTrailDetailsEntry!.OldName);
+    }
+
+    [Fact]
+    public async Task OnPostSaveNewAsync_FailsValidation_WhenNameAndReasonExceedMaximumLength()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.AddInput = new AddSpeciesInput
+        {
+            Name = new string('a', 51),
+            ParentId = CattleId,
+            Reason = new string('b', 256)
+        };
+
+        await pageModel.OnPostSaveNewAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowAddPanel);
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.Equal(
+            "The new species name must be no longer than 50 characters",
+            pageModel.ModelState["AddInput.Name"]!.Errors[0].ErrorMessage);
+        Assert.Equal(
+            "The reason for change must be no longer than 255 characters",
+            pageModel.ModelState["AddInput.Reason"]!.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostSaveAsync_FailsValidation_WhenNameAndReasonExceedMaximumLength()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.Input = new EditNameParentInput
+        {
+            SpeciesId = DairyId,
+            Name = new string('a', 51),
+            Reason = new string('b', 256),
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        await pageModel.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowEditPanel);
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.Equal(
+            "The name must be no longer than 50 characters.",
+            pageModel.ModelState["Input.Name"]!.Errors[0].ErrorMessage);
+        Assert.Equal(
+            "The reason for change must be no longer than 255 characters.",
+            pageModel.ModelState["Input.Reason"]!.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmInactivateAsync_FailsValidation_WhenReasonExceedsMaximumLength()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.InactivateInput = new InactivateInput
+        {
+            SpeciesId = DairyId,
+            Reason = new string('a', 256),
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        await pageModel.OnPostConfirmInactivateAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowInactivatePanel);
+        Assert.Equal(
+            "The reason for change must be no longer than 255 characters.",
+            pageModel.ModelState["InactivateInput.Reason"]!.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmDeleteAsync_FailsValidation_WhenReasonExceedsMaximumLength()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.DeleteInput = new DeleteInput
+        {
+            SpeciesId = DairyId,
+            Reason = new string('a', 256),
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        await pageModel.OnPostConfirmDeleteAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowDeletePanel);
+        Assert.Equal(
+            "The reason for change must be no longer than 255 characters.",
+            pageModel.ModelState["DeleteInput.Reason"]!.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostReorderListAsync_DisablesBothMoves_WhenTheSelectedSpeciesIsNotInTheTree()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = Guid.NewGuid();
+
+        await pageModel.OnPostReorderListAsync(CancellationToken.None);
+
+        Assert.False(pageModel.CanMoveSelectedUp);
+        Assert.False(pageModel.CanMoveSelectedDown);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsSuccessBanner_WhenASpeciesWasInactivated()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: true, deleted: false, CancellationToken.None);
+
+        Assert.Equal("The species was inactivated.", pageModel.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsSuccessBanner_WhenASpeciesWasDeleted()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: true, CancellationToken.None);
+
+        Assert.Equal("The species was deleted.", pageModel.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task OnPostSaveAsync_ReopensPanelWithAnError_WhenTheLastUpdatedTokenIsNotValidBase64()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.Input = new EditNameParentInput
+        {
+            SpeciesId = DairyId,
+            Name = "Dairy",
+            Reason = "Simplifying the name",
+            LastUpdatedBase64 = "not valid base64 !!"
+        };
+
+        var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.ShowEditPanel);
+        Assert.False(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostSaveNewAsync_ReturnsPage_WhenTheSpeciesListFailsToLoad()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
+
+        var result = await pageModel.OnPostSaveNewAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnPostMoveUpAsync_ReturnsPage_WhenTheSpeciesListFailsToLoad()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
+
+        var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
     private static MaintainModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>
         new(speciesApiService, new AlwaysEnabledLogger<MaintainModel>());
 }
