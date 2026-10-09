@@ -106,6 +106,18 @@ public class ManageProfileModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_ReturnsPageWithHasError_WhenLoadingTheProfileTimesOut()
+    {
+        var pageModel = CreatePageModel(throwOnGetManageProfile: new TaskCanceledException());
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+        Assert.Null(pageModel.Profile);
+    }
+
+    [Fact]
     public async Task OnPostAsync_UpdatesStatusAndShowsSuccessMessage_WhenTheSaveSucceeds()
     {
         var pageModel = CreatePageModel(
