@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace CDC.Web.Pages.SpeciesData;
 
@@ -69,9 +70,11 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     [BindProperty(SupportsGet = true)]
     public int AuditTrailPage { get; set; } = 1;
 
-    /// <summary>Gets or sets the audit trail page size, bound from the querystring.</summary>
+    /// <summary>Gets or sets the audit trail page size, bound from the querystring. Nullable and
+    /// validation-suppressed because it isn't posted by every handler's form.</summary>
     [BindProperty(SupportsGet = true)]
-    public string AuditTrailPageSize { get; set; } = AuditTrailPageSizeOptions[0];
+    [ValidateNever]
+    public string? AuditTrailPageSize { get; set; } = AuditTrailPageSizeOptions[0];
 
     /// <summary>Gets the static, hardcoded options for the audit trail "Items per page" dropdown.</summary>
     public static IReadOnlyList<string> AuditTrailPageSizeOptions { get; } = ["10", "25", "50", "All"];
@@ -154,7 +157,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         PagedAuditTrail = [.. AuditTrail.Skip((AuditTrailPage - 1) * pageSize).Take(pageSize)];
     }
 
-    private static int ResolveAuditTrailPageSize(string pageSize) =>
+    private static int ResolveAuditTrailPageSize(string? pageSize) =>
         string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase)
             ? int.MaxValue
             : int.TryParse(pageSize, out var parsed) ? parsed : 10;
@@ -253,6 +256,66 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         await LoadTreeAsync(cancellationToken);
 
         ShowEditPanel = false;
+
+        return Page();
+    }
+
+    /// <summary>Opens the "Edit data" questionnaire form for the species selected on the tree.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostEditDataAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to edit.";
+            return Page();
+        }
+
+        return RedirectToPage("/EditSpecies", new { speciesId = SelectedSpeciesId, edit = true });
+    }
+
+    /// <summary>Validates the species selection for "Delete". Functionality to follow.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostDeleteAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to delete.";
+            return Page();
+        }
+
+        return Page();
+    }
+
+    /// <summary>Validates the species selection for "Inactivate". Functionality to follow.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostInactivateAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        if (SelectedSpeciesId is null)
+        {
+            SelectionErrorMessage = "Select a species or species group to inactivate.";
+            return Page();
+        }
 
         return Page();
     }

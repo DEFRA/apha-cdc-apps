@@ -373,6 +373,50 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnPostEditDataAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostEditDataAsync(CancellationToken.None);
+
+        Assert.Equal("Select a species or species group to edit.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostEditDataAsync_RedirectsToEditSpecies_WhenSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostEditDataAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.Equal("/EditSpecies", redirect.PageName);
+        Assert.Equal(DairyId, redirect.RouteValues?["speciesId"]);
+        Assert.Equal(true, redirect.RouteValues?["edit"]);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.Equal("Select a species or species group to delete.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostInactivateAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostInactivateAsync(CancellationToken.None);
+
+        Assert.Equal("Select a species or species group to inactivate.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
     public async Task OnPostReorderListAsync_EntersReorderMode_AndEnablesBothMoves_ForAMiddleSibling()
     {
         var goatId = Guid.Parse("33333333-3333-3333-3333-333333333333");
