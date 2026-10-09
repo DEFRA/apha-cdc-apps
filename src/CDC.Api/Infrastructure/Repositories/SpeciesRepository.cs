@@ -507,51 +507,35 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     }
 
     /// <inheritdoc />
-    public async Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(command);
-
-        await using var connection = await OpenConnectionAsync(cancellationToken);
-
+    public Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken) =>
         // sppSpecies takes exactly these four parameters and returns nothing: it raises an
         // error (caught below) for a stale @LastUpdated, otherwise it sets EffectiveDateTo and
         // inserts the audit entry itself.
-        var parameters = new DynamicParameters();
-        parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
-        parameters.Add("@UserId", command.UserId, DbType.Guid);
-        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
-        parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
-
-        try
-        {
-            await connection.ExecuteAsync(new CommandDefinition(
-                SpeciesStoredProcedures.InactivateSpecies,
-                parameters,
-                commandType: CommandType.StoredProcedure,
-                cancellationToken: cancellationToken));
-        }
-        catch (DbException exception)
-        {
-            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.InactivateSpecies);
-
-            // sppSpecies RAISERRORs (error 50000) only for a stale row version, so this is
-            // always a concurrency conflict, unlike spuSpecies which also covers duplicate names.
-            throw IsConcurrencyViolation(exception)
-                ? new ConcurrencyException(exception.Message, exception)
-                : exception;
-        }
-    }
+        ExecuteAuditedSpeciesChangeAsync(command, SpeciesStoredProcedures.InactivateSpecies, cancellationToken);
 
     /// <inheritdoc />
-    public async Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken)
+    public Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken) =>
+        // spdSpecies takes exactly these four parameters and returns nothing: it raises an
+        // error (caught below) for a stale @LastUpdated, otherwise it writes the audit entry,
+        // decrements later siblings' sequence numbers, and deletes the species' rows itself.
+        ExecuteAuditedSpeciesChangeAsync(command, SpeciesStoredProcedures.DeleteSpecies, cancellationToken);
+
+    /// <summary>
+    /// Runs one of the audited species-change stored procedures (inactivate/delete) that share
+    /// the same four parameters, concurrency-violation handling, and no result set.
+    /// </summary>
+    /// <param name="command">The species, reason and row version for the change.</param>
+    /// <param name="storedProcedureName">The stored procedure to execute.</param>
+    /// <param name="cancellationToken">Propagates notification that the operation should be cancelled.</param>
+    private async Task ExecuteAuditedSpeciesChangeAsync(
+        IAuditedSpeciesChangeCommand command,
+        string storedProcedureName,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
 
-        // spdSpecies takes exactly these four parameters and returns nothing: it raises an
-        // error (caught below) for a stale @LastUpdated, otherwise it writes the audit entry,
-        // decrements later siblings' sequence numbers, and deletes the species' rows itself.
         var parameters = new DynamicParameters();
         parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
         parameters.Add("@UserId", command.UserId, DbType.Guid);
@@ -561,16 +545,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         try
         {
             await connection.ExecuteAsync(new CommandDefinition(
-                SpeciesStoredProcedures.DeleteSpecies,
+                storedProcedureName,
                 parameters,
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.DeleteSpecies);
+            logger.StoredProcedureFailed(exception, storedProcedureName);
 
-            // spdSpecies RAISERRORs (error 50000) only for a stale row version, so this is
+            // Both procedures RAISERROR (error 50000) only for a stale row version, so this is
             // always a concurrency conflict, unlike spuSpecies which also covers duplicate names.
             throw IsConcurrencyViolation(exception)
                 ? new ConcurrencyException(exception.Message, exception)
