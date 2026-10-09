@@ -151,6 +151,35 @@ public class ManageProfileModelTests
     }
 
     [Fact]
+    public async Task OnPostAsync_ReturnsPageWithHasError_WhenTheReloadFails()
+    {
+        var pageModel = CreatePageModel(
+            throwOnGetManageProfile: new HttpRequestException("connection refused"),
+            updateProfileStatusResult: new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null));
+        pageModel.ProfileStatusId = ValidationCompleteStatusId;
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+        Assert.Equal("Successfully updated the profile status.", pageModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_ReturnsNotFound_WhenTheProfileNoLongerExistsAfterSaving()
+    {
+        var pageModel = CreatePageModel(
+            manageProfile: null,
+            updateProfileStatusResult: new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null));
+        pageModel.ProfileStatusId = ValidationCompleteStatusId;
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.False(pageModel.HasError);
+    }
+
+    [Fact]
     public async Task OnPostCreateNewDraftVersionAsync_RedirectsToEditProfileQuestions_WhenSuccessful()
     {
         var newVersionId = Guid.NewGuid();
@@ -189,6 +218,17 @@ public class ManageProfileModelTests
         var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task OnPostCreateNewDraftVersionAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
+    {
+        var pageModel = CreatePageModel(throwOnGetManageProfile: new HttpRequestException("connection refused"));
+
+        var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
     }
 
     [Fact]
@@ -314,4 +354,13 @@ public class ManageProfileModelTests
 
         Assert.IsType<NotFoundResult>(result);
     }
-}
+    [Fact]
+    public async Task OnPostDeleteCurrentVersionAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
+    {
+        var pageModel = CreatePageModel(throwOnGetManageProfile: new HttpRequestException("connection refused"));
+
+        var result = await pageModel.OnPostDeleteCurrentVersionAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }}
