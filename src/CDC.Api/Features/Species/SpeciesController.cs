@@ -385,8 +385,13 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     /// <param name="request">Direction of the move.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="204">The move was applied.</response>
+    /// <response code="400">
+    /// No sibling exists at the resulting position - the species is already first/last, or an
+    /// adjacent sequence number is missing.
+    /// </response>
     [HttpPut("{speciesId:guid}/position")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> ChangeSpeciesPosition(
         Guid speciesId,
         [FromBody] ChangeSpeciesPositionRequestDto request,
@@ -397,6 +402,113 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
         var result = await mediator.Send(
             new ChangeSpeciesPositionCommand(speciesId, request.IsMovingUp, speciesAuditOptions.AuditUserId),
             cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
+    /// <summary>
+    /// Marks a species or species group inactive.
+    /// </summary>
+    /// <remarks>
+    /// Records an audit trail entry whose new name and new parent are both
+    /// <c>- to be inactivated -</c>, together with who made the change, when, and the
+    /// mandatory reason for change. The species row, its answer data and its hierarchy
+    /// relationships are retained unchanged. Supply the <c>lastUpdated</c> row version
+    /// returned by <c>GET /api/species/{speciesId}/detail</c>; if another user has saved in
+    /// the meantime the request is rejected with 409 and nothing is written.
+    ///
+    /// Sample request:
+    ///
+    ///     PUT /api/species/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f/inactivate
+    ///     {
+    ///       "reason": "No longer surveyed",
+    ///       "lastUpdated": "AAAAAAAAB9E="
+    ///     }
+    /// </remarks>
+    /// <param name="speciesId">The species to inactivate.</param>
+    /// <param name="request">The reason for change and row version.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The species was inactivated.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="409">Another user has saved this species since it was read.</response>
+    [HttpPut("{speciesId:guid}/inactivate")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> InactivateSpecies(
+        Guid speciesId,
+        [FromBody] InactivateSpeciesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // UserId is set here from the configured placeholder audit user, never taken from the
+        // request body, so the audit trail cannot be spoofed by the client.
+        var command = new InactivateSpeciesCommand
+        {
+            SpeciesId = speciesId,
+            Reason = request.Reason,
+            LastUpdated = request.LastUpdated,
+            UserId = speciesAuditOptions.AuditUserId
+        };
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
+    /// <summary>
+    /// Deletes a species or species group.
+    /// </summary>
+    /// <remarks>
+    /// Only a species that is active, not referenced by a current profile, and has no children
+    /// can be deleted - matching the rules the legacy CSLA business object enforced. Records an
+    /// audit trail entry whose new name and new parent are both <c>- to be deleted -</c>,
+    /// together with who made the change, when, and the mandatory reason for change. Supply the
+    /// <c>lastUpdated</c> row version returned by <c>GET /api/species/{speciesId}/detail</c>; if
+    /// another user has saved in the meantime the request is rejected with 409 and nothing is
+    /// written.
+    ///
+    /// Sample request:
+    ///
+    ///     DELETE /api/species/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f
+    ///     {
+    ///       "reason": "Duplicate of an existing entry",
+    ///       "lastUpdated": "AAAAAAAAB9E="
+    ///     }
+    /// </remarks>
+    /// <param name="speciesId">The species to delete.</param>
+    /// <param name="request">The reason for change and row version.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The species was deleted.</response>
+    /// <response code="400">
+    /// The request failed validation, or the species is inactive, in use, or has children.
+    /// </response>
+    /// <response code="404">No species exists with the supplied identifier.</response>
+    /// <response code="409">Another user has saved this species since it was read.</response>
+    [HttpDelete("{speciesId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> DeleteSpecies(
+        Guid speciesId,
+        [FromBody] DeleteSpeciesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // UserId is set here from the configured placeholder audit user, never taken from the
+        // request body, so the audit trail cannot be spoofed by the client.
+        var command = new DeleteSpeciesCommand
+        {
+            SpeciesId = speciesId,
+            Reason = request.Reason,
+            LastUpdated = request.LastUpdated,
+            UserId = speciesAuditOptions.AuditUserId
+        };
+
+        var result = await mediator.Send(command, cancellationToken);
 
         return result.ToNoContentActionResult(this);
     }

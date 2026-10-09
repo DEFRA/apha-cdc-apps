@@ -578,6 +578,33 @@ public class SpeciesRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeSpeciesPositionAsync_ThrowsReorderBlocked_WhenNoSiblingExistsAtThatPosition()
+    {
+        // spuSpeciesSequenceNumber (0066) now finds the nearest sibling by SequenceNumber order
+        // rather than assuming old +/- 1 is occupied, so this only fires when the species is
+        // genuinely already first/last under its parent - not merely because of a sequence gap.
+        connection.Script(SpeciesStoredProcedures.ChangeSpeciesPosition, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Sequence change failed: There is no species above/below this one")
+        });
+
+        var act = async () => await CreateRepository()
+            .ChangeSpeciesPositionAsync(SpeciesTestData.SpeciesId, isMovingUp: false, SpeciesTestData.AuditUserId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<SpeciesReorderBlockedException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public void IsReorderBlockedViolation_RecognisesTheRaiserrorMessage()
+    {
+        SpeciesRepository.IsReorderBlockedViolation(
+            new FakeDbException("Sequence change failed: There is no species above/below this one")).Should().BeTrue();
+
+        SpeciesRepository.IsReorderBlockedViolation(new FakeDbException("Deadlock victim")).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task GetSpeciesAuditTrailAsync_MapsRows_MostRecentFirst()
     {
         var earlier = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -684,6 +711,114 @@ public class SpeciesRepositoryTests : IDisposable
 
         var act = async () => await CreateRepository()
             .AddSpeciesAsync(SpeciesTestData.AddSpeciesCommand(), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<FakeDbException>()).WithMessage("Deadlock victim");
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_ExecutesProcedureWithTheExpectedParameters()
+    {
+        connection.Script(SpeciesStoredProcedures.InactivateSpecies, new FakeCommandScript());
+
+        var command = SpeciesTestData.InactivateSpeciesCommand();
+
+        await CreateRepository().InactivateSpeciesAsync(command, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(SpeciesStoredProcedures.InactivateSpecies);
+        executed.Parameters.Should().ContainKey("SpeciesId").WhoseValue.Should().Be(command.SpeciesId);
+        executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(command.UserId);
+        executed.Parameters.Should().ContainKey("Reason").WhoseValue.Should().Be("No longer surveyed");
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_RejectsNullCommand()
+    {
+        var act = async () => await CreateRepository().InactivateSpeciesAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_ThrowsConcurrency_WhenRowVersionIsStale()
+    {
+        connection.Script(SpeciesStoredProcedures.InactivateSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("The species cannot be inactivated because it has been edited by another user")
+        });
+
+        var act = async () => await CreateRepository()
+            .InactivateSpeciesAsync(SpeciesTestData.InactivateSpeciesCommand(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesAsync_Rethrows_WhenAnotherDatabaseErrorOccurs()
+    {
+        connection.Script(SpeciesStoredProcedures.InactivateSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Deadlock victim")
+        });
+
+        var act = async () => await CreateRepository()
+            .InactivateSpeciesAsync(SpeciesTestData.InactivateSpeciesCommand(), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<FakeDbException>()).WithMessage("Deadlock victim");
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ExecutesProcedureWithTheExpectedParameters()
+    {
+        connection.Script(SpeciesStoredProcedures.DeleteSpecies, new FakeCommandScript());
+
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+
+        await CreateRepository().DeleteSpeciesAsync(command, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(SpeciesStoredProcedures.DeleteSpecies);
+        executed.Parameters.Should().ContainKey("SpeciesId").WhoseValue.Should().Be(command.SpeciesId);
+        executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(command.UserId);
+        executed.Parameters.Should().ContainKey("Reason").WhoseValue.Should().Be("Duplicate of an existing entry");
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_RejectsNullCommand()
+    {
+        var act = async () => await CreateRepository().DeleteSpeciesAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_ThrowsConcurrency_WhenRowVersionIsStale()
+    {
+        connection.Script(SpeciesStoredProcedures.DeleteSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("The species cannot be deleted because it has been edited by another user")
+        });
+
+        var act = async () => await CreateRepository()
+            .DeleteSpeciesAsync(SpeciesTestData.DeleteSpeciesCommand(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+        VerifyErrorLogged();
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesAsync_Rethrows_WhenAnotherDatabaseErrorOccurs()
+    {
+        connection.Script(SpeciesStoredProcedures.DeleteSpecies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("Deadlock victim")
+        });
+
+        var act = async () => await CreateRepository()
+            .DeleteSpeciesAsync(SpeciesTestData.DeleteSpeciesCommand(), CancellationToken.None);
 
         (await act.Should().ThrowAsync<FakeDbException>()).WithMessage("Deadlock victim");
         VerifyErrorLogged();

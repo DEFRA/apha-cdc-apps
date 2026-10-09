@@ -47,6 +47,56 @@ public class SpeciesTreeBuilderTests
     }
 
     [Fact]
+    public void Build_IncludesInactiveSpecies_RetainingItsHierarchyPosition_WhenRequested()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true },
+            new SpeciesDto { Id = InactiveChildId, ParentId = CattleId, Description = "Retired breed", IsActive = false }
+        ];
+
+        var tree = SpeciesTreeBuilder.Build(species, includeInactive: true);
+
+        var root = Assert.Single(tree);
+        var inactiveChild = Assert.Single(root.Children);
+        Assert.Equal("Retired breed", inactiveChild.Label);
+        Assert.True(inactiveChild.IsInactive);
+        Assert.False(root.IsInactive);
+    }
+
+    [Fact]
+    public void Build_SortsSiblingsAlphabetically_ByDefault()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = JerseyId, ParentId = Guid.Empty, Description = "Tench", IsActive = true },
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true },
+            new SpeciesDto { Id = DairyId, ParentId = Guid.Empty, Description = "Fish - other", IsActive = true }
+        ];
+
+        var tree = SpeciesTreeBuilder.Build(species);
+
+        Assert.Equal(["Cattle", "Fish - other", "Tench"], tree.Select(node => node.Label));
+    }
+
+    [Fact]
+    public void Build_PreservesApiOrder_SoAMaintainSpeciesDataReorderIsVisible()
+    {
+        // The API already returns species in SequenceNumber order; preserving it here (rather
+        // than re-sorting alphabetically) is what makes a "Reorder list" move actually show up.
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = JerseyId, ParentId = Guid.Empty, Description = "Tench", IsActive = true },
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Fish - other", IsActive = true },
+            new SpeciesDto { Id = DairyId, ParentId = Guid.Empty, Description = "Mullet", IsActive = true }
+        ];
+
+        var tree = SpeciesTreeBuilder.Build(species, preserveApiOrder: true);
+
+        Assert.Equal(["Tench", "Fish - other", "Mullet"], tree.Select(node => node.Label));
+    }
+
+    [Fact]
     public void Build_ExpandsOnlyRootNodes()
     {
         IReadOnlyList<SpeciesDto> species =

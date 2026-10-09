@@ -50,4 +50,10 @@ public static class SpeciesStoredProcedures
 
     /// <summary>Swaps a species' sequence number with its previous or next sibling.</summary>
     public const string ChangeSpeciesPosition = "spuSpeciesSequenceNumber";
+
+    /// <summary>Marks a species inactive, and writes the audit trail entry.</summary>
+    public const string InactivateSpecies = "sppSpecies";
+
+    /// <summary>Deletes a species and its answer data, and writes the audit trail entry.</summary>
+    public const string DeleteSpecies = "spdSpecies";
 }

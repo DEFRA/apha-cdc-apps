@@ -99,4 +99,28 @@ public interface ISpeciesRepository
     /// <param name="userId">The id of the <c>[User]</c> row recorded as the author of the change.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Marks a species inactive via <c>sppSpecies</c>, which also writes the audit trail entry.
+    /// The species row, its answer data and its hierarchy relationships are retained unchanged.
+    /// </summary>
+    /// <param name="command">The species to inactivate.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when the supplied row version no longer matches the stored value.
+    /// </exception>
+    Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes a species via <c>spdSpecies</c>, which also writes the audit trail entry,
+    /// decrements later siblings' sequence numbers, and removes the species' field values and
+    /// prioritisation scores. Performs no business rule checks itself - the caller must ensure
+    /// the species is active, not in use, and has no children before calling this.
+    /// </summary>
+    /// <param name="command">The species to delete.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when the supplied row version no longer matches the stored value.
+    /// </exception>
+    Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken);
 }

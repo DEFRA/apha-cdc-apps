@@ -33,6 +33,9 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     /// <summary>The message <c>spiSpecies</c> and <c>spuSpecies</c> raise for a name clash.</summary>
     private const string DuplicateNameMessageFragment = "already a species with this name";
 
+    /// <summary>The message <c>spuSpeciesSequenceNumber</c> raises when no sibling exists at the resulting sequence number.</summary>
+    private const string ReorderBlockedMessageFragment = "no species above/below this one";
+
     private const int RowVersionLength = 8;
 
     /// <summary><c>spuSpecies</c> declares <c>@Name varchar(50)</c>.</summary>
@@ -480,7 +483,87 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         catch (DbException exception)
         {
             logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.ChangeSpeciesPosition);
-            throw;
+
+            // spuSpeciesSequenceNumber RAISERRORs (error 50000) when no sibling exists at the
+            // resulting sequence number - either the species is already first/last, or (as with
+            // legacy data) the adjacent sequence number has a gap. The legacy CSLA business
+            // object surfaced this inline rather than as a crash, so it is passed through here
+            // rather than left to bubble up as an unhandled 500.
+            throw IsReorderBlockedViolation(exception)
+                ? new SpeciesReorderBlockedException(exception.Message, exception)
+                : exception;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        // sppSpecies takes exactly these four parameters and returns nothing: it raises an
+        // error (caught below) for a stale @LastUpdated, otherwise it sets EffectiveDateTo and
+        // inserts the audit entry itself.
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
+        parameters.Add("@UserId", command.UserId, DbType.Guid);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
+        parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.InactivateSpecies,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.InactivateSpecies);
+
+            // sppSpecies RAISERRORs (error 50000) only for a stale row version, so this is
+            // always a concurrency conflict, unlike spuSpecies which also covers duplicate names.
+            throw IsConcurrencyViolation(exception)
+                ? new ConcurrencyException(exception.Message, exception)
+                : exception;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        // spdSpecies takes exactly these four parameters and returns nothing: it raises an
+        // error (caught below) for a stale @LastUpdated, otherwise it writes the audit entry,
+        // decrements later siblings' sequence numbers, and deletes the species' rows itself.
+        var parameters = new DynamicParameters();
+        parameters.Add("@SpeciesId", command.SpeciesId, DbType.Guid);
+        parameters.Add("@UserId", command.UserId, DbType.Guid);
+        parameters.Add("@Reason", command.Reason, DbType.AnsiString, size: ReasonMaxLength);
+        parameters.Add("@LastUpdated", command.LastUpdated, DbType.Binary, size: RowVersionLength);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                SpeciesStoredProcedures.DeleteSpecies,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.DeleteSpecies);
+
+            // spdSpecies RAISERRORs (error 50000) only for a stale row version, so this is
+            // always a concurrency conflict, unlike spuSpecies which also covers duplicate names.
+            throw IsConcurrencyViolation(exception)
+                ? new ConcurrencyException(exception.Message, exception)
+                : exception;
         }
     }
 
@@ -503,6 +586,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
     /// <returns><see langword="true"/> when the failure is a duplicate species name.</returns>
     internal static bool IsDuplicateNameViolation(DbException exception) =>
         exception.Message.Contains(DuplicateNameMessageFragment, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Identifies the "no sibling at that position" failure raised by
+    /// <c>spuSpeciesSequenceNumber</c>. Matched on the message because it shares error number
+    /// 50000 with every other <c>RAISERROR</c> the procedure can emit.
+    /// </summary>
+    /// <param name="exception">The database exception to classify.</param>
+    /// <returns><see langword="true"/> when the move was rejected because no sibling exists there.</returns>
+    internal static bool IsReorderBlockedViolation(DbException exception) =>
+        exception.Message.Contains(ReorderBlockedMessageFragment, StringComparison.OrdinalIgnoreCase);
 
     private static async Task<byte[]> UpdateRowVersionAsync(
         DbConnection connection,

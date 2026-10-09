@@ -150,4 +150,28 @@ public sealed class SpeciesService(ISpeciesRepository repository, ILogger<Specie
         await repository.ChangeSpeciesPositionAsync(speciesId, isMovingUp, userId, cancellationToken);
         logger.ChangedSpeciesPosition(speciesId, isMovingUp);
     }
+
+    /// <inheritdoc />
+    public async Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.InactivatingSpecies(command.SpeciesId);
+
+        await repository.InactivateSpeciesAsync(command, cancellationToken);
+
+        logger.InactivatedSpecies(command.SpeciesId);
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        logger.DeletingSpecies(command.SpeciesId);
+
+        await repository.DeleteSpeciesAsync(command, cancellationToken);
+
+        logger.DeletedSpecies(command.SpeciesId);
+    }
 }

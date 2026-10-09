@@ -68,4 +68,16 @@ internal static partial class SpeciesLog
 
     public static void ChangedSpeciesPosition(this ILogger logger, Guid speciesId, bool isMovingUp) =>
         logger.ChangedSpeciesPositionCore(speciesId, isMovingUp ? "up" : "down");
+
+    [LoggerMessage(EventId = 1020, Level = LogLevel.Information, Message = "Inactivating species {SpeciesId}")]
+    public static partial void InactivatingSpecies(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1021, Level = LogLevel.Information, Message = "Inactivated species {SpeciesId}")]
+    public static partial void InactivatedSpecies(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1022, Level = LogLevel.Information, Message = "Deleting species {SpeciesId}")]
+    public static partial void DeletingSpecies(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 1023, Level = LogLevel.Information, Message = "Deleted species {SpeciesId}")]
+    public static partial void DeletedSpecies(this ILogger logger, Guid speciesId);
 }

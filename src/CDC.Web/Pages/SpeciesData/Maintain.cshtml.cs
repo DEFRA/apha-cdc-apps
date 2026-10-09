@@ -45,6 +45,12 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <summary>Gets a value indicating whether the "Edit name/parent" section should be shown.</summary>
     public bool ShowEditPanel { get; private set; }
 
+    /// <summary>Gets a value indicating whether the "Inactivate" section should be shown.</summary>
+    public bool ShowInactivatePanel { get; private set; }
+
+    /// <summary>Gets a value indicating whether the "Delete" section should be shown.</summary>
+    public bool ShowDeletePanel { get; private set; }
+
     /// <summary>Gets a value indicating whether the "Add species data value" section should be shown.</summary>
     public bool ShowAddPanel { get; private set; }
 
@@ -86,12 +92,16 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     [BindProperty(SupportsGet = true)]
     public Guid? AuditTrailDetailsId { get; set; }
 
+    /// <summary>Gets the entry matching <see cref="AuditTrailDetailsId"/>, shown at the bottom of the audit trail.</summary>
+    public SpeciesAuditTrailEntryDto? AuditTrailDetailsEntry { get; private set; }
+
     /// <summary>Gets the species selected in the tree, posted under the shared radio field name.</summary>
     [BindProperty(Name = SpeciesKey, SupportsGet = true)]
     public Guid? SelectedSpeciesId { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the hierarchy is in reorder mode ("Reorder list" clicked).</summary>
-    [BindProperty]
+    /// <remarks>Bound on GET too, so it survives the post-redirect-get round trip after a move.</remarks>
+    [BindProperty(SupportsGet = true)]
     public bool ReorderMode { get; set; }
 
     /// <summary>Gets a value indicating whether the selected species has a previous sibling to move up to.</summary>
@@ -104,6 +114,14 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     [BindProperty]
     public EditNameParentInput Input { get; set; } = new();
 
+    /// <summary>Gets or sets the "Inactivate" form fields.</summary>
+    [BindProperty]
+    public InactivateInput InactivateInput { get; set; } = new();
+
+    /// <summary>Gets or sets the "Delete" form fields.</summary>
+    [BindProperty]
+    public DeleteInput DeleteInput { get; set; } = new();
+
     /// <summary>Gets or sets the "Add species data value" form fields.</summary>
     [BindProperty]
     public AddSpeciesInput AddInput { get; set; } = new();
@@ -111,8 +129,10 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <summary>Loads the species list and, if requested, re-selects a species on the tree.</summary>
     /// <param name="saved">Set by the redirect after a successful name/parent save, to show the confirmation banner.</param>
     /// <param name="added">Set by the redirect after a species has been added, to show the confirmation banner.</param>
+    /// <param name="inactivated">Set by the redirect after a species has been inactivated, to show the confirmation banner.</param>
+    /// <param name="deleted">Set by the redirect after a species has been deleted, to show the confirmation banner.</param>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task OnGetAsync(bool saved, bool added, CancellationToken cancellationToken)
+    public async Task OnGetAsync(bool saved, bool added, bool inactivated, bool deleted, CancellationToken cancellationToken)
     {
         await LoadTreeAsync(cancellationToken);
 
@@ -123,6 +143,21 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         else if (added)
         {
             SuccessMessage = "The new species was added to the hierarchy.";
+        }
+        else if (inactivated)
+        {
+            SuccessMessage = "The species was inactivated.";
+        }
+        else if (deleted)
+        {
+            SuccessMessage = "The species was deleted.";
+        }
+
+        // Restores Move up/down availability after the post-redirect-get that follows a
+        // successful move, so the buttons reflect the species' new position in the sequence.
+        if (ReorderMode)
+        {
+            UpdateMoveAvailability();
         }
     }
 
@@ -137,6 +172,11 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
             AuditTrail = await speciesApiService.GetSpeciesAuditTrailAsync(cancellationToken);
             ShowAuditTrail = true;
             ApplyAuditTrailPaging();
+
+            if (AuditTrailDetailsId is not null)
+            {
+                AuditTrailDetailsEntry = AuditTrail.FirstOrDefault(entry => entry.Id == AuditTrailDetailsId);
+            }
         }
 
         return Page();
@@ -145,6 +185,10 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <summary>Builds the querystring URL for an audit trail page link, preserving the page size.</summary>
     public string? BuildAuditTrailPageUrl(int page) =>
         Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage = page, AuditTrailPageSize });
+
+    /// <summary>Builds the querystring URL for a "View details" link, preserving the page and page size.</summary>
+    public string? BuildAuditTrailDetailsUrl(Guid auditTrailDetailsId) =>
+        Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage, AuditTrailPageSize, AuditTrailDetailsId = auditTrailDetailsId });
 
     /// <summary>Slices <see cref="AuditTrail"/> into <see cref="PagedAuditTrail"/> and computes <see cref="AuditTrailTotalPages"/>.</summary>
     private void ApplyAuditTrailPaging()
@@ -297,10 +341,103 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
             return Page();
         }
 
+        var detail = await speciesApiService.GetSpeciesDetailAsync(SelectedSpeciesId.Value, cancellationToken);
+
+        if (detail is null)
+        {
+            SelectionErrorMessage = "The selected species could not be found. It may have been removed.";
+            return Page();
+        }
+
+        // Mirrors the legacy CSLA business object's own pre-checks, so the reason-for-change
+        // panel is never shown for a species that cannot legally be deleted. The API re-checks
+        // these rules at Confirm regardless, since this data could be stale by then.
+        if (!detail.IsActive)
+        {
+            SelectionErrorMessage = "You cannot delete a species that is inactive";
+            return Page();
+        }
+
+        if (detail.IsInUse)
+        {
+            SelectionErrorMessage = "You cannot delete a species that is used within a current profile.";
+            return Page();
+        }
+
+        if (detail.ChildCount > 0)
+        {
+            SelectionErrorMessage = "You cannot delete a species that has children";
+            return Page();
+        }
+
+        OpenDeletePanel(detail);
+
         return Page();
     }
 
-    /// <summary>Validates the species selection for "Inactivate". Functionality to follow.</summary>
+    /// <summary>Validates and applies the deletion.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostConfirmDeleteAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        ValidateDeleteInput();
+
+        if (!ModelState.IsValid)
+        {
+            await RedisplayDeletePanelAsync(cancellationToken);
+            return Page();
+        }
+
+        byte[] lastUpdated;
+        try
+        {
+            lastUpdated = Convert.FromBase64String(DeleteInput.LastUpdatedBase64);
+        }
+        catch (FormatException)
+        {
+            ModelState.AddModelError(string.Empty, "The species could not be deleted. Reload and try again.");
+            await RedisplayDeletePanelAsync(cancellationToken);
+            return Page();
+        }
+
+        var result = await speciesApiService.DeleteSpeciesAsync(
+            DeleteInput.SpeciesId,
+            new DeleteSpeciesRequestDto { Reason = DeleteInput.Reason!.Trim(), LastUpdated = lastUpdated },
+            cancellationToken);
+
+        if (result.Outcome != SpeciesUpdateOutcome.Success)
+        {
+            logger.DeleteFailed(DeleteInput.SpeciesId, result.Outcome);
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "We could not delete this species. Try again later.");
+            await RedisplayDeletePanelAsync(cancellationToken);
+            return Page();
+        }
+
+        logger.Deleted(DeleteInput.SpeciesId);
+
+        // Post-redirect-get: reloads the hierarchy, now without the deleted species, and shows
+        // the confirmation banner without resubmitting the form on refresh.
+        return RedirectToPage(new { deleted = true });
+    }
+
+    /// <summary>Closes the "Delete" section without applying any change.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostCancelDeleteAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        ShowDeletePanel = false;
+
+        return Page();
+    }
+
+    /// <summary>Opens the "Inactivate" section for the species selected on the tree.</summary>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
     public async Task<IActionResult> OnPostInactivateAsync(CancellationToken cancellationToken)
     {
@@ -316,6 +453,78 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
             SelectionErrorMessage = "Select a species or species group to inactivate.";
             return Page();
         }
+
+        var detail = await speciesApiService.GetSpeciesDetailAsync(SelectedSpeciesId.Value, cancellationToken);
+
+        if (detail is null)
+        {
+            SelectionErrorMessage = "The selected species could not be found. It may have been removed.";
+            return Page();
+        }
+
+        OpenInactivatePanel(detail);
+
+        return Page();
+    }
+
+    /// <summary>Validates and applies the inactivation.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostConfirmInactivateAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        if (HasError)
+        {
+            return Page();
+        }
+
+        ValidateInactivateInput();
+
+        if (!ModelState.IsValid)
+        {
+            await RedisplayInactivatePanelAsync(cancellationToken);
+            return Page();
+        }
+
+        byte[] lastUpdated;
+        try
+        {
+            lastUpdated = Convert.FromBase64String(InactivateInput.LastUpdatedBase64);
+        }
+        catch (FormatException)
+        {
+            ModelState.AddModelError(string.Empty, "The species could not be inactivated. Reload and try again.");
+            await RedisplayInactivatePanelAsync(cancellationToken);
+            return Page();
+        }
+
+        var result = await speciesApiService.InactivateSpeciesAsync(
+            InactivateInput.SpeciesId,
+            new InactivateSpeciesRequestDto { Reason = InactivateInput.Reason!.Trim(), LastUpdated = lastUpdated },
+            cancellationToken);
+
+        if (result.Outcome != SpeciesUpdateOutcome.Success)
+        {
+            logger.InactivateFailed(InactivateInput.SpeciesId, result.Outcome);
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "We could not inactivate this species. Try again later.");
+            await RedisplayInactivatePanelAsync(cancellationToken);
+            return Page();
+        }
+
+        logger.Inactivated(InactivateInput.SpeciesId);
+
+        // Post-redirect-get: reloads the hierarchy, now showing the species greyed out, and
+        // shows the confirmation banner without resubmitting the form on refresh.
+        return RedirectToPage(new { species = InactivateInput.SpeciesId, inactivated = true });
+    }
+
+    /// <summary>Closes the "Inactivate" section without applying any change.</summary>
+    /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
+    public async Task<IActionResult> OnPostCancelInactivateAsync(CancellationToken cancellationToken)
+    {
+        await LoadTreeAsync(cancellationToken);
+
+        ShowInactivatePanel = false;
 
         return Page();
     }
@@ -340,7 +549,14 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         ReorderMode = true;
         UpdateMoveAvailability();
 
-        return Page();
+        // Post-redirect-get, with a fragment targeting the selected species' row: without a
+        // fragment, the browser's own "scroll to top" for a fresh POST response can override the
+        // tree view's own scroll-to-selection script, same as the fix already applied to moves.
+        return RedirectToPage(
+            pageName: null,
+            pageHandler: null,
+            routeValues: new { species = SelectedSpeciesId, ReorderMode = true },
+            fragment: $"{SpeciesKey}-{SelectedSpeciesId}");
     }
 
     /// <summary>Moves the selected species up one place and reloads the hierarchy in its new order.</summary>
@@ -381,14 +597,25 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
             return Page();
         }
 
-        await speciesApiService.ChangeSpeciesPositionAsync(SelectedSpeciesId.Value, isMovingUp, cancellationToken);
+        var result = await speciesApiService.ChangeSpeciesPositionAsync(SelectedSpeciesId.Value, isMovingUp, cancellationToken);
+
+        if (result.Outcome != SpeciesUpdateOutcome.Success)
+        {
+            logger.MoveFailed(SelectedSpeciesId.Value, result.Outcome);
+            SelectionErrorMessage = result.ErrorMessage ?? "This species cannot be moved in that direction.";
+            UpdateMoveAvailability();
+            return Page();
+        }
+
         logger.MovedSpecies(SelectedSpeciesId.Value, isMovingUp);
 
-        // Reload so the hierarchy reflects the new sequence, with the moved species still selected.
-        await LoadTreeAsync(cancellationToken);
-        UpdateMoveAvailability();
-
-        return Page();
+        // Post-redirect-get, with a fragment targeting the moved species' row, so the browser
+        // keeps the view scrolled to it instead of jumping back to the top of the page.
+        return RedirectToPage(
+            pageName: null,
+            pageHandler: null,
+            routeValues: new { species = SelectedSpeciesId, ReorderMode = true },
+            fragment: $"{SpeciesKey}-{SelectedSpeciesId}");
     }
 
     /// <summary>Opens the "Add species data value" section for a brand new species.</summary>
@@ -528,6 +755,66 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         ValidParents = await speciesApiService.GetSpeciesValidParentsAsync(Input.SpeciesId, cancellationToken);
     }
 
+    private void OpenInactivatePanel(SpeciesDetailDto detail)
+    {
+        SpeciesDetail = detail;
+        ShowInactivatePanel = true;
+
+        InactivateInput = new InactivateInput
+        {
+            SpeciesId = detail.Id,
+            LastUpdatedBase64 = Convert.ToBase64String(detail.LastUpdated)
+        };
+    }
+
+    private async Task RedisplayInactivatePanelAsync(CancellationToken cancellationToken)
+    {
+        ShowInactivatePanel = true;
+        SpeciesDetail = await speciesApiService.GetSpeciesDetailAsync(InactivateInput.SpeciesId, cancellationToken);
+    }
+
+    private void ValidateInactivateInput()
+    {
+        if (string.IsNullOrWhiteSpace(InactivateInput.Reason))
+        {
+            ModelState.AddModelError("InactivateInput.Reason", "You need to provide a reason for this change.");
+        }
+        else if (InactivateInput.Reason.Trim().Length > ReasonMaxLength)
+        {
+            ModelState.AddModelError("InactivateInput.Reason", $"The reason for change must be no longer than {ReasonMaxLength} characters.");
+        }
+    }
+
+    private void OpenDeletePanel(SpeciesDetailDto detail)
+    {
+        SpeciesDetail = detail;
+        ShowDeletePanel = true;
+
+        DeleteInput = new DeleteInput
+        {
+            SpeciesId = detail.Id,
+            LastUpdatedBase64 = Convert.ToBase64String(detail.LastUpdated)
+        };
+    }
+
+    private async Task RedisplayDeletePanelAsync(CancellationToken cancellationToken)
+    {
+        ShowDeletePanel = true;
+        SpeciesDetail = await speciesApiService.GetSpeciesDetailAsync(DeleteInput.SpeciesId, cancellationToken);
+    }
+
+    private void ValidateDeleteInput()
+    {
+        if (string.IsNullOrWhiteSpace(DeleteInput.Reason))
+        {
+            ModelState.AddModelError("DeleteInput.Reason", "You need to provide a reason for this change.");
+        }
+        else if (DeleteInput.Reason.Trim().Length > ReasonMaxLength)
+        {
+            ModelState.AddModelError("DeleteInput.Reason", $"The reason for change must be no longer than {ReasonMaxLength} characters.");
+        }
+    }
+
     private void ValidateInput()
     {
         if (string.IsNullOrWhiteSpace(Input.Name))
@@ -562,7 +849,8 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
                 ItemNameSingular = SpeciesKey,
                 ItemNamePlural = SpeciesKey,
                 SelectedValue = SelectedSpeciesId?.ToString(),
-                Nodes = SpeciesTreeBuilder.Build(species)
+                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, preserveApiOrder: true),
+                ScrollToSelectionOnLoad = ReorderMode
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
@@ -649,5 +937,20 @@ internal static partial class MaintainLog
 
     public static void MovedSpecies(this ILogger logger, Guid speciesId, bool isMovingUp) =>
         logger.MovedSpeciesCore(speciesId, isMovingUp ? "up" : "down");
+
+    [LoggerMessage(EventId = 2106, Level = LogLevel.Warning, Message = "Failed to inactivate species {SpeciesId}: {Outcome}")]
+    public static partial void InactivateFailed(this ILogger logger, Guid speciesId, SpeciesUpdateOutcome outcome);
+
+    [LoggerMessage(EventId = 2107, Level = LogLevel.Information, Message = "Inactivated species {SpeciesId}")]
+    public static partial void Inactivated(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 2108, Level = LogLevel.Warning, Message = "Failed to delete species {SpeciesId}: {Outcome}")]
+    public static partial void DeleteFailed(this ILogger logger, Guid speciesId, SpeciesUpdateOutcome outcome);
+
+    [LoggerMessage(EventId = 2109, Level = LogLevel.Information, Message = "Deleted species {SpeciesId}")]
+    public static partial void Deleted(this ILogger logger, Guid speciesId);
+
+    [LoggerMessage(EventId = 2110, Level = LogLevel.Warning, Message = "Failed to move species {SpeciesId}: {Outcome}")]
+    public static partial void MoveFailed(this ILogger logger, Guid speciesId, SpeciesUpdateOutcome outcome);
 }
 

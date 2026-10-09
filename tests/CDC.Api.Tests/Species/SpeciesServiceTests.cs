@@ -222,4 +222,48 @@ public class SpeciesServiceTests
 
         repository.VerifyAll();
     }
+
+    [Fact]
+    public async Task InactivateSpecies_ShouldCallRepository()
+    {
+        var command = SpeciesTestData.InactivateSpeciesCommand();
+
+        repository
+            .Setup(repo => repo.InactivateSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await CreateService().InactivateSpeciesAsync(command, CancellationToken.None);
+
+        repository.VerifyAll();
+    }
+
+    [Fact]
+    public async Task InactivateSpecies_ShouldRejectNullCommand()
+    {
+        var act = async () => await CreateService().InactivateSpeciesAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task DeleteSpecies_ShouldCallRepository()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+
+        repository
+            .Setup(repo => repo.DeleteSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await CreateService().DeleteSpeciesAsync(command, CancellationToken.None);
+
+        repository.VerifyAll();
+    }
+
+    [Fact]
+    public async Task DeleteSpecies_ShouldRejectNullCommand()
+    {
+        var act = async () => await CreateService().DeleteSpeciesAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
 }

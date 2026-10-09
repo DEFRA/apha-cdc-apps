@@ -1,5 +1,6 @@
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.Species.Commands;
+using CDC.Api.Features.Species.Dtos;
 
 namespace CDC.Api.Tests.Species;
 
@@ -167,5 +168,34 @@ internal static class SpeciesTestData
         ParentId = SectionId,
         Reason = "New breed added to the taxonomy",
         UserId = Guid.Parse("66666666-6666-6666-6666-666666666666")
+    };
+
+    public static InactivateSpeciesCommand InactivateSpeciesCommand() => new()
+    {
+        SpeciesId = SpeciesId,
+        Reason = "No longer surveyed",
+        UserId = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+        LastUpdated = RowVersion
+    };
+
+    public static DeleteSpeciesCommand DeleteSpeciesCommand() => new()
+    {
+        SpeciesId = SpeciesId,
+        Reason = "Duplicate of an existing entry",
+        UserId = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+        LastUpdated = RowVersion
+    };
+
+    public static SpeciesDetailDto DeletableSpeciesDetail() => new()
+    {
+        Id = SpeciesId,
+        Name = "Jersey",
+        ParentId = SectionId,
+        ParentName = "Cattle",
+        IsActive = true,
+        IsInUse = false,
+        ChildCount = 0,
+        ActiveChildCount = 0,
+        LastUpdated = RowVersion
     };
 }

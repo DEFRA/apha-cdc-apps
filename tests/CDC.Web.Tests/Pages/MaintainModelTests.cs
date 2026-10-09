@@ -32,7 +32,7 @@ public class MaintainModelTests
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
 
-        await pageModel.OnGetAsync(saved: true, added: false, CancellationToken.None);
+        await pageModel.OnGetAsync(saved: true, added: false, inactivated: false, deleted: false, CancellationToken.None);
 
         Assert.False(pageModel.HasError);
         Assert.NotEmpty(pageModel.SpeciesTree.Nodes);
@@ -40,11 +40,34 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_DoesNotAutoScroll_OnAnOrdinaryPageLoad()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None);
+
+        Assert.False(pageModel.SpeciesTree.ScrollToSelectionOnLoad);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_AutoScrolls_WhenReorderModeIsBoundFromTheQuerystring()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+        pageModel.ReorderMode = true;
+
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None);
+
+        Assert.True(pageModel.SpeciesTree.ScrollToSelectionOnLoad);
+    }
+
+    [Fact]
     public async Task OnGetAsync_SetsError_WhenApiCallFails()
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
 
-        await pageModel.OnGetAsync(saved: false, added: false, CancellationToken.None);
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None);
 
         Assert.True(pageModel.HasError);
         Assert.False(string.IsNullOrWhiteSpace(pageModel.ErrorMessage));
@@ -167,6 +190,219 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnPostInactivateAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostInactivateAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowInactivatePanel);
+        Assert.Equal("Select a species or species group to inactivate.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostInactivateAsync_OpensPanel_WithOldNameAndOldParent()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostInactivateAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowInactivatePanel);
+        Assert.Equal("Dairy cattle", pageModel.SpeciesDetail?.Name);
+        Assert.Equal("Cattle", pageModel.SpeciesDetail?.ParentName);
+        Assert.Equal(DairyId, pageModel.InactivateInput.SpeciesId);
+        Assert.Equal(Convert.ToBase64String(RowVersion), pageModel.InactivateInput.LastUpdatedBase64);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmInactivateAsync_PreventsTheAction_WhenNoReasonIsProvided()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.InactivateInput = new InactivateInput
+        {
+            SpeciesId = DairyId,
+            Reason = string.Empty,
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        var result = await pageModel.OnPostConfirmInactivateAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.ShowInactivatePanel);
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.True(pageModel.ModelState.ContainsKey("InactivateInput.Reason"));
+    }
+
+    [Fact]
+    public async Task OnPostConfirmInactivateAsync_Redirects_WhenAReasonIsProvided()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(
+            Species,
+            speciesDetail: DairyDetail,
+            inactivateResult: new InactivateSpeciesResult { Outcome = SpeciesUpdateOutcome.Success }));
+        pageModel.InactivateInput = new InactivateInput
+        {
+            SpeciesId = DairyId,
+            Reason = "No longer surveyed",
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        var result = await pageModel.OnPostConfirmInactivateAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.True(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmInactivateAsync_ShowsConflict_WhenApiReportsConflict()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(
+            Species,
+            speciesDetail: DairyDetail,
+            inactivateResult: new InactivateSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+            }));
+        pageModel.InactivateInput = new InactivateInput
+        {
+            SpeciesId = DairyId,
+            Reason = "No longer surveyed",
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        await pageModel.OnPostConfirmInactivateAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowInactivatePanel);
+        Assert.False(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostCancelInactivateAsync_HidesPanel_WithoutCallingUpdate()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostCancelInactivateAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowInactivatePanel);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_ShowsSelectionError_WhenNoSpeciesSelected()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowDeletePanel);
+        Assert.Equal("Select a species or species group to delete.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_OpensPanel_WithOldNameAndOldParent_WhenSpeciesIsDeletable()
+    {
+        var deletableDetail = DairyDetail with { IsInUse = false };
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: deletableDetail));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowDeletePanel);
+        Assert.Null(pageModel.SelectionErrorMessage);
+        Assert.Equal("Dairy cattle", pageModel.SpeciesDetail?.Name);
+        Assert.Equal("Cattle", pageModel.SpeciesDetail?.ParentName);
+        Assert.Equal(DairyId, pageModel.DeleteInput.SpeciesId);
+        Assert.Equal(Convert.ToBase64String(RowVersion), pageModel.DeleteInput.LastUpdatedBase64);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_PreventsTheAction_WhenTheSpeciesIsUsedInACurrentProfile()
+    {
+        var inUseDetail = DairyDetail with { IsInUse = true };
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: inUseDetail));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowDeletePanel);
+        Assert.Equal("You cannot delete a species that is used within a current profile.", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmDeleteAsync_PreventsTheAction_WhenNoReasonIsProvided()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, speciesDetail: DairyDetail));
+        pageModel.DeleteInput = new DeleteInput
+        {
+            SpeciesId = DairyId,
+            Reason = string.Empty,
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        var result = await pageModel.OnPostConfirmDeleteAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.True(pageModel.ShowDeletePanel);
+        Assert.False(pageModel.ModelState.IsValid);
+        Assert.True(pageModel.ModelState.ContainsKey("DeleteInput.Reason"));
+    }
+
+    [Fact]
+    public async Task OnPostConfirmDeleteAsync_Redirects_WhenAReasonIsProvided()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(
+            Species,
+            speciesDetail: DairyDetail,
+            deleteResult: new DeleteSpeciesResult { Outcome = SpeciesUpdateOutcome.Success }));
+        pageModel.DeleteInput = new DeleteInput
+        {
+            SpeciesId = DairyId,
+            Reason = "Duplicate of an existing entry",
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        var result = await pageModel.OnPostConfirmDeleteAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.True(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostConfirmDeleteAsync_ShowsApiMessage_WhenTheApiRejectsTheDelete()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(
+            Species,
+            speciesDetail: DairyDetail,
+            deleteResult: new DeleteSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "You cannot delete a species that is used within a current profile."
+            }));
+        pageModel.DeleteInput = new DeleteInput
+        {
+            SpeciesId = DairyId,
+            Reason = "Duplicate of an existing entry",
+            LastUpdatedBase64 = Convert.ToBase64String(RowVersion)
+        };
+
+        await pageModel.OnPostConfirmDeleteAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowDeletePanel);
+        Assert.False(pageModel.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task OnPostCancelDeleteAsync_HidesPanel_WithoutCallingDelete()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+
+        await pageModel.OnPostCancelDeleteAsync(CancellationToken.None);
+
+        Assert.False(pageModel.ShowDeletePanel);
+    }
+
+    [Fact]
     public async Task OnGetAuditTrailAsync_LoadsEntries()
     {
         IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail =
@@ -248,7 +484,7 @@ public class MaintainModelTests
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
 
-        await pageModel.OnGetAsync(saved: false, added: true, CancellationToken.None);
+        await pageModel.OnGetAsync(saved: false, added: true, inactivated: false, deleted: false, CancellationToken.None);
 
         Assert.False(string.IsNullOrWhiteSpace(pageModel.SuccessMessage));
     }
@@ -397,26 +633,6 @@ public class MaintainModelTests
     }
 
     [Fact]
-    public async Task OnPostDeleteAsync_ShowsSelectionError_WhenNoSpeciesSelected()
-    {
-        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
-
-        await pageModel.OnPostDeleteAsync(CancellationToken.None);
-
-        Assert.Equal("Select a species or species group to delete.", pageModel.SelectionErrorMessage);
-    }
-
-    [Fact]
-    public async Task OnPostInactivateAsync_ShowsSelectionError_WhenNoSpeciesSelected()
-    {
-        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
-
-        await pageModel.OnPostInactivateAsync(CancellationToken.None);
-
-        Assert.Equal("Select a species or species group to inactivate.", pageModel.SelectionErrorMessage);
-    }
-
-    [Fact]
     public async Task OnPostReorderListAsync_EntersReorderMode_AndEnablesBothMoves_ForAMiddleSibling()
     {
         var goatId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -436,6 +652,20 @@ public class MaintainModelTests
         Assert.Null(pageModel.SelectionErrorMessage);
         Assert.True(pageModel.CanMoveSelectedUp);
         Assert.True(pageModel.CanMoveSelectedDown);
+    }
+
+    [Fact]
+    public async Task OnPostReorderListAsync_Redirects_WithAFragmentTargetingTheSelectedSpecies_SoScrollPositionIsKept()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostReorderListAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.Equal($"species-{DairyId}", redirect.Fragment);
+        Assert.Equal(DairyId, redirect.RouteValues?["species"]);
+        Assert.Equal(true, redirect.RouteValues?["ReorderMode"]);
     }
 
     [Fact]
@@ -472,6 +702,21 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnPostMoveUpAsync_Redirects_WithAFragmentTargetingTheMovedSpecies_SoScrollPositionIsKept()
+    {
+        var api = new FakeSpeciesApiService(Species);
+        var pageModel = CreatePageModel(api);
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
+        Assert.Equal($"species-{DairyId}", redirect.Fragment);
+        Assert.Equal(DairyId, redirect.RouteValues?["species"]);
+        Assert.Equal(true, redirect.RouteValues?["ReorderMode"]);
+    }
+
+    [Fact]
     public async Task OnPostMoveDownAsync_CallsTheApi_WithMovingUpFalse()
     {
         var api = new FakeSpeciesApiService(Species);
@@ -494,6 +739,27 @@ public class MaintainModelTests
 
         Assert.Empty(api.ChangePositionCalls);
         Assert.Equal("Please select a species to edit", pageModel.SelectionErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostMoveDownAsync_ShowsApiMessage_WhenNoSiblingExistsAtThatPosition()
+    {
+        // The API still rejects a move when the species is genuinely already first/last; this
+        // must surface as an inline message rather than an unhandled exception.
+        var api = new FakeSpeciesApiService(
+            Species,
+            changePositionResult: new ChangeSpeciesPositionResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "Sequence change failed: There is no species above/below this one"
+            });
+        var pageModel = CreatePageModel(api);
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostMoveDownAsync(CancellationToken.None);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.Equal("Sequence change failed: There is no species above/below this one", pageModel.SelectionErrorMessage);
     }
 
     [Fact]

@@ -23,6 +23,10 @@ There is no journal table, so track what has been run here:
 | 0061-CreateSpuUserSsoUserIdInt.sql | Y | | | |
 | 0062-ExtendSpgUserAuthorisationForSsoColumns.sql | Y | | | |
 | 0063-AlterSpuSpeciesSequenceNumberForAuditTrail.sql | | | | |
+| 0064-CreateSppSpecies.sql | | | | |
+| 0065-CreateSpdSpecies.sql | | | | |
+| 0066-AlterSpuSpeciesSequenceNumberForSequenceGaps.sql | | | | |
+| 0067-ResequenceSpeciesAlphabetically.sql | | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by

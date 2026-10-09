@@ -55,6 +55,27 @@
             }
 
             this.refreshAll();
+            this.scrollToSelection();
+        }
+
+        // Keeps the view scrolled to whichever node is already selected on load - only while
+        // reordering (Maintain species data's Move up/down round trip), not on an ordinary page
+        // load, per data-app-tree-scroll-to-selection. Expands every ancestor branch first,
+        // since a hidden branch can't be scrolled into view.
+        scrollToSelection() {
+            if (this.$root.dataset.appTreeScrollToSelection !== TRUE) {
+                return;
+            }
+
+            const $checked = this.$root.querySelector(`${INPUT}:checked`);
+            const item = $checked && $checked.closest(ITEM);
+
+            if (!item) {
+                return;
+            }
+
+            this.ancestors(item).forEach((ancestor) => this.setExpanded(ancestor, true));
+            item.scrollIntoView({ block: 'center' });
         }
 
         /* ---------- structure helpers ---------- */
