@@ -363,4 +363,6 @@ public class ManageProfileModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.True(pageModel.HasError);
-    }}
+    }
+}
+
