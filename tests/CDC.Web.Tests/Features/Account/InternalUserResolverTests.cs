@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CDC.Auth.Entra;
 using CDC.Auth.Entra.Claims;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -59,6 +60,7 @@ public class InternalUserResolverTests
         Assert.Equal(EntraAuthenticationDefaults.AuthenticationScheme, resolution.Claims[ExternalUserClaimTypes.AuthenticationProvider]);
         Assert.Equal("True", resolution.Claims[ExternalUserClaimTypes.IsProfileEditor]);
         Assert.Equal("False", resolution.Claims[ExternalUserClaimTypes.IsPolicyProfileUser]);
+        Assert.Equal(AuthorizationRoles.ProfileEditor, resolution.Claims[ClaimTypes.Role]);
 
         Assert.NotNull(apiClient.LastRequest);
         Assert.Equal(SsoUserIdInt, apiClient.LastRequest!.SsoUserIdInt);
@@ -67,7 +69,7 @@ public class InternalUserResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_Allows_WithNoPrivilegeClaims_WhenApiReturnsALimitedAccessUser()
+    public async Task ResolveAsync_Allows_WithProfileEditorRoleHardcoded_WhenApiReturnsALimitedAccessUser()
     {
         var principal = CreatePrincipal();
         var user = new InternalUserDto
@@ -85,6 +87,7 @@ public class InternalUserResolverTests
         Assert.Equal(Guid.Empty.ToString(), resolution.Claims![ExternalUserClaimTypes.InternalUserId]);
         Assert.Equal("False", resolution.Claims[ExternalUserClaimTypes.IsProfileEditor]);
         Assert.Equal("False", resolution.Claims[ExternalUserClaimTypes.IsPolicyProfileUser]);
+        Assert.Equal(AuthorizationRoles.ProfileEditor, resolution.Claims[ClaimTypes.Role]);
     }
 
     [Fact]
