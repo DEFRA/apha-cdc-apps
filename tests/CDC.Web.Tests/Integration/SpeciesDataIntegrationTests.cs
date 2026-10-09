@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -27,7 +28,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -40,11 +41,12 @@ public partial class SpeciesDataIntegrationTests
     [Fact]
     public async Task Maintain_RendersAuditTrail_WhenHandlerRequested()
     {
+        var auditTrailEntryId = Guid.NewGuid();
         IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail =
         [
             new SpeciesAuditTrailEntryDto
             {
-                Id = Guid.NewGuid(),
+                Id = auditTrailEntryId,
                 OldName = "Dairy cattle",
                 NewName = "Dairy",
                 OldParent = "Cattle",
@@ -55,9 +57,9 @@ public partial class SpeciesDataIntegrationTests
             }
         ];
         using var factory = CreateFactory(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
-        var response = await client.GetAsync("/SpeciesData/Maintain?handler=AuditTrail");
+        var response = await client.GetAsync($"/SpeciesData/Maintain?handler=AuditTrail&AuditTrailDetailsId={auditTrailEntryId}");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -69,7 +71,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_OffersAnAddAction_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -82,7 +84,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersLegacyTreeControls_AndSelectionRemovalAction()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -98,7 +100,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersEveryLegacyActionButton()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -117,7 +119,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RequiresASelection_ForActionsThatNeedOne()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "EditData", new Dictionary<string, string>());
 
@@ -128,7 +130,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task ViewSpeciesData_RendersSpeciesTree_WhenSpeciesAreAvailable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/ViewSpeciesData");
         var body = await response.Content.ReadAsStringAsync();
@@ -138,7 +140,7 @@ public partial class SpeciesDataIntegrationTests
     }
 
     private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<ISpeciesApiService>();
@@ -149,7 +151,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSuccessBanner_AfterASave()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?saved=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -163,7 +165,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSuccessBanner_AfterAnAdd()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain?added=true");
         var body = await response.Content.ReadAsStringAsync();
@@ -176,7 +178,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersEmptyState_WhenNoActiveSpeciesExist()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService([]));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -189,7 +191,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersErrorSummary_WhenTheApiIsUnreachable()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync("/SpeciesData/Maintain");
         var body = await response.Content.ReadAsStringAsync();
@@ -202,7 +204,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersAddSpeciesPanel_WhenAddIsPosted()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "Add", new Dictionary<string, string>());
 
@@ -217,7 +219,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersValidationErrors_WhenANewSpeciesIsSavedWithNoValues()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "SaveNew", new Dictionary<string, string>
         {
@@ -236,7 +238,7 @@ public partial class SpeciesDataIntegrationTests
     public async Task Maintain_RendersSelectionError_WhenEditIsPostedWithNoSelection()
     {
         using var factory = CreateFactory(new FakeSpeciesApiService(Species));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>());
 
@@ -259,7 +261,7 @@ public partial class SpeciesDataIntegrationTests
             Species,
             speciesDetail: detail,
             validParents: [new SpeciesValidParentDto { Id = CattleId, Name = "Cattle" }]));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var body = await PostAsync(client, "EditNameParent", new Dictionary<string, string>
         {
@@ -356,7 +358,7 @@ public partial class SpeciesDataIntegrationTests
             speciesMetadata: metadata,
             speciesAnswerData: answerData,
             referenceValuesByTable: referenceValues));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
         var body = await response.Content.ReadAsStringAsync();
@@ -373,7 +375,7 @@ public partial class SpeciesDataIntegrationTests
         using var factory = CreateFactory(new FakeSpeciesApiService(
             Species,
             throwOnGetSpeciesAnswerData: new HttpRequestException("down")));
-        var client = factory.CreateClient();
+        var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/EditSpecies/{DairyId}");
 
