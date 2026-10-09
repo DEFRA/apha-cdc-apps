@@ -35,9 +35,30 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     cancellationToken: cancellationToken),
                 CommandBehavior.Default);
 
-            var sections = await ReadSectionMetadataAsync(reader, cancellationToken);
-            var questions = await ReadQuestionMetadataAsync(reader, cancellationToken);
-            var fields = await ReadFieldMetadataAsync(reader, cancellationToken);
+            var sections = await MetadataResultSetReader.ReadCurrentResultSetAsync(
+                reader,
+                static r => new SectionMetadataRow(r.GetGuid(0), r.ReadString(1), r.ReadString(2), r.ReadInt32(3)),
+                cancellationToken);
+
+            var questions = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => new QuestionMetadataRow(r.GetGuid(0), r.GetGuid(1), r.ReadString(2), r.ReadInt32(3), r.ReadBoolean(4), r.ReadBoolean(5)),
+                cancellationToken);
+
+            var fields = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => new FieldMetadataRow(
+                    r.GetGuid(1),
+                    r.GetGuid(2),
+                    r.ReadString(3),
+                    r.ReadInt32(4),
+                    r.ReadGuid(5),
+                    r.ReadString(6),
+                    r.ReadBoolean(7),
+                    r.ReadGuid(8),
+                    r.ReadBoolean(9),
+                    r.ReadString(11)),
+                cancellationToken);
 
             return BuildMetadata(sections, questions, fields);
         }
@@ -121,78 +142,6 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.GetProfileVersionSection);
             throw;
         }
-    }
-
-    private static async Task<List<SectionMetadataRow>> ReadSectionMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var sections = new List<SectionMetadataRow>();
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            sections.Add(new SectionMetadataRow(
-                reader.GetGuid(0),
-                reader.ReadString(1),
-                reader.ReadString(2),
-                reader.ReadInt32(3)));
-        }
-
-        return sections;
-    }
-
-    private static async Task<List<QuestionMetadataRow>> ReadQuestionMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var questions = new List<QuestionMetadataRow>();
-
-        if (!await reader.NextResultAsync(cancellationToken))
-        {
-            return questions;
-        }
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            questions.Add(new QuestionMetadataRow(
-                reader.GetGuid(0),
-                reader.GetGuid(1),
-                reader.ReadString(2),
-                reader.ReadInt32(3),
-                reader.ReadBoolean(4),
-                reader.ReadBoolean(5)));
-        }
-
-        return questions;
-    }
-
-    private static async Task<List<FieldMetadataRow>> ReadFieldMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var fields = new List<FieldMetadataRow>();
-
-        if (!await reader.NextResultAsync(cancellationToken))
-        {
-            return fields;
-        }
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            fields.Add(new FieldMetadataRow(
-                reader.GetGuid(1),
-                reader.GetGuid(2),
-                reader.ReadString(3),
-                reader.ReadInt32(4),
-                reader.ReadGuid(5),
-                reader.ReadString(6),
-                reader.ReadBoolean(7),
-                reader.ReadGuid(8),
-                reader.ReadBoolean(9),
-                reader.ReadString(11)));
-        }
-
-        return fields;
     }
 
     private static ProfileQuestionnaireMetadata BuildMetadata(

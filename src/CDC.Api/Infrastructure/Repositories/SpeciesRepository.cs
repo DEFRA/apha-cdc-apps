@@ -124,9 +124,20 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
                     cancellationToken: cancellationToken),
                 CommandBehavior.Default);
 
-            var sections = await ReadSectionMetadataAsync(reader, cancellationToken);
-            var questions = await ReadQuestionMetadataAsync(reader, cancellationToken);
-            var fields = await ReadFieldMetadataAsync(reader, cancellationToken);
+            var sections = await MetadataResultSetReader.ReadCurrentResultSetAsync(
+                reader,
+                static r => new SectionMetadataRow(r.GetGuid(0), r.ReadString(1), r.ReadString(2), r.ReadInt32(3)),
+                cancellationToken);
+
+            var questions = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => new QuestionMetadataRow(r.GetGuid(0), r.GetGuid(1), r.ReadString(2), r.ReadInt32(3), r.ReadString(4)),
+                cancellationToken);
+
+            var fields = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => MapFieldMetadataRow(r),
+                cancellationToken);
 
             return BuildMetadata(sections, questions, fields);
         }
@@ -693,78 +704,23 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         }
     }
 
-    private static async Task<List<SectionMetadataRow>> ReadSectionMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var sections = new List<SectionMetadataRow>();
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            sections.Add(new SectionMetadataRow(
-                reader.GetGuid(0),
-                reader.ReadString(1),
-                reader.ReadString(2),
-                reader.ReadInt32(3)));
-        }
-
-        return sections;
-    }
-
-    private static async Task<List<QuestionMetadataRow>> ReadQuestionMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
-    {
-        var questions = new List<QuestionMetadataRow>();
-
-        if (!await reader.NextResultAsync(cancellationToken))
-        {
-            return questions;
-        }
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            questions.Add(new QuestionMetadataRow(
-                reader.GetGuid(0),
-                reader.GetGuid(1),
-                reader.ReadString(2),
-                reader.ReadInt32(3),
-                reader.ReadString(4)));
-        }
-
-        return questions;
-    }
-
-    private static async Task<List<FieldMetadataRow>> ReadFieldMetadataAsync(
-        DbDataReader reader,
-        CancellationToken cancellationToken)
+    private static FieldMetadataRow MapFieldMetadataRow(DbDataReader reader)
     {
         const int editorFieldTypeOrdinal = 11;
-        var fields = new List<FieldMetadataRow>();
 
-        if (!await reader.NextResultAsync(cancellationToken))
-        {
-            return fields;
-        }
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            fields.Add(new FieldMetadataRow(
-                reader.GetGuid(1),
-                reader.GetGuid(2),
-                reader.ReadString(3),
-                reader.ReadString(4),
-                reader.ReadInt32(5),
-                reader.ReadGuid(6),
-                reader.ReadString(7),
-                reader.ReadBoolean(8),
-                reader.ReadGuid(9),
-                reader.ReadBoolean(10),
-                // Databases that predate the editor field type column simply omit it.
-                reader.FieldCount > editorFieldTypeOrdinal ? reader.ReadInt32(editorFieldTypeOrdinal) : 0));
-        }
-
-        return fields;
+        return new FieldMetadataRow(
+            reader.GetGuid(1),
+            reader.GetGuid(2),
+            reader.ReadString(3),
+            reader.ReadString(4),
+            reader.ReadInt32(5),
+            reader.ReadGuid(6),
+            reader.ReadString(7),
+            reader.ReadBoolean(8),
+            reader.ReadGuid(9),
+            reader.ReadBoolean(10),
+            // Databases that predate the editor field type column simply omit it.
+            reader.FieldCount > editorFieldTypeOrdinal ? reader.ReadInt32(editorFieldTypeOrdinal) : 0);
     }
 
     private static SpeciesMetadata BuildMetadata(
