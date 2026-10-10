@@ -179,6 +179,35 @@ public class ProfileSectionsApiServiceTests
         Assert.Empty(notes);
     }
 
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "sections": [{ "profileSectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b", "isValid": true }]
+            }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var status = await service.GetProfileVersionValidationStatusAsync(Guid.NewGuid());
+
+        var section = Assert.Single(status.Sections);
+        Assert.True(section.IsValid);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_ReturnsEmptySections_WhenTheResponseBodyIsNull()
+    {
+        var profileVersionId = Guid.NewGuid();
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var status = await service.GetProfileVersionValidationStatusAsync(profileVersionId);
+
+        Assert.Equal(profileVersionId, status.ProfileVersionId);
+        Assert.Empty(status.Sections);
+    }
+
     private static ProfileSectionsApiService CreateService(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

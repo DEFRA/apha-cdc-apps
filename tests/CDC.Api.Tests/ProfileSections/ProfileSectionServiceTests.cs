@@ -119,4 +119,100 @@ public class ProfileSectionServiceTests
         result.QuestionNames.Should().ContainSingle().Which.Name.Should().Be("Is it endemic?");
         result.FieldValues.Should().ContainSingle().Which.BooleanValue.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_MarksSectionValid_WhenAllMandatoryFieldsAreAnswered()
+    {
+        repository
+            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MetadataWithOneMandatoryField());
+        repository
+            .Setup(repo => repo.GetProfileSectionAnswersAsync(
+                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileSectionAnswers
+            {
+                ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+                ProfileSectionId = ProfileSectionTestData.SectionId,
+                QuestionNames = [],
+                FieldValues =
+                [
+                    new ProfileFieldValue
+                    {
+                        Id = ProfileSectionTestData.FieldValueId,
+                        QuestionId = ProfileSectionTestData.QuestionId,
+                        FieldNumber = 1,
+                        BooleanValue = true
+                    }
+                ]
+            });
+
+        var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.ProfileVersionId.Should().Be(ProfileSectionTestData.ProfileVersionId);
+        result.Sections.Should().ContainSingle().Which.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_MarksSectionInvalid_WhenAMandatoryFieldIsUnanswered()
+    {
+        repository
+            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MetadataWithOneMandatoryField());
+        repository
+            .Setup(repo => repo.GetProfileSectionAnswersAsync(
+                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileSectionAnswers
+            {
+                ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+                ProfileSectionId = ProfileSectionTestData.SectionId,
+                QuestionNames = [],
+                FieldValues = []
+            });
+
+        var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Sections.Should().ContainSingle().Which.IsValid.Should().BeFalse();
+    }
+
+    private static ProfileQuestionnaireMetadata MetadataWithOneMandatoryField() => new()
+    {
+        Sections =
+        [
+            new ProfileSectionMetadata
+            {
+                Id = ProfileSectionTestData.SectionId,
+                Name = "Epidemiology",
+                ShortName = "Epi",
+                SectionNumber = 3,
+                Questions =
+                [
+                    new ProfileQuestionMetadata
+                    {
+                        Id = ProfileSectionTestData.QuestionId,
+                        SectionId = ProfileSectionTestData.SectionId,
+                        ShortName = "Q1",
+                        QuestionNumber = 1,
+                        IsPerSpecies = false,
+                        IsRepeating = false,
+                        Fields =
+                        [
+                            new ProfileFieldMetadata
+                            {
+                                Id = ProfileSectionTestData.FieldId,
+                                QuestionId = ProfileSectionTestData.QuestionId,
+                                Name = "Is it endemic?",
+                                ShortName = "F1",
+                                FieldNumber = 1,
+                                DataFieldTypeId = ProfileSectionTestData.DataFieldTypeId,
+                                DataTypeName = "Boolean",
+                                IsMandatory = true,
+                                ReferenceTableId = Guid.Empty,
+                                ReferenceTableIsMaintainable = false
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
 }

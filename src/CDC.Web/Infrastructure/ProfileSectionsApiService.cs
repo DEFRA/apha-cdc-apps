@@ -66,4 +66,16 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
 
         return notes ?? [];
     }
+
+    /// <inheritdoc />
+    public async Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default)
+    {
+        var status = await httpClient.GetFromJsonAsync<ProfileVersionValidationStatusDto>(
+            $"/api/profile-sections/validation-status?profileVersionId={profileVersionId}",
+            cancellationToken);
+
+        return status ?? new ProfileVersionValidationStatusDto { ProfileVersionId = profileVersionId };
+    }
 }

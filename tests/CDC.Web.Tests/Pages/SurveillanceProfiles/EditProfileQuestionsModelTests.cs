@@ -29,7 +29,8 @@ public class EditProfileQuestionsModelTests
         IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
         IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
         IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
-        Exception? throwOnGetProfileNoteTypes = null)
+        Exception? throwOnGetProfileNoteTypes = null,
+        ProfileVersionValidationStatusDto? validationStatus = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -41,7 +42,8 @@ public class EditProfileQuestionsModelTests
                 referenceValuesByTable: referenceValuesByTable,
                 noteTypes: noteTypes,
                 notesByNoteType: notesByNoteType,
-                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes),
+                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes,
+                validationStatus: validationStatus),
             new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
@@ -180,6 +182,23 @@ public class EditProfileQuestionsModelTests
         Assert.Empty(pageModel.ScientificPaperReferences.Notes);
         Assert.Empty(pageModel.LegislativeReferences.Notes);
         Assert.Empty(pageModel.FurtherInformation.Notes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_PopulatesSectionValidationStatus_ForEachSectionReturnedByCdcApi()
+    {
+        var validationStatus = new ProfileVersionValidationStatusDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            Sections = [new ProfileSectionValidationStatusDto { ProfileSectionId = SummarySectionId, IsValid = true }]
+        };
+
+        var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata(), validationStatus: validationStatus);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.True(pageModel.GetSectionValidationStatus(SummarySectionId));
+        Assert.Null(pageModel.GetSectionValidationStatus(EpidemiologySectionId));
     }
 
     [Fact]

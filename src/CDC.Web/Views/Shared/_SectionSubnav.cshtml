@@ -6,7 +6,23 @@
             <li class="app-subnav__item @(item.IsCurrent ? "app-subnav__item--current" : string.Empty)">
                 <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline"
                    href="@item.Url"
-                   aria-current="@(item.IsCurrent ? "page" : null)">@item.Number. @item.Title</a>
+                   aria-current="@(item.IsCurrent ? "page" : null)">
+                    @if (item.IsValid == true)
+                    {
+                        <svg class="app-section-status app-section-status--valid" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false" title="Section validated">
+                            <path fill="currentColor" d="M8 13.4 3.6 9l-1.4 1.4L8 16.2 18 6.2 16.6 4.8z" />
+                        </svg>
+                        <span class="govuk-visually-hidden">Section validated: </span>
+                    }
+                    else if (item.IsValid == false)
+                    {
+                        <svg class="app-section-status app-section-status--invalid" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false" title="Section not validated">
+                            <path fill="currentColor" d="M15.8 5.4 14.6 4.2 10 8.8 5.4 4.2 4.2 5.4 8.8 10l-4.6 4.6 1.2 1.2L10 11.2l4.6 4.6 1.2-1.2L11.2 10z" />
+                        </svg>
+                        <span class="govuk-visually-hidden">Section not validated: </span>
+                    }
+                    @item.Number. @item.Title
+                </a>
             </li>
         }
     </ul>

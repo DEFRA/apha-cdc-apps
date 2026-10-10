@@ -22,4 +22,13 @@ public interface IProfileSectionService
         Guid profileVersionId,
         Guid profileSectionId,
         CancellationToken cancellationToken);
+
+    /// <summary>Gets one profile version's per-section validation status: whether every
+    /// mandatory field in each section has a recorded answer.</summary>
+    /// <param name="profileVersionId">The profile version to check.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The profile version's per-section validation status.</returns>
+    Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken);
 }

@@ -48,4 +48,20 @@ public class ProfileSectionHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(dto);
     }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusQueryHandler_ReturnsSuccess()
+    {
+        var dto = new ProfileVersionValidationStatusDto { ProfileVersionId = ProfileSectionTestData.ProfileVersionId };
+
+        service
+            .Setup(svc => svc.GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await new GetProfileVersionValidationStatusQueryHandler(service.Object)
+            .Handle(new GetProfileVersionValidationStatusQuery(ProfileSectionTestData.ProfileVersionId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
+    }
 }

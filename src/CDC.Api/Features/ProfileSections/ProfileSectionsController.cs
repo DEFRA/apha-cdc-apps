@@ -84,4 +84,29 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
 
         return result.ToActionResult(this);
     }
+
+    /// <summary>
+    /// Gets one profile version's per-section validation status.
+    /// </summary>
+    /// <remarks>
+    /// A section is valid once every mandatory field across its questions has a recorded answer,
+    /// matching the left-hand navigation's tick/cross indicator on the legacy
+    /// <c>EditProfileQuestions.aspx</c> page.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to check.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Each section's validation status.</returns>
+    /// <response code="200">The validation status was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpGet("validation-status")]
+    [ProducesResponseType(typeof(ProfileVersionValidationStatusDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ProfileVersionValidationStatusDto>> GetProfileVersionValidationStatus(
+        [FromQuery] Guid profileVersionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileVersionValidationStatusQuery(profileVersionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
 }

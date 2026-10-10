@@ -48,6 +48,11 @@ public class EditProfileQuestionsModel(
 
     public ProfileSectionMetadataDto? NextSection { get; private set; }
 
+    /// <summary>Gets each section's validation status (section id to whether it passed
+    /// validation), used to render the green tick/red cross against each left-nav entry.
+    /// Sections absent from this dictionary (for example, after a load failure) show no icon.</summary>
+    public IReadOnlyDictionary<Guid, bool> SectionValidationStatus { get; private set; } = new Dictionary<Guid, bool>();
+
     /// <summary>Gets the real questions and recorded answers for <see cref="CurrentSection"/>.</summary>
     public IReadOnlyList<AccordionQuestionView> Questions { get; private set; } = [];
 
@@ -119,6 +124,13 @@ public class EditProfileQuestionsModel(
             }
         }
 
+        // A separate, independent load: one section's validation status must not depend on, or
+        // block, the currently selected section's questions/notes, and vice versa.
+        if (!HasError && !HasNoVersion)
+        {
+            await LoadValidationStatusAsync(profileVersionId, cancellationToken);
+        }
+
         return Page();
     }
 
@@ -126,10 +138,30 @@ public class EditProfileQuestionsModel(
     public string? BuildSectionUrl(Guid sectionId) =>
         Url.Page("/SurveillanceProfiles/EditProfileQuestions", new { profileId = ProfileId, section = sectionId });
 
+    /// <summary>Gets one section's validation status for the left-nav tick/cross icon, or
+    /// <see langword="null"/> when it is not known (for example, after a load failure).</summary>
+    public bool? GetSectionValidationStatus(Guid sectionId) =>
+        SectionValidationStatus.TryGetValue(sectionId, out var isValid) ? isValid : null;
+
     /// <summary>Loads the current section's References and Further information tab content.
     /// Resolves each note type by name rather than a hardcoded id, since note types are reference
     /// data (<c>GET /api/profile-notes/types</c>); a missing type degrades to an empty group
     /// rather than failing the whole page.</summary>
+    /// <summary>Loads every section's validation status, resiliently: a failure here degrades to
+    /// no icons being shown rather than failing the whole page.</summary>
+    private async Task LoadValidationStatusAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var validationStatus = await profileSectionsApiService.GetProfileVersionValidationStatusAsync(profileVersionId, cancellationToken);
+            SectionValidationStatus = validationStatus.Sections.ToDictionary(section => section.ProfileSectionId, section => section.IsValid);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            logger.ProfileSectionValidationStatusLoadFailed(exception, ProfileId);
+        }
+    }
+
     private async Task LoadNotesAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
     {
         var noteTypes = await profileSectionsApiService.GetProfileNoteTypesAsync(cancellationToken);
@@ -310,4 +342,7 @@ internal static partial class EditProfileQuestionsLog
 
     [LoggerMessage(EventId = 2301, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' references/further information from CDC.Api")]
     public static partial void ProfileNotesLoadFailed(this ILogger logger, Exception exception, Guid profileId);
+
+    [LoggerMessage(EventId = 2302, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' section validation status from CDC.Api")]
+    public static partial void ProfileSectionValidationStatusLoadFailed(this ILogger logger, Exception exception, Guid profileId);
 }

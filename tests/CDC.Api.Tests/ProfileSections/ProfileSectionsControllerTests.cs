@@ -57,4 +57,20 @@ public class ProfileSectionsControllerTests
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
     }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatus_ReturnsOk()
+    {
+        var dto = new ProfileVersionValidationStatusDto { ProfileVersionId = ProfileSectionTestData.ProfileVersionId };
+
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<GetProfileVersionValidationStatusQuery>(query => query.ProfileVersionId == ProfileSectionTestData.ProfileVersionId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var response = await CreateController().GetProfileVersionValidationStatus(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
 }

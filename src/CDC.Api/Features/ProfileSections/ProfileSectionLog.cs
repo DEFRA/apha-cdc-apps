@@ -11,4 +11,7 @@ internal static partial class ProfileSectionLog
 
     [LoggerMessage(EventId = 9002, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
+
+    [LoggerMessage(EventId = 9003, Level = LogLevel.Information, Message = "Retrieved validation status for profile version {ProfileVersionId} containing {SectionCount} sections")]
+    public static partial void RetrievedProfileVersionValidationStatus(this ILogger logger, Guid profileVersionId, int sectionCount);
 }

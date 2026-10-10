@@ -47,4 +47,12 @@ public interface IProfileSectionsApiService
         Guid profileSectionId,
         Guid noteTypeId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-sections/validation-status</c>.</summary>
+    /// <param name="profileVersionId">The profile version to check.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The profile version's per-section validation status.</returns>
+    Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default);
 }

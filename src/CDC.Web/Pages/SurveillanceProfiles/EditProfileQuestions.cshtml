@@ -10,7 +10,8 @@
                 navSection.SectionNumber,
                 navSection.Name,
                 Model.BuildSectionUrl(navSection.Id),
-                Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id))]);
+                Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id,
+                Model.GetSectionValidationStatus(navSection.Id)))]);
 
     var accordionModel = new QuestionAccordionViewModel(
         "profile-questions-accordion",
