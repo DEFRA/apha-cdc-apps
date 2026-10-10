@@ -159,6 +159,22 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_PopulatesVersionInfo_FromTheProfilesCurrentVersionDisplay()
+    {
+        var profile = Profile() with
+        {
+            CurrentVersionNumber = "13.0",
+            CurrentVersionIsPublished = true,
+            CurrentVersionValidFrom = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc)
+        };
+        var pageModel = CreatePageModel(profile, metadata: TwoSectionMetadata());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal("Version 13.0 (Published) Valid from 11/09/2026", pageModel.VersionInfo);
+    }
+
+    [Fact]
     public async Task OnGetAsync_SelectsTheRequestedSection_AndComputesItsNeighbours()
     {
         var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata(), section: EpidemiologySectionId);

@@ -296,6 +296,45 @@ public class ProfileManagementServiceTests
     }
 
     [Fact]
+    public async Task GetManageProfile_PopulatesCurrentVersionDisplayFields_FromTheCurrentVersionSummary()
+    {
+        var effectiveDateFrom = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc);
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = Guid.Empty,
+            CurrentPublishedProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary
+            {
+                VersionMajor = 13,
+                VersionMinor = 0,
+                IsPublished = true,
+                EffectiveDateFrom = effectiveDateFrom
+            });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CurrentVersionNumber.Should().Be("13.0");
+        result.CurrentVersionIsPublished.Should().BeTrue();
+        result.CurrentVersionValidFrom.Should().Be(effectiveDateFrom);
+        result.CurrentVersionDisplay.Should().Be("Version 13.0 (Published) Valid from 11/09/2026");
+    }
+
+    [Fact]
     public async Task GetManageProfile_NewDraftVersionLabel_IsBasedOnThePublishedVersion_WhenThereIsNoDraft()
     {
         var publishedVersionId = Guid.NewGuid();

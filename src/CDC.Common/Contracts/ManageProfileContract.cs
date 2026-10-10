@@ -67,4 +67,41 @@ public abstract record ManageProfileContract
 
     /// <summary>Gets which action links are visible for the current user and profile state.</summary>
     public ManageProfileLinkVisibilityDto LinkVisibility { get; init; } = new();
+
+    /// <summary>Gets the major.minor version number of <see cref="CurrentProfileVersionId"/>, for
+    /// example "13.0". Empty when the profile has no current version.</summary>
+    public string CurrentVersionNumber { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether <see cref="CurrentProfileVersionId"/>'s status is
+    /// "Published" rather than "Draft".</summary>
+    public bool CurrentVersionIsPublished { get; init; }
+
+    /// <summary>Gets the date <see cref="CurrentProfileVersionId"/> became effective.</summary>
+    public DateTime? CurrentVersionValidFrom { get; init; }
+
+    /// <summary>Gets the date <see cref="CurrentProfileVersionId"/> was (or will be) superseded.
+    /// Only meaningful for a draft version; <see langword="null"/> for a current published
+    /// version.</summary>
+    public DateTime? CurrentVersionValidTo { get; init; }
+
+    /// <summary>
+    /// Gets the profile title and current version summary shown beneath it on
+    /// <c>EditProfileQuestions.aspx</c>: <c>"Version {number} (Published) Valid from {date}"</c>
+    /// for a published version, or <c>"Version {number} (Draft) Valid from {date} to {date}"</c>
+    /// for a draft. <see langword="null"/> when the profile has no current version.
+    /// </summary>
+    public string? CurrentVersionDisplay
+    {
+        get
+        {
+            if (CurrentProfileVersionId == Guid.Empty || string.IsNullOrEmpty(CurrentVersionNumber))
+            {
+                return null;
+            }
+
+            return CurrentVersionIsPublished
+                ? $"Version {CurrentVersionNumber} (Published) Valid from {CurrentVersionValidFrom:dd/MM/yyyy}"
+                : $"Version {CurrentVersionNumber} (Draft) Valid from {CurrentVersionValidFrom:dd/MM/yyyy} to {CurrentVersionValidTo:dd/MM/yyyy}";
+        }
+    }
 }

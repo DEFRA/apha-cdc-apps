@@ -32,6 +32,11 @@ public class EditProfileQuestionsModel(
     /// a "what-if" scenario), once loaded. Matches the legacy <c>ProfileVersionInfo.FullTitle</c>.</summary>
     public string? ProfileTitle { get; private set; }
 
+    /// <summary>Gets the current version's display summary (for example, "Version 13.0 (Published)
+    /// Valid from 11/09/2026"), shown centred beneath the title. <see langword="null"/> when the
+    /// profile has no current version.</summary>
+    public string? VersionInfo { get; private set; }
+
     /// <summary>Gets a value indicating whether the profile failed to load.</summary>
     public bool HasError { get; private set; }
 
@@ -80,6 +85,7 @@ public class EditProfileQuestionsModel(
             }
 
             ProfileTitle = profile.FullTitle;
+            VersionInfo = profile.CurrentVersionDisplay;
 
             var metadata = await profileSectionsApiService.GetProfileQuestionnaireMetadataAsync(cancellationToken);
             Sections = metadata.Sections;

@@ -159,6 +159,8 @@ public sealed class ProfileManagementService(
         var linkVisibility = await BuildLinkVisibilityAsync(profile, cancellationToken);
         var latestVersionId = ResolveLatestVersionId(profile);
         var newDraftVersionLabel = await FormatNewDraftVersionLabelAsync(latestVersionId, cancellationToken);
+        var currentProfileVersionId = ResolveCurrentProfileVersionId(profile);
+        var currentVersionSummary = await repository.GetProfileVersionSummaryAsync(currentProfileVersionId, cancellationToken);
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -173,10 +175,16 @@ public sealed class ProfileManagementService(
             LatestDraftVersion = draftVersionLabel,
             ProfileStatus = statusName,
             ProfileStatusId = profile.ProfileStatusId,
-            CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile),
+            CurrentProfileVersionId = currentProfileVersionId,
             NewDraftVersionLabel = newDraftVersionLabel,
             LatestVersionId = latestVersionId,
-            LinkVisibility = linkVisibility
+            LinkVisibility = linkVisibility,
+            CurrentVersionNumber = currentVersionSummary is null
+                ? string.Empty
+                : $"{currentVersionSummary.VersionMajor}.{currentVersionSummary.VersionMinor}",
+            CurrentVersionIsPublished = currentVersionSummary?.IsPublished ?? false,
+            CurrentVersionValidFrom = currentVersionSummary?.EffectiveDateFrom,
+            CurrentVersionValidTo = currentVersionSummary?.EffectiveDateTo
         };
     }
 
