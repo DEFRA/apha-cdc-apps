@@ -24,9 +24,10 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// species) are read positionally through a data reader, like <c>SpeciesRepository</c>, because
 /// they contain columns that are meaningless without a real user or that duplicate column names.
 /// Result set 2 is skipped entirely: everything it carries (which profile/scenario a version
-/// belongs to) is already present in result set 3. Result set 4 is not read in this first pass -
+/// belongs to) is already present in result set 3. Result set 4 is read into
 /// <see cref="CDC.Common.Contracts.ProfileSearchResultContract{THistoryItem,TScenario}.AffectedSpecies"/>
-/// is always empty until that is added.
+/// as species id strings (not names), matching the values the Search page's species tree picker
+/// submits, so results can be filtered by species.
 /// </para>
 /// </remarks>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
@@ -77,9 +78,21 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             // needs - skip straight past it to result set 3.
             await reader.NextResultAsync(cancellationToken);
 
-            var profiles = await reader.NextResultAsync(cancellationToken)
-                ? await ReadVersionsAsync(reader, titles, orderedProfileIds, cancellationToken)
-                : [];
+            var accumulator = new ProfileVersionAccumulator();
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                await ReadVersionsAsync(reader, titles, accumulator, cancellationToken);
+            }
+
+            // Result set 4: every (profile, species) affected-species association, used to filter
+            // search results by species on the Search page.
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                await ReadAffectedSpeciesAsync(reader, titles, accumulator, cancellationToken);
+            }
+
+            var profiles = BuildProfileResults(titles, orderedProfileIds, accumulator);
 
             logger.RetrievedAllProfiles(profiles.Count);
 
@@ -92,21 +105,47 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         }
     }
 
-    /// <summary>Reads result set 3 (every profile version) and assembles the per-profile DTOs.</summary>
-    private static async Task<List<ProfileSearchResultDto>> ReadVersionsAsync(
+    /// <summary>Reads result set 3 (every profile version) and files each version into the accumulator.</summary>
+    private static async Task ReadVersionsAsync(
         DbDataReader reader,
         Dictionary<Guid, string> titles,
-        List<Guid> orderedProfileIds,
+        ProfileVersionAccumulator accumulator,
         CancellationToken cancellationToken)
     {
-        var accumulator = new ProfileVersionAccumulator();
-
         while (await reader.ReadAsync(cancellationToken))
         {
             ProcessVersionRow(reader, titles, accumulator);
         }
+    }
 
-        return BuildProfileResults(titles, orderedProfileIds, accumulator);
+    /// <summary>Reads result set 4 (every affected-species association) and records each species
+    /// id against its root profile id.</summary>
+    private static async Task ReadAffectedSpeciesAsync(
+        DbDataReader reader,
+        Dictionary<Guid, string> titles,
+        ProfileVersionAccumulator accumulator,
+        CancellationToken cancellationToken)
+    {
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var rootProfileId = reader.GetGuid(2);
+
+            // A species row whose root profile is not in result set 1 cannot be displayed.
+            if (!titles.ContainsKey(rootProfileId))
+            {
+                continue;
+            }
+
+            var speciesId = reader.GetGuid(4);
+
+            if (!accumulator.SpeciesIdsByProfile.TryGetValue(rootProfileId, out var speciesIds))
+            {
+                speciesIds = [];
+                accumulator.SpeciesIdsByProfile[rootProfileId] = speciesIds;
+            }
+
+            speciesIds.Add(speciesId);
+        }
     }
 
     /// <summary>Reads one result-set-3 row and files its version under the right profile/bucket.</summary>
@@ -256,7 +295,9 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             CreatedAtUtc = createdAtUtc,
             ModifiedAtUtc = accumulator.Latest.GetValueOrDefault(profileId, createdAtUtc),
             IsPublic = accumulator.IsPublic.GetValueOrDefault(profileId),
-            AffectedSpecies = [],
+            AffectedSpecies = accumulator.SpeciesIdsByProfile.TryGetValue(profileId, out var speciesIds)
+                ? [.. speciesIds.Select(speciesId => speciesId.ToString())]
+                : [],
             PublishedVersions = published,
             DraftVersions = draft,
             WhatIfScenarios = whatIfScenarios
@@ -368,5 +409,8 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         public Dictionary<Guid, DateTime> Latest { get; } = [];
 
         public Dictionary<Guid, bool> IsPublic { get; } = [];
+
+        /// <summary>Every species id affecting a profile, across all its versions and scenarios.</summary>
+        public Dictionary<Guid, HashSet<Guid>> SpeciesIdsByProfile { get; } = [];
     }
 }

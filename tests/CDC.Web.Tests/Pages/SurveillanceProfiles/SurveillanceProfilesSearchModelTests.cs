@@ -21,7 +21,8 @@ public class SurveillanceProfilesSearchModelTests
         DateTime? modifiedAtUtc = null,
         IReadOnlyList<ProfileHistoryItemDto>? published = null,
         IReadOnlyList<ProfileHistoryItemDto>? draft = null,
-        IReadOnlyList<ProfileScenarioDto>? whatIfScenarios = null) => new()
+        IReadOnlyList<ProfileScenarioDto>? whatIfScenarios = null,
+        IReadOnlyList<string>? affectedSpecies = null) => new()
         {
             Id = Guid.NewGuid(),
             Title = title,
@@ -29,7 +30,7 @@ public class SurveillanceProfilesSearchModelTests
             CreatedAtUtc = DateTime.UtcNow,
             ModifiedAtUtc = modifiedAtUtc ?? DateTime.UtcNow,
             IsPublic = true,
-            AffectedSpecies = [],
+            AffectedSpecies = affectedSpecies ?? [],
             PublishedVersions = published ?? [],
             DraftVersions = draft ?? [],
             WhatIfScenarios = whatIfScenarios ?? []
@@ -135,6 +136,126 @@ public class SurveillanceProfilesSearchModelTests
 
         Assert.Equal(1, pageModel.TotalResultCount);
         Assert.Equal("<p>Leptospirosis (Weil's Disease)</p>", pageModel.SearchResults[0].Title);
+    }
+
+    [Fact]
+    public async Task PerformSearchAsync_FiltersBySelectedSpecies()
+    {
+        var cattleId = Guid.NewGuid().ToString();
+        var sheepId = Guid.NewGuid().ToString();
+        var pageModel = CreatePageModel(
+        [
+            Profile("Bovine tuberculosis", affectedSpecies: [cattleId]),
+            Profile("Sheep scab", affectedSpecies: [sheepId])
+        ]);
+        pageModel.SelectedSpecies = [cattleId];
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.TotalResultCount);
+        Assert.Equal("Bovine tuberculosis", pageModel.SearchResults[0].Title);
+    }
+
+    [Fact]
+    public async Task PerformSearchAsync_MatchesAProfile_WhenAnyOfSeveralSelectedSpeciesMatch()
+    {
+        var cattleId = Guid.NewGuid().ToString();
+        var sheepId = Guid.NewGuid().ToString();
+        var pigId = Guid.NewGuid().ToString();
+        var pageModel = CreatePageModel(
+        [
+            Profile("Bovine tuberculosis", affectedSpecies: [cattleId]),
+            Profile("Swine fever", affectedSpecies: [pigId])
+        ]);
+        pageModel.SelectedSpecies = [sheepId, pigId];
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.TotalResultCount);
+        Assert.Equal("Swine fever", pageModel.SearchResults[0].Title);
+    }
+
+    [Fact]
+    public async Task PerformSearchAsync_DoesNotFilterBySpecies_WhenNoneAreSelected()
+    {
+        var pageModel = CreatePageModel(
+        [
+            Profile("Bovine tuberculosis", affectedSpecies: [Guid.NewGuid().ToString()]),
+            Profile("Avian influenza", affectedSpecies: [])
+        ]);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(2, pageModel.TotalResultCount);
+    }
+
+    [Fact]
+    public async Task PerformSearchAsync_SelectingAParentSpecies_AlsoMatchesItsChildSpecies()
+    {
+        var cattleId = Guid.NewGuid();
+        var dairyId = Guid.NewGuid();
+        var sheepId = Guid.NewGuid();
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = cattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = dairyId, ParentId = cattleId, Description = "Dairy cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = sheepId, ParentId = Guid.Empty, Description = "Sheep", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel(
+        [
+            Profile("Bovine tuberculosis", affectedSpecies: [dairyId.ToString()]),
+            Profile("Sheep scab", affectedSpecies: [sheepId.ToString()])
+        ], species: species);
+        pageModel.SelectedSpecies = [cattleId.ToString()];
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.TotalResultCount);
+        Assert.Equal("Bovine tuberculosis", pageModel.SearchResults[0].Title);
+    }
+
+    [Fact]
+    public async Task PerformSearchAsync_SelectingAGrandparentSpecies_MatchesGrandchildSpecies()
+    {
+        var cattleId = Guid.NewGuid();
+        var dairyId = Guid.NewGuid();
+        var jerseyId = Guid.NewGuid();
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = cattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = dairyId, ParentId = cattleId, Description = "Dairy cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = jerseyId, ParentId = dairyId, Description = "Jersey", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel([Profile("Bovine tuberculosis", affectedSpecies: [jerseyId.ToString()])], species: species);
+        pageModel.SelectedSpecies = [cattleId.ToString()];
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.TotalResultCount);
+    }
+
+    [Fact]
+    public async Task PerformSearchAsync_SelectingAChildSpecies_DoesNotMatchItsParentOrSiblingSpecies()
+    {
+        var cattleId = Guid.NewGuid();
+        var dairyId = Guid.NewGuid();
+        var beefId = Guid.NewGuid();
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = cattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = dairyId, ParentId = cattleId, Description = "Dairy cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = beefId, ParentId = cattleId, Description = "Beef cattle", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel(
+        [
+            Profile("Bovine tuberculosis (all cattle)", affectedSpecies: [cattleId.ToString()]),
+            Profile("Beef-only disease", affectedSpecies: [beefId.ToString()])
+        ], species: species);
+        pageModel.SelectedSpecies = [dairyId.ToString()];
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(0, pageModel.TotalResultCount);
     }
 
     [Theory]
