@@ -647,7 +647,7 @@ public class EditProfileQuestionsModel(
         }
 
         var isHtml = string.Equals(field.DataTypeName, "Long Text", StringComparison.OrdinalIgnoreCase);
-        ProfileFieldValueDto? recordedValue = recordedValues.Count > 0 ? recordedValues[0] : null;
+        var recordedValue = recordedValues.Count > 0 ? recordedValues[0] : null;
 
         return new ProfileFieldEditView
         {

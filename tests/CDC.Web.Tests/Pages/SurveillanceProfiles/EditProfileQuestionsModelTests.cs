@@ -43,7 +43,10 @@ public class EditProfileQuestionsModelTests
         Exception? throwOnClearProfileVersionSection = null,
         IReadOnlyList<ProfileSectionContributionDto>? contributions = null,
         IReadOnlyList<ProfileReviewCommentDto>? reviewComments = null,
-        ProfileVersionAllRevisionDatesDto? allRevisionDates = null)
+        ProfileVersionAllRevisionDatesDto? allRevisionDates = null,
+        Exception? throwOnGetProfileVersionSectionContributions = null,
+        Exception? throwOnGetProfileSectionReviewComments = null,
+        Exception? throwOnGetProfileVersionAllRevisionDates = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -62,7 +65,10 @@ public class EditProfileQuestionsModelTests
                 throwOnClearProfileVersionSection: throwOnClearProfileVersionSection,
                 contributions: contributions,
                 reviewComments: reviewComments,
-                allRevisionDates: allRevisionDates),
+                allRevisionDates: allRevisionDates,
+                throwOnGetProfileVersionSectionContributions: throwOnGetProfileVersionSectionContributions,
+                throwOnGetProfileSectionReviewComments: throwOnGetProfileSectionReviewComments,
+                throwOnGetProfileVersionAllRevisionDates: throwOnGetProfileVersionAllRevisionDates),
             new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
@@ -798,6 +804,64 @@ public class EditProfileQuestionsModelTests
         Assert.Equal("01/01/2027", section.NextTechnicalReviewDisplay);
         Assert.Equal("Not set", section.PolicyReviewFrequencyDisplay);
         Assert.Equal("Not set", section.NextPolicyReviewDisplay);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_FormatsASingleMonthFrequency_WithoutAPluralSuffix()
+    {
+        var allRevisionDates = new ProfileVersionAllRevisionDatesDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            Sections = [new ProfileSectionRevisionDatesDto { ProfileSectionId = SummarySectionId, SectionName = "Summary", SectionNumber = 1, TechnicalReviewFrequencyMonths = 1 }]
+        };
+
+        var pageModel = CreatePageModel(DraftProfileWithAllTabsVisible(), metadata: TwoSectionMetadata(), allRevisionDates: allRevisionDates);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal("1 month", Assert.Single(pageModel.AllRevisionDates).TechnicalReviewFrequencyDisplay);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotFail_WhenLoadingContributionsThrows()
+    {
+        var pageModel = CreatePageModel(
+            DraftProfileWithAllTabsVisible(),
+            metadata: TwoSectionMetadata(),
+            throwOnGetProfileVersionSectionContributions: new HttpRequestException("boom"));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasError);
+        Assert.Empty(pageModel.Contributions);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotFail_WhenLoadingReviewCommentsThrows()
+    {
+        var pageModel = CreatePageModel(
+            DraftProfileWithAllTabsVisible(),
+            metadata: TwoSectionMetadata(),
+            throwOnGetProfileSectionReviewComments: new HttpRequestException("boom"));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasError);
+        Assert.Empty(pageModel.ReviewComments);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotFail_WhenLoadingAllRevisionDatesThrows()
+    {
+        var pageModel = CreatePageModel(
+            DraftProfileWithAllTabsVisible(),
+            metadata: TwoSectionMetadata(),
+            throwOnGetProfileVersionAllRevisionDates: new HttpRequestException("boom"));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasError);
+        Assert.Empty(pageModel.AllRevisionDates);
     }
 
     [Fact]

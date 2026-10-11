@@ -21,7 +21,10 @@ internal sealed class FakeProfileSectionsApiService(
     Exception? throwOnSaveProfileVersionSection = null,
     IReadOnlyList<ProfileSectionContributionDto>? contributions = null,
     IReadOnlyList<ProfileReviewCommentDto>? reviewComments = null,
-    ProfileVersionAllRevisionDatesDto? allRevisionDates = null)
+    ProfileVersionAllRevisionDatesDto? allRevisionDates = null,
+    Exception? throwOnGetProfileVersionSectionContributions = null,
+    Exception? throwOnGetProfileSectionReviewComments = null,
+    Exception? throwOnGetProfileVersionAllRevisionDates = null)
     : IProfileSectionsApiService
 {
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
@@ -88,16 +91,22 @@ internal sealed class FakeProfileSectionsApiService(
         Guid profileVersionId,
         Guid profileSectionId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(contributions ?? []);
+        throwOnGetProfileVersionSectionContributions is not null
+            ? Task.FromException<IReadOnlyList<ProfileSectionContributionDto>>(throwOnGetProfileVersionSectionContributions)
+            : Task.FromResult(contributions ?? []);
 
     public Task<IReadOnlyList<ProfileReviewCommentDto>> GetProfileSectionReviewCommentsAsync(
         Guid profileVersionId,
         Guid profileSectionId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(reviewComments ?? []);
+        throwOnGetProfileSectionReviewComments is not null
+            ? Task.FromException<IReadOnlyList<ProfileReviewCommentDto>>(throwOnGetProfileSectionReviewComments)
+            : Task.FromResult(reviewComments ?? []);
 
     public Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(allRevisionDates ?? new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId });
+        throwOnGetProfileVersionAllRevisionDates is not null
+            ? Task.FromException<ProfileVersionAllRevisionDatesDto>(throwOnGetProfileVersionAllRevisionDates)
+            : Task.FromResult(allRevisionDates ?? new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId });
 }

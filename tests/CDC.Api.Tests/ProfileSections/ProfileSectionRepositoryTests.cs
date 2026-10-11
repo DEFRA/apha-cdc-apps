@@ -499,6 +499,33 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProfileVersionSectionRevisionInfoAsync_MapsNullFrequenciesAndDates()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                FakeResultSet.Empty("Id", "Name", "IsActive"),
+                new FakeResultSet(
+                    [
+                        "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "NextTechnicalReview",
+                        "NextPolicyReview", "LastUpdated", "ParentId", "PolicyReviewStatusId", "TechnicalReviewStatusId"
+                    ],
+                    [[ProfileSectionTestData.SectionId, null, null, null, null, null, null, null, null]])
+            ]
+        });
+
+        var revisionInfo = await CreateRepository().GetProfileVersionSectionRevisionInfoAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
+
+        revisionInfo.Should().NotBeNull();
+        revisionInfo.TechnicalReviewFrequencyMonths.Should().BeNull();
+        revisionInfo.NextTechnicalReview.Should().BeNull();
+        revisionInfo.PolicyReviewFrequencyMonths.Should().BeNull();
+        revisionInfo.NextPolicyReview.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetProfileVersionSectionRevisionInfoAsync_ReturnsNull_WhenSectionHasNoRevisionRow()
     {
         connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript

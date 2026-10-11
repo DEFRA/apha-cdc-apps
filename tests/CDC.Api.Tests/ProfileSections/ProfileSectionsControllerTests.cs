@@ -100,7 +100,7 @@ public class ProfileSectionsControllerTests
     public async Task ClearProfileVersionSection_ReturnsOk_AndForwardsTheCommand()
     {
         var dto = new ClearProfileSectionResultDto { FieldsClearedCount = 2 };
-        var command = new ClearProfileVersionSectionCommand(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId);
+        var command = new ClearProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId };
 
         mediator
             .Setup(sender => sender.Send(command, It.IsAny<CancellationToken>()))
@@ -116,7 +116,7 @@ public class ProfileSectionsControllerTests
     {
         var dto = new SaveProfileSectionResultDto { FieldsSavedCount = 3 };
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes" } };
-        var command = new SaveProfileVersionSectionCommand(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers);
+        var command = new SaveProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, Answers = answers };
 
         mediator
             .Setup(sender => sender.Send(command, It.IsAny<CancellationToken>()))

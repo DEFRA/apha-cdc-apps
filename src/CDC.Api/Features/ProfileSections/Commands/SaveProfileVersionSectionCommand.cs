@@ -10,14 +10,17 @@ namespace CDC.Api.Features.ProfileSections.Commands;
 /// Saves every submitted field answer in one profile version's section, matching the legacy
 /// <c>IProfileField.Save()</c> pathway for standard (non-per-species, non-repeating) questions.
 /// </summary>
-/// <param name="ProfileVersionId">The profile version being answered.</param>
-/// <param name="ProfileSectionId">The section being answered.</param>
-/// <param name="Answers">The submitted field answers.</param>
-public sealed record SaveProfileVersionSectionCommand(
-    Guid ProfileVersionId,
-    Guid ProfileSectionId,
-    IReadOnlyList<ProfileFieldAnswerInputDto> Answers)
-    : IRequest<Result<SaveProfileSectionResultDto>>;
+public sealed record SaveProfileVersionSectionCommand : IRequest<Result<SaveProfileSectionResultDto>>
+{
+    /// <summary>Gets the profile version being answered.</summary>
+    public required Guid ProfileVersionId { get; init; }
+
+    /// <summary>Gets the section being answered.</summary>
+    public required Guid ProfileSectionId { get; init; }
+
+    /// <summary>Gets the submitted field answers.</summary>
+    public required IReadOnlyList<ProfileFieldAnswerInputDto> Answers { get; init; }
+}
 
 /// <summary>Validates <see cref="SaveProfileVersionSectionCommand"/>.</summary>
 public sealed class SaveProfileVersionSectionCommandValidator : AbstractValidator<SaveProfileVersionSectionCommand>

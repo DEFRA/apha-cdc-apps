@@ -10,10 +10,14 @@ namespace CDC.Api.Features.ProfileSections.Commands;
 /// Clears every recorded answer in one profile version's section, matching the legacy
 /// <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway.
 /// </summary>
-/// <param name="ProfileVersionId">The profile version to clear.</param>
-/// <param name="ProfileSectionId">The section to clear.</param>
-public sealed record ClearProfileVersionSectionCommand(Guid ProfileVersionId, Guid ProfileSectionId)
-    : IRequest<Result<ClearProfileSectionResultDto>>;
+public sealed record ClearProfileVersionSectionCommand : IRequest<Result<ClearProfileSectionResultDto>>
+{
+    /// <summary>Gets the profile version to clear.</summary>
+    public required Guid ProfileVersionId { get; init; }
+
+    /// <summary>Gets the section to clear.</summary>
+    public required Guid ProfileSectionId { get; init; }
+}
 
 /// <summary>Validates <see cref="ClearProfileVersionSectionCommand"/>.</summary>
 public sealed class ClearProfileVersionSectionCommandValidator : AbstractValidator<ClearProfileVersionSectionCommand>

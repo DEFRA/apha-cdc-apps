@@ -101,7 +101,7 @@ public class ProfileSectionHandlerTests
 
         var result = await new ClearProfileVersionSectionCommandHandler(service.Object)
             .Handle(
-                new ClearProfileVersionSectionCommand(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId),
+                new ClearProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId },
                 CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -124,7 +124,7 @@ public class ProfileSectionHandlerTests
 
         var result = await new SaveProfileVersionSectionCommandHandler(service.Object)
             .Handle(
-                new SaveProfileVersionSectionCommand(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers),
+                new SaveProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, Answers = answers },
                 CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();

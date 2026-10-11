@@ -154,7 +154,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     new
                     {
                         ProfileVersionId = profileVersionId,
-                        ProfileFieldId = instruction.ProfileFieldId,
+                        instruction.ProfileFieldId,
                         instruction.SpeciesId,
                         instruction.ProfileVersionQuestionRowId
                     },
