@@ -37,6 +37,52 @@ public class ManageProfileContractTests
     }
 
     [Fact]
+    public void CurrentVersionDisplay_AppendsProfileStatus_ForACurrentDraftWithNoValidToDate()
+    {
+        var response = new GetManageProfileResponse
+        {
+            CurrentProfileVersionId = CurrentProfileVersionId,
+            CurrentVersionNumber = "11.5",
+            CurrentVersionIsPublished = false,
+            CurrentVersionValidFrom = new DateTime(2026, 10, 4, 0, 0, 0, DateTimeKind.Utc),
+            ProfileStatus = "Validation complete"
+        };
+
+        response.CurrentVersionDisplay.Should().Be("Version 11.5 (Draft) Valid from 04/10/2026 (Validation complete)");
+    }
+
+    [Fact]
+    public void CurrentVersionDisplay_OmitsProfileStatus_ForACurrentPublishedVersion_EvenWhenSet()
+    {
+        var response = new GetManageProfileResponse
+        {
+            CurrentProfileVersionId = CurrentProfileVersionId,
+            CurrentVersionNumber = "13.0",
+            CurrentVersionIsPublished = true,
+            CurrentVersionValidFrom = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            ProfileStatus = "Validation complete"
+        };
+
+        response.CurrentVersionDisplay.Should().Be("Version 13.0 (Published) Valid from 11/09/2026");
+    }
+
+    [Fact]
+    public void CurrentVersionDisplay_OmitsProfileStatus_WhenThereIsAValidToDate_EvenForADraft()
+    {
+        var response = new GetManageProfileResponse
+        {
+            CurrentProfileVersionId = CurrentProfileVersionId,
+            CurrentVersionNumber = "12.2",
+            CurrentVersionIsPublished = false,
+            CurrentVersionValidFrom = new DateTime(2026, 7, 29, 0, 0, 0, DateTimeKind.Utc),
+            CurrentVersionValidTo = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            ProfileStatus = "Validation complete"
+        };
+
+        response.CurrentVersionDisplay.Should().Be("Version 12.2 (Draft) Valid from 29/07/2026 to 11/09/2026");
+    }
+
+    [Fact]
     public void CurrentVersionDisplay_IsNull_WhenTheProfileHasNoCurrentVersion()
     {
         var response = new GetManageProfileResponse

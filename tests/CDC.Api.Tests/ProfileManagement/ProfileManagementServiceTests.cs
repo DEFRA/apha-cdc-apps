@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Commands;
@@ -12,10 +13,10 @@ public class ProfileManagementServiceTests
 {
     private readonly Mock<IProfileManagementRepository> repository = new(MockBehavior.Strict);
 
-    private CDC.Api.Features.ProfileManagement.ProfileManagementService CreateService() =>
+    private CDC.Api.Features.ProfileManagement.ProfileManagementService CreateService(IUserContext? userContext = null) =>
         new(
             repository.Object,
-            ManageProfileLinkVisibilityTests.TestUserContext.ProfileEditor,
+            userContext ?? ManageProfileLinkVisibilityTests.TestUserContext.ProfileEditor,
             NullLogger<CDC.Api.Features.ProfileManagement.ProfileManagementService>.Instance);
 
     [Fact]
@@ -332,6 +333,144 @@ public class ProfileManagementServiceTests
         result.CurrentVersionIsPublished.Should().BeTrue();
         result.CurrentVersionValidFrom.Should().Be(effectiveDateFrom);
         result.CurrentVersionDisplay.Should().Be("Version 13.0 (Published) Valid from 11/09/2026");
+        result.CanPrintProfileSection.Should().BeFalse();
+        result.CanViewProfileReports.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_AllowsPrintingAndViewingReports_ForACurrentDraftVersion_WhenUserIsProfileEditor()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 11, VersionMinor = 5, IsPublished = false });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanPrintProfileSection.Should().BeTrue();
+        result.CanViewProfileReports.Should().BeTrue();
+        result.CanEditProfileSection.Should().BeTrue();
+        result.CanClearProfileSection.Should().BeTrue();
+        result.CanViewReviewComments.Should().BeTrue();
+        result.CanViewContributions.Should().BeTrue();
+        result.CanViewAllRevisionDates.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_DeniesEditingAndClearing_ForACurrentDraftVersion_WhenUserIsAUserManagementSystemAccount()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 11, VersionMinor = 5, IsPublished = false });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService(ManageProfileLinkVisibilityTests.TestUserContext.UserManagementSystem)
+            .GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanEditProfileSection.Should().BeFalse();
+        result.CanClearProfileSection.Should().BeFalse();
+        result.CanViewReviewComments.Should().BeFalse();
+        result.CanViewContributions.Should().BeFalse();
+        result.CanViewAllRevisionDates.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_DeniesPrintingAndViewingReports_ForACurrentDraftVersion_WhenUserIsReadOnly()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 11, VersionMinor = 5, IsPublished = false });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService(ManageProfileLinkVisibilityTests.TestUserContext.ReadOnly)
+            .GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanPrintProfileSection.Should().BeFalse();
+        result.CanViewProfileReports.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_AllowsPrinting_ButNotViewingReports_ForADraftVersionWithAnEffectiveToDate()
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CurrentPublishedProfileVersionId = Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary
+            {
+                VersionMajor = 12,
+                VersionMinor = 2,
+                IsPublished = false,
+                EffectiveDateTo = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc)
+            });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanPrintProfileSection.Should().BeTrue();
+        result.CanViewProfileReports.Should().BeFalse();
     }
 
     [Fact]

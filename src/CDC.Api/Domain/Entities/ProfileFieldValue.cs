@@ -15,6 +15,16 @@ public sealed record ProfileFieldValue : BaseEntity
     /// <summary>Gets the position of the field within its question.</summary>
     public required int FieldNumber { get; init; }
 
+    /// <summary>Gets the species this value is recorded against, for a per-species question.
+    /// <see langword="null"/> otherwise. Not exposed over HTTP - used only to target the exact
+    /// row when clearing an answer.</summary>
+    public Guid? SpeciesId { get; init; }
+
+    /// <summary>Gets the repeating-question row this value is recorded against. <see
+    /// langword="null"/> for a non-repeating question. Not exposed over HTTP - used only to
+    /// target the exact row when clearing an answer.</summary>
+    public Guid? ProfileVersionQuestionRowId { get; init; }
+
     /// <summary>Gets the answer for a boolean field, or <see langword="null"/>.</summary>
     public bool? BooleanValue { get; init; }
 

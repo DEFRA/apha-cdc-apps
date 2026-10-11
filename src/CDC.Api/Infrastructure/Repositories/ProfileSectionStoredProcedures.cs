@@ -16,4 +16,35 @@ public static class ProfileSectionStoredProcedures
     /// names and field values result sets are used.
     /// </summary>
     public const string GetProfileVersionSection = "spgProfileVersionSection";
+
+    /// <summary>
+    /// Clears (or updates) one recorded single-value field answer. Called with no value
+    /// parameter, this deletes the matching <c>ProfileVersionFieldValue</c> row.
+    /// </summary>
+    public const string ClearProfileVersionFieldValue = "spuProfileVersionFieldValue";
+
+    /// <summary>Deletes every recorded value for one "MultiValueList" field.</summary>
+    public const string ClearProfileVersionFieldMultiValue = "spdProfileVersionFieldMultiValue";
+
+    /// <summary>Logs a user's contribution to a profile version section.</summary>
+    public const string LogProfileVersionSectionContribution = "spiProfileVersionSectionUser";
+
+    /// <summary>
+    /// Inserts, updates, or (with every value parameter left NULL) deletes one recorded
+    /// single-value field answer. Same stored procedure as <see cref="ClearProfileVersionFieldValue"/>;
+    /// named separately here because a save call always supplies a value.
+    /// </summary>
+    public const string UpsertProfileVersionFieldValue = "spuProfileVersionFieldValue";
+
+    /// <summary>Inserts one recorded value row for a "MultiValueList" field.</summary>
+    public const string InsertProfileVersionFieldMultiValue = "spiProfileVersionFieldMultiValue";
+
+    /// <summary>Reads every logged contribution (user, organisation, last contribution date) for
+    /// one profile version's section, for the "Contributions" tab.</summary>
+    public const string GetProfileVersionSectionContributions = "spgProfileVersionSectionUser";
+
+    /// <summary>Reads every review comment (and reply) for one profile version's section, for the
+    /// "Review comments" tab. A recursive query; rows are pre-ordered so each reply immediately
+    /// follows its parent.</summary>
+    public const string GetProfileSectionReviewComments = "spgReviewCommentByProfileVersionSection";
 }

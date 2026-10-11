@@ -899,6 +899,93 @@ body {
   background-color: rgba(255, 255, 255, 0.5);
 }
 
+/* Edit/validity/help status icons shown top-right of each question in the accordion
+   (EditProfileQuestions), matching the legacy CollapsiblePanel header icons. */
+.app-question-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-question-status-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.app-question-status-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Horizontally-scrolling tab strip with "view more tabs" controls, matching the legacy
+   Profiles.WebControls.TabStrip carousel behaviour for EditProfileQuestions. */
+.app-tab-carousel {
+  position: relative;
+}
+
+.app-tab-carousel__nav {
+  display: none;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.app-tab-carousel--overflowing .app-tab-carousel__nav {
+  display: flex;
+}
+
+.app-tab-carousel__scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-tab-carousel__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.app-tab-carousel__scroll .govuk-tabs__list {
+  display: flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* Rich text toolbar above a "Long Text" field, matching the legacy TinyMCE toolbar
+   (Undo, Redo, Italic, Bullets, Link). */
+.app-richtext-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: none;
+  padding: 0.25rem;
+  background-color: #f3f2f1;
+}
+
+.app-richtext-toolbar__button {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.app-richtext-toolbar__button:hover,
+.app-richtext-toolbar__button:focus {
+  border-color: var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-richtext-editor {
+  border: 1px solid var(--govuk-border-colour, #0b0c0c);
+  min-height: 150px;
+  padding: 0.5rem;
+  background-color: #fff;
+}
+
+.app-richtext-editor:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
+}
+
 /* The Menu button reuses govuk-service-navigation's toggle styling, but is driven by our own
    custom JS (js/header-menu.js) so it always shows/hides the panel at any screen width. */
 .app-header__menu .govuk-service-navigation__toggle {
