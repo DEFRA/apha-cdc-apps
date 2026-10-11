@@ -25,6 +25,22 @@ public class SectionNavItemTests
     }
 
     [Fact]
+    public void SectionNavItem_DefaultsIsValidToNull()
+    {
+        var item = new SectionNavItem(1, "Section 1", "/section-1");
+
+        Assert.Null(item.IsValid);
+    }
+
+    [Fact]
+    public void SectionNavItem_SetsIsValid_WhenExplicitlyProvided()
+    {
+        var item = new SectionNavItem(1, "Section 1", "/section-1", IsValid: false);
+
+        Assert.False(item.IsValid);
+    }
+
+    [Fact]
     public void SectionSubnavViewModel_HoldsAriaLabelAndItems()
     {
         IReadOnlyList<SectionNavItem> items = [new SectionNavItem(1, "Section 1", "/section-1")];

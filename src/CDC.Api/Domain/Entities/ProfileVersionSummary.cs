@@ -23,4 +23,14 @@ public sealed record ProfileVersionSummary
     /// Defaults to <see langword="false"/> if the column cannot be found, rather than guessing.
     /// </remarks>
     public bool IsPublic { get; init; }
+
+    /// <summary>Gets a value indicating whether this version's status is "Published" rather than "Draft".</summary>
+    public bool IsPublished { get; init; }
+
+    /// <summary>Gets the date this version became effective.</summary>
+    public DateTime? EffectiveDateFrom { get; init; }
+
+    /// <summary>Gets the date this version was (or will be) superseded, or <see langword="null"/>
+    /// while it is current.</summary>
+    public DateTime? EffectiveDateTo { get; init; }
 }

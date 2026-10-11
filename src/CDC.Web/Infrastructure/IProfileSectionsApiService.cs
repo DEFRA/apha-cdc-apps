@@ -47,4 +47,72 @@ public interface IProfileSectionsApiService
         Guid profileSectionId,
         Guid noteTypeId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-sections/validation-status</c>.</summary>
+    /// <param name="profileVersionId">The profile version to check.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The profile version's per-section validation status.</returns>
+    Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-sections/validate</c>.</summary>
+    /// <param name="profileVersionId">The profile version to validate.</param>
+    /// <param name="profileSectionId">The section to validate.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>POST /api/profile-sections/clear</c>.</summary>
+    /// <param name="profileVersionId">The profile version to clear.</param>
+    /// <param name="profileSectionId">The section to clear.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The number of fields cleared.</returns>
+    Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>POST /api/profile-sections/save</c>.</summary>
+    /// <param name="profileVersionId">The profile version being answered.</param>
+    /// <param name="profileSectionId">The section being answered.</param>
+    /// <param name="answers">The submitted field answers.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The number of fields saved.</returns>
+    Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-sections/contributions</c>.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="profileSectionId">The section to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every logged contribution, most recent first.</returns>
+    Task<IReadOnlyList<ProfileSectionContributionDto>> GetProfileVersionSectionContributionsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-sections/review-comments</c>.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="profileSectionId">The section to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every review comment, in thread order.</returns>
+    Task<IReadOnlyList<ProfileReviewCommentDto>> GetProfileSectionReviewCommentsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-sections/all-revision-dates</c>.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Each section's revision dates, in section-number order.</returns>
+    Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default);
 }

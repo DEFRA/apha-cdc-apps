@@ -10,9 +10,10 @@
                 navSection.SectionNumber,
                 navSection.Name,
                 Model.BuildSectionUrl(navSection.Id),
-                Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id))]);
+                Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id,
+                Model.GetSectionValidationStatus(navSection.Id)))]);
 
-    var accordionModel = new QuestionAccordionViewModel(
+    var accordionModel = new QuestionEditAccordionViewModel(
         "profile-questions-accordion",
         "No questions are available for this section.",
         Model.Questions);
@@ -54,12 +55,36 @@
 }
 else
 {
-    <h1 class="govuk-heading-l">Title: @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)</h1>
+    <h1 class="govuk-heading-l govuk-!-text-align-centre">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)</h1>
+    @if (Model.VersionInfo is not null)
+    {
+        <p class="govuk-body govuk-!-text-align-centre">@Model.VersionInfo</p>
+    }
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-one-quarter">
             <h2 class="govuk-heading-s">Profile reports</h2>
-            <p class="govuk-body govuk-!-font-size-16">Report generation is not yet available in this migrated view.</p>
+            @if (Model.CanPrintProfileSection || Model.CanViewProfileReports)
+            {
+                @* Report generation (print/summary PDFs) is not implemented yet; only visibility
+                   is ported from the legacy CanGetPrintVersion()/CanGetSummaryReport() rules. *@
+                <ul class="govuk-list govuk-body govuk-!-font-size-16">
+                    @if (Model.CanPrintProfileSection)
+                    {
+                        <li>Print full profile</li>
+                    }
+                    @if (Model.CanViewProfileReports)
+                    {
+                        <li>Summary profile report</li>
+                        <li>Summary prioritisation report</li>
+                    }
+                </ul>
+                <p class="govuk-body govuk-!-font-size-16">Report generation is not yet available in this migrated view.</p>
+            }
+            else
+            {
+                <p class="govuk-body govuk-!-font-size-16">No profile reports are available for this version.</p>
+            }
 
             <h2 class="govuk-heading-s">Profile references</h2>
             <partial name="_SectionSubnav" model="subnavModel" />
@@ -73,54 +98,290 @@ else
             {
                 <h2 class="govuk-heading-m">@Model.CurrentSection.Name</h2>
 
-                <div class="govuk-tabs" data-module="govuk-tabs">
-                    <h2 class="govuk-tabs__title">Contents</h2>
-                    <ul class="govuk-tabs__list">
-                        <li class="govuk-tabs__list-item govuk-tabs__list-item--selected">
-                            <a class="govuk-tabs__tab" href="#profile-questions-panel">Questions</a>
-                        </li>
-                        <li class="govuk-tabs__list-item">
-                            <a class="govuk-tabs__tab" href="#profile-references-panel">References</a>
-                        </li>
-                        <li class="govuk-tabs__list-item">
-                            <a class="govuk-tabs__tab" href="#profile-further-information-panel">Further information</a>
-                        </li>
-                    </ul>
-                    <div class="govuk-tabs__panel" id="profile-questions-panel">
-                        @if (Model.HasNoVersion)
+                @if (Model.HasValidated && Model.UnansweredQuestions.Count > 0)
+                {
+                    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="section-validation-error-summary-title">
+                        <div role="alert">
+                            <h2 class="govuk-error-summary__title" id="section-validation-error-summary-title">There is a problem</h2>
+                            <div class="govuk-error-summary__body">
+                                <p class="govuk-body">The following mandatory questions have not been answered:</p>
+                                <ul class="govuk-list govuk-list--bullet">
+                                    @foreach (var unansweredQuestion in Model.UnansweredQuestions)
+                                    {
+                                        <li>@unansweredQuestion</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (Model.HasValidated)
+                {
+                    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="section-validation-success-title" data-module="govuk-notification-banner">
+                        <div class="govuk-notification-banner__header">
+                            <h2 class="govuk-notification-banner__title" id="section-validation-success-title">Success</h2>
+                        </div>
+                        <div class="govuk-notification-banner__content">
+                            <p class="govuk-notification-banner__heading">All mandatory questions in this section have been answered.</p>
+                        </div>
+                    </div>
+                }
+
+                @if (Model.FieldsClearedCount is not null)
+                {
+                    <section class="govuk-notification-banner" aria-labelledby="section-clear-notification-title" data-module="govuk-notification-banner">
+                        <div class="govuk-notification-banner__header">
+                            <h2 class="govuk-notification-banner__title" id="section-clear-notification-title">Important</h2>
+                        </div>
+                        <div class="govuk-notification-banner__content">
+                            <p class="govuk-notification-banner__heading">This section's answers have been cleared.</p>
+                        </div>
+                    </section>
+                }
+
+                @if (Model.FieldsSavedCount is not null)
+                {
+                    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="section-save-success-title" data-module="govuk-notification-banner">
+                        <div class="govuk-notification-banner__header">
+                            <h2 class="govuk-notification-banner__title" id="section-save-success-title">Success</h2>
+                        </div>
+                        <div class="govuk-notification-banner__content">
+                            <p class="govuk-notification-banner__heading">This section's answers have been saved.</p>
+                        </div>
+                    </div>
+                }
+
+                <form method="post">
+                    <input type="hidden" name="profileVersionId" value="@Model.CurrentProfileVersionId" />
+
+                    @if (Model.CanEditProfileSection || Model.CanClearProfileSection || Model.CanPrintProfileSection)
+                    {
+                        <div class="govuk-button-group">
+                            @if (Model.CanEditProfileSection)
+                            {
+                                <button type="submit" asp-page-handler="SaveSection" class="govuk-button" data-module="govuk-button">Save</button>
+                                <button type="submit" asp-page-handler="ValidateSection" class="govuk-button govuk-button--secondary" data-module="govuk-button">Validate</button>
+                            }
+                            @if (Model.CanClearProfileSection)
+                            {
+                                <button type="submit" asp-page-handler="ClearSection" class="govuk-button govuk-button--warning" data-module="govuk-button">Clear</button>
+                            }
+                            @if (Model.CanPrintProfileSection)
+                            {
+                                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" onclick="window.print(); return false;">Print</button>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.SaveValidationErrors.Count > 0)
+                    {
+                        <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="section-save-error-summary-title">
+                            <div role="alert">
+                                <h2 class="govuk-error-summary__title" id="section-save-error-summary-title">There is a problem</h2>
+                                <div class="govuk-error-summary__body">
+                                    <ul class="govuk-list govuk-error-summary__list">
+                                        @foreach (var error in Model.SaveValidationErrors)
+                                        {
+                                            <li>@error</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="govuk-tabs app-tab-carousel" data-module="govuk-tabs">
+                        <h2 class="govuk-tabs__title">Contents</h2>
+                        <div class="app-tab-carousel__nav">
+                            <button type="button" class="govuk-link app-richtext-toolbar__button" data-tab-scroll="left" title="scroll tabs left">
+                                <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                    <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.449-4.1856-3.9768h12.896v-2h-12.984l4.2931-4.293-1.414-1.414z"></path>
+                                </svg>
+                                view more tabs
+                            </button>
+                            <button type="button" class="govuk-link app-richtext-toolbar__button" data-tab-scroll="right" title="scroll tabs right">
+                                view more tabs
+                                <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                    <path d="m8.107-0.0078125-1.4136 1.414 4.2926 4.293h-12.986v2h12.896l-4.1855 3.9766 1.377 1.4492 6.7441-6.4062-6.7246-6.7266z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="app-tab-carousel__scroll">
+                            <ul class="govuk-tabs__list">
+                                <li class="govuk-tabs__list-item govuk-tabs__list-item--selected">
+                                    <a class="govuk-tabs__tab" href="#profile-questions-panel">Questions</a>
+                                </li>
+                                <li class="govuk-tabs__list-item">
+                                    <a class="govuk-tabs__tab" href="#profile-references-panel">References</a>
+                                </li>
+                                <li class="govuk-tabs__list-item">
+                                    <a class="govuk-tabs__tab" href="#profile-further-information-panel">Further information</a>
+                                </li>
+                                @if (Model.CanViewReviewComments)
+                                {
+                                    <li class="govuk-tabs__list-item">
+                                        <a class="govuk-tabs__tab" href="#profile-review-comments-panel">Review comments</a>
+                                    </li>
+                                }
+                                @if (Model.CanViewContributions)
+                                {
+                                    <li class="govuk-tabs__list-item">
+                                        <a class="govuk-tabs__tab" href="#profile-contributions-panel">Contributions</a>
+                                    </li>
+                                }
+                                @if (Model.CanViewAllRevisionDates)
+                                {
+                                    <li class="govuk-tabs__list-item">
+                                        <a class="govuk-tabs__tab" href="#profile-all-revision-dates-panel">All Revision dates</a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                        <div class="govuk-tabs__panel" id="profile-questions-panel">
+                            @if (Model.HasNoVersion)
+                            {
+                                <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                            }
+                            else
+                            {
+                                <partial name="_ProfileQuestionEditAccordion" model="accordionModel" />
+                            }
+                        </div>
+                        <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-references-panel">
+                            @if (Model.HasNoVersion)
+                            {
+                                <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                            }
+                            else
+                            {
+                                <partial name="_ProfileNoteList" model="Model.ScientificPaperReferences" />
+                                <partial name="_ProfileNoteList" model="Model.LegislativeReferences" />
+                            }
+                        </div>
+                        <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-further-information-panel">
+                            @if (Model.HasNoVersion)
+                            {
+                                <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                            }
+                            else
+                            {
+                                <partial name="_ProfileNoteList" model="Model.FurtherInformation" />
+                            }
+                        </div>
+                        @if (Model.CanViewReviewComments)
                         {
-                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                            <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-review-comments-panel">
+                                @if (Model.ReviewComments.Count == 0)
+                                {
+                                    <p class="govuk-body">There are no review comments to display.</p>
+                                }
+                                else
+                                {
+                                    <table class="govuk-table">
+                                        <thead class="govuk-table__head">
+                                            <tr class="govuk-table__row">
+                                                <th scope="col" class="govuk-table__header">Subject</th>
+                                                <th scope="col" class="govuk-table__header">Reference</th>
+                                                <th scope="col" class="govuk-table__header">Comment</th>
+                                                <th scope="col" class="govuk-table__header">By</th>
+                                                <th scope="col" class="govuk-table__header">Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="govuk-table__body">
+                                            @foreach (var comment in Model.ReviewComments)
+                                            {
+                                                <tr class="govuk-table__row">
+                                                    <td class="govuk-table__cell">@Html.Raw(comment.IndentedSubject)</td>
+                                                    <td class="govuk-table__cell">@comment.CommentReference</td>
+                                                    <td class="govuk-table__cell">@comment.CommentText</td>
+                                                    <td class="govuk-table__cell">@comment.UserFullName</td>
+                                                    <td class="govuk-table__cell">@comment.CommentDate</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div>
                         }
-                        else
+                        @if (Model.CanViewContributions)
                         {
-                            <partial name="_QuestionAccordion" model="accordionModel" />
+                            <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-contributions-panel">
+                                @if (Model.Contributions.Count == 0)
+                                {
+                                    <p class="govuk-body">There are no contributions to display.</p>
+                                }
+                                else
+                                {
+                                    <table class="govuk-table">
+                                        <thead class="govuk-table__head">
+                                            <tr class="govuk-table__row">
+                                                <th scope="col" class="govuk-table__header">Name</th>
+                                                <th scope="col" class="govuk-table__header">Username</th>
+                                                <th scope="col" class="govuk-table__header">Organisation</th>
+                                                <th scope="col" class="govuk-table__header">Last contribution date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="govuk-table__body">
+                                            @foreach (var contribution in Model.Contributions)
+                                            {
+                                                <tr class="govuk-table__row">
+                                                    <td class="govuk-table__cell">@contribution.FullName</td>
+                                                    <td class="govuk-table__cell">@contribution.UserName</td>
+                                                    <td class="govuk-table__cell">@contribution.OrganisationName</td>
+                                                    <td class="govuk-table__cell">@contribution.LastContributionDate</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div>
+                        }
+                        @if (Model.CanViewAllRevisionDates)
+                        {
+                            <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-all-revision-dates-panel">
+                                @if (Model.AllRevisionDates.Count == 0)
+                                {
+                                    <p class="govuk-body">There are no revision dates to display.</p>
+                                }
+                                else
+                                {
+                                    <table class="govuk-table">
+                                        <thead class="govuk-table__head">
+                                            <tr class="govuk-table__row">
+                                                <th scope="col" class="govuk-table__header">Section</th>
+                                                <th scope="col" class="govuk-table__header">Technical review frequency</th>
+                                                <th scope="col" class="govuk-table__header">Next technical review</th>
+                                                <th scope="col" class="govuk-table__header">Policy review frequency</th>
+                                                <th scope="col" class="govuk-table__header">Next policy review</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="govuk-table__body">
+                                            @foreach (var revisionDate in Model.AllRevisionDates)
+                                            {
+                                                <tr class="govuk-table__row">
+                                                    <td class="govuk-table__cell">@revisionDate.SectionDisplay</td>
+                                                    <td class="govuk-table__cell">@revisionDate.TechnicalReviewFrequencyDisplay</td>
+                                                    <td class="govuk-table__cell">@revisionDate.NextTechnicalReviewDisplay</td>
+                                                    <td class="govuk-table__cell">@revisionDate.PolicyReviewFrequencyDisplay</td>
+                                                    <td class="govuk-table__cell">@revisionDate.NextPolicyReviewDisplay</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div>
                         }
                     </div>
-                    <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-references-panel">
-                        @if (Model.HasNoVersion)
-                        {
-                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
-                        }
-                        else
-                        {
-                            <partial name="_ProfileNoteList" model="Model.ScientificPaperReferences" />
-                            <partial name="_ProfileNoteList" model="Model.LegislativeReferences" />
-                        }
-                    </div>
-                    <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="profile-further-information-panel">
-                        @if (Model.HasNoVersion)
-                        {
-                            <div class="govuk-inset-text">This profile has no current version to browse.</div>
-                        }
-                        else
-                        {
-                            <partial name="_ProfileNoteList" model="Model.FurtherInformation" />
-                        }
-                    </div>
-                </div>
+                </form>
 
                 <partial name="_SectionPagination" model="paginationModel" />
             }
         </div>
     </div>
 }
+
+@section Scripts {
+    <script src="~/js/tab-carousel.js" asp-append-version="true"></script>
+    <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
+}
+

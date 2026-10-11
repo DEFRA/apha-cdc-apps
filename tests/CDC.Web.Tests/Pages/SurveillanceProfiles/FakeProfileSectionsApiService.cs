@@ -12,7 +12,19 @@ internal sealed class FakeProfileSectionsApiService(
     IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
     IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
     IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
-    Exception? throwOnGetProfileNoteTypes = null)
+    Exception? throwOnGetProfileNoteTypes = null,
+    ProfileVersionValidationStatusDto? validationStatus = null,
+    ProfileSectionValidationResultDto? sectionValidationResult = null,
+    ClearProfileSectionResultDto? clearResult = null,
+    Exception? throwOnClearProfileVersionSection = null,
+    SaveProfileSectionResultDto? saveResult = null,
+    Exception? throwOnSaveProfileVersionSection = null,
+    IReadOnlyList<ProfileSectionContributionDto>? contributions = null,
+    IReadOnlyList<ProfileReviewCommentDto>? reviewComments = null,
+    ProfileVersionAllRevisionDatesDto? allRevisionDates = null,
+    Exception? throwOnGetProfileVersionSectionContributions = null,
+    Exception? throwOnGetProfileSectionReviewComments = null,
+    Exception? throwOnGetProfileVersionAllRevisionDates = null)
     : IProfileSectionsApiService
 {
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
@@ -46,4 +58,55 @@ internal sealed class FakeProfileSectionsApiService(
             notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
                 ? notes
                 : []);
+
+    public Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(validationStatus ?? new ProfileVersionValidationStatusDto { ProfileVersionId = profileVersionId });
+
+    public Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(sectionValidationResult ?? new ProfileSectionValidationResultDto { IsValid = true });
+
+    public Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default) =>
+        throwOnClearProfileVersionSection is not null
+            ? Task.FromException<ClearProfileSectionResultDto>(throwOnClearProfileVersionSection)
+            : Task.FromResult(clearResult ?? new ClearProfileSectionResultDto());
+
+    public Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        CancellationToken cancellationToken = default) =>
+        throwOnSaveProfileVersionSection is not null
+            ? Task.FromException<SaveProfileSectionResultDto>(throwOnSaveProfileVersionSection)
+            : Task.FromResult(saveResult ?? new SaveProfileSectionResultDto());
+
+    public Task<IReadOnlyList<ProfileSectionContributionDto>> GetProfileVersionSectionContributionsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default) =>
+        throwOnGetProfileVersionSectionContributions is not null
+            ? Task.FromException<IReadOnlyList<ProfileSectionContributionDto>>(throwOnGetProfileVersionSectionContributions)
+            : Task.FromResult(contributions ?? []);
+
+    public Task<IReadOnlyList<ProfileReviewCommentDto>> GetProfileSectionReviewCommentsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default) =>
+        throwOnGetProfileSectionReviewComments is not null
+            ? Task.FromException<IReadOnlyList<ProfileReviewCommentDto>>(throwOnGetProfileSectionReviewComments)
+            : Task.FromResult(reviewComments ?? []);
+
+    public Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken = default) =>
+        throwOnGetProfileVersionAllRevisionDates is not null
+            ? Task.FromException<ProfileVersionAllRevisionDatesDto>(throwOnGetProfileVersionAllRevisionDates)
+            : Task.FromResult(allRevisionDates ?? new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId });
 }

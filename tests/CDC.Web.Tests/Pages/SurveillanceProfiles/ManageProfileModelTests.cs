@@ -106,6 +106,18 @@ public class ManageProfileModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_ReturnsPageWithHasError_WhenLoadingTheProfileTimesOut()
+    {
+        var pageModel = CreatePageModel(throwOnGetManageProfile: new TaskCanceledException());
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+        Assert.Null(pageModel.Profile);
+    }
+
+    [Fact]
     public async Task OnPostAsync_UpdatesStatusAndShowsSuccessMessage_WhenTheSaveSucceeds()
     {
         var pageModel = CreatePageModel(
@@ -136,6 +148,35 @@ public class ManageProfileModelTests
         Assert.IsType<PageResult>(result);
         Assert.Null(pageModel.StatusMessage);
         Assert.Equal("The selected profile status could not be found.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_ReturnsPageWithHasError_WhenTheReloadFails()
+    {
+        var pageModel = CreatePageModel(
+            throwOnGetManageProfile: new HttpRequestException("connection refused"),
+            updateProfileStatusResult: new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null));
+        pageModel.ProfileStatusId = ValidationCompleteStatusId;
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+        Assert.Equal("Successfully updated the profile status.", pageModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_ReturnsNotFound_WhenTheProfileNoLongerExistsAfterSaving()
+    {
+        var pageModel = CreatePageModel(
+            manageProfile: null,
+            updateProfileStatusResult: new UpdateProfileStatusResult(UpdateProfileStatusOutcome.Success, null));
+        pageModel.ProfileStatusId = ValidationCompleteStatusId;
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.False(pageModel.HasError);
     }
 
     [Fact]
@@ -180,6 +221,17 @@ public class ManageProfileModelTests
     }
 
     [Fact]
+    public async Task OnPostCreateNewDraftVersionAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
+    {
+        var pageModel = CreatePageModel(throwOnGetManageProfile: new HttpRequestException("connection refused"));
+
+        var result = await pageModel.OnPostCreateNewDraftVersionAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
     public async Task OnPostDeleteCurrentVersionAsync_RedirectsToLandingIndex_WhenSuccessful()
     {
         var pageModel = CreatePageModel(
@@ -218,4 +270,99 @@ public class ManageProfileModelTests
 
         Assert.IsType<NotFoundResult>(result);
     }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ShowsSuccessMessage_WhenSuccessful()
+    {
+        var newVersionId = Guid.NewGuid();
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Successfully published this profile and made it public.", pageModel.StatusMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ReturnsPageWithError_WhenPublishFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(
+                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for publishing."));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var pageModel = CreatePageModel(manageProfile: null);
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ShowsSuccessMessage_WhenSuccessful()
+    {
+        var newVersionId = Guid.NewGuid();
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Successfully published this profile but did not make it public.", pageModel.StatusMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ReturnsPageWithError_WhenPublishFails()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            createNewProfileVersionResult: new CreateNewProfileVersionResult(
+                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for publishing."));
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var pageModel = CreatePageModel(manageProfile: null);
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+    [Fact]
+    public async Task OnPostDeleteCurrentVersionAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
+    {
+        var pageModel = CreatePageModel(throwOnGetManageProfile: new HttpRequestException("connection refused"));
+
+        var result = await pageModel.OnPostDeleteCurrentVersionAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
 }
+

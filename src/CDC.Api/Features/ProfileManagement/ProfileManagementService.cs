@@ -159,6 +159,13 @@ public sealed class ProfileManagementService(
         var linkVisibility = await BuildLinkVisibilityAsync(profile, cancellationToken);
         var latestVersionId = ResolveLatestVersionId(profile);
         var newDraftVersionLabel = await FormatNewDraftVersionLabelAsync(latestVersionId, cancellationToken);
+        var currentProfileVersionId = ResolveCurrentProfileVersionId(profile);
+        var currentVersionSummary = await repository.GetProfileVersionSummaryAsync(currentProfileVersionId, cancellationToken);
+        var canPrintProfileSection = ComputeCanPrintProfileSection(currentVersionSummary, userContext);
+        var canViewProfileReports = ComputeCanViewProfileReports(currentVersionSummary, userContext);
+        var canEditProfileSection = ComputeCanEditProfileSection(currentVersionSummary, userContext);
+        var canClearProfileSection = ComputeCanClearProfileSection(currentVersionSummary, userContext);
+        var canViewDraftOnlyTabs = ComputeCanViewDraftOnlyTabs(currentVersionSummary, userContext);
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -173,12 +180,63 @@ public sealed class ProfileManagementService(
             LatestDraftVersion = draftVersionLabel,
             ProfileStatus = statusName,
             ProfileStatusId = profile.ProfileStatusId,
-            CurrentProfileVersionId = ResolveCurrentProfileVersionId(profile),
+            CurrentProfileVersionId = currentProfileVersionId,
             NewDraftVersionLabel = newDraftVersionLabel,
             LatestVersionId = latestVersionId,
-            LinkVisibility = linkVisibility
+            LinkVisibility = linkVisibility,
+            CurrentVersionNumber = currentVersionSummary is null
+                ? string.Empty
+                : $"{currentVersionSummary.VersionMajor}.{currentVersionSummary.VersionMinor}",
+            CurrentVersionIsPublished = currentVersionSummary?.IsPublished ?? false,
+            CurrentVersionValidFrom = currentVersionSummary?.EffectiveDateFrom,
+            CurrentVersionValidTo = currentVersionSummary?.EffectiveDateTo,
+            CanPrintProfileSection = canPrintProfileSection,
+            CanViewProfileReports = canViewProfileReports,
+            CanEditProfileSection = canEditProfileSection,
+            CanClearProfileSection = canClearProfileSection,
+            CanViewReviewComments = canViewDraftOnlyTabs,
+            CanViewContributions = canViewDraftOnlyTabs,
+            CanViewAllRevisionDates = canViewDraftOnlyTabs
         };
     }
+
+    /// <summary>Legacy <c>ProfileVersionSection.CanEditProfileVersionSection()</c>: the current
+    /// version must be a current (no effective-to date) Draft; the user must not be a "user
+    /// management system" account. Legacy also allows a per-section contributor, which <see
+    /// cref="IUserContext"/> does not model yet, so this simplifies to profile-editor access.</summary>
+    private static bool ComputeCanEditProfileSection(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
+        currentVersion is not null && !currentVersion.IsPublished && currentVersion.EffectiveDateTo is null &&
+        !userContext.IsUserManagementSystem && userContext.IsProfileEditor;
+
+    /// <summary>Legacy <c>ProfileVersionSection.CanClearProfileVersionSection()</c>: the current
+    /// version must be a current (no effective-to date) Draft; the user must be a profile editor
+    /// and not a "user management system" account.</summary>
+    private static bool ComputeCanClearProfileSection(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
+        currentVersion is not null && !currentVersion.IsPublished && currentVersion.EffectiveDateTo is null &&
+        !userContext.IsUserManagementSystem && userContext.IsProfileEditor;
+
+    /// <summary>Legacy <c>ProfileVersionInfo.CanGetPrintVersion()</c>: false for a Published
+    /// version; otherwise requires edit/policy access. Legacy also allows a profile
+    /// contributor/reviewer, which <see cref="IUserContext"/> does not model yet.</summary>
+    private static bool ComputeCanPrintProfileSection(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
+        currentVersion is not null && !currentVersion.IsPublished && (userContext.IsProfileEditor || userContext.IsPolicyProfileUser);
+
+    /// <summary>Legacy <c>ProfileVersionInfo.CanGetSummaryReport()</c> (used by both the summary
+    /// profile and summary prioritisation reports): false for a Published version or one with an
+    /// effective-to date; otherwise requires edit/policy access.</summary>
+    private static bool ComputeCanViewProfileReports(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
+        currentVersion is not null && !currentVersion.IsPublished && currentVersion.EffectiveDateTo is null &&
+        (userContext.IsProfileEditor || userContext.IsPolicyProfileUser);
+
+    /// <summary>Legacy <c>ReviewCommentList.CanGetReviewCommentList()</c>,
+    /// <c>ProfileContributionInfoList.CanGetProfileContributionInfoList()</c> and
+    /// <c>ProfileVersionSection.CanGetRevisionInformation()</c>: all three share the same rule -
+    /// the current version must be Draft (no effective-to-date requirement, unlike edit/clear),
+    /// and the user must be a profile editor or policy profile user. Legacy also allows a profile
+    /// contributor/reviewer, which <see cref="IUserContext"/> does not model yet.</summary>
+    private static bool ComputeCanViewDraftOnlyTabs(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
+        currentVersion is not null && !currentVersion.IsPublished && !userContext.IsUserManagementSystem &&
+        (userContext.IsProfileEditor || userContext.IsPolicyProfileUser);
 
     /// <summary>Legacy <c>profileData.LatestVersion</c>: the current draft, else the current
     /// published version - never the public version.</summary>

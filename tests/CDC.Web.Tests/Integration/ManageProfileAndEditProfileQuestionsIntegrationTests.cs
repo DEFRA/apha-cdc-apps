@@ -72,6 +72,10 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
         Assert.Contains("Delete current version", body);
         Assert.Contains("Create new draft version", body);
         Assert.Contains("Are you sure you want to delete this profile version?", body);
+        Assert.Contains("Publish (public)", body);
+        Assert.Contains("Are you sure you want to publish this profile and make it public (this cannot be undone)?", body);
+        Assert.Contains("Publish (Defranet only)", body);
+        Assert.Contains("Are you sure you want to publish this profile but not make it public?", body);
     }
 
     [Fact]

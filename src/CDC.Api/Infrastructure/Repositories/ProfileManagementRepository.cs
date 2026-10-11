@@ -36,6 +36,7 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
 {
     private const int RowVersionLength = 8;
     private const string ProfiledSpeciesType = "Profiled";
+    private const string DraftState = "Draft";
 
     /// <inheritdoc />
     public async Task<ProfileCreationResult> CreateProfileAsync(CreateProfileCommand command, CancellationToken cancellationToken)
@@ -282,7 +283,10 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
             {
                 VersionMajor = ReadByte(reader, 3),
                 VersionMinor = ReadByte(reader, 4),
-                IsPublic = ReadBooleanByName(reader, "IsPublic")
+                IsPublished = !string.Equals(ReadString(reader, 5), DraftState, StringComparison.Ordinal),
+                IsPublic = ReadBooleanByName(reader, "IsPublic"),
+                EffectiveDateFrom = ReadNullableDateTimeByName(reader, "EffectiveDateFrom"),
+                EffectiveDateTo = ReadNullableDateTimeByName(reader, "EffectiveDateTo")
             };
         }
         catch (DbException exception)
@@ -637,7 +641,7 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
         var (newVersionMajor, newVersionMinor) = command.IsPublished
             ? ((byte)(currentVersion.VersionMajor + 1), (byte)0)
             : (currentVersion.VersionMajor, (byte)(currentVersion.VersionMinor + 1));
-        var newState = command.IsPublished ? "Published" : "Draft";
+        var newState = command.IsPublished ? "Published" : DraftState;
 
         await connection.ExecuteAsync(new CommandDefinition(
             ProfileManagementStoredProcedures.UpdateProfileVersionCurrency,
@@ -725,7 +729,7 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
             profileId = ReadGuid(reader, 1);
             versionMajor = ReadByte(reader, 3);
             versionMinor = ReadByte(reader, 4);
-            isPublished = !string.Equals(ReadString(reader, 5), "Draft", StringComparison.Ordinal);
+            isPublished = !string.Equals(ReadString(reader, 5), DraftState, StringComparison.Ordinal);
             isLatestVersion = ReadBoolean(reader, 8);
             scenarioTitle = ReadString(reader, 9);
             parentProfileId = ReadGuid(reader, 10);
@@ -947,6 +951,26 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
         catch (IndexOutOfRangeException)
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads a nullable date/time column by name rather than a fixed ordinal, mirroring
+    /// <see cref="ReadBooleanByName"/> - the exact column position of
+    /// <see cref="Domain.Entities.ProfileVersionSummary.EffectiveDateFrom"/>/<see cref="Domain.Entities.ProfileVersionSummary.EffectiveDateTo"/>
+    /// in <c>spgProfileVersionInfoById</c> has not been independently verified against the legacy
+    /// source. [MANUAL REVIEW REQUIRED]
+    /// </summary>
+    private static DateTime? ReadNullableDateTimeByName(DbDataReader reader, string columnName)
+    {
+        try
+        {
+            var ordinal = reader.GetOrdinal(columnName);
+            return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
+        }
+        catch (IndexOutOfRangeException)
+        {
+            return null;
         }
     }
 

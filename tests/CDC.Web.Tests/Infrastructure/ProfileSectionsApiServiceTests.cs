@@ -179,6 +179,193 @@ public class ProfileSectionsApiServiceTests
         Assert.Empty(notes);
     }
 
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "sections": [{ "profileSectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b", "isValid": true }]
+            }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var status = await service.GetProfileVersionValidationStatusAsync(Guid.NewGuid());
+
+        var section = Assert.Single(status.Sections);
+        Assert.True(section.IsValid);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_ReturnsEmptySections_WhenTheResponseBodyIsNull()
+    {
+        var profileVersionId = Guid.NewGuid();
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var status = await service.GetProfileVersionValidationStatusAsync(profileVersionId);
+
+        Assert.Equal(profileVersionId, status.ProfileVersionId);
+        Assert.Empty(status.Sections);
+    }
+
+    [Fact]
+    public async Task ValidateProfileVersionSectionAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """{ "isValid": false, "unansweredQuestions": ["3.1 Is it endemic?"] }""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var result = await service.ValidateProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.False(result.IsValid);
+        Assert.Equal("3.1 Is it endemic?", Assert.Single(result.UnansweredQuestions));
+    }
+
+    [Fact]
+    public async Task ValidateProfileVersionSectionAsync_ReturnsValid_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var result = await service.ValidateProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """{ "fieldsClearedCount": 4 }""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var result = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(4, result.FieldsClearedCount);
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_ReturnsDefault_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var result = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(0, result.FieldsClearedCount);
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_Throws_OnANonSuccessStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """{ "fieldsSavedCount": 2 }""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), []);
+
+        Assert.Equal(2, result.FieldsSavedCount);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_ReturnsDefault_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), []);
+
+        Assert.Equal(0, result.FieldsSavedCount);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_Throws_OnANonSuccessStatusCode()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), []));
+    }
+
+    [Fact]
+    public async Task GetProfileVersionSectionContributionsAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            [{ "userId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f", "userName": "jdoe", "organisationName": "APHA", "fullName": "Jane Doe", "lastContributionDate": "2026-09-11T00:00:00" }]
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var contributions = await service.GetProfileVersionSectionContributionsAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        var contribution = Assert.Single(contributions);
+        Assert.Equal("jdoe", contribution.UserName);
+        Assert.Equal("Jane Doe", contribution.FullName);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionSectionContributionsAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var contributions = await service.GetProfileVersionSectionContributionsAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Empty(contributions);
+    }
+
+    [Fact]
+    public async Task GetProfileSectionReviewCommentsAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """[{ "commentSubject": "A comment", "userFullName": "Jane Doe", "level": 1 }]""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var comments = await service.GetProfileSectionReviewCommentsAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        var comment = Assert.Single(comments);
+        Assert.Equal("A comment", comment.CommentSubject);
+        Assert.Equal("Jane Doe", comment.UserFullName);
+    }
+
+    [Fact]
+    public async Task GetProfileSectionReviewCommentsAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var comments = await service.GetProfileSectionReviewCommentsAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Empty(comments);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionAllRevisionDatesAsync_DeserialisesTheResponseBody()
+    {
+        const string json = """
+            {
+              "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "sections": [{ "sectionName": "Summary", "sectionNumber": 1, "technicalReviewFrequencyMonths": 12 }]
+            }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var result = await service.GetProfileVersionAllRevisionDatesAsync(Guid.NewGuid());
+
+        var section = Assert.Single(result.Sections);
+        Assert.Equal("Summary", section.SectionName);
+        Assert.Equal(12, section.TechnicalReviewFrequencyMonths);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionAllRevisionDatesAsync_ReturnsEmptySections_WhenTheResponseBodyIsNull()
+    {
+        var profileVersionId = Guid.NewGuid();
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var result = await service.GetProfileVersionAllRevisionDatesAsync(profileVersionId);
+
+        Assert.Equal(profileVersionId, result.ProfileVersionId);
+        Assert.Empty(result.Sections);
+    }
+
     private static ProfileSectionsApiService CreateService(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

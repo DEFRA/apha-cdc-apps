@@ -1,0 +1,181 @@
+@model CDC.Web.Models.ProfileFieldEditView
+@{
+    var inputName = $"field_{Model.FieldId}";
+    var hint = !Model.IsMandatory ? "(optional)" : null;
+}
+@if (!Model.IsEditable)
+{
+    @if (Model.Options.Count > 0)
+    {
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
+                <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
+                    @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
+                    {
+                        var option = Model.Options[optionIndex];
+                        var optionId = $"{inputName}-readonly-{optionIndex}";
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" disabled checked="@(option.IsChecked ? "checked" : null)" />
+                            <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        </div>
+    }
+    else if (Model.IsHtml)
+    {
+        <div class="govuk-form-group">
+            @if (!string.IsNullOrEmpty(Model.Label))
+            {
+                <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@Model.Label</h3>
+            }
+            <div class="govuk-body">@Html.Raw(Model.ValueDisplay)</div>
+        </div>
+    }
+    else
+    {
+        <dl class="govuk-summary-list">
+            <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">@Model.Label</dt>
+                <dd class="govuk-summary-list__value">@Model.ValueDisplay</dd>
+            </div>
+        </dl>
+    }
+}
+else
+{
+    @switch (Model.DataTypeName)
+    {
+        case "Boolean":
+            <div class="govuk-form-group">
+                <fieldset class="govuk-fieldset">
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
+                    @if (hint is not null)
+                    {
+                        <div class="govuk-hint">@hint</div>
+                    }
+                    <div class="govuk-radios govuk-radios--inline govuk-radios--small" data-module="govuk-radios">
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="@(inputName)-yes" name="@inputName" type="radio" value="true" checked="@(Model.BooleanValue == true ? "checked" : null)" />
+                            <label class="govuk-label govuk-radios__label" for="@(inputName)-yes">Yes</label>
+                        </div>
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="@(inputName)-no" name="@inputName" type="radio" value="false" checked="@(Model.BooleanValue == false ? "checked" : null)" />
+                            <label class="govuk-label govuk-radios__label" for="@(inputName)-no">No</label>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+            break;
+        case "List":
+            <div class="govuk-form-group">
+                <fieldset class="govuk-fieldset">
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
+                    @if (hint is not null)
+                    {
+                        <div class="govuk-hint">@hint</div>
+                    }
+                    <div class="govuk-radios govuk-radios--small" data-module="govuk-radios">
+                        @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
+                        {
+                            var option = Model.Options[optionIndex];
+                            var optionId = $"{inputName}-{optionIndex}";
+                            <div class="govuk-radios__item">
+                                <input class="govuk-radios__input" id="@optionId" name="@inputName" type="radio" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
+                                <label class="govuk-label govuk-radios__label" for="@optionId">@option.Text</label>
+                            </div>
+                        }
+                    </div>
+                </fieldset>
+            </div>
+            break;
+        case "MultiValueList":
+            <div class="govuk-form-group">
+                <fieldset class="govuk-fieldset">
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label (select all that apply)</legend>
+                    <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
+                        @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
+                        {
+                            var option = Model.Options[optionIndex];
+                            var optionId = $"{inputName}-{optionIndex}";
+                            <div class="govuk-checkboxes__item">
+                                <input class="govuk-checkboxes__input" id="@optionId" name="@inputName" type="checkbox" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
+                                <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                            </div>
+                        }
+                    </div>
+                </fieldset>
+            </div>
+            break;
+        case "Decimal":
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="@inputName">@Model.Label</label>
+                @if (hint is not null)
+                {
+                    <div class="govuk-hint">@hint</div>
+                }
+                <input class="govuk-input govuk-input--width-10" id="@inputName" name="@inputName" type="text" inputmode="decimal" value="@Model.DecimalValue?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            break;
+        case "Date":
+            <div class="govuk-form-group">
+                <fieldset class="govuk-fieldset" role="group">
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
+                    @if (hint is not null)
+                    {
+                        <div class="govuk-hint">@hint</div>
+                    }
+                    <div class="govuk-date-input" id="@inputName">
+                        <div class="govuk-date-input__item">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label govuk-date-input__label" for="@(inputName)_day">Day</label>
+                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_day" name="@(inputName)_day" type="text" inputmode="numeric" value="@Model.DateValue?.Day" />
+                            </div>
+                        </div>
+                        <div class="govuk-date-input__item">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label govuk-date-input__label" for="@(inputName)_month">Month</label>
+                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_month" name="@(inputName)_month" type="text" inputmode="numeric" value="@Model.DateValue?.Month" />
+                            </div>
+                        </div>
+                        <div class="govuk-date-input__item">
+                            <div class="govuk-form-group">
+                                <label class="govuk-label govuk-date-input__label" for="@(inputName)_year">Year</label>
+                                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="@(inputName)_year" name="@(inputName)_year" type="text" inputmode="numeric" value="@Model.DateValue?.Year" />
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+            break;
+        case "Long Text":
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="@inputName">@Model.Label</label>
+                @if (hint is not null)
+                {
+                    <div class="govuk-hint">@hint</div>
+                }
+                <div class="app-richtext-toolbar" role="toolbar" aria-label="@Model.Label formatting">
+                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="undo" data-richtext-target="@inputName" aria-label="Undo">Undo</button>
+                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="redo" data-richtext-target="@inputName" aria-label="Redo">Redo</button>
+                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="italic" data-richtext-target="@inputName" aria-label="Italic"><em>Italic</em></button>
+                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="bullist" data-richtext-target="@inputName" aria-label="Bulleted list">Bullets</button>
+                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="link" data-richtext-target="@inputName" aria-label="Insert link">Link</button>
+                </div>
+                <textarea class="govuk-textarea app-richtext-editor" id="@inputName" name="@inputName" rows="8">@Model.TextValue</textarea>
+            </div>
+            break;
+        default:
+            <div class="govuk-form-group">
+                <label class="govuk-label" for="@inputName">@Model.Label</label>
+                @if (hint is not null)
+                {
+                    <div class="govuk-hint">@hint</div>
+                }
+                <input class="govuk-input" id="@inputName" name="@inputName" type="text" maxlength="255" value="@Model.TextValue" />
+            </div>
+            break;
+    }
+}
