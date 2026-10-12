@@ -22,20 +22,20 @@ public sealed class SaveDiseaseRankingFilterCommandValidator : AbstractValidator
             .MaximumLength(DiseaseNameMaxLength).WithMessage($"The report title must be {DiseaseNameMaxLength} characters or fewer.");
 
         RuleFor(command => command.Request.Disease1)
-            .NotEmpty().MaximumLength(DiseaseCriterionMaxLength)
-            .WithMessage("Select endemic diseases, exotic diseases or both.");
+            .NotEmpty().WithMessage("Select endemic diseases, exotic diseases or both.")
+            .MaximumLength(DiseaseCriterionMaxLength).WithMessage("Select endemic diseases, exotic diseases or both.");
 
         RuleFor(command => command.Request.Disease2)
-            .NotEmpty().MaximumLength(DiseaseCriterionMaxLength)
-            .WithMessage("Select zoonotic, non-zoonotic or both.");
+            .NotEmpty().WithMessage("Select zoonotic, non-zoonotic or both.")
+            .MaximumLength(DiseaseCriterionMaxLength).WithMessage("Select zoonotic, non-zoonotic or both.");
 
         RuleFor(command => command.Request.Disease3)
-            .NotEmpty().MaximumLength(DiseaseCriterionMaxLength)
-            .WithMessage("Select notifiable, non-notifiable or both.");
+            .NotEmpty().WithMessage("Select notifiable, non-notifiable or both.")
+            .MaximumLength(DiseaseCriterionMaxLength).WithMessage("Select notifiable, non-notifiable or both.");
 
         RuleFor(command => command.Request.Disease4)
-            .NotEmpty().MaximumLength(DiseaseCriterionMaxLength)
-            .WithMessage("Select infectious, non-infectious or both.");
+            .NotEmpty().WithMessage("Select infectious, non-infectious or both.")
+            .MaximumLength(DiseaseCriterionMaxLength).WithMessage("Select infectious, non-infectious or both.");
 
         RuleForEach(command => command.Request.DiseaseTypes)
             .Must(type => ValidTransmissibleAgentTypes.Contains(type))
