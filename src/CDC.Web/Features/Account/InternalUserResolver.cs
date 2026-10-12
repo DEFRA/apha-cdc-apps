@@ -5,6 +5,7 @@ using CDC.Auth.Entra.Events;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.Extensions.Logging;
 
 namespace CDC.Web.Features.Account;
 
@@ -16,7 +17,8 @@ namespace CDC.Web.Features.Account;
 /// header - never needs to call CDC.Api again to know who the user is.
 /// </summary>
 /// <param name="apiClient">Calls CDC.Api's internal-user resolve endpoint.</param>
-public sealed class InternalUserResolver(IApiClient apiClient) : IEntraInternalUserResolver
+/// <param name="logger">Logs resolution failures so a sign-in landing on /Landing/Error is diagnosable.</param>
+public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<InternalUserResolver> logger) : IEntraInternalUserResolver
 {
     /// <inheritdoc />
     public async Task<EntraInternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
@@ -67,7 +69,26 @@ public sealed class InternalUserResolver(IApiClient apiClient) : IEntraInternalU
             FullName = fullName
         };
 
-        var result = await apiClient.ResolveInternalUserAsync(request, cancellationToken);
+        ResolveInternalUserResult result;
+        try
+        {
+            result = await apiClient.ResolveInternalUserAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            // HttpRequestException: network/DNS failure, connection refused, or a non-success status
+            // code once the resilience handler's retries are exhausted. TaskCanceledException: the
+            // resilience handler's own request timeout expired. NotSupportedException: the response
+            // was not valid JSON for the expected DTO. Without this, a CDC.Api connectivity problem
+            // during sign-in produces zero diagnostic trace - it just lands on /Landing/Error.
+            LogInternalUserResolutionFailed(entraSsoId, exception);
+            return EntraInternalUserResolution.Deny("/Landing/Error");
+        }
+
+        if (result.Outcome is not (ResolveInternalUserOutcome.Success or ResolveInternalUserOutcome.NotPermitted))
+        {
+            LogInternalUserResolutionRejected(entraSsoId, result.Outcome);
+        }
 
         return result switch
         {
@@ -87,4 +108,10 @@ public sealed class InternalUserResolver(IApiClient apiClient) : IEntraInternalU
             _ => EntraInternalUserResolution.Deny("/Landing/Error")
         };
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to resolve internal user (SsoUserIdInt={SsoUserIdInt}) against CDC.Api")]
+    private partial void LogInternalUserResolutionFailed(Guid ssoUserIdInt, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "CDC.Api rejected internal user resolution (SsoUserIdInt={SsoUserIdInt}) with outcome {Outcome}")]
+    private partial void LogInternalUserResolutionRejected(Guid ssoUserIdInt, ResolveInternalUserOutcome outcome);
 }
