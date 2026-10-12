@@ -32,7 +32,7 @@ public class ProfileNoteRepositoryTests : IDisposable
     {
         connection.Script(ProfileNoteStoredProcedures.GetNoteTypes, new FakeCommandScript
         {
-            ResultSets = [new FakeResultSet(["Id", "Name", "PluralName"], [[ProfileNoteTestData.NoteTypeId, "Comment", "Comments"]])]
+            ResultSets = [new FakeResultSet(["Id", "Name", "PluralName", "SequenceNumber"], [[ProfileNoteTestData.NoteTypeId, "Comment", "Comments", 1]])]
         });
 
         var noteTypes = await CreateRepository().GetNoteTypesAsync(CancellationToken.None);
@@ -40,6 +40,29 @@ public class ProfileNoteRepositoryTests : IDisposable
         noteTypes.Should().ContainSingle();
         noteTypes[0].Name.Should().Be("Comment");
         noteTypes[0].PluralName.Should().Be("Comments");
+    }
+
+    [Fact]
+    public async Task GetNoteTypesAsync_OrdersByTheStoredSequenceNumber()
+    {
+        var firstTypeId = Guid.NewGuid();
+        var secondTypeId = Guid.NewGuid();
+
+        connection.Script(ProfileNoteStoredProcedures.GetNoteTypes, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "PluralName", "SequenceNumber"],
+                [
+                    [secondTypeId, "Further information", "Sources of further information", 2],
+                    [firstTypeId, "Comment", "Comments", 1]
+                ])
+            ]
+        });
+
+        var noteTypes = await CreateRepository().GetNoteTypesAsync(CancellationToken.None);
+
+        noteTypes.Select(noteType => noteType.Id).Should().ContainInOrder(firstTypeId, secondTypeId);
     }
 
     [Fact]
