@@ -34,6 +34,9 @@ internal static class DbDataReaderExtensions
     public static int ReadInt32(this DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);
 
+    public static int? ReadNullableInt32(this DbDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+
     public static decimal? ReadNullableDecimal(this DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetDecimal(ordinal);
 

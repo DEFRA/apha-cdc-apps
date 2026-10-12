@@ -242,7 +242,7 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
 
     public async Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.GetAsync($"/api/profiles/{profileId}/manage", cancellationToken);
+        var response = await httpClient.GetAsync($"/api/profiles/{Uri.EscapeDataString(profileId.ToString())}/manage", cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {

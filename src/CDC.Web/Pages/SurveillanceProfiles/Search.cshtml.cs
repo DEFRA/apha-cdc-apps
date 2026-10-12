@@ -362,7 +362,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         }
 
         var labels = SelectedSpecies
-            .Select(value => FindSpeciesLabel(SpeciesTree.Nodes, value))
+            .Select(value => FindSpeciesNode(SpeciesTree.Nodes, value)?.Label)
             .Where(label => label is not null)
             .ToList();
 
@@ -370,7 +370,7 @@ public class SurveillanceProfilesSearchModel : PageModel
     }
 
     /// <summary>Recursively searches the tree for the node whose value matches <paramref name="value"/>.</summary>
-    private static string? FindSpeciesLabel(IReadOnlyList<TreeNodeViewModel> nodes, string? value)
+    private static TreeNodeViewModel? FindSpeciesNode(IReadOnlyList<TreeNodeViewModel> nodes, string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -381,10 +381,10 @@ public class SurveillanceProfilesSearchModel : PageModel
         {
             if (string.Equals(node.Value, value, StringComparison.OrdinalIgnoreCase))
             {
-                return node.Label;
+                return node;
             }
 
-            var childMatch = FindSpeciesLabel(node.Children, value);
+            var childMatch = FindSpeciesNode(node.Children, value);
             if (childMatch is not null)
             {
                 return childMatch;
@@ -392,6 +392,40 @@ public class SurveillanceProfilesSearchModel : PageModel
         }
 
         return null;
+    }
+
+    /// <summary>Expands the selected species to every id the tree picker's "whole branch" checkbox
+    /// semantics imply: checking a parent species node selects it and every descendant, the same
+    /// as the legacy tree selector's <c>GetSelectedSpecies(includeDescendents:=True)</c>. A
+    /// selected value with no matching tree node (e.g. stale querystring) still matches itself.</summary>
+    private HashSet<string> ExpandSelectedSpeciesWithDescendants()
+    {
+        var expanded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var value in SelectedSpecies)
+        {
+            var node = FindSpeciesNode(SpeciesTree.Nodes, value);
+
+            if (node is null)
+            {
+                expanded.Add(value);
+                continue;
+            }
+
+            AddNodeAndDescendants(node, expanded);
+        }
+
+        return expanded;
+    }
+
+    private static void AddNodeAndDescendants(TreeNodeViewModel node, HashSet<string> values)
+    {
+        values.Add(node.Value);
+
+        foreach (var child in node.Children)
+        {
+            AddNodeAndDescendants(child, values);
+        }
     }
 
     /// <summary>Executes the profile search against the enriched search endpoint, then applies the
@@ -419,6 +453,15 @@ public class SurveillanceProfilesSearchModel : PageModel
             {
                 profiles = profiles.Where(item =>
                     ProfileTitleHtmlFormatter.ToPlainText(item.Title).StartsWith(SelectedLetter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (SelectedSpecies.Count > 0)
+            {
+                var selectedSpecies = ExpandSelectedSpeciesWithDescendants();
+
+                // A profile matches if it is affected by any one of the selected species or their
+                // descendants - the same "match any" semantics as the legacy search's species filter.
+                profiles = profiles.Where(item => item.AffectedSpecies.Any(selectedSpecies.Contains));
             }
 
             profiles = SortBy switch

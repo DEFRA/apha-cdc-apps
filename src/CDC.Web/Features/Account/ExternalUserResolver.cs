@@ -4,6 +4,7 @@ using CDC.Auth.Cidm.Claims;
 using CDC.Auth.Cidm.Events;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.Extensions.Logging;
 
 namespace CDC.Web.Features.Account;
 
@@ -15,7 +16,8 @@ namespace CDC.Web.Features.Account;
 /// header - never needs to call CDC.Api again to know who the user is.
 /// </summary>
 /// <param name="apiClient">Calls CDC.Api's external-user resolve endpoint.</param>
-public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUserResolver
+/// <param name="logger">Logs resolution failures so a sign-in landing on /Landing/Error is diagnosable.</param>
+public sealed partial class ExternalUserResolver(IApiClient apiClient, ILogger<ExternalUserResolver> logger) : ICidmExternalUserResolver
 {
     /// <inheritdoc />
     public async Task<CidmExternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
@@ -65,7 +67,26 @@ public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUs
             Organisation = organisation
         };
 
-        var result = await apiClient.ResolveExternalUserAsync(request, cancellationToken);
+        ResolveExternalUserResult result;
+        try
+        {
+            result = await apiClient.ResolveExternalUserAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            // HttpRequestException: network/DNS failure, connection refused, or a non-success status
+            // code once the resilience handler's retries are exhausted. TaskCanceledException: the
+            // resilience handler's own request timeout expired. NotSupportedException: the response
+            // was not valid JSON for the expected DTO. Without this, a CDC.Api connectivity problem
+            // during sign-in produces zero diagnostic trace - it just lands on /Landing/Error.
+            LogExternalUserResolutionFailed(cidmSsoId, exception);
+            return CidmExternalUserResolution.Deny("/Landing/Error");
+        }
+
+        if (result.Outcome is not (ResolveExternalUserOutcome.Success or ResolveExternalUserOutcome.NotPermitted))
+        {
+            LogExternalUserResolutionRejected(cidmSsoId, result.Outcome);
+        }
 
         return result switch
         {
@@ -80,4 +101,10 @@ public sealed class ExternalUserResolver(IApiClient apiClient) : ICidmExternalUs
             _ => CidmExternalUserResolution.Deny("/Landing/Error")
         };
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to resolve external user (SsoUserIdExt={SsoUserIdExt}) against CDC.Api")]
+    private partial void LogExternalUserResolutionFailed(Guid ssoUserIdExt, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "CDC.Api rejected external user resolution (SsoUserIdExt={SsoUserIdExt}) with outcome {Outcome}")]
+    private partial void LogExternalUserResolutionRejected(Guid ssoUserIdExt, ResolveExternalUserOutcome outcome);
 }

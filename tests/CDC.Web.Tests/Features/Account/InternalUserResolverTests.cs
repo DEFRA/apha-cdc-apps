@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using CDC.Auth.Entra;
 using CDC.Auth.Entra.Claims;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CDC.Web.Tests.Features.Account;
 
@@ -51,7 +53,7 @@ public class InternalUserResolverTests
         };
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Success, user));
 
-        var resolution = await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.True(resolution.IsAllowed);
         Assert.Equal(user.Id.ToString(), resolution.Claims![ExternalUserClaimTypes.InternalUserId]);
@@ -59,6 +61,7 @@ public class InternalUserResolverTests
         Assert.Equal(EntraAuthenticationDefaults.AuthenticationScheme, resolution.Claims[ExternalUserClaimTypes.AuthenticationProvider]);
         Assert.Equal("True", resolution.Claims[ExternalUserClaimTypes.IsProfileEditor]);
         Assert.Equal("False", resolution.Claims[ExternalUserClaimTypes.IsPolicyProfileUser]);
+        Assert.Equal(AuthorizationRoles.ProfileEditor, resolution.Claims[ClaimTypes.Role]);
 
         Assert.NotNull(apiClient.LastRequest);
         Assert.Equal(SsoUserIdInt, apiClient.LastRequest!.SsoUserIdInt);
@@ -67,7 +70,7 @@ public class InternalUserResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_Allows_WithNoPrivilegeClaims_WhenApiReturnsALimitedAccessUser()
+    public async Task ResolveAsync_Allows_WithProfileEditorRoleHardcoded_WhenApiReturnsALimitedAccessUser()
     {
         var principal = CreatePrincipal();
         var user = new InternalUserDto
@@ -79,12 +82,13 @@ public class InternalUserResolverTests
         };
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Success, user));
 
-        var resolution = await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.True(resolution.IsAllowed);
         Assert.Equal(Guid.Empty.ToString(), resolution.Claims![ExternalUserClaimTypes.InternalUserId]);
         Assert.Equal("False", resolution.Claims[ExternalUserClaimTypes.IsProfileEditor]);
         Assert.Equal("False", resolution.Claims[ExternalUserClaimTypes.IsPolicyProfileUser]);
+        Assert.Equal(AuthorizationRoles.ProfileEditor, resolution.Claims[ClaimTypes.Role]);
     }
 
     [Fact]
@@ -93,7 +97,7 @@ public class InternalUserResolverTests
         var principal = CreatePrincipal();
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.NotPermitted, null));
 
-        var resolution = await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
@@ -105,7 +109,7 @@ public class InternalUserResolverTests
         var principal = CreatePrincipal();
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        var resolution = await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
@@ -117,7 +121,7 @@ public class InternalUserResolverTests
         var principal = CreatePrincipal(oid: "not-a-guid");
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        var resolution = await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
@@ -130,7 +134,7 @@ public class InternalUserResolverTests
         var principal = CreatePrincipal(samAccountName: null, domainName: null);
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        var resolution = await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
@@ -143,7 +147,7 @@ public class InternalUserResolverTests
         var principal = CreatePrincipal(domainName: null);
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.Equal("jdoe", apiClient.LastRequest!.UserName);
     }
@@ -154,7 +158,7 @@ public class InternalUserResolverTests
         var principal = CreatePrincipal(domainName: "DT2.local");
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.Equal(@"DT2\jdoe", apiClient.LastRequest!.UserName);
     }
@@ -171,7 +175,7 @@ public class InternalUserResolverTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims));
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        await new InternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.NotNull(apiClient.LastRequest);
         Assert.Equal(SsoUserIdInt, apiClient.LastRequest!.SsoUserIdInt);
@@ -182,13 +186,26 @@ public class InternalUserResolverTests
     {
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
-        var act = async () => await new InternalUserResolver(apiClient).ResolveAsync(null!, CancellationToken.None);
+        var act = async () => await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(null!, CancellationToken.None);
 
         await Assert.ThrowsAsync<ArgumentNullException>(act);
     }
 
-    // Test double for IApiClient recording the last resolve request and returning a scripted result.
-    private sealed class StubApiClient(ResolveInternalUserResult scriptedResult) : IApiClient
+    [Fact]
+    public async Task ResolveAsync_DeniesToGenericErrorPage_WhenApiCallThrowsHttpRequestException()
+    {
+        var principal = CreatePrincipal();
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null), new HttpRequestException("Connection refused"));
+
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
+    }
+
+    // Test double for IApiClient recording the last resolve request and returning a scripted result
+    // (or throwing a scripted exception, to exercise ResolveAsync's catch branch).
+    private sealed class StubApiClient(ResolveInternalUserResult scriptedResult, Exception? thrownException = null) : IApiClient
     {
         public ResolveInternalUserRequestDto? LastRequest { get; private set; }
 
@@ -227,7 +244,9 @@ public class InternalUserResolverTests
             CancellationToken cancellationToken = default)
         {
             LastRequest = request;
-            return Task.FromResult(scriptedResult);
+            return thrownException is not null
+                ? throw thrownException
+                : Task.FromResult(scriptedResult);
         }
 
         public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
