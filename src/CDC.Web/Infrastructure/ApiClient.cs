@@ -59,6 +59,15 @@ public interface IApiClient
         bool publicOnly = true,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Gets every version of one static report from <c>GET /api/static-reports/{staticReportId}/history</c>.</summary>
+    Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
+        Guid staticReportId,
+        bool publicOnly = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Marks one static report version as public via <c>PUT /api/static-reports/versions/{staticReportVersionId}/public</c>.</summary>
+    Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default);
+
     /// <summary>Creates a new version of a profile via <c>POST /api/profiles/versions</c>.</summary>
     /// <param name="profileVersionId">The profile version to base the new version on. Must be the latest version.</param>
     /// <param name="isPublished">Whether the new version is published rather than a draft.</param>
@@ -315,6 +324,26 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
 
         var reports = await httpClient.GetFromJsonAsync<IReadOnlyList<StaticReportListItemDto>>(url, cancellationToken);
         return reports ?? [];
+    }
+
+    public async Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
+        Guid staticReportId,
+        bool publicOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        var url = QueryHelpers.AddQueryString($"/api/static-reports/{staticReportId}/history", new Dictionary<string, string?>
+        {
+            ["publicOnly"] = publicOnly.ToString()
+        });
+
+        var reports = await httpClient.GetFromJsonAsync<IReadOnlyList<StaticReportListItemDto>>(url, cancellationToken);
+        return reports ?? [];
+    }
+
+    public async Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsync($"/api/static-reports/versions/{staticReportVersionId}/public", null, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 }
 

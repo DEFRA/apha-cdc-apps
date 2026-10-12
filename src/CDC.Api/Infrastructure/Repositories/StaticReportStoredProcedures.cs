@@ -15,6 +15,9 @@ public static class StaticReportStoredProcedures
     /// <summary>Reads the stored document bytes for one version.</summary>
     public const string GetStaticReportVersionData = "spgStaticReportVersionData";
 
+    /// <summary>Marks one general report version as public.</summary>
+    public const string SetStaticReportPublicAccess = "spuStaticReportVersion";
+
     /// <summary>Deletes one version.</summary>
     public const string DeleteStaticReportVersion = "spdStaticReportVersion";
 }

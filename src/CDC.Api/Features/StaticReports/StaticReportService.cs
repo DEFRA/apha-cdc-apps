@@ -45,6 +45,10 @@ public sealed class StaticReportService(IStaticReportRepository repository, ILog
         repository.GetStaticReportDataAsync(staticReportVersionId, cancellationToken);
 
     /// <inheritdoc />
+    public Task SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken) =>
+        repository.SetStaticReportPublicAccessAsync(staticReportVersionId, cancellationToken);
+
+    /// <inheritdoc />
     public async Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken)
     {
         var document = await repository.GetStaticReportDataAsync(staticReportVersionId, cancellationToken);

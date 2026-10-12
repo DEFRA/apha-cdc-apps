@@ -229,6 +229,18 @@ public sealed class StaticReportRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SetStaticReportPublicAccessAsync_ExecutesStoredProcedure()
+    {
+        connection.Script(StaticReportStoredProcedures.SetStaticReportPublicAccess, new FakeCommandScript());
+
+        await CreateRepository().SetStaticReportPublicAccessAsync(VersionId, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(StaticReportStoredProcedures.SetStaticReportPublicAccess);
+        executed.Parameters.Should().ContainKey("StaticReportVersionId").WhoseValue.Should().Be(VersionId);
+    }
+
+    [Fact]
     public async Task DeleteStaticReportVersionAsync_ExecutesStoredProcedure()
     {
         connection.Script(StaticReportStoredProcedures.DeleteStaticReportVersion, new FakeCommandScript());

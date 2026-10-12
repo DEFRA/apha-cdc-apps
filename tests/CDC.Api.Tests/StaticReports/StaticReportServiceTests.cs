@@ -97,4 +97,16 @@ public sealed class StaticReportServiceTests
         deleted.Should().BeTrue();
         repository.Verify(repo => repo.DeleteStaticReportVersionAsync(VersionId, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task SetStaticReportPublicAccessAsync_DelegatesToRepository()
+    {
+        repository
+            .Setup(repo => repo.SetStaticReportPublicAccessAsync(VersionId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await CreateService().SetStaticReportPublicAccessAsync(VersionId, CancellationToken.None);
+
+        repository.Verify(repo => repo.SetStaticReportPublicAccessAsync(VersionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
