@@ -4,6 +4,7 @@ using CDC.Auth.Cidm.Events;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CDC.Web.Tests.Features.Account;
 
@@ -62,7 +63,7 @@ public class ExternalUserResolverTests
         };
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Success, user));
 
-        var resolution = await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.True(resolution.IsAllowed);
         Assert.Equal(user.Id.ToString(), resolution.Claims![ExternalUserClaimTypes.InternalUserId]);
@@ -83,7 +84,7 @@ public class ExternalUserResolverTests
         var principal = CreatePrincipal();
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.NotPermitted, null));
 
-        var resolution = await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
@@ -95,7 +96,7 @@ public class ExternalUserResolverTests
         var principal = CreatePrincipal();
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        var resolution = await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
@@ -107,7 +108,7 @@ public class ExternalUserResolverTests
         var principal = CreatePrincipal(sub: "not-a-guid");
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        var resolution = await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
@@ -120,7 +121,7 @@ public class ExternalUserResolverTests
         var principal = CreatePrincipal(email: null, firstName: null, lastName: null);
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.NotNull(apiClient.LastRequest);
         Assert.Equal(string.Empty, apiClient.LastRequest!.Email);
@@ -141,7 +142,7 @@ public class ExternalUserResolverTests
             currentRelationshipId: "22222222-2222-2222-2222-222222222222");
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.Equal("Contoso Ltd", apiClient.LastRequest!.Organisation);
     }
@@ -158,7 +159,7 @@ public class ExternalUserResolverTests
             currentRelationshipId: "no-such-relationship-id");
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.Equal("ACME Ltd", apiClient.LastRequest!.Organisation);
     }
@@ -174,7 +175,7 @@ public class ExternalUserResolverTests
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims));
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        await new ExternalUserResolver(apiClient).ResolveAsync(principal, CancellationToken.None);
+        await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
 
         Assert.NotNull(apiClient.LastRequest);
         Assert.Equal("user@example.com", apiClient.LastRequest!.Email);
@@ -185,13 +186,26 @@ public class ExternalUserResolverTests
     {
         var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null));
 
-        var act = async () => await new ExternalUserResolver(apiClient).ResolveAsync(null!, CancellationToken.None);
+        var act = async () => await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(null!, CancellationToken.None);
 
         await Assert.ThrowsAsync<ArgumentNullException>(act);
     }
 
-    // Test double for IApiClient recording the last resolve request and returning a scripted result.
-    private sealed class StubApiClient(ResolveExternalUserResult scriptedResult) : IApiClient
+    [Fact]
+    public async Task ResolveAsync_DeniesToGenericErrorPage_WhenApiCallThrowsHttpRequestException()
+    {
+        var principal = CreatePrincipal();
+        var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null), new HttpRequestException("Connection refused"));
+
+        var resolution = await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
+    }
+
+    // Test double for IApiClient recording the last resolve request and returning a scripted result
+    // (or throwing a scripted exception, to exercise ResolveAsync's catch branch).
+    private sealed class StubApiClient(ResolveExternalUserResult scriptedResult, Exception? thrownException = null) : IApiClient
     {
         public ResolveExternalUserRequestDto? LastRequest { get; private set; }
 
@@ -225,7 +239,9 @@ public class ExternalUserResolverTests
             CancellationToken cancellationToken = default)
         {
             LastRequest = request;
-            return Task.FromResult(scriptedResult);
+            return thrownException is not null
+                ? throw thrownException
+                : Task.FromResult(scriptedResult);
         }
 
         public Task<ResolveInternalUserResult> ResolveInternalUserAsync(
