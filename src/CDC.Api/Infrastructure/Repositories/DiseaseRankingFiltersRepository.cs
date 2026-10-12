@@ -1,8 +1,8 @@
 using System.Data;
 using System.Data.Common;
 using CDC.Api.Domain.Entities;
-using CDC.Api.Features.DiseaseRankingFilters.Dtos;
 using CDC.Api.Features.DiseaseRankingFilters;
+using CDC.Api.Features.DiseaseRankingFilters.Dtos;
 using CDC.Api.Features.DiseaseRankingFilters.Interfaces;
 using Dapper;
 

@@ -1,7 +1,7 @@
 using System.Data;
+using CDC.Api.Features.DiseaseRankingFilters.Dtos;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
-using CDC.Api.Features.DiseaseRankingFilters.Dtos;
 using CDC.Api.Tests.Fakes;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
