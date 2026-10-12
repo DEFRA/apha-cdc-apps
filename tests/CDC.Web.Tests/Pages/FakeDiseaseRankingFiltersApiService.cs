@@ -8,7 +8,8 @@ namespace CDC.Web.Tests.Pages;
 internal sealed class FakeDiseaseRankingFiltersApiService(
     IReadOnlyList<DiseaseRankingFilterSummaryDto>? filters = null,
     DiseaseRankingFilterDetailDto? filterDetail = null,
-    SaveDiseaseRankingFilterResult? saveResult = null)
+    SaveDiseaseRankingFilterResult? saveResult = null,
+    Exception? throwOnGetFilters = null)
     : IDiseaseRankingFiltersApiService
 {
     private readonly IReadOnlyList<DiseaseRankingFilterSummaryDto> _filters = filters ?? [];
@@ -17,8 +18,12 @@ internal sealed class FakeDiseaseRankingFiltersApiService(
 
     public (long FilterNumber, SaveDiseaseRankingFilterRequestDto Request)? LastUpdateRequest { get; private set; }
 
+    public long? LastDeletedFilterNumber { get; private set; }
+
     public Task<IReadOnlyList<DiseaseRankingFilterSummaryDto>> GetFiltersAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(_filters);
+        throwOnGetFilters is not null
+            ? Task.FromException<IReadOnlyList<DiseaseRankingFilterSummaryDto>>(throwOnGetFilters)
+            : Task.FromResult(_filters);
 
     public Task<DiseaseRankingFilterDetailDto?> GetFilterDetailAsync(long filterNumber, CancellationToken cancellationToken = default) =>
         Task.FromResult(filterDetail);
@@ -40,5 +45,10 @@ internal sealed class FakeDiseaseRankingFiltersApiService(
         return Task.FromResult(saveResult ?? new SaveDiseaseRankingFilterResult { Outcome = DiseaseRankingFilterSaveOutcome.Success, FilterNumber = filterNumber });
     }
 
-    public Task DeleteFilterAsync(long filterNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task DeleteFilterAsync(long filterNumber, CancellationToken cancellationToken = default)
+    {
+        LastDeletedFilterNumber = filterNumber;
+
+        return Task.CompletedTask;
+    }
 }

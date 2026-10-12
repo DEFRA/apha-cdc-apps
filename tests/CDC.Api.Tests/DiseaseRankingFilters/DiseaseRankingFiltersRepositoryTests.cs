@@ -178,6 +178,66 @@ public class DiseaseRankingFiltersRepositoryTests : IDisposable
             .Which.Parameters.Should().ContainKey("FilterNumber").WhoseValue.Should().Be(1L);
     }
 
+    [Fact]
+    public async Task GetFiltersAsync_LogsAndRethrows_WhenTheStoredProcedureFails()
+    {
+        connection.Script(DiseaseRankingFiltersStoredProcedures.GetFilters, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetFiltersAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetFilterDetailAsync_LogsAndRethrows_WhenTheStoredProcedureFails()
+    {
+        connection.Script(DiseaseRankingFiltersStoredProcedures.GetFilterDetail, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetFilterDetailAsync(1, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task ReserveFilterNumberAsync_LogsAndRethrows_WhenTheStoredProcedureFails()
+    {
+        connection.Script(DiseaseRankingFiltersStoredProcedures.ReserveFilterNumber, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().ReserveFilterNumberAsync("Anthrax", CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task InsertFilterSpeciesAsync_LogsAndRethrows_WhenTheStoredProcedureFails()
+    {
+        connection.Script(DiseaseRankingFiltersStoredProcedures.InsertFilterValue, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().InsertFilterSpeciesAsync(7, new SaveDiseaseRankingFilterRequestDto(), SpeciesId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task UpdateFilterSpeciesAsync_LogsAndRethrows_WhenTheStoredProcedureFails()
+    {
+        connection.Script(DiseaseRankingFiltersStoredProcedures.UpdateFilterValue, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().UpdateFilterSpeciesAsync(7, new SaveDiseaseRankingFilterRequestDto(), SpeciesId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task DeleteFilterAsync_LogsAndRethrows_WhenTheStoredProcedureFails()
+    {
+        connection.Script(DiseaseRankingFiltersStoredProcedures.DisableFilterValue, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().DeleteFilterAsync(1, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

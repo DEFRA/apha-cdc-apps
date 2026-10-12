@@ -1,57 +1,12 @@
+using CDC.Common.Contracts;
+
 namespace CDC.Web.Models;
 
 /// <summary>Full detail for one disease ranking filter, as returned by CDC.Api.</summary>
-public sealed record DiseaseRankingFilterDetailDto
-{
-    /// <summary>Gets the filter's identifying number.</summary>
-    public long FilterNumber { get; init; }
-
-    /// <summary>Gets the filter's display name.</summary>
-    public string DiseaseName { get; init; } = string.Empty;
-
-    /// <summary>Gets the endemic/exotic/both criterion.</summary>
-    public string Disease1 { get; init; } = string.Empty;
-
-    /// <summary>Gets the zoonotic/non-zoonotic/both criterion.</summary>
-    public string Disease2 { get; init; } = string.Empty;
-
-    /// <summary>Gets the notifiable/non-notifiable/both criterion.</summary>
-    public string Disease3 { get; init; } = string.Empty;
-
-    /// <summary>Gets the infectious/non-infectious/both criterion.</summary>
-    public string Disease4 { get; init; } = string.Empty;
-
-    /// <summary>Gets the selected transmissible agent types.</summary>
-    public IReadOnlyList<string> DiseaseTypes { get; init; } = [];
-
-    /// <summary>Gets every species selected for this filter.</summary>
-    public IReadOnlyList<Guid> SpeciesIds { get; init; } = [];
-}
+public sealed record DiseaseRankingFilterDetailDto : DiseaseRankingFilterDetailContract; // NOSONAR
 
 /// <summary>Wire contract for creating or updating a disease ranking filter on CDC.Api.</summary>
-public sealed record SaveDiseaseRankingFilterRequestDto
-{
-    /// <summary>Gets the filter's display name.</summary>
-    public string DiseaseName { get; init; } = string.Empty;
-
-    /// <summary>Gets the endemic/exotic/both criterion.</summary>
-    public string Disease1 { get; init; } = string.Empty;
-
-    /// <summary>Gets the zoonotic/non-zoonotic/both criterion.</summary>
-    public string Disease2 { get; init; } = string.Empty;
-
-    /// <summary>Gets the notifiable/non-notifiable/both criterion.</summary>
-    public string Disease3 { get; init; } = string.Empty;
-
-    /// <summary>Gets the infectious/non-infectious/both criterion.</summary>
-    public string Disease4 { get; init; } = string.Empty;
-
-    /// <summary>Gets the selected transmissible agent types.</summary>
-    public IReadOnlyList<string> DiseaseTypes { get; init; } = [];
-
-    /// <summary>Gets every species selected for this filter. Must contain at least one id.</summary>
-    public IReadOnlyList<Guid> SpeciesIds { get; init; } = [];
-}
+public sealed record SaveDiseaseRankingFilterRequestDto : SaveDiseaseRankingFilterRequestContract; // NOSONAR
 
 /// <summary>Outcome of a call to save a disease ranking filter, distinguishing failure kinds the page reacts to differently.</summary>
 public enum DiseaseRankingFilterSaveOutcome
