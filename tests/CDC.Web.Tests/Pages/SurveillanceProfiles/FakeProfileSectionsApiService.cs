@@ -13,6 +13,8 @@ internal sealed class FakeProfileSectionsApiService(
     IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
     IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
     Exception? throwOnGetProfileNoteTypes = null,
+    IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByVersionAndNoteType = null,
+    Exception? throwOnGetProfileNotesByVersion = null,
     ProfileVersionValidationStatusDto? validationStatus = null,
     ProfileSectionValidationResultDto? sectionValidationResult = null,
     ClearProfileSectionResultDto? clearResult = null,
@@ -58,6 +60,17 @@ internal sealed class FakeProfileSectionsApiService(
             notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
                 ? notes
                 : []);
+
+    public Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        CancellationToken cancellationToken = default) =>
+        throwOnGetProfileNotesByVersion is not null
+            ? Task.FromException<IReadOnlyList<ProfileNoteDto>>(throwOnGetProfileNotesByVersion)
+            : Task.FromResult(
+                notesByVersionAndNoteType is not null && notesByVersionAndNoteType.TryGetValue(noteTypeId, out var versionNotes)
+                    ? versionNotes
+                    : []);
 
     public Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
         Guid profileVersionId,
