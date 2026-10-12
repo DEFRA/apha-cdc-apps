@@ -44,4 +44,11 @@ public sealed record TreeViewViewModel
 
     /// Label describing the empty/no-selection state, for example "Any species".
     public string? EmptySelectionLabel { get; init; }
+
+    /// Whether checking a node auto-unchecks its ancestors and descendants, so a branch and a
+    /// part of that branch can never both be selected at once. Only applies when
+    /// <see cref="AllowMultipleSelection"/> is true. Correct for "pick a scope" trees (checking
+    /// a group stands in for everything under it); wrong for trees where unrelated nodes -
+    /// including a group and one of its own descendants - must each be selectable independently.
+    public bool EnforceHierarchyExclusivity { get; init; } = true;
 }

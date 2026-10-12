@@ -113,6 +113,12 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IDiseaseRankingFiltersApiService, DiseaseRankingFiltersApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
