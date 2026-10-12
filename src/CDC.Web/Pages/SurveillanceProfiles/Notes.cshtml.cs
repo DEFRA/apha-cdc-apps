@@ -229,6 +229,18 @@ public class NotesModel(
         });
     }
 
+    /// <summary>Gets the <c>aria-sort</c> value for a sortable column header: "none" unless the
+    /// table is currently sorted by <paramref name="column"/>.</summary>
+    public string GetAriaSort(string column)
+    {
+        if (!string.Equals(SortColumn, column, StringComparison.OrdinalIgnoreCase))
+        {
+            return "none";
+        }
+
+        return string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending";
+    }
+
     private string? BuildUrl(object routeValues) => Url.Page("/SurveillanceProfiles/Notes", routeValues);
 }
 

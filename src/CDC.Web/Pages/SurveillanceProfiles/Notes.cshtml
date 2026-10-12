@@ -108,10 +108,10 @@ else
                         <caption class="govuk-visually-hidden">@Model.NotesHeading</caption>
                         <thead class="govuk-table__head">
                             <tr class="govuk-table__row">
-                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@(Model.SortColumn == "Reference" ? (Model.SortDirection == "Descending" ? "descending" : "ascending") : "none")">
+                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort("Reference")">
                                     <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl("Reference")">References</a>
                                 </th>
-                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@(Model.SortColumn == "QuestionReference" ? (Model.SortDirection == "Descending" ? "descending" : "ascending") : "none")">
+                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort("QuestionReference")">
                                     <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl("QuestionReference")">Question reference</a>
                                 </th>
                             </tr>

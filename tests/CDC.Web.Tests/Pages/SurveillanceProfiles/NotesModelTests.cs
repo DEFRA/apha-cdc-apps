@@ -368,6 +368,23 @@ public class NotesModelTests
         Assert.Contains("SortDirection=Ascending", url);
     }
 
+    [Theory]
+    [InlineData("Reference", "Ascending", "Reference", "ascending")]
+    [InlineData("Reference", "Descending", "Reference", "descending")]
+    [InlineData("Reference", "Descending", "QuestionReference", "none")]
+    public void GetAriaSort_ReflectsTheCurrentSortOnlyForTheSortedColumn(
+        string sortColumn,
+        string sortDirection,
+        string column,
+        string expected)
+    {
+        var pageModel = CreatePageModel();
+        pageModel.SortColumn = sortColumn;
+        pageModel.SortDirection = sortDirection;
+
+        Assert.Equal(expected, pageModel.GetAriaSort(column));
+    }
+
     private static FakeUrlHelper CreateUrlHelper() => new(values =>
     {
         var query = string.Join("&", values.Select(pair => $"{pair.Key}={pair.Value}"));
