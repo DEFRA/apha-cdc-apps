@@ -207,7 +207,7 @@ else
             <fieldset class="govuk-fieldset">
                 <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Transmissible agent type</legend>
                 <div class="govuk-checkboxes govuk-checkboxes--inline" data-module="govuk-checkboxes">
-                    @foreach (var type in Model.AgentTypeChoices)
+                    @foreach (var type in CDC.Web.Pages.DiseaseRanking.EditFiltersModel.AgentTypeChoices)
                     {
                         var typeId = $"disease-type-{type.Replace(' ', '-')}";
                         <div class="govuk-checkboxes__item">

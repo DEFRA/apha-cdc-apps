@@ -19,6 +19,8 @@ public class EditFiltersModel(
     ILogger<EditFiltersModel> logger)
     : BreadcrumbPageModelBase("Edit disease ranking filters")
 {
+    private const string SpeciesFieldName = "species";
+
     private static readonly IReadOnlyList<string> TransmissibleAgentTypes =
         ["bacteria", "virus", "fungus", "parasite", "other transmissible agent"];
 
@@ -29,7 +31,7 @@ public class EditFiltersModel(
     public TreeViewViewModel SpeciesTree { get; private set; } = EmptyTree();
 
     /// <summary>Gets every transmissible agent type offered by the checkbox list.</summary>
-    public IReadOnlyList<string> AgentTypeChoices => TransmissibleAgentTypes;
+    public static IReadOnlyList<string> AgentTypeChoices => TransmissibleAgentTypes;
 
     /// <summary>Gets a value indicating whether the filters or species list failed to load.</summary>
     public bool HasError { get; private set; }
@@ -271,11 +273,11 @@ public class EditFiltersModel(
 
             SpeciesTree = new TreeViewViewModel
             {
-                IdPrefix = "species",
+                IdPrefix = SpeciesFieldName,
                 FieldName = "SpeciesIds",
                 Nodes = SpeciesTreeBuilder.Build(species),
-                ItemNameSingular = "species",
-                ItemNamePlural = "species",
+                ItemNameSingular = SpeciesFieldName,
+                ItemNamePlural = SpeciesFieldName,
                 AllowMultipleSelection = true,
                 EnforceHierarchyExclusivity = false,
                 SelectedValues = selectedSpeciesIds.Select(id => id.ToString()).ToHashSet(),
@@ -292,7 +294,7 @@ public class EditFiltersModel(
 
     private static TreeViewViewModel EmptyTree() => new()
     {
-        IdPrefix = "species",
+        IdPrefix = SpeciesFieldName,
         FieldName = "SpeciesIds",
         Nodes = [],
         AllowMultipleSelection = true,

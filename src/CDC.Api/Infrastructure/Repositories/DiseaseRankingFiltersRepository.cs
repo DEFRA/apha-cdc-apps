@@ -184,7 +184,7 @@ public sealed class DiseaseRankingFiltersRepository(
     private static object BuildFilterValueParameters(long filterNumber, SaveDiseaseRankingFilterRequestDto request, Guid speciesId) => new
     {
         FilterNumber = filterNumber,
-        DiseaseName = request.DiseaseName,
+        request.DiseaseName,
         request.Disease1,
         request.Disease2,
         request.Disease3,
