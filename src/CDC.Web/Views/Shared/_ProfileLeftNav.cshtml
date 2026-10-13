@@ -1,0 +1,29 @@
+@model CDC.Web.Models.ProfileLeftNavViewModel
+<h2 class="govuk-heading-s">Profile reports</h2>
+@if (Model.CanPrintProfileSection || Model.CanViewProfileReports)
+{
+    @* Report generation (print/summary PDFs) is not implemented yet; only visibility
+       is ported from the legacy CanGetPrintVersion()/CanGetSummaryReport() rules. *@
+    <ul class="govuk-list govuk-body govuk-!-font-size-16">
+        @if (Model.CanPrintProfileSection)
+        {
+            <li>Print full profile</li>
+        }
+        @if (Model.CanViewProfileReports)
+        {
+            <li>Summary profile report</li>
+            <li>Summary prioritisation report</li>
+        }
+    </ul>
+    <p class="govuk-body govuk-!-font-size-16">Report generation is not yet available in this migrated view.</p>
+}
+else
+{
+    <p class="govuk-body govuk-!-font-size-16">No profile reports are available for this version.</p>
+}
+
+<h2 class="govuk-heading-s">
+    <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline app-subnav__item @(Model.IsNotesActive ? "app-subnav__item--current" : string.Empty)"
+       href="@Model.NotesUrl" aria-current="@(Model.IsNotesActive ? "page" : null)">Profile references</a>
+</h2>
+<partial name="_SectionSubnav" model="Model.Subnav" />

@@ -68,6 +68,19 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        CancellationToken cancellationToken = default)
+    {
+        var notes = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileNoteDto>>(
+            $"/api/profile-notes/by-version?profileVersionId={profileVersionId}&noteTypeId={noteTypeId}",
+            cancellationToken);
+
+        return notes ?? [];
+    }
+
+    /// <inheritdoc />
     public async Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken = default)
