@@ -432,8 +432,6 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         }
     }
 
-<<<<<<< HEAD
-=======
     /// <inheritdoc />
     public Task<IReadOnlyList<ProfileReviewLookupItem>> GetReviewFrequenciesAsync(CancellationToken cancellationToken) =>
         ReadReviewLookupAsync(ProfileSectionStoredProcedures.GetSectionReviewFrequencies, cancellationToken);
@@ -744,7 +742,6 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         return fields;
     }
 
->>>>>>> origin/main
     private static ProfileQuestionnaireMetadata BuildMetadata(
         List<SectionMetadataRow> sections,
         List<QuestionMetadataRow> questions,
