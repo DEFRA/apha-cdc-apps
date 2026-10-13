@@ -79,7 +79,7 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
     }
 
     [Fact]
-    public async Task EditProfileQuestions_RendersAccordionNotesAndPagination_ForATwoSectionProfile()
+    public async Task EditProfileQuestions_RendersAccordionTabStripAndPagination_ForATwoSectionProfile()
     {
         var profileId = Guid.NewGuid();
         var summarySectionId = Guid.NewGuid();
@@ -161,7 +161,7 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Contains("Is it endemic?", body);
-        Assert.Contains("A relevant paper.", body);
         Assert.Contains("Epidemiology", body);
+        Assert.DoesNotContain("A relevant paper.", body);
     }
 }

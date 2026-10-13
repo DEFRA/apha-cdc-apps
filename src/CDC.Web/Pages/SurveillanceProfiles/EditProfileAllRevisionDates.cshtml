@@ -1,0 +1,91 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.EditProfileAllRevisionDatesModel
+@{
+    Layout = "_ProfileSectionTabLayout";
+}
+@* Mirrors legacy EditProfileAllRevisionDates.aspx: Save at the top and bottom, then the tabs, the result messages, "Set For All Sections:" and one block per section. *@
+@if (Model.CurrentSection is not null)
+{
+    var tabsModel = Model.BuildTabs();
+    var showSave = Model.RevisionDatesTab is not null && Model.RevisionDatesTab.IsEditable && Model.RevisionDatesTab.Rows.Count > 0;
+
+    <form method="post">
+        <input type="hidden" name="profileVersionId" value="@Model.CurrentProfileVersionId" />
+
+        @if (showSave)
+        {
+            <div class="govuk-button-group app-button-group--right">
+                <button type="submit" asp-page-handler="SaveRevisionDates" class="govuk-button" data-module="govuk-button">Save</button>
+            </div>
+        }
+
+        <div class="govuk-tabs app-tab-carousel">
+            <partial name="_ProfileSectionTabs" model="tabsModel" />
+            <div class="govuk-tabs__panel" id="profile-all-revision-dates-panel">
+                @if (Model.HasNoVersion)
+                {
+                    <div class="govuk-inset-text">This profile has no current version to browse.</div>
+                }
+                else
+                {
+                    if (Model.RevisionDatesSavedCount is not null)
+                    {
+                        <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="revision-dates-save-success-title" data-module="govuk-notification-banner">
+                            <div class="govuk-notification-banner__header">
+                                <h2 class="govuk-notification-banner__title" id="revision-dates-save-success-title">Success</h2>
+                            </div>
+                            <div class="govuk-notification-banner__content">
+                                <p class="govuk-notification-banner__heading">Profile section save succeeded</p>
+                            </div>
+                        </div>
+                    }
+
+                    if (Model.RevisionDatesErrors.Count > 0 || Model.RevisionDatesSaveError is not null)
+                    {
+                        <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="revision-dates-error-summary-title">
+                            <div role="alert">
+                                <h2 class="govuk-error-summary__title" id="revision-dates-error-summary-title">There is a problem</h2>
+                                <div class="govuk-error-summary__body">
+                                    @if (Model.RevisionDatesErrors.Count > 0)
+                                    {
+                                        <p class="govuk-body">The following errors have occurred:</p>
+                                    }
+                                    <ul class="govuk-list govuk-error-summary__list">
+                                        @if (Model.RevisionDatesSaveError is not null)
+                                        {
+                                            <li>@Model.RevisionDatesSaveError</li>
+                                        }
+                                        @foreach (var error in Model.RevisionDatesErrors)
+                                        {
+                                            <li>@error</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    if (Model.RevisionDatesTab is null)
+                    {
+                        <p class="govuk-body">There are no revision dates to display.</p>
+                    }
+                    else
+                    {
+                        <partial name="_ProfileRevisionDates" model="Model.RevisionDatesTab" />
+                    }
+                }
+            </div>
+        </div>
+
+        @if (showSave)
+        {
+            <div class="govuk-button-group app-button-group--right">
+                <button type="submit" asp-page-handler="SaveRevisionDates" class="govuk-button" data-module="govuk-button">Save</button>
+            </div>
+        }
+    </form>
+}
+
+@section Scripts {
+    <script src="~/js/revision-dates.js" asp-append-version="true"></script>
+}

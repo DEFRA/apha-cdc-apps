@@ -134,7 +134,7 @@ builder.Services.AddHealthChecks()
 
 // Centralized policy-based authorization (replaces legacy CSLA Profile.CanXxx() checks). See
 // src/CDC.Web/Authorization/AuthorizationDependencyInjection.cs.
-builder.Services.AddCdcWebAuthorization(builder.Configuration);
+builder.Services.AddCdcWebAuthorization();
 
 // Allow views to be located under Features/{Controller}/Views and Features/Shared
 builder.Services.Configure<RazorViewEngineOptions>(options =>
