@@ -192,9 +192,7 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
         Guid profileVersionId,
         Guid profileSectionId,
         Guid commentId,
-        string subject,
-        string commentReference,
-        string commentText,
+        ReviewCommentContent content,
         byte[] lastUpdated,
         CancellationToken cancellationToken = default)
     {
@@ -203,9 +201,9 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
             Id = commentId,
             ProfileVersionId = profileVersionId,
             ProfileSectionId = profileSectionId,
-            Subject = subject,
-            CommentReference = commentReference,
-            CommentText = commentText,
+            content.Subject,
+            content.CommentReference,
+            content.CommentText,
             LastUpdated = lastUpdated
         };
         using var response = await httpClient.PutAsJsonAsync("/api/profile-sections/review-comments", request, cancellationToken);

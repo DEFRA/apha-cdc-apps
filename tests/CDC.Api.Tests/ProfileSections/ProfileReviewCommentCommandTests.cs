@@ -140,7 +140,7 @@ public class ProfileReviewCommentCommandTests
         var command = ValidUpdate();
         var dto = new SaveProfileReviewCommentResultDto { Id = command.Id, LastUpdated = RowVersion };
         service
-            .Setup(svc => svc.UpdateAsync(VersionId, SectionId, command.Id, "Subject", "Ref", "Text", RowVersion, It.IsAny<CancellationToken>()))
+            .Setup(svc => svc.UpdateAsync(VersionId, SectionId, command.Id, new ReviewCommentContent("Subject", "Ref", "Text"), RowVersion, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(dto));
 
         var result = await new UpdateProfileReviewCommentCommandHandler(service.Object, NullLogger<UpdateProfileReviewCommentCommandHandler>.Instance)
@@ -153,7 +153,7 @@ public class ProfileReviewCommentCommandTests
     public async Task UpdateHandler_MapsAConcurrencyExceptionToAConflict()
     {
         service
-            .Setup(svc => svc.UpdateAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+            .Setup(svc => svc.UpdateAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<ReviewCommentContent>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ConcurrencyException("edited by another user"));
 
         var result = await new UpdateProfileReviewCommentCommandHandler(service.Object, NullLogger<UpdateProfileReviewCommentCommandHandler>.Instance)

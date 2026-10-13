@@ -41,7 +41,7 @@
             {
                 <div class="app-review-comment-add">
                     <span class="govuk-body govuk-!-margin-bottom-0">Add a review comment:</span>
-                    <a href="@Model.BuildAddUrl()" role="button" draggable="false" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button">Add</a>
+                    <a href="@Model.BuildAddUrl()" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Add</a>
                 </div>
             }
 
@@ -154,17 +154,17 @@
                     <form method="post" class="govuk-button-group" onsubmit="return confirm('@CDC.Web.Pages.SurveillanceProfiles.EditProfileReviewCommentsModel.DeleteConfirmation')">
                         @if (Model.CanAdd)
                         {
-                            <a href="@Model.BuildReplyUrl(Model.Detail.Id)" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Reply</a>
+                            <a href="@Model.BuildReplyUrl(Model.Detail.Id)" class="govuk-button govuk-button--secondary">Reply</a>
                         }
                         @if (Model.Detail.CanEdit)
                         {
-                            <a href="@Model.BuildEditUrl(Model.Detail.Id)" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Edit</a>
+                            <a href="@Model.BuildEditUrl(Model.Detail.Id)" class="govuk-button govuk-button--secondary">Edit</a>
                         }
                         @if (Model.Detail.CanDelete)
                         {
                             <button type="submit" asp-page-handler="Delete" asp-route-commentId="@Model.Detail.Id" asp-route-section="@Model.CurrentSection.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize" class="govuk-button govuk-button--warning" data-module="govuk-button">Delete</button>
                         }
-                        <a class="govuk-button govuk-button--secondary" role="button" draggable="false" href="@Model.BuildListUrl()" data-module="govuk-button">Close</a>
+                        <a class="govuk-button govuk-button--secondary" href="@Model.BuildListUrl()">Close</a>
                     </form>
                 </section>
             }
@@ -220,7 +220,7 @@
 
                         <div class="govuk-button-group">
                             <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
-                            <a class="govuk-button govuk-button--secondary" role="button" draggable="false" href="@Model.BuildListUrl()" data-module="govuk-button">Cancel</a>
+                            <a class="govuk-button govuk-button--secondary" href="@Model.BuildListUrl()">Cancel</a>
                         </div>
                     </form>
                 </section>

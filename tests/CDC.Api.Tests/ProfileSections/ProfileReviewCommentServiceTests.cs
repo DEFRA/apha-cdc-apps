@@ -6,6 +6,7 @@ using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Infrastructure;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -221,7 +222,7 @@ public class ProfileReviewCommentServiceTests
             .Setup(repo => repo.UpdateReviewCommentAsync(comment.Id, "New", "NewRef", "NewText", RowVersion, It.IsAny<CancellationToken>()))
             .ReturnsAsync(newRowVersion);
 
-        var result = await CreateService().UpdateAsync(VersionId, SectionId, comment.Id, " New ", " NewRef ", "NewText", RowVersion, CancellationToken.None);
+        var result = await CreateService().UpdateAsync(VersionId, SectionId, comment.Id, new ReviewCommentContent(" New ", " NewRef ", "NewText"), RowVersion, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Id.Should().Be(comment.Id);
@@ -233,7 +234,7 @@ public class ProfileReviewCommentServiceTests
     {
         GivenComments(Comment());
 
-        var result = await CreateService().UpdateAsync(VersionId, SectionId, Guid.NewGuid(), "S", "R", "T", RowVersion, CancellationToken.None);
+        var result = await CreateService().UpdateAsync(VersionId, SectionId, Guid.NewGuid(), new ReviewCommentContent("S", "R", "T"), RowVersion, CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.NotFound);
     }
@@ -248,7 +249,7 @@ public class ProfileReviewCommentServiceTests
         var comment = Comment(owner, childCount);
         GivenComments(comment);
 
-        var result = await CreateService().UpdateAsync(VersionId, SectionId, comment.Id, "S", "R", "T", RowVersion, CancellationToken.None);
+        var result = await CreateService().UpdateAsync(VersionId, SectionId, comment.Id, new ReviewCommentContent("S", "R", "T"), RowVersion, CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.Forbidden);
     }
@@ -264,7 +265,7 @@ public class ProfileReviewCommentServiceTests
             .Setup(repo => repo.UpdateReviewCommentAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ConcurrencyException("edited by another user"));
 
-        var act = () => CreateService().UpdateAsync(VersionId, SectionId, comment.Id, "S", "R", "T", RowVersion, CancellationToken.None);
+        var act = () => CreateService().UpdateAsync(VersionId, SectionId, comment.Id, new ReviewCommentContent("S", "R", "T"), RowVersion, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConcurrencyException>();
     }

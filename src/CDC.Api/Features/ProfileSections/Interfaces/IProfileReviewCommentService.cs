@@ -44,9 +44,7 @@ public interface IProfileReviewCommentService
     /// <param name="profileVersionId">The profile version the comment belongs to.</param>
     /// <param name="profileSectionId">The section the comment belongs to.</param>
     /// <param name="commentId">The comment to edit.</param>
-    /// <param name="subject">The new subject line.</param>
-    /// <param name="commentReference">The new reference text.</param>
-    /// <param name="commentText">The new comment body.</param>
+    /// <param name="content">The new subject, reference and body.</param>
     /// <param name="lastUpdated">The row version the caller last read.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The comment's new row version; not found when it does not exist; forbidden when it cannot be edited.</returns>
@@ -55,9 +53,7 @@ public interface IProfileReviewCommentService
         Guid profileVersionId,
         Guid profileSectionId,
         Guid commentId,
-        string subject,
-        string commentReference,
-        string commentText,
+        ReviewCommentContent content,
         byte[] lastUpdated,
         CancellationToken cancellationToken);
 

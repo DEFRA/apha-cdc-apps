@@ -118,9 +118,7 @@ public sealed class ProfileReviewCommentService(
         Guid profileVersionId,
         Guid profileSectionId,
         Guid commentId,
-        string subject,
-        string commentReference,
-        string commentText,
+        ReviewCommentContent content,
         byte[] lastUpdated,
         CancellationToken cancellationToken)
     {
@@ -134,7 +132,7 @@ public sealed class ProfileReviewCommentService(
         }
 
         var newLastUpdated = await repository.UpdateReviewCommentAsync(
-            commentId, subject.Trim(), commentReference.Trim(), commentText, lastUpdated, cancellationToken);
+            commentId, content.Subject.Trim(), content.CommentReference.Trim(), content.CommentText, lastUpdated, cancellationToken);
         logger.UpdatedReviewComment(commentId);
 
         return Result.Success(new SaveProfileReviewCommentResultDto { Id = commentId, LastUpdated = newLastUpdated });

@@ -172,9 +172,7 @@ public sealed class UpdateProfileReviewCommentCommandHandler(
                 request.ProfileVersionId,
                 request.ProfileSectionId,
                 request.Id,
-                request.Subject,
-                request.CommentReference,
-                request.CommentText,
+                new ReviewCommentContent(request.Subject, request.CommentReference, request.CommentText),
                 request.LastUpdated,
                 cancellationToken);
         }

@@ -86,6 +86,12 @@ public sealed record SaveProfileReviewCommentResultDto
     public byte[] LastUpdated { get; init; } = [];
 }
 
+/// <summary>The editable text of a review comment.</summary>
+/// <param name="Subject">The subject line.</param>
+/// <param name="CommentReference">The reference text.</param>
+/// <param name="CommentText">The comment body (HTML from the link-only rich text editor).</param>
+public sealed record ReviewCommentContent(string Subject, string CommentReference, string CommentText);
+
 /// <summary>
 /// One profile reference section's revision (author/VA/policy review) data, as returned by
 /// <c>GET /api/profile-sections/all-revision-dates</c>. Sourced from the revision result set of

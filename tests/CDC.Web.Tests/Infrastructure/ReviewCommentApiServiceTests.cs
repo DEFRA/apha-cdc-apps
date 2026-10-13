@@ -1,4 +1,5 @@
 using System.Net;
+using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 
@@ -50,7 +51,7 @@ public class ReviewCommentApiServiceTests
         var commentId = Guid.NewGuid();
 
         var result = await CreateService(handler).UpdateProfileReviewCommentAsync(
-            Guid.NewGuid(), Guid.NewGuid(), commentId, "Subject", "Ref", "Text", [1, 2, 3, 4, 5, 6, 7, 8]);
+            Guid.NewGuid(), Guid.NewGuid(), commentId, new ReviewCommentContent("Subject", "Ref", "Text"), [1, 2, 3, 4, 5, 6, 7, 8]);
 
         Assert.Equal(ReviewCommentOutcome.Success, result.Outcome);
         Assert.Equal(HttpMethod.Put, handler.Method);
@@ -85,7 +86,7 @@ public class ReviewCommentApiServiceTests
         var service = CreateService(new CapturingHandler(statusCode));
 
         var add = await service.AddProfileReviewCommentAsync(Guid.NewGuid(), Guid.NewGuid(), null, "S", "R", "T");
-        var update = await service.UpdateProfileReviewCommentAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "S", "R", "T", [1, 2, 3, 4, 5, 6, 7, 8]);
+        var update = await service.UpdateProfileReviewCommentAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new ReviewCommentContent("S", "R", "T"), [1, 2, 3, 4, 5, 6, 7, 8]);
         var delete = await service.DeleteProfileReviewCommentAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
 
         Assert.All([add, update, delete], result =>

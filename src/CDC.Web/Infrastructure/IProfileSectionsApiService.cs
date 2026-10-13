@@ -141,9 +141,7 @@ public interface IProfileSectionsApiService
     /// <param name="profileVersionId">The profile version the comment belongs to.</param>
     /// <param name="profileSectionId">The section the comment belongs to.</param>
     /// <param name="commentId">The comment being edited.</param>
-    /// <param name="subject">The new subject line.</param>
-    /// <param name="commentReference">The new reference text.</param>
-    /// <param name="commentText">The new comment body.</param>
+    /// <param name="content">The new subject, reference and body.</param>
     /// <param name="lastUpdated">The comment's row version as last read.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The outcome of the edit.</returns>
@@ -151,9 +149,7 @@ public interface IProfileSectionsApiService
         Guid profileVersionId,
         Guid profileSectionId,
         Guid commentId,
-        string subject,
-        string commentReference,
-        string commentText,
+        ReviewCommentContent content,
         byte[] lastUpdated,
         CancellationToken cancellationToken = default);
 

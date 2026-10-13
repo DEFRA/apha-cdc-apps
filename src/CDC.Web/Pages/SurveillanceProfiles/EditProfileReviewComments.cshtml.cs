@@ -422,7 +422,12 @@ public class EditProfileReviewCommentsModel(
             }
 
             return await ProfileSectionsApi.UpdateProfileReviewCommentAsync(
-                CurrentProfileVersionId, CurrentSection!.Id, Input.CommentId.Value, Input.Subject, Input.Reference, Input.CommentText, lastUpdated, cancellationToken);
+                CurrentProfileVersionId,
+                CurrentSection!.Id,
+                Input.CommentId.Value,
+                new ReviewCommentContent(Input.Subject, Input.Reference, Input.CommentText),
+                lastUpdated,
+                cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {

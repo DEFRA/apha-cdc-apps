@@ -160,13 +160,11 @@ internal sealed class FakeProfileSectionsApiService(
         Guid profileVersionId,
         Guid profileSectionId,
         Guid commentId,
-        string subject,
-        string commentReference,
-        string commentText,
+        ReviewCommentContent content,
         byte[] lastUpdated,
         CancellationToken cancellationToken = default)
     {
-        UpdatedReviewComment = (commentId, subject, commentReference, commentText, lastUpdated);
+        UpdatedReviewComment = (commentId, content.Subject, content.CommentReference, content.CommentText, lastUpdated);
 
         return ReviewCommentResultTask();
     }
