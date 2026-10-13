@@ -394,9 +394,7 @@ public class EditProfileQuestionsModel(
     {
         var noteTypes = await profileSectionsApiService.GetProfileNoteTypesAsync(cancellationToken);
 
-        var questionNumbersById = Sections
-            .SelectMany(s => s.Questions.Select(question => (question.Id, Display: $"{s.SectionNumber}.{question.QuestionNumber}")))
-            .ToDictionary(pair => pair.Id, pair => pair.Display);
+        var questionNumbersById = ProfileNoteDisplayHelper.BuildQuestionNumbersById(Sections);
 
         ScientificPaperReferences = await LoadNoteGroupAsync(
             noteTypes, "SCIENTIFICPAPERREFERENCE", "Scientific paper references",
@@ -420,7 +418,7 @@ public class EditProfileQuestionsModel(
         IReadOnlyDictionary<Guid, string> questionNumbersById,
         CancellationToken cancellationToken)
     {
-        var noteType = noteTypes.FirstOrDefault(type => NormaliseNoteTypeName(type.Name) == normalisedNoteTypeName);
+        var noteType = noteTypes.FirstOrDefault(type => ProfileNoteDisplayHelper.NormaliseNoteTypeName(type.Name) == normalisedNoteTypeName);
 
         if (noteType is null)
         {
@@ -441,17 +439,10 @@ public class EditProfileQuestionsModel(
                     .Where(number => !string.IsNullOrEmpty(number)))))
             .ToList();
 
-        return new ProfileNoteGroupView(heading, BuildEmptyMessage(heading), rows);
+        return new ProfileNoteGroupView(heading, ProfileNoteDisplayHelper.BuildEmptyMessage(heading), rows);
     }
 
-    /// <summary>Strips everything but letters so a reference-data display name (however spaced or
-    /// cased) can be matched against the legacy note type's PascalCase identifier.</summary>
-    private static string NormaliseNoteTypeName(string name) =>
-        new string([.. name.Where(char.IsLetter)]).ToUpperInvariant();
-
-    private static ProfileNoteGroupView EmptyNoteGroup(string heading) => new(heading, BuildEmptyMessage(heading), []);
-
-    private static string BuildEmptyMessage(string heading) => $"There are no {heading.ToLowerInvariant()} to display.";
+    private static ProfileNoteGroupView EmptyNoteGroup(string heading) => new(heading, ProfileNoteDisplayHelper.BuildEmptyMessage(heading), []);
 
     /// <summary>Loads the Contributions tab's content, resiliently: a failure here degrades to an
     /// empty table rather than failing the whole page.</summary>

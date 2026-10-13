@@ -158,13 +158,17 @@ else
                     <div class="govuk-hint">@hint</div>
                 }
                 <div class="app-richtext-toolbar" role="toolbar" aria-label="@Model.Label formatting">
-                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="undo" data-richtext-target="@inputName" aria-label="Undo">Undo</button>
-                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="redo" data-richtext-target="@inputName" aria-label="Redo">Redo</button>
-                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="italic" data-richtext-target="@inputName" aria-label="Italic"><em>Italic</em></button>
-                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="bullist" data-richtext-target="@inputName" aria-label="Bulleted list">Bullets</button>
-                    <button type="button" class="app-richtext-toolbar__button" data-richtext-command="link" data-richtext-target="@inputName" aria-label="Insert link">Link</button>
+                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="@inputName" aria-label="Undo" title="Undo">&#8630;</button>
+                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="@inputName" aria-label="Redo" title="Redo">&#8631;</button>
+                    <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon app-richtext-toolbar__button--italic" data-richtext-command="italic" data-richtext-target="@inputName" aria-label="Italic" title="Italic">I</button>
+                    <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="bullist" data-richtext-target="@inputName" aria-label="Bulleted list" title="Bulleted list">&#9776;</button>
+                    <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="@inputName" aria-label="Insert link" title="Insert link">&#128279;</button>
                 </div>
-                <textarea class="govuk-textarea app-richtext-editor" id="@inputName" name="@inputName" rows="8">@Model.TextValue</textarea>
+                <textarea class="govuk-textarea app-richtext-editor" id="@inputName" name="@inputName" rows="8" spellcheck="true">@Model.TextValue</textarea>
+                <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="@inputName">Spell check</button>
             </div>
             break;
         default:
@@ -174,7 +178,8 @@ else
                 {
                     <div class="govuk-hint">@hint</div>
                 }
-                <input class="govuk-input" id="@inputName" name="@inputName" type="text" maxlength="255" value="@Model.TextValue" />
+                <input class="govuk-input" id="@inputName" name="@inputName" type="text" maxlength="255" value="@Model.TextValue" spellcheck="true" />
+                <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="@inputName">Spell check</button>
             </div>
             break;
     }
