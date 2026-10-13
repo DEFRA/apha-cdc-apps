@@ -86,6 +86,39 @@ public class EntraOpenIdConnectEventsTests
     }
 
     [Fact]
+    public async Task TicketReceived_RemovesTheAccessToken_AndKeepsTheOthers()
+    {
+        var properties = new AuthenticationProperties();
+        properties.StoreTokens(
+        [
+            new AuthenticationToken { Name = "access_token", Value = "access" },
+            new AuthenticationToken { Name = "id_token", Value = "id" },
+            new AuthenticationToken { Name = "refresh_token", Value = "refresh" },
+            new AuthenticationToken { Name = "expires_at", Value = "2026-10-13T15:00:00.0000000+00:00" }
+        ]);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity()), properties, "entra");
+        var context = new TicketReceivedContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), ticket);
+
+        await CreateEvents().TicketReceived(context);
+
+        Assert.Null(properties.GetTokenValue("access_token"));
+        Assert.Equal("id", properties.GetTokenValue("id_token"));
+        Assert.Equal("refresh", properties.GetTokenValue("refresh_token"));
+        Assert.Equal("2026-10-13T15:00:00.0000000+00:00", properties.GetTokenValue("expires_at"));
+    }
+
+    [Fact]
+    public async Task TicketReceived_WithNoTokens_DoesNotThrow()
+    {
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity()), new AuthenticationProperties(), "entra");
+        var context = new TicketReceivedContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), ticket);
+
+        var exception = await Record.ExceptionAsync(() => CreateEvents().TicketReceived(context));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public async Task RemoteFailure_HandlesResponseAndRedirectsToGenericErrorPage()
     {
         var httpContext = new DefaultHttpContext();
