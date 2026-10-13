@@ -25,10 +25,10 @@ public sealed record SaveProfileVersionRevisionDatesCommand : IRequest<Result<Sa
 public sealed class SaveProfileVersionRevisionDatesCommandValidator : AbstractValidator<SaveProfileVersionRevisionDatesCommand>
 {
     /// <summary>The earliest date the legacy page accepts (<c>smalldatetime</c> lower bound).</summary>
-    public static readonly DateTime MinimumReviewDate = new(1900, 1, 1);
+    public static readonly DateTime MinimumReviewDate = new(1900, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
     /// <summary>The latest date the legacy page accepts (<c>smalldatetime</c> upper bound).</summary>
-    public static readonly DateTime MaximumReviewDate = new(2079, 6, 6);
+    public static readonly DateTime MaximumReviewDate = new(2079, 6, 6, 0, 0, 0, DateTimeKind.Unspecified);
 
     private const int RowVersionLength = 8;
 

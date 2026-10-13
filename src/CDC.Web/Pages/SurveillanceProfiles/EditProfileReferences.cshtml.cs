@@ -49,14 +49,15 @@ public class EditProfileReferencesModel(
         {
             var noteTypes = await ProfileSectionsApi.GetProfileNoteTypesAsync(cancellationToken);
             var questionNumbersById = ProfileNoteDisplayHelper.BuildQuestionNumbersById(Sections);
+            var section = new ProfileNoteSectionContext(CurrentProfileVersionId, CurrentSection!.Id, questionNumbersById);
 
             ScientificPaperReferences = await ProfileNoteDisplayHelper.LoadGroupAsync(
                 ProfileSectionsApi, noteTypes, ProfileNoteDisplayHelper.ScientificPaperReferenceType, "Scientific paper references",
-                CurrentProfileVersionId, CurrentSection!.Id, questionNumbersById, cancellationToken);
+                section, cancellationToken);
 
             LegislativeReferences = await ProfileNoteDisplayHelper.LoadGroupAsync(
                 ProfileSectionsApi, noteTypes, ProfileNoteDisplayHelper.LegislativeReferenceType, "Legislative references",
-                CurrentProfileVersionId, CurrentSection.Id, questionNumbersById, cancellationToken);
+                section, cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {

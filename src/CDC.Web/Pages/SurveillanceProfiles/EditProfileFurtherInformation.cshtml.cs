@@ -46,10 +46,11 @@ public class EditProfileFurtherInformationModel(
         {
             var noteTypes = await ProfileSectionsApi.GetProfileNoteTypesAsync(cancellationToken);
             var questionNumbersById = ProfileNoteDisplayHelper.BuildQuestionNumbersById(Sections);
+            var section = new ProfileNoteSectionContext(CurrentProfileVersionId, CurrentSection!.Id, questionNumbersById);
 
             FurtherInformation = await ProfileNoteDisplayHelper.LoadGroupAsync(
                 ProfileSectionsApi, noteTypes, ProfileNoteDisplayHelper.SourceOfFurtherInformationType, "Sources of further information",
-                CurrentProfileVersionId, CurrentSection!.Id, questionNumbersById, cancellationToken);
+                section, cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {

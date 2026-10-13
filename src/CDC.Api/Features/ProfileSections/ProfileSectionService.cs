@@ -354,12 +354,12 @@ public sealed class ProfileSectionService(
             (nameof(input.PolicyReviewStatusId), input.PolicyReviewStatusId)
         };
 
-        foreach (var (property, value) in frequencyChecks.Where(check => check.Value is not null && !validFrequencyIds.Contains(check.Value.Value)))
+        foreach (var (property, _) in frequencyChecks.Where(check => check.Value is not null && !validFrequencyIds.Contains(check.Value.Value)))
         {
             failures.Add(new ValidationFailure($"Sections[{index}].{property}", "The review frequency is not a recognised option."));
         }
 
-        foreach (var (property, value) in statusChecks.Where(check => check.Value is not null && !validStatusIds.Contains(check.Value.Value)))
+        foreach (var (property, _) in statusChecks.Where(check => check.Value is not null && !validStatusIds.Contains(check.Value.Value)))
         {
             failures.Add(new ValidationFailure($"Sections[{index}].{property}", "The review status is not a recognised option."));
         }

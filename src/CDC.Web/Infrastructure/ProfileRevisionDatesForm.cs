@@ -18,10 +18,10 @@ public static class ProfileRevisionDatesForm
     public const string DateFormat = "d MMMM yyyy";
 
     /// <summary>The earliest date accepted (the database column's lower bound).</summary>
-    public static readonly DateTime MinimumDate = new(1900, 1, 1);
+    public static readonly DateTime MinimumDate = new(1900, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
     /// <summary>The latest date accepted (the database column's upper bound).</summary>
-    public static readonly DateTime MaximumDate = new(2079, 6, 6);
+    public static readonly DateTime MaximumDate = new(2079, 6, 6, 0, 0, 0, DateTimeKind.Unspecified);
 
     private static readonly string[] AcceptedDateFormats =
     [

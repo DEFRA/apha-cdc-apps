@@ -49,9 +49,7 @@ public static class ProfileNoteDisplayHelper
     /// <param name="noteTypes">Every note type from CDC.Api.</param>
     /// <param name="normalisedNoteTypeName">The wanted type, for example <see cref="ScientificPaperReferenceType"/>.</param>
     /// <param name="fallbackHeading">The heading used when the type has no plural name.</param>
-    /// <param name="profileVersionId">The profile version to read.</param>
-    /// <param name="profileSectionId">The section to read.</param>
-    /// <param name="questionNumbersById">Question id to display reference, for the question reference cell.</param>
+    /// <param name="section">The profile version and section to read, and the question reference lookup.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The notes in alphabetical order, ready to render.</returns>
     public static async Task<ProfileNoteGroupView> LoadGroupAsync(
@@ -59,9 +57,7 @@ public static class ProfileNoteDisplayHelper
         IReadOnlyList<ProfileNoteTypeDto> noteTypes,
         string normalisedNoteTypeName,
         string fallbackHeading,
-        Guid profileVersionId,
-        Guid profileSectionId,
-        IReadOnlyDictionary<Guid, string> questionNumbersById,
+        ProfileNoteSectionContext section,
         CancellationToken cancellationToken)
     {
         var noteType = noteTypes.FirstOrDefault(type => NormaliseNoteTypeName(type.Name) == normalisedNoteTypeName);
@@ -71,7 +67,7 @@ public static class ProfileNoteDisplayHelper
             return EmptyGroup(fallbackHeading);
         }
 
-        var notes = await apiService.GetProfileNotesBySectionAsync(profileVersionId, profileSectionId, noteType.Id, cancellationToken);
+        var notes = await apiService.GetProfileNotesBySectionAsync(section.ProfileVersionId, section.ProfileSectionId, noteType.Id, cancellationToken);
 
         var heading = string.IsNullOrEmpty(noteType.PluralName) ? fallbackHeading : noteType.PluralName;
 
@@ -80,10 +76,19 @@ public static class ProfileNoteDisplayHelper
             .Select(note => new ProfileNoteRowView(
                 note.NoteText,
                 string.Join(", ", note.QuestionReferences
-                    .Select(reference => questionNumbersById.GetValueOrDefault(reference.ProfileQuestionId))
+                    .Select(reference => section.QuestionNumbersById.GetValueOrDefault(reference.ProfileQuestionId))
                     .Where(number => !string.IsNullOrEmpty(number)))))
             .ToList();
 
         return new ProfileNoteGroupView(heading, BuildEmptyMessage(heading), rows);
     }
 }
+
+/// <summary>The section whose notes are being loaded.</summary>
+/// <param name="ProfileVersionId">The profile version to read.</param>
+/// <param name="ProfileSectionId">The section to read.</param>
+/// <param name="QuestionNumbersById">Question id to display reference, for the question reference cell.</param>
+public sealed record ProfileNoteSectionContext(
+    Guid ProfileVersionId,
+    Guid ProfileSectionId,
+    IReadOnlyDictionary<Guid, string> QuestionNumbersById);
