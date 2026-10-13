@@ -32,8 +32,8 @@ public sealed class GetProfileSectionReviewCommentsQueryValidator : AbstractVali
 /// <summary>
 /// Handles <see cref="GetProfileSectionReviewCommentsQuery"/>.
 /// </summary>
-/// <param name="profileSectionService">Profile sections application service.</param>
-public sealed class GetProfileSectionReviewCommentsQueryHandler(IProfileSectionService profileSectionService)
+/// <param name="reviewCommentService">Review comment application service.</param>
+public sealed class GetProfileSectionReviewCommentsQueryHandler(IProfileReviewCommentService reviewCommentService)
     : IRequestHandler<GetProfileSectionReviewCommentsQuery, Result<IReadOnlyList<ProfileReviewCommentDto>>>
 {
     /// <summary>Executes the query.</summary>
@@ -46,7 +46,7 @@ public sealed class GetProfileSectionReviewCommentsQueryHandler(IProfileSectionS
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var result = await profileSectionService.GetProfileSectionReviewCommentsAsync(
+        var result = await reviewCommentService.GetAsync(
             request.ProfileVersionId, request.ProfileSectionId, cancellationToken);
 
         return Result.Success(result);

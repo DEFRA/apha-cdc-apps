@@ -23,4 +23,25 @@ internal static partial class ProfileSectionLog
 
     [LoggerMessage(EventId = 9006, Level = LogLevel.Information, Message = "Saved {FieldsSavedCount} field values for profile version {ProfileVersionId} section {ProfileSectionId}")]
     public static partial void SavedProfileVersionSection(this ILogger logger, Guid profileVersionId, Guid profileSectionId, int fieldsSavedCount);
+
+    [LoggerMessage(EventId = 9007, Level = LogLevel.Information, Message = "Saved revision dates for {SectionsSavedCount} of {SectionsSubmittedCount} submitted sections of profile version {ProfileVersionId}")]
+    public static partial void SavedProfileVersionRevisionDates(this ILogger logger, Guid profileVersionId, int sectionsSavedCount, int sectionsSubmittedCount);
+
+    [LoggerMessage(EventId = 9008, Level = LogLevel.Warning, Message = "Revision dates of profile version {ProfileVersionId} were not saved: a section was edited by another user or the version is not a current draft")]
+    public static partial void RevisionDatesConcurrencyConflict(this ILogger logger, Guid profileVersionId);
+
+    [LoggerMessage(EventId = 9009, Level = LogLevel.Information, Message = "Added review comment {ReviewCommentId} to profile version {ProfileVersionId} section {ProfileSectionId}")]
+    public static partial void AddedReviewComment(this ILogger logger, Guid reviewCommentId, Guid profileVersionId, Guid profileSectionId);
+
+    [LoggerMessage(EventId = 9010, Level = LogLevel.Information, Message = "Updated review comment {ReviewCommentId}")]
+    public static partial void UpdatedReviewComment(this ILogger logger, Guid reviewCommentId);
+
+    [LoggerMessage(EventId = 9011, Level = LogLevel.Information, Message = "Deleted review comment {ReviewCommentId}")]
+    public static partial void DeletedReviewComment(this ILogger logger, Guid reviewCommentId);
+
+    [LoggerMessage(EventId = 9012, Level = LogLevel.Warning, Message = "Review comment {ReviewCommentId} was not saved: it was edited by another user")]
+    public static partial void ReviewCommentConcurrencyConflict(this ILogger logger, Guid reviewCommentId);
+
+    [LoggerMessage(EventId = 9013, Level = LogLevel.Warning, Message = "Review comment change refused for profile version {ProfileVersionId}: {Reason}")]
+    public static partial void ReviewCommentChangeRefused(this ILogger logger, Guid profileVersionId, string reason);
 }

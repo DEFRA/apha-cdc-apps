@@ -188,6 +188,32 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Saves the "All Revision dates" tab of one profile version.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy <c>EditProfileAllRevisionDates.aspx</c> Save button. Only sections whose
+    /// submitted values differ from the stored ones are written, all in one transaction.
+    /// </remarks>
+    /// <param name="command">The profile version and each section's submitted revision data.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The number of sections written.</returns>
+    /// <response code="200">The revision dates were saved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="409">A section was edited by another user, or the version is not a current draft.</response>
+    [HttpPut("all-revision-dates")]
+    [ProducesResponseType(typeof(SaveProfileRevisionDatesResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SaveProfileRevisionDatesResultDto>> SaveProfileVersionRevisionDates(
+        [FromBody] SaveProfileVersionRevisionDatesCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
     /// Gets every logged contribution to one profile version's section.
     /// </summary>
     /// <remarks>
@@ -236,6 +262,95 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
         var result = await mediator.Send(new GetProfileSectionReviewCommentsQuery(profileVersionId, profileSectionId), cancellationToken);
 
         return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Adds a review comment, or a reply to an existing one.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy "Add review comment" and "Reply" panels. Allowed only while the version is
+    /// an editable current draft. Supply <c>parentId</c> to reply.
+    /// </remarks>
+    /// <param name="command">The comment to add.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The new comment's id and row version.</returns>
+    /// <response code="200">The comment was added.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="404">The comment being replied to does not exist.</response>
+    [HttpPost("review-comments")]
+    [ProducesResponseType(typeof(SaveProfileReviewCommentResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SaveProfileReviewCommentResultDto>> AddProfileReviewComment(
+        [FromBody] AddProfileReviewCommentCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Edits a review comment.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy "Edit review comment" panel. Only the author may edit, and only while the
+    /// comment has no replies.
+    /// </remarks>
+    /// <param name="command">The new values and the row version last read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The comment's new row version.</returns>
+    /// <response code="200">The comment was saved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The comment cannot be edited by the acting user.</response>
+    /// <response code="404">The comment does not exist.</response>
+    /// <response code="409">The comment was edited by another user.</response>
+    [HttpPut("review-comments")]
+    [ProducesResponseType(typeof(SaveProfileReviewCommentResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SaveProfileReviewCommentResultDto>> UpdateProfileReviewComment(
+        [FromBody] UpdateProfileReviewCommentCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Deletes a review comment.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy "Delete" button of the review comment panel. Only the author may delete,
+    /// and only while the comment has no replies.
+    /// </remarks>
+    /// <param name="id">The comment to delete.</param>
+    /// <param name="profileVersionId">The profile version the comment belongs to.</param>
+    /// <param name="profileSectionId">The section the comment belongs to.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>No content on success.</returns>
+    /// <response code="204">The comment was deleted.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The comment cannot be deleted by the acting user.</response>
+    /// <response code="404">The comment does not exist.</response>
+    [HttpDelete("review-comments/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteProfileReviewComment(
+        [FromRoute] Guid id,
+        [FromQuery] Guid profileVersionId,
+        [FromQuery] Guid profileSectionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new DeleteProfileReviewCommentCommand(id, profileVersionId, profileSectionId), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
     }
 
     /// <summary>
