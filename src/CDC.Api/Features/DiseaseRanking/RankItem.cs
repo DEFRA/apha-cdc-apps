@@ -74,12 +74,17 @@ internal sealed partial class RankItem(RankedProfile source)
 
     /// <summary>Gets the table label: exotic disease names in capitals, species names left as entered.</summary>
     /// <param name="length">The maximum length.</param>
-    public string FullTitleMixedCase(int length) =>
-        IsExotic
-            ? Truncate(
-                $"{(source.IsAwaitingValidation ? "*" : string.Empty)}{Clean(source.ProfileTitle).ToUpperInvariant()} ({Clean(source.SpeciesName)})",
-                length)
-            : Truncate(BuildTitle(withAsterisk: true), length);
+    public string FullTitleMixedCase(int length)
+    {
+        if (!IsExotic)
+        {
+            return Truncate(BuildTitle(withAsterisk: true), length);
+        }
+
+        var asterisk = source.IsAwaitingValidation ? "*" : string.Empty;
+
+        return Truncate($"{asterisk}{Clean(source.ProfileTitle).ToUpperInvariant()} ({Clean(source.SpeciesName)})", length);
+    }
 
     public int GetRank(RankCategory category) => category switch
     {

@@ -143,30 +143,30 @@ internal static class DiseaseRankingReportBuilder
     {
         var charts = new List<DiseaseRankingChartDto>();
 
-        foreach (var rfi in Rfi.All)
+        foreach (var category in Rfi.All.Select(rfi => rfi.Category))
         {
             foreach (var isExotic in new[] { true, false })
             {
                 var list = RankListOperations.WithImpact(
-                    RankListOperations.GetFilteredSortedList(items, isExotic, rfi.Category, onePerDisease: true),
-                    rfi.Category);
+                    RankListOperations.GetFilteredSortedList(items, isExotic, category, onePerDisease: true),
+                    category);
 
                 var paragraphs = new List<string> { ScoredIntroText };
 
-                if (!isExotic && rfi.Category == RankCategory.InternationalTrade)
+                if (!isExotic && category == RankCategory.InternationalTrade)
                 {
                     paragraphs.Add(TradeText);
                 }
 
                 var title = isExotic
-                    ? $"Exotic diseases ranked according to potential impact on {ImpactName(rfi.Category)}"
-                    : $"Endemic diseases ranked according to impact on {ImpactName(rfi.Category)}";
+                    ? $"Exotic diseases ranked according to potential impact on {ImpactName(category)}"
+                    : $"Endemic diseases ranked according to impact on {ImpactName(category)}";
 
                 charts.Add(BuildChart(
                     title,
                     paragraphs,
                     FirstPage(list, RfiChartRows),
-                    rfi.Category,
+                    category,
                     isScored: true,
                     axisMin: -100,
                     axisMax: ScoredAxisMax(list.Count > 0 ? RankListOperations.MaxTotalRank(list) : null)));
@@ -186,32 +186,32 @@ internal static class DiseaseRankingReportBuilder
         var totalAxisMax = ScoredAxisMax(total.Count > 0 ? RankListOperations.MaxTotalRank(total) : null);
         var totalIncludingRiskAxisMax = ScoredAxisMax(totalIncludingRisk.Count > 0 ? RankListOperations.MaxTotalIncludingRiskRank(totalIncludingRisk) : null);
 
-        AddContinuedCharts(charts, total, TotalTitle, TotalText, RankCategory.Total, true, -100, totalAxisMax);
-        AddContinuedCharts(charts, totalIncludingRisk, TotalIncludingRiskTitle, TotalIncludingRiskText, RankCategory.TotalIncludingRisk, true, -50, totalIncludingRiskAxisMax);
+        AddContinuedCharts(charts, total, new ContinuedChart(TotalTitle, TotalText, RankCategory.Total, true, -100, totalAxisMax));
+        AddContinuedCharts(charts, totalIncludingRisk, new ContinuedChart(TotalIncludingRiskTitle, TotalIncludingRiskText, RankCategory.TotalIncludingRisk, true, -50, totalIncludingRiskAxisMax));
     }
 
     private static List<DiseaseRankingChartDto> BuildRankedCharts(IReadOnlyList<RankItem> items)
     {
         var charts = new List<DiseaseRankingChartDto>();
 
-        foreach (var rfi in Rfi.All)
+        foreach (var category in Rfi.All.Select(rfi => rfi.Category))
         {
             var list = RankListOperations.WithImpact(
-                RankListOperations.GetAllSortedList(items, rfi.Category, onePerDisease: true),
-                rfi.Category);
+                RankListOperations.GetAllSortedList(items, category, onePerDisease: true),
+                category);
 
             var paragraphs = new List<string> { RankedIntroText };
 
-            if (rfi.Category == RankCategory.InternationalTrade)
+            if (category == RankCategory.InternationalTrade)
             {
                 paragraphs.Add(RankedTradeText);
             }
 
             charts.Add(BuildChart(
-                $"Diseases ranked according to potential impact on {ImpactName(rfi.Category)}",
+                $"Diseases ranked according to potential impact on {ImpactName(category)}",
                 paragraphs,
                 FirstPage(list, RfiChartRows),
-                rfi.Category,
+                category,
                 isScored: false,
                 axisMin: 0,
                 axisMax: list.Count > 0 ? RankedAxisMax : 0));
@@ -222,8 +222,8 @@ internal static class DiseaseRankingReportBuilder
         var byRisk = RankListOperations.GetAllSortedList(items, RankCategory.Risk);
         var byTotalIncludingRisk = RankListOperations.GetAllSortedList(items, RankCategory.TotalIncludingRisk);
 
-        AddContinuedCharts(charts, byRisk, TotalTitle, TotalText, RankCategory.Total, false, 0, byRisk.Count > 0 ? RankedAxisMax : 0);
-        AddContinuedCharts(charts, byTotalIncludingRisk, TotalIncludingRiskTitle, TotalIncludingRiskText, RankCategory.TotalIncludingRisk, false, 0, byTotalIncludingRisk.Count > 0 ? RankedAxisMax : 0);
+        AddContinuedCharts(charts, byRisk, new ContinuedChart(TotalTitle, TotalText, RankCategory.Total, false, 0, byRisk.Count > 0 ? RankedAxisMax : 0));
+        AddContinuedCharts(charts, byTotalIncludingRisk, new ContinuedChart(TotalIncludingRiskTitle, TotalIncludingRiskText, RankCategory.TotalIncludingRisk, false, 0, byTotalIncludingRisk.Count > 0 ? RankedAxisMax : 0));
 
         return charts;
     }
@@ -231,25 +231,20 @@ internal static class DiseaseRankingReportBuilder
     private static void AddContinuedCharts(
         List<DiseaseRankingChartDto> charts,
         List<RankItem> ascending,
-        string title,
-        string text,
-        RankCategory category,
-        bool isScored,
-        double axisMin,
-        double axisMax)
+        ContinuedChart spec)
     {
         var page = 0;
 
         foreach (var chunk in RankListOperations.ChunkFromTop(ascending, TotalChartRows))
         {
             charts.Add(BuildChart(
-                page == 0 ? title : $"{title} continued...",
-                [text],
+                page == 0 ? spec.Title : $"{spec.Title} continued...",
+                [spec.Text],
                 chunk,
-                category,
-                isScored,
-                axisMin,
-                axisMax));
+                spec.Category,
+                spec.IsScored,
+                spec.AxisMin,
+                spec.AxisMax));
             page++;
         }
     }
@@ -273,7 +268,7 @@ internal static class DiseaseRankingReportBuilder
             AxisMax = axisMax,
             AxisInterval = AxisInterval,
             StartsOnNewPage = true,
-            Legend = [.. series.Select(entry => new DiseaseRankingSeriesDto { Name = entry.Name, Colour = entry.Colour })],
+            Legend = [.. series.Select(entry => new DiseaseRankingSeriesDto { Name = entry.Name, Colour = entry.Fill })],
             // Legacy charts plotted the first item at the bottom, so the highest impact ends up on top.
             Bars = [.. Enumerable.Reverse(ascending).Select(item => BuildBar(item, series))]
         };
@@ -296,8 +291,8 @@ internal static class DiseaseRankingReportBuilder
 
             // Stacked bars grow away from the origin in the direction of each value's sign.
             var segment = value < 0
-                ? new DiseaseRankingSegmentDto { Series = entry.Name, Colour = entry.Colour, Start = negativeEdge + value, End = negativeEdge }
-                : new DiseaseRankingSegmentDto { Series = entry.Name, Colour = entry.Colour, Start = positiveEdge, End = positiveEdge + value };
+                ? new DiseaseRankingSegmentDto { Series = entry.Name, Colour = entry.Fill, Start = negativeEdge + value, End = negativeEdge }
+                : new DiseaseRankingSegmentDto { Series = entry.Name, Colour = entry.Fill, Start = positiveEdge, End = positiveEdge + value };
 
             negativeEdge = value < 0 ? segment.Start : negativeEdge;
             positiveEdge = value > 0 ? segment.End : positiveEdge;
@@ -312,11 +307,20 @@ internal static class DiseaseRankingReportBuilder
         var isIncludingRisk = category == RankCategory.TotalIncludingRisk;
         var rfiOrder = RfiOrder(category);
 
-        var risk = isIncludingRisk
-            ? new Series("Post mitigation risk", RiskColour, item => item.PositiveRiskRank)
-            : isScored
-                ? new Series("Post mitigation risk x-1", RiskColour, item => item.RiskRank)
-                : new Series("Post mitigation risk", RiskColour, item => item.PmrRank);
+        Series risk;
+
+        if (isIncludingRisk)
+        {
+            risk = new Series("Post mitigation risk", RiskColour, item => item.PositiveRiskRank);
+        }
+        else if (isScored)
+        {
+            risk = new Series("Post mitigation risk x-1", RiskColour, item => item.RiskRank);
+        }
+        else
+        {
+            risk = new Series("Post mitigation risk", RiskColour, item => item.PmrRank);
+        }
 
         var series = new List<Series> { risk };
 
@@ -361,5 +365,7 @@ internal static class DiseaseRankingReportBuilder
         _ => "#00A33B"
     };
 
-    private sealed record Series(string Name, string Colour, Func<RankItem, double> Value);
+    private sealed record Series(string Name, string Fill, Func<RankItem, double> Value);
+
+    private sealed record ContinuedChart(string Title, string Text, RankCategory Category, bool IsScored, double AxisMin, double AxisMax);
 }
