@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 
 namespace CDC.Web.Tests.Infrastructure;
 
@@ -359,12 +360,19 @@ public class ProfileSectionsApiServiceTests
     }
 
     [Fact]
-    public async Task GetProfileVersionAllRevisionDatesAsync_DeserialisesTheResponseBody()
+    public async Task GetProfileVersionAllRevisionDatesAsync_DeserialisesSectionsAndLookups()
     {
         const string json = """
             {
               "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
-              "sections": [{ "sectionName": "Summary", "sectionNumber": 1, "technicalReviewFrequencyMonths": 12 }]
+              "sections": [{
+                "sectionName": "Summary", "sectionNumber": 1,
+                "vaReviewFrequencyId": "11111111-1111-1111-1111-111111111111",
+                "nextAuthorReview": "2027-01-01T00:00:00",
+                "lastUpdated": "AQIDBAUGBwg="
+              }],
+              "reviewFrequencies": [{ "id": "11111111-1111-1111-1111-111111111111", "name": "Every year" }],
+              "reviewStatuses": [{ "id": "44444444-4444-4444-4444-444444444444", "name": "Complete" }]
             }
             """;
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
@@ -373,7 +381,36 @@ public class ProfileSectionsApiServiceTests
 
         var section = Assert.Single(result.Sections);
         Assert.Equal("Summary", section.SectionName);
-        Assert.Equal(12, section.TechnicalReviewFrequencyMonths);
+        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), section.VaReviewFrequencyId);
+        Assert.Equal(new DateTime(2027, 1, 1), section.NextAuthorReview);
+        Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, section.LastUpdated);
+        Assert.Equal("Every year", Assert.Single(result.ReviewFrequencies).Name);
+        Assert.Equal("Complete", Assert.Single(result.ReviewStatuses).Name);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionRevisionDatesAsync_ReturnsSuccessWithTheSavedCount()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, """{ "sectionsSavedCount": 3 }"""));
+
+        var result = await service.SaveProfileVersionRevisionDatesAsync(Guid.NewGuid(), []);
+
+        Assert.Equal(SaveRevisionDatesOutcome.Success, result.Outcome);
+        Assert.Equal(3, result.SectionsSavedCount);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict, SaveRevisionDatesOutcome.Conflict)]
+    [InlineData(HttpStatusCode.BadRequest, SaveRevisionDatesOutcome.ValidationFailed)]
+    [InlineData(HttpStatusCode.InternalServerError, SaveRevisionDatesOutcome.Error)]
+    public async Task SaveProfileVersionRevisionDatesAsync_ClassifiesFailureStatusCodes(HttpStatusCode statusCode, SaveRevisionDatesOutcome expected)
+    {
+        var service = CreateService(new FakeHttpMessageHandler(statusCode, "{}"));
+
+        var result = await service.SaveProfileVersionRevisionDatesAsync(Guid.NewGuid(), []);
+
+        Assert.Equal(expected, result.Outcome);
+        Assert.False(string.IsNullOrEmpty(result.ErrorMessage));
     }
 
     [Fact]

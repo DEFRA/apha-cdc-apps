@@ -1,0 +1,24 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.EditProfileReferencesModel
+@{
+    Layout = "_ProfileSectionTabLayout";
+}
+@if (Model.CurrentSection is not null)
+{
+    var tabsModel = Model.BuildTabs();
+
+    <div class="govuk-tabs app-tab-carousel">
+        <partial name="_ProfileSectionTabs" model="tabsModel" />
+        <div class="govuk-tabs__panel" id="profile-references-panel">
+            @if (Model.HasNoVersion)
+            {
+                <div class="govuk-inset-text">This profile has no current version to browse.</div>
+            }
+            else
+            {
+                <partial name="_ProfileNoteList" model="Model.ScientificPaperReferences" />
+                <partial name="_ProfileNoteList" model="Model.LegislativeReferences" />
+            }
+        </div>
+    </div>
+}

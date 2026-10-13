@@ -117,7 +117,7 @@ public class NavigationAuthorizationServiceTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddCdcWebAuthorization(new ConfigurationBuilder().Build());
+        services.AddCdcWebAuthorization();
 
         return services.BuildServiceProvider().GetRequiredService<INavigationAuthorizationService>();
     }

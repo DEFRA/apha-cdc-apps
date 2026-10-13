@@ -53,6 +53,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileNoteService, ProfileNoteService>();
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();
         services.AddScoped<IProfileSectionService, ProfileSectionService>();
+        services.AddScoped<IProfileReviewCommentService, ProfileReviewCommentService>();
         services.AddScoped<IProfileReportService, ProfileReportService>();
         services.AddScoped<IStaticReportService, StaticReportService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();

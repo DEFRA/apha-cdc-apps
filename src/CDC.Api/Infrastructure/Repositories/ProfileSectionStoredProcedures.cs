@@ -47,4 +47,28 @@ public static class ProfileSectionStoredProcedures
     /// "Review comments" tab. A recursive query; rows are pre-ordered so each reply immediately
     /// follows its parent.</summary>
     public const string GetProfileSectionReviewComments = "spgReviewCommentByProfileVersionSection";
+
+    /// <summary>Inserts a review comment (or reply), resolving the author from <c>@UserName</c>.</summary>
+    public const string InsertReviewComment = "spiReviewComment";
+
+    /// <summary>Updates a review comment's subject, reference and text, checking the row version.</summary>
+    public const string UpdateReviewComment = "spuReviewComment";
+
+    /// <summary>Deletes a review comment.</summary>
+    public const string DeleteReviewComment = "spdReviewComment";
+
+    /// <summary>Reads a user's logon name and full name by id. No stored procedure does this, so it is a
+    /// parameterised text query.</summary>
+    public const string GetReviewCommentUser = "SELECT [UserName], [FullName] FROM [dbo].[User] WHERE [Id] = @Id";
+
+    /// <summary>Overwrites one section's revision columns (frequencies, next review dates,
+    /// statuses and completed dates), checking the row version. Rejects a version that is not a
+    /// current draft.</summary>
+    public const string UpdateProfileVersionSection = "spuProfileVersionSection";
+
+    /// <summary>Reads the review frequency options (<c>luSectionReviewFrequency</c>).</summary>
+    public const string GetSectionReviewFrequencies = "spgaluSectionReviewFrequency";
+
+    /// <summary>Reads the review status options (<c>luReviewStatus</c>).</summary>
+    public const string GetSectionReviewStatuses = "spgaluSectionReviewStatusType";
 }
