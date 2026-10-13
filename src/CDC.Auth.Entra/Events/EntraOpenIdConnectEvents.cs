@@ -12,6 +12,8 @@ namespace CDC.Auth.Entra.Events;
 /// </summary>
 public sealed partial class EntraOpenIdConnectEvents : OpenIdConnectEvents
 {
+    private const string AccessTokenName = "access_token";
+
     private readonly ILogger<EntraOpenIdConnectEvents> _logger;
 
     /// <summary>Creates the event handler with its logging dependency.</summary>
@@ -32,6 +34,18 @@ public sealed partial class EntraOpenIdConnectEvents : OpenIdConnectEvents
             context,
             identity,
             (resolver, principal, cancellationToken) => resolver.ResolveAsync(principal, cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public override Task TicketReceived(TicketReceivedContext context)
+    {
+        // Nothing uses the access token, and it is the largest avoidable part of the session cookie, which must stay under the WAF's 10 KB cookie-header limit.
+        if (context.Properties is { } properties)
+        {
+            properties.StoreTokens(properties.GetTokens().Where(token => token.Name != AccessTokenName).ToList());
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
