@@ -119,11 +119,67 @@ public interface IProfileSectionsApiService
         Guid profileSectionId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>POST /api/profile-sections/review-comments</c>.</summary>
+    /// <param name="profileVersionId">The profile version being commented on.</param>
+    /// <param name="profileSectionId">The section being commented on.</param>
+    /// <param name="parentId">The comment being replied to, or <see langword="null"/> for a top-level comment.</param>
+    /// <param name="subject">The subject line.</param>
+    /// <param name="commentReference">The reference text.</param>
+    /// <param name="commentText">The comment body.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the add.</returns>
+    Task<ReviewCommentResult> AddProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid? parentId,
+        string subject,
+        string commentReference,
+        string commentText,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/profile-sections/review-comments</c>.</summary>
+    /// <param name="profileVersionId">The profile version the comment belongs to.</param>
+    /// <param name="profileSectionId">The section the comment belongs to.</param>
+    /// <param name="commentId">The comment being edited.</param>
+    /// <param name="content">The new subject, reference and body.</param>
+    /// <param name="lastUpdated">The comment's row version as last read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the edit.</returns>
+    Task<ReviewCommentResult> UpdateProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        ReviewCommentContent content,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>DELETE /api/profile-sections/review-comments/{id}</c>.</summary>
+    /// <param name="profileVersionId">The profile version the comment belongs to.</param>
+    /// <param name="profileSectionId">The section the comment belongs to.</param>
+    /// <param name="commentId">The comment to delete.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the delete.</returns>
+    Task<ReviewCommentResult> DeleteProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/profile-sections/all-revision-dates</c>.</summary>
     /// <param name="profileVersionId">The profile version to read.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>Each section's revision dates, in section-number order.</returns>
+    /// <returns>Each section's revision data (in section-number order) and the drop-down options.</returns>
     Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/profile-sections/all-revision-dates</c>.</summary>
+    /// <param name="profileVersionId">The profile version being edited.</param>
+    /// <param name="sections">The submitted revision data of each section.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome, distinguishing a concurrent-edit conflict and a rejected submission from success.</returns>
+    Task<SaveRevisionDatesResult> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
         CancellationToken cancellationToken = default);
 }

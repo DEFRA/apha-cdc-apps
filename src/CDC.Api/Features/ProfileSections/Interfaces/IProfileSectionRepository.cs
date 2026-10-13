@@ -81,14 +81,77 @@ public interface IProfileSectionRepository
         Guid profileSectionId,
         CancellationToken cancellationToken);
 
-    /// <summary>Reads one section's technical/policy review dates via <c>spgProfileVersionSection</c>,
+    /// <summary>Reads a user's logon name and full name by id, so review comments can be attributed.</summary>
+    /// <param name="userId">The user to look up.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The user, or <see langword="null"/> when no such user exists.</returns>
+    Task<ReviewCommentUser?> GetReviewCommentUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Inserts a review comment (or reply) via <c>spiReviewComment</c>.</summary>
+    /// <param name="comment">The comment to insert.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The new comment's row version.</returns>
+    Task<byte[]> InsertReviewCommentAsync(NewProfileReviewComment comment, CancellationToken cancellationToken);
+
+    /// <summary>Updates a review comment via <c>spuReviewComment</c>, checking the row version.</summary>
+    /// <param name="id">The comment to update.</param>
+    /// <param name="subject">The new subject.</param>
+    /// <param name="commentReference">The new reference.</param>
+    /// <param name="commentText">The new body.</param>
+    /// <param name="lastUpdated">The row version the caller last read.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The comment's new row version.</returns>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">Thrown when the comment was edited by another user.</exception>
+    Task<byte[]> UpdateReviewCommentAsync(
+        Guid id,
+        string subject,
+        string commentReference,
+        string commentText,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken);
+
+    /// <summary>Deletes a review comment via <c>spdReviewComment</c>.</summary>
+    /// <param name="id">The comment to delete.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>A task that completes when the comment has been deleted.</returns>
+    Task DeleteReviewCommentAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Reads one section's author/VA/policy review data via <c>spgProfileVersionSection</c>,
     /// for the "All Revision dates" tab.</summary>
     /// <param name="profileVersionId">The profile version to read.</param>
     /// <param name="profileSectionId">The section to read.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
-    /// <returns>The section's revision dates, or <see langword="null"/> when none are recorded.</returns>
+    /// <returns>The section's revision data, or <see langword="null"/> when none is recorded.</returns>
     Task<ProfileSectionRevisionInfo?> GetProfileVersionSectionRevisionInfoAsync(
         Guid profileVersionId,
         Guid profileSectionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Reads the review frequency options via <c>spgaluSectionReviewFrequency</c>.</summary>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The options, in sequence order.</returns>
+    Task<IReadOnlyList<ProfileReviewLookupItem>> GetReviewFrequenciesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Reads the review status options via <c>spgaluSectionReviewStatusType</c>.</summary>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The options, in sequence order.</returns>
+    Task<IReadOnlyList<ProfileReviewLookupItem>> GetReviewStatusesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Writes the revision data of several sections of one profile version via
+    /// <c>spuProfileVersionSection</c>, all in one transaction, and logs the user's contribution to
+    /// each section written.</summary>
+    /// <param name="profileVersionId">The profile version being edited.</param>
+    /// <param name="updates">The complete revision values to write, one entry per section.</param>
+    /// <param name="userId">The user making the change.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The number of sections written.</returns>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when a section was edited by another user, or the profile version is not an editable
+    /// current draft.
+    /// </exception>
+    Task<int> UpdateProfileVersionSectionRevisionsAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionUpdate> updates,
+        Guid userId,
         CancellationToken cancellationToken);
 }

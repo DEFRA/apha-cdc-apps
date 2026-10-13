@@ -1,0 +1,43 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.EditProfileContributionsModel
+@{
+    Layout = "_ProfileSectionTabLayout";
+}
+@if (Model.CurrentSection is not null)
+{
+    var tabsModel = Model.BuildTabs();
+
+    <div class="govuk-tabs app-tab-carousel">
+        <partial name="_ProfileSectionTabs" model="tabsModel" />
+        <div class="govuk-tabs__panel" id="profile-contributions-panel">
+            @if (Model.Contributions.Count == 0)
+            {
+                <p class="govuk-body">There are no contributions to display.</p>
+            }
+            else
+            {
+                <table class="govuk-table">
+                    <thead class="govuk-table__head">
+                        <tr class="govuk-table__row">
+                            <th scope="col" class="govuk-table__header">Name</th>
+                            <th scope="col" class="govuk-table__header">Username</th>
+                            <th scope="col" class="govuk-table__header">Organisation</th>
+                            <th scope="col" class="govuk-table__header">Last contribution date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="govuk-table__body">
+                        @foreach (var contribution in Model.Contributions)
+                        {
+                            <tr class="govuk-table__row">
+                                <td class="govuk-table__cell">@contribution.FullName</td>
+                                <td class="govuk-table__cell">@contribution.UserName</td>
+                                <td class="govuk-table__cell">@contribution.OrganisationName</td>
+                                <td class="govuk-table__cell">@contribution.LastContributionDate</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
