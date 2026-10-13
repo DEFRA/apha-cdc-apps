@@ -30,4 +30,7 @@ public interface IStaticReportService
     /// <summary>Deletes one version.</summary>
     /// <returns><see langword="false"/> when no such version exists.</returns>
     Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
+
+    /// <summary>Stores an uploaded report as a new report, or a new version of an existing one.</summary>
+    Task UploadStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken);
 }

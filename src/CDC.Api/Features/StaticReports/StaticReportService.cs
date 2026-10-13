@@ -62,4 +62,8 @@ public sealed class StaticReportService(IStaticReportRepository repository, ILog
 
         return true;
     }
+
+    /// <inheritdoc />
+    public Task UploadStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken) =>
+        repository.InsertStaticReportAsync(request, cancellationToken);
 }

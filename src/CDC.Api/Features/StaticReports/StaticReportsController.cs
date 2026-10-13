@@ -63,13 +63,35 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     [HttpGet("versions/{staticReportVersionId:guid}/document")]
     [ProducesResponseType(typeof(StaticReportDataDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StaticReportDataDto>> GetStaticReportDocument(
+    public async Task<ActionResult> GetStaticReportDocument(
         Guid staticReportVersionId,
         CancellationToken cancellationToken)
     {
         var document = await staticReportService.GetStaticReportDataAsync(staticReportVersionId, cancellationToken);
 
-        return document is null ? NotFound() : Ok(document);
+        if (document is null)
+        {
+            return NotFound();
+        }
+
+        var fileName = BuildDownloadFileName(document.Title);
+        return File(document.PdfData, "application/pdf", fileName);
+    }
+
+    private static string BuildDownloadFileName(string title)
+    {
+        var baseName = string.IsNullOrWhiteSpace(title) ? "report" : title.Trim();
+        var invalidChars = System.IO.Path.GetInvalidFileNameChars();
+        foreach (var invalidChar in invalidChars)
+        {
+            baseName = baseName.Replace(invalidChar, '_');
+        }
+
+        var fileName = baseName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            ? baseName
+            : $"{baseName}.pdf";
+
+        return string.IsNullOrWhiteSpace(fileName) ? "report.pdf" : fileName;
     }
 
     /// <summary>
@@ -85,6 +107,39 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
         CancellationToken cancellationToken)
     {
         await staticReportService.SetStaticReportPublicAccessAsync(staticReportVersionId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Uploads a PDF as a new report, or as a new version of the report with the same title.
+    /// </summary>
+    /// <param name="request">The report to store.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The report was stored.</response>
+    /// <response code="400">The title or document is missing.</response>
+    /// <response code="409">The title clashes with an existing user manual.</response>
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UploadStaticReport(
+        [FromBody] UploadStaticReportRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title) || request.PdfData.Length == 0)
+        {
+            return Problem("A title and a PDF document are required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            await staticReportService.UploadStaticReportAsync(request, cancellationToken);
+        }
+        catch (StaticReportConflictException exception)
+        {
+            return Problem(exception.Message, statusCode: StatusCodes.Status409Conflict);
+        }
 
         return NoContent();
     }

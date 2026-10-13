@@ -35,4 +35,7 @@ public interface IStaticReportRepository
 
     /// <summary>Deletes one version.</summary>
     Task DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
+
+    /// <summary>Stores an uploaded report as a new report, or a new version of an existing one.</summary>
+    Task InsertStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken);
 }

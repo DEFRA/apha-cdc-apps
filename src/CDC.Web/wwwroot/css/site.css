@@ -625,6 +625,10 @@ body {
   cursor: pointer;
 }
 
+.app-inline-form {
+  display: inline;
+}
+
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
    between "Open all" (pointing down) and "Close all" (pointing up). */
 .app-tree__toggle-all-icon {

@@ -68,6 +68,12 @@ public interface IApiClient
     /// <summary>Marks one static report version as public via <c>PUT /api/static-reports/versions/{staticReportVersionId}/public</c>.</summary>
     Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default);
 
+    /// <summary>Deletes one static report version via <c>DELETE /api/static-reports/versions/{staticReportVersionId}</c>.</summary>
+    Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Uploads a PDF as a general report via <c>POST /api/static-reports</c>.</summary>
+    Task<bool> UploadStaticReportAsync(string title, byte[] pdfData, bool isPublic, CancellationToken cancellationToken = default);
+
     /// <summary>Creates a new version of a profile via <c>POST /api/profiles/versions</c>.</summary>
     /// <param name="profileVersionId">The profile version to base the new version on. Must be the latest version.</param>
     /// <param name="isPublished">Whether the new version is published rather than a draft.</param>
@@ -345,7 +351,33 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         using var response = await httpClient.PutAsync($"/api/static-reports/versions/{staticReportVersionId}/public", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync($"/api/static-reports/versions/{staticReportVersionId}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> UploadStaticReportAsync(string title, byte[] pdfData, bool isPublic, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync(
+            "/api/static-reports",
+            new { Title = title, PdfData = pdfData, IsUserManual = false, IsPublic = isPublic },
+            cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+            throw new StaticReportUploadRejectedException(problem?.Detail ?? "The report conflicts with an existing document.");
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
 }
+
+/// <summary>Thrown when the API refuses an upload for a business reason that can be shown to the user.</summary>
+public sealed class StaticReportUploadRejectedException(string message) : Exception(message);
 
 public sealed record ApiHealthResponse(string? Status, double UptimeSeconds, DateTime TimestampUtc);
 

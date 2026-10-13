@@ -264,6 +264,18 @@ public class InternalUserResolverTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
 
+        public Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(Guid staticReportId, bool publicOnly = false, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
+
+        public Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<bool> UploadStaticReportAsync(string title, byte[] pdfData, bool isPublic, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
         public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
             Guid profileVersionId,
             bool isPublished,

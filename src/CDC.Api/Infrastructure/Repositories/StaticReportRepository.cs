@@ -120,6 +120,39 @@ public sealed class StaticReportRepository(IDbConnectionFactory connectionFactor
         }
     }
 
+    /// <inheritdoc />
+    public async Task InsertStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                StaticReportStoredProcedures.InsertStaticReport,
+                new
+                {
+                    request.Title,
+                    request.PdfData,
+                    request.IsUserManual,
+                    request.IsPublic
+                },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            logger.UploadedStaticReport(request.IsUserManual, request.IsPublic);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException exception) when (exception.Number == 50000)
+        {
+            // RAISERROR raised by spiStaticReport for a title clash between a report and a user manual.
+            throw new StaticReportConflictException(exception.Message);
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, StaticReportStoredProcedures.InsertStaticReport);
+            throw;
+        }
+    }
+
     private async Task<IReadOnlyList<StaticReportDto>> ReadStaticReportsAsync(
         string storedProcedure,
         object parameters,

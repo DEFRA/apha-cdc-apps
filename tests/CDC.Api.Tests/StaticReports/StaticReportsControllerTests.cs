@@ -45,7 +45,7 @@ public sealed class StaticReportsControllerTests
     }
 
     [Fact]
-    public async Task GetStaticReportDocument_ReturnsOk_WhenDocumentExists()
+    public async Task GetStaticReportDocument_ReturnsPdfFile_WhenDocumentExists()
     {
         var document = new StaticReportDataDto { Title = "Help using D2R2", PdfData = [1, 2, 3] };
 
@@ -55,7 +55,10 @@ public sealed class StaticReportsControllerTests
 
         var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
 
-        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(document);
+        var fileResult = response.Should().BeOfType<FileContentResult>().Subject;
+        fileResult.ContentType.Should().Be("application/pdf");
+        fileResult.FileContents.Should().BeEquivalentTo(document.PdfData);
+        fileResult.FileDownloadName.Should().Be("Help using D2R2.pdf");
     }
 
     [Fact]
@@ -67,7 +70,7 @@ public sealed class StaticReportsControllerTests
 
         var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
 
-        response.Result.Should().BeOfType<NotFoundResult>();
+        response.Should().BeOfType<NotFoundResult>();
     }
 
     [Fact]

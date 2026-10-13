@@ -18,6 +18,30 @@ else
     <p class="govuk-body">Select a report title to download the PDF. Use history to view previous versions and make a version public.</p>
 }
 
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="general-reports-success-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="general-reports-success-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.StatusMessage</p>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">@Model.ErrorMessage</p>
+            </div>
+        </div>
+    </div>
+}
+
 @if (Model.Reports.Count == 0)
 {
     <p class="govuk-body">There are no general reports to display.</p>
@@ -67,7 +91,7 @@ else
                 <th scope="col" class="govuk-table__header">Version</th>
                 <th scope="col" class="govuk-table__header">Public status</th>
                 <th scope="col" class="govuk-table__header">Effective dates</th>
-                <th scope="col" class="govuk-table__header">History</th>
+                <th scope="col" class="govuk-table__header">Actions</th>
             </tr>
         </thead>
         <tbody class="govuk-table__body">
@@ -81,10 +105,71 @@ else
                     <td class="govuk-table__cell">@(report.IsPublic ? "Public" : "Not public")</td>
                     <td class="govuk-table__cell">@CDC.Web.Pages.Reports.GeneralModel.FormatEffectiveDates(report)</td>
                     <td class="govuk-table__cell">
-                        <a class="govuk-link" asp-page="/Reports/General" asp-route-staticReportId="@report.StaticReportId">History</a>
+                        <a class="govuk-link govuk-!-margin-right-3" asp-page="/Reports/General" asp-route-staticReportId="@report.StaticReportId">History</a>
+                        @if (Model.CanManageReports && report.IsCurrent)
+                        {
+                            <form method="post" asp-page="/Reports/General" asp-page-handler="Delete" class="app-inline-form">
+                                <input type="hidden" name="reportVersionId" value="@report.Id" />
+                                <button type="submit" class="govuk-link app-link-button" onclick="return confirm('Are you sure you want to delete this report?');">
+                                    Delete<span class="govuk-visually-hidden"> @report.Title</span>
+                                </button>
+                            </form>
+                        }
                     </td>
                 </tr>
             }
         </tbody>
     </table>
+}
+
+@if (Model.CanManageReports && !Model.IsHistoryPage)
+{
+    if (!Model.ShowUpload)
+    {
+        <a class="govuk-button" role="button" draggable="false" data-module="govuk-button" asp-page="/Reports/General" asp-route-showUpload="true">Add</a>
+    }
+    else
+    {
+        <form method="post" asp-page="/Reports/General" asp-page-handler="Upload" enctype="multipart/form-data" novalidate>
+            @if (!string.IsNullOrEmpty(Model.UploadError))
+            {
+                <div class="govuk-error-summary" data-module="govuk-error-summary">
+                    <div role="alert">
+                        <h2 class="govuk-error-summary__title">There is a problem</h2>
+                        <div class="govuk-error-summary__body">
+                            <ul class="govuk-list govuk-error-summary__list">
+                                <li><a href="#ReportFile">@Model.UploadError</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <h2 class="govuk-heading-m">Upload a report</h2>
+
+            <div class="govuk-form-group @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-form-group--error")">
+                <label class="govuk-label govuk-label--s" for="ReportFile">Report file</label>
+                <div id="ReportFile-hint" class="govuk-hint">The file must be a PDF.</div>
+                @if (!string.IsNullOrEmpty(Model.UploadError))
+                {
+                    <p id="ReportFile-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @Model.UploadError</p>
+                }
+                <input class="govuk-file-upload @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-file-upload--error")" id="ReportFile" name="ReportFile" type="file" accept=".pdf,application/pdf" aria-describedby="ReportFile-hint@(string.IsNullOrEmpty(Model.UploadError) ? "" : " ReportFile-error")" />
+            </div>
+
+            <div class="govuk-form-group">
+                <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                    <div class="govuk-checkboxes__item">
+                        <input class="govuk-checkboxes__input" id="MakePublic" name="MakePublic" type="checkbox" value="true" @(Model.MakePublic ? "checked" : null) />
+                        <label class="govuk-label govuk-checkboxes__label" for="MakePublic">Make report public (this cannot be undone)</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="govuk-button-group">
+                <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+                <a class="govuk-link" asp-page="/Reports/General">Cancel</a>
+            </div>
+        </form>
+    }
 }

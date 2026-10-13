@@ -18,6 +18,9 @@ internal static partial class StaticReportLog
     [LoggerMessage(EventId = 8003, Level = LogLevel.Warning, Message = "No document found for static report version {StaticReportVersionId}")]
     public static partial void StaticReportVersionNotFound(this ILogger logger, Guid staticReportVersionId);
 
+    [LoggerMessage(EventId = 8005, Level = LogLevel.Information, Message = "Uploaded static report (user manual: {IsUserManual}, public: {IsPublic})")]
+    public static partial void UploadedStaticReport(this ILogger logger, bool isUserManual, bool isPublic);
+
     [LoggerMessage(EventId = 8004, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
 }
