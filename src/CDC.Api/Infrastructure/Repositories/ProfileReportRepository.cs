@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports;
 using CDC.Api.Features.ProfileReports.Commands;
@@ -93,6 +94,46 @@ public sealed class ProfileReportRepository(IDbConnectionFactory connectionFacto
         catch (DbException exception)
         {
             logger.StoredProcedureFailed(exception, ProfileReportStoredProcedures.InsertProfileVersionReportData);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DraftProfileVersion>> GetDraftProfileVersionsAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+                ProfileReportStoredProcedures.GetProfileHistory,
+                new { ProfileId = profileId, StateName = "Draft", PublicOnly = false },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            // First result set: Id, ProfileId, Title, VersionMajor, VersionMinor, State, EffectiveDateFrom,
+            // EffectiveDateTo, IsLatestVersion, ScenarioTitle, ParentId, IsPublic, ProfileStatusId, ProfileStatusName.
+            var versions = new List<DraftProfileVersion>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                versions.Add(new DraftProfileVersion
+                {
+                    Id = reader.GetGuid(0),
+                    Title = reader.ReadString(2),
+                    VersionMajor = Convert.ToInt32(reader.GetValue(3), CultureInfo.InvariantCulture),
+                    VersionMinor = Convert.ToInt32(reader.GetValue(4), CultureInfo.InvariantCulture),
+                    EffectiveDateFrom = reader.GetDateTime(6),
+                    EffectiveDateTo = reader.ReadNullableDateTime(7),
+                    ScenarioTitle = reader.ReadString(9),
+                    ProfileStatusName = reader.ReadString(13)
+                });
+            }
+
+            return versions;
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileReportStoredProcedures.GetProfileHistory);
             throw;
         }
     }

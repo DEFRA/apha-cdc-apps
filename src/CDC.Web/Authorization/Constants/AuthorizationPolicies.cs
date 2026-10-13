@@ -35,6 +35,9 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>DiseaseReviewsFilterInfo.CanGetObject()</c>. Header: "Review Timings".</summary>
     public const string CanViewReviewTiming = nameof(CanViewReviewTiming);
 
+    /// <summary>Legacy: <c>GetContributionsReportCommand.CanGetReport()</c>. Search results and Manage profile: the "Contributions" report link.</summary>
+    public const string CanViewContributionsReport = nameof(CanViewContributionsReport);
+
     /// <summary>Legacy: <c>GlobalUserList.CanGetGlobalUserList()</c>. Not yet wired to any page -
     /// scaffolded for the footer/admin-pages phase.</summary>
     public const string CanManageGlobalUsers = nameof(CanManageGlobalUsers);

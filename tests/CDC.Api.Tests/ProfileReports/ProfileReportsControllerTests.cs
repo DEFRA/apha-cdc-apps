@@ -3,6 +3,7 @@ using CDC.Api.Features.ProfileReports;
 using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -114,6 +115,18 @@ public class ProfileReportsControllerTests
         var response = await CreateController().GetContributionsReport(ProfileReportTestData.ProfileId, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetContributionsReport_ReturnsForbidden_WhenTheUserMayNotRunIt()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetContributionsReportQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<ContributionsReportDto>("no"));
+
+        var response = await CreateController().GetContributionsReport(ProfileReportTestData.ProfileId, CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status403Forbidden);
     }
 
     [Fact]

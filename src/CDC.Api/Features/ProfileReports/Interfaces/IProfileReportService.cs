@@ -1,5 +1,7 @@
+using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
+using CDC.Common.Contracts;
 
 namespace CDC.Api.Features.ProfileReports.Interfaces;
 
@@ -32,11 +34,11 @@ public interface IProfileReportService
     /// <returns>The persisted report's identifier.</returns>
     Task<CreateProfileReportResultDto> CreateProfileReportAsync(CreateProfileReportCommand command, CancellationToken cancellationToken);
 
-    /// <summary>Gets a profile's contribution history report descriptor.</summary>
+    /// <summary>Gets the data behind a profile's contributions report: every draft version and each section's logged contributions.</summary>
     /// <param name="profileId">The profile to report on.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The report descriptor.</returns>
-    Task<ContributionsReportDto> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken);
+    /// <returns>The report data; forbidden when the user may not run the report; not found when the profile has no draft versions.</returns>
+    Task<Result<ContributionsReportDto>> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken);
 
     /// <summary>Gets a printable profile section report descriptor.</summary>
     /// <param name="profileVersionId">The profile version to report on.</param>

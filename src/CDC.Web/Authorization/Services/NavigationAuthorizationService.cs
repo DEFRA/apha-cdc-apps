@@ -51,4 +51,8 @@ public sealed class NavigationAuthorizationService(IAuthorizationService authori
     /// <inheritdoc />
     public Task<bool> CanViewReviewTimingAsync(ClaimsPrincipal user) =>
         CanAccessAsync(user, AuthorizationPolicies.CanViewReviewTiming);
+
+    /// <inheritdoc />
+    public Task<bool> CanViewContributionsReportAsync(ClaimsPrincipal user) =>
+        CanAccessAsync(user, AuthorizationPolicies.CanViewContributionsReport);
 }

@@ -1,12 +1,12 @@
 using CDC.Api.Domain.Common;
-using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Interfaces;
+using CDC.Common.Contracts;
 using FluentValidation;
 using MediatR;
 
 namespace CDC.Api.Features.ProfileReports.Queries;
 
-/// <summary>Retrieves a profile's contribution history report descriptor.</summary>
+/// <summary>Retrieves the data behind a profile's contributions report.</summary>
 /// <param name="ProfileId">The profile to report on.</param>
 public sealed record GetContributionsReportQuery(Guid ProfileId) : IRequest<Result<ContributionsReportDto>>;
 
@@ -29,13 +29,11 @@ public sealed class GetContributionsReportQueryHandler(IProfileReportService pro
     /// <summary>Executes the query.</summary>
     /// <param name="request">The query.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The report descriptor.</returns>
+    /// <returns>The report data, or a forbidden/not-found result.</returns>
     public async Task<Result<ContributionsReportDto>> Handle(GetContributionsReportQuery request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var report = await profileReportService.GetContributionsReportAsync(request.ProfileId, cancellationToken);
-
-        return Result.Success(report);
+        return await profileReportService.GetContributionsReportAsync(request.ProfileId, cancellationToken);
     }
 }

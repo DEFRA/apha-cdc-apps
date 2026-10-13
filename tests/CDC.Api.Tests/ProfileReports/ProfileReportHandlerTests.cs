@@ -3,6 +3,7 @@ using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileReports.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using Moq;
 
@@ -89,17 +90,30 @@ public class ProfileReportHandlerTests
     [Fact]
     public async Task GetContributionsReportQueryHandler_ReturnsSuccess()
     {
-        var dto = new ContributionsReportDto { ProfileId = ProfileReportTestData.ProfileId, IsAvailable = false };
+        var dto = new ContributionsReportDto { ProfileId = ProfileReportTestData.ProfileId, ProfileTitle = "Avian influenza" };
 
         service
             .Setup(svc => svc.GetContributionsReportAsync(ProfileReportTestData.ProfileId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(dto);
+            .ReturnsAsync(Result.Success(dto));
 
         var result = await new GetContributionsReportQueryHandler(service.Object)
             .Handle(new GetContributionsReportQuery(ProfileReportTestData.ProfileId), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetContributionsReportQueryHandler_PassesThroughAForbiddenResult()
+    {
+        service
+            .Setup(svc => svc.GetContributionsReportAsync(ProfileReportTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<ContributionsReportDto>("no"));
+
+        var result = await new GetContributionsReportQueryHandler(service.Object)
+            .Handle(new GetContributionsReportQuery(ProfileReportTestData.ProfileId), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
     }
 
     [Fact]

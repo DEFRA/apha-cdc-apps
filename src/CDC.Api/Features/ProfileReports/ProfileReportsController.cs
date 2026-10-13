@@ -2,6 +2,7 @@ using CDC.Api.Application.Extensions;
 using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Queries;
+using CDC.Common.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -103,16 +104,25 @@ public sealed class ProfileReportsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Gets a profile's contribution history report descriptor.
+    /// Gets the data behind a profile's contributions report.
     /// </summary>
+    /// <remarks>
+    /// Replaces the legacy <c>GetContributionsReport</c> operation, which rendered a PDF with TallPDF:
+    /// this returns the report's content (every draft version and each section's contributions) and
+    /// CDC.Web renders it to PDF with a Razor view and Playwright.
+    /// </remarks>
     /// <param name="profileId">The profile to report on.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The report descriptor.</returns>
-    /// <response code="200">The report descriptor was retrieved.</response>
+    /// <returns>The report data.</returns>
+    /// <response code="200">The report data was retrieved.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user may not run the contributions report.</response>
+    /// <response code="404">The profile has no draft versions.</response>
     [HttpGet("contributions/{profileId:guid}")]
     [ProducesResponseType(typeof(ContributionsReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ContributionsReportDto>> GetContributionsReport(Guid profileId, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new GetContributionsReportQuery(profileId), cancellationToken);

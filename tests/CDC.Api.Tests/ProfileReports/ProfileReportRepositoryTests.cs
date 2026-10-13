@@ -142,6 +142,65 @@ public class ProfileReportRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    [Fact]
+    public async Task GetDraftProfileVersionsAsync_MapsTheFirstResultSet_AndAsksForDraftVersions()
+    {
+        var versionId = Guid.NewGuid();
+        connection.Script(ProfileReportStoredProcedures.GetProfileHistory, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    [
+                        "Id", "ProfileId", "Title", "VersionMajor", "VersionMinor", "Name", "EffectiveDateFrom", "EffectiveDateTo",
+                        "IsLatestVersion", "ScenarioTitle", "ParentId", "IsPublic", "ProfileStatusId", "ProfileStatusName"
+                    ],
+                    [
+                        [
+                            versionId, ProfileReportTestData.ProfileId, "Avian influenza", (byte)2, (byte)1, "Draft",
+                            new DateTime(2026, 9, 11), null, true, "What if", Guid.Empty, false, Guid.NewGuid(), "Active"
+                        ],
+                        [
+                            Guid.NewGuid(), ProfileReportTestData.ProfileId, "Avian influenza", (byte)2, (byte)0, "Draft",
+                            new DateTime(2026, 1, 1), new DateTime(2026, 9, 11), false, null, Guid.Empty, false, Guid.NewGuid(), null
+                        ]
+                    ]),
+                FakeResultSet.Empty("Id", "Name", "AffectedSpeciesType", "IsActive")
+            ]
+        });
+
+        var versions = await CreateRepository().GetDraftProfileVersionsAsync(ProfileReportTestData.ProfileId, CancellationToken.None);
+
+        versions.Should().HaveCount(2);
+        versions[0].Id.Should().Be(versionId);
+        versions[0].FullTitle.Should().Be("Avian influenza (What if)");
+        versions[0].VersionMajor.Should().Be(2);
+        versions[0].VersionMinor.Should().Be(1);
+        versions[0].EffectiveDateTo.Should().BeNull();
+        versions[0].ProfileStatusName.Should().Be("Active");
+        versions[1].FullTitle.Should().Be("Avian influenza");
+        versions[1].EffectiveDateTo.Should().Be(new DateTime(2026, 9, 11));
+        versions[1].ProfileStatusName.Should().BeEmpty();
+
+        var command = connection.Executed.Should().ContainSingle().Subject;
+        command.Parameters["ProfileId"].Should().Be(ProfileReportTestData.ProfileId);
+        command.Parameters["StateName"].Should().Be("Draft");
+        command.Parameters["PublicOnly"].Should().Be(false);
+    }
+
+    [Fact]
+    public async Task GetDraftProfileVersionsAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileHistory, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().GetDraftProfileVersionsAsync(ProfileReportTestData.ProfileId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

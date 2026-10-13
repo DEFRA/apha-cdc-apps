@@ -43,6 +43,9 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReviewTiming,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
 
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewContributionsReport,
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+
         // Scaffolded for the footer/admin-pages phase - not yet wired to any page or nav item.
         // Role lists are a provisional ProfileEditor-only default; confirm against the relevant
         // legacy CanXxx() method when each of these is actually implemented.

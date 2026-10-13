@@ -105,6 +105,18 @@ public class NavigationAuthorizationServiceTests
     }
 
     [Fact]
+    public async Task CanViewContributionsReport_IsAllowedForProfileEditorAndPolicyProfileUserOnly()
+    {
+        var service = CreateService();
+
+        Assert.True(await service.CanViewContributionsReportAsync(CreateUser(AuthorizationRoles.ProfileEditor)));
+        Assert.True(await service.CanViewContributionsReportAsync(CreateUser(AuthorizationRoles.PolicyProfileUser)));
+        Assert.False(await service.CanViewContributionsReportAsync(CreateUser(AuthorizationRoles.Contributor)));
+        Assert.False(await service.CanViewContributionsReportAsync(CreateUser(AuthorizationRoles.Reviewer)));
+        Assert.False(await service.CanViewContributionsReportAsync(new ClaimsPrincipal(new ClaimsIdentity())));
+    }
+
+    [Fact]
     public async Task CanAccessAsync_EvaluatesAnArbitraryPolicyName_ForDataDrivenNavigation()
     {
         var service = CreateService();

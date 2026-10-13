@@ -20,4 +20,10 @@ internal static partial class ProfileReportLog
 
     [LoggerMessage(EventId = 6004, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
+
+    [LoggerMessage(EventId = 6005, Level = LogLevel.Information, Message = "Retrieved the contributions report for profile {ProfileId} covering {VersionCount} draft versions")]
+    public static partial void RetrievedContributionsReport(this ILogger logger, Guid profileId, int versionCount);
+
+    [LoggerMessage(EventId = 6006, Level = LogLevel.Warning, Message = "The contributions report for profile {ProfileId} was refused: the user may not run it")]
+    public static partial void ContributionsReportRefused(this ILogger logger, Guid profileId);
 }

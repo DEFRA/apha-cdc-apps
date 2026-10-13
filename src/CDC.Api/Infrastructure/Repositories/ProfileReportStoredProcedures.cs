@@ -13,4 +13,7 @@ public static class ProfileReportStoredProcedures
 
     /// <summary>Persists a generated report document.</summary>
     public const string InsertProfileVersionReportData = "spiProfileVersionReportData";
+
+    /// <summary>Reads a profile's version history in one state (draft or published); the first result set lists the versions.</summary>
+    public const string GetProfileHistory = "spgProfileHistory";
 }
