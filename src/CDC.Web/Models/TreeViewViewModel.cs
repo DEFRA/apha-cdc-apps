@@ -11,6 +11,10 @@ public sealed record TreeNodeViewModel
     /// Branches only: whether the node starts expanded.
     public bool Expanded { get; init; }
 
+    /// False renders the label as plain text with no checkbox or radio, for grouping nodes that
+    /// cannot themselves be selected.
+    public bool Selectable { get; init; } = true;
+
     public IReadOnlyList<TreeNodeViewModel> Children { get; init; } = [];
 }
 

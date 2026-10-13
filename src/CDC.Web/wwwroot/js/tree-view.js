@@ -113,9 +113,10 @@
         // The category label shown to screen readers on a branch's toggle, and to everyone in
         // the "Selected: ..." status once a node is picked.
         labelFor(item) {
-            const label = item.querySelector(`${ROW} label`);
+            const label = item.querySelector(`${ROW} label, ${ROW} .app-tree__branch-label`);
+            const input = this.radio(item);
 
-            return label ? label.textContent.trim() : this.radio(item).value;
+            return label ? label.textContent.trim() : (input ? input.value : '');
         }
 
         depth(item) {
@@ -213,7 +214,11 @@
 
             if (action === 'clear') {
                 this.items.forEach((item) => {
-                    this.radio(item).checked = false;
+                    const input = this.radio(item);
+
+                    if (input) {
+                        input.checked = false;
+                    }
                 });
 
                 this.updateSelectedStatus();
@@ -286,7 +291,7 @@
                 return;
             }
 
-            const selectedItems = this.items.filter((item) => this.radio(item).checked);
+            const selectedItems = this.items.filter((item) => this.radio(item)?.checked);
             const labels = selectedItems.map((item) => this.labelFor(item));
             const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
 
@@ -313,10 +318,10 @@
         }
 
         focusItem(item) {
-            const radio = item ? this.radio(item) : null;
+            const target = item ? (this.radio(item) ?? this.toggle(item)) : null;
 
-            if (radio) {
-                radio.focus();
+            if (target) {
+                target.focus();
             }
         }
 

@@ -113,6 +113,10 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddScoped<IProfileVersionComparisonService, ProfileVersionComparisonService>();
+builder.Services.AddScoped<IRazorViewRenderer, RazorViewRenderer>();
+builder.Services.AddSingleton<IPdfRenderer, PlaywrightPdfRenderer>();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 

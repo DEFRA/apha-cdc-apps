@@ -24,10 +24,17 @@
 
             <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
                 <div class="app-tree__row">
-                    <div class="@itemClass app-tree__radio">
-                        <input class="@inputClass" id="@inputId" name="@Model.FieldName" type="@inputType" value="@node.Value" checked="@isSelected" />
-                        <label class="govuk-label @labelClass" for="@inputId">@node.Label</label>
-                    </div>
+                    @if (node.Selectable)
+                    {
+                        <div class="@itemClass app-tree__radio">
+                            <input class="@inputClass" id="@inputId" name="@Model.FieldName" type="@inputType" value="@node.Value" checked="@isSelected" />
+                            <label class="govuk-label @labelClass" for="@inputId">@node.Label</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="govuk-body app-tree__branch-label">@node.Label</span>
+                    }
                 </div>
                 @if (node.Children.Count > 0)
                 {

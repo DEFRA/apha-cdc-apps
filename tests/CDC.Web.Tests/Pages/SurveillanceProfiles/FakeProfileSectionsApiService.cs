@@ -30,7 +30,8 @@ internal sealed class FakeProfileSectionsApiService(
     SaveRevisionDatesResult? saveRevisionDatesResult = null,
     Exception? throwOnSaveProfileVersionRevisionDates = null,
     ReviewCommentResult? reviewCommentResult = null,
-    Exception? throwOnChangeReviewComment = null)
+    Exception? throwOnChangeReviewComment = null,
+    IReadOnlyDictionary<Guid, ProfileSectionAnswersDto>? answersByVersion = null)
     : IProfileSectionsApiService
 {
     /// <summary>Gets the add request most recently passed to <c>AddProfileReviewCommentAsync</c>.</summary>
@@ -60,7 +61,10 @@ internal sealed class FakeProfileSectionsApiService(
         CancellationToken cancellationToken = default) =>
         throwOnGetProfileSectionAnswers is not null
             ? Task.FromException<ProfileSectionAnswersDto>(throwOnGetProfileSectionAnswers)
-            : Task.FromResult(answers ?? new ProfileSectionAnswersDto());
+            : Task.FromResult(
+                answersByVersion is not null && answersByVersion.TryGetValue(profileVersionId, out var versionAnswers)
+                    ? versionAnswers
+                    : answers ?? new ProfileSectionAnswersDto());
 
     public Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default) =>
         Task.FromResult(
