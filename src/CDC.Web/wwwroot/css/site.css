@@ -1184,3 +1184,31 @@ body {
     font: inherit;
     cursor: pointer;
 }
+
+/* Review comments tab: the "Add a review comment:" row, the red "new!" label and the add/view panel. */
+.app-review-comment-add {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.app-review-comment-new {
+  color: #d4351c;
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+.app-review-comment-panel {
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-review-comment-readonly {
+  padding: 0.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #f3f2f1;
+  overflow-wrap: anywhere;
+}

@@ -344,7 +344,8 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     UserFullName = reader.ReadString(6),
                     ParentId = reader.ReadGuid(9),
                     Level = reader.ReadInt32(10),
-                    ChildCount = reader.ReadInt32(12)
+                    ChildCount = reader.ReadInt32(12),
+                    LastUpdated = reader.ReadRowVersion(8)
                 });
             }
 
@@ -486,6 +487,133 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             }
 
             logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.UpdateProfileVersionSection);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ReviewCommentUser?> GetReviewCommentUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            // No stored procedure resolves a user by id, so this is a parameterised text query.
+            await using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    ProfileSectionStoredProcedures.GetReviewCommentUser,
+                    new { Id = userId },
+                    commandType: CommandType.Text,
+                    cancellationToken: cancellationToken),
+                CommandBehavior.Default);
+
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new ReviewCommentUser { UserName = reader.ReadString(0), FullName = reader.ReadString(1) };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, "User lookup");
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]> InsertReviewCommentAsync(NewProfileReviewComment comment, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("@Id", comment.Id, DbType.Guid);
+            parameters.Add("@ProfileVersionId", comment.ProfileVersionId, DbType.Guid);
+            parameters.Add("@ProfileSectionId", comment.ProfileSectionId, DbType.Guid);
+            parameters.Add("@CommentDate", comment.CommentDate, DbType.DateTime);
+            parameters.Add("@Subject", comment.Subject, DbType.String);
+            parameters.Add("@CommentReference", comment.CommentReference, DbType.String);
+            parameters.Add("@Comment", comment.CommentText, DbType.String);
+            parameters.Add("@UserName", comment.UserName, DbType.String);
+            parameters.Add("@ParentId", comment.ParentId, DbType.Guid);
+            parameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                ProfileSectionStoredProcedures.InsertReviewComment,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return parameters.Get<byte[]?>("@NewLastUpdated") ?? [];
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.InsertReviewComment);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]> UpdateReviewCommentAsync(
+        Guid id,
+        string subject,
+        string commentReference,
+        string commentText,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("@Id", id, DbType.Guid);
+            parameters.Add("@Subject", subject, DbType.String);
+            parameters.Add("@CommentReference", commentReference, DbType.String);
+            parameters.Add("@Comment", commentText, DbType.String);
+            parameters.Add("@LastUpdated", lastUpdated, DbType.Binary, size: RowVersionLength);
+            parameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                ProfileSectionStoredProcedures.UpdateReviewComment,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return parameters.Get<byte[]?>("@NewLastUpdated") ?? [];
+        }
+        catch (DbException exception)
+        {
+            if (SpeciesRepository.IsConcurrencyViolation(exception))
+            {
+                throw new ConcurrencyException(
+                    $"The review comment '{id}' could not be saved: it was edited by another user. Re-read the comment and try again.",
+                    exception);
+            }
+
+            logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.UpdateReviewComment);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteReviewCommentAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                ProfileSectionStoredProcedures.DeleteReviewComment,
+                new { Id = id },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.DeleteReviewComment);
             throw;
         }
     }

@@ -62,6 +62,28 @@ public sealed record ProfileReviewCommentDto
 
     /// <summary>Gets the number of direct replies to this comment.</summary>
     public int ChildCount { get; init; }
+
+    /// <summary>Gets the comment's row version, echoed back on edit so a concurrent change is detected.</summary>
+    public byte[] LastUpdated { get; init; } = [];
+
+    /// <summary>Gets a value indicating whether the acting user may edit this comment: it is their
+    /// own, has no replies, and the version is an editable current draft.</summary>
+    public bool CanEdit { get; init; }
+
+    /// <summary>Gets a value indicating whether the acting user may delete this comment (same rule as editing).</summary>
+    public bool CanDelete { get; init; }
+}
+
+/// <summary>
+/// Result of adding or editing a review comment.
+/// </summary>
+public sealed record SaveProfileReviewCommentResultDto
+{
+    /// <summary>Gets the saved comment's identifier.</summary>
+    public Guid Id { get; init; }
+
+    /// <summary>Gets the saved comment's new row version.</summary>
+    public byte[] LastUpdated { get; init; } = [];
 }
 
 /// <summary>

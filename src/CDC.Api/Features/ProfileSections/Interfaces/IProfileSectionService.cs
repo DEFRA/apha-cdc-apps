@@ -86,17 +86,6 @@ public interface IProfileSectionService
         Guid profileSectionId,
         CancellationToken cancellationToken);
 
-    /// <summary>Gets every review comment (and reply) for one profile version's section, for the
-    /// "Review comments" tab.</summary>
-    /// <param name="profileVersionId">The profile version to read.</param>
-    /// <param name="profileSectionId">The section to read.</param>
-    /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>Every review comment, in thread order.</returns>
-    Task<IReadOnlyList<ProfileReviewCommentDto>> GetProfileSectionReviewCommentsAsync(
-        Guid profileVersionId,
-        Guid profileSectionId,
-        CancellationToken cancellationToken);
-
     /// <summary>Gets every section's author/VA/policy review data for one profile version, plus the
     /// frequency and status options, for the "All Revision dates" tab.</summary>
     /// <param name="profileVersionId">The profile version to read.</param>

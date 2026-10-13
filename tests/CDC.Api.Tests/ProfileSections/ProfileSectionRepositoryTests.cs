@@ -715,6 +715,181 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    [Fact]
+    public async Task GetReviewCommentUserAsync_ReturnsTheUser()
+    {
+        var userId = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.GetReviewCommentUser, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["UserName", "FullName"], [["jdoe", "Jane Doe"]])]
+        });
+
+        var user = await CreateRepository().GetReviewCommentUserAsync(userId, CancellationToken.None);
+
+        user.Should().NotBeNull();
+        user!.UserName.Should().Be("jdoe");
+        user.FullName.Should().Be("Jane Doe");
+        connection.Executed.Should().ContainSingle().Which.Parameters["Id"].Should().Be(userId);
+    }
+
+    [Fact]
+    public async Task GetReviewCommentUserAsync_ReturnsNull_WhenTheUserDoesNotExist()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetReviewCommentUser, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty("UserName", "FullName")]
+        });
+
+        var user = await CreateRepository().GetReviewCommentUserAsync(Guid.NewGuid(), CancellationToken.None);
+
+        user.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetReviewCommentUserAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetReviewCommentUser, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().GetReviewCommentUserAsync(Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task InsertReviewCommentAsync_PassesEveryValue_AndReturnsTheNewRowVersion()
+    {
+        byte[] newRowVersion = [9, 9, 9, 9, 9, 9, 9, 9];
+        var parentId = Guid.NewGuid();
+        var commentId = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.InsertReviewComment, new FakeCommandScript
+        {
+            OutputValues = new Dictionary<string, object?> { ["NewLastUpdated"] = newRowVersion }
+        });
+
+        var lastUpdated = await CreateRepository().InsertReviewCommentAsync(
+            new NewProfileReviewComment
+            {
+                Id = commentId,
+                ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+                ProfileSectionId = ProfileSectionTestData.SectionId,
+                ParentId = parentId,
+                CommentDate = new DateTime(2026, 10, 13, 9, 0, 0),
+                Subject = "Subject",
+                CommentReference = "Ref",
+                CommentText = "<p>Text</p>",
+                UserName = "jdoe"
+            },
+            CancellationToken.None);
+
+        lastUpdated.Should().Equal(newRowVersion);
+        var command = connection.Executed.Should().ContainSingle().Subject;
+        command.CommandText.Should().Be(ProfileSectionStoredProcedures.InsertReviewComment);
+        command.Parameters["Id"].Should().Be(commentId);
+        command.Parameters["ParentId"].Should().Be(parentId);
+        command.Parameters["UserName"].Should().Be("jdoe");
+        command.Parameters["Comment"].Should().Be("<p>Text</p>");
+    }
+
+    [Fact]
+    public async Task InsertReviewCommentAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.InsertReviewComment, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().InsertReviewCommentAsync(
+            new NewProfileReviewComment
+            {
+                Id = Guid.NewGuid(),
+                ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+                ProfileSectionId = ProfileSectionTestData.SectionId,
+                CommentDate = DateTime.Now,
+                Subject = "S",
+                CommentReference = "R",
+                CommentText = "T",
+                UserName = "jdoe"
+            },
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task UpdateReviewCommentAsync_PassesTheRowVersion_AndReturnsTheNewOne()
+    {
+        byte[] oldRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+        byte[] newRowVersion = [8, 7, 6, 5, 4, 3, 2, 1];
+        var commentId = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.UpdateReviewComment, new FakeCommandScript
+        {
+            OutputValues = new Dictionary<string, object?> { ["NewLastUpdated"] = newRowVersion }
+        });
+
+        var lastUpdated = await CreateRepository().UpdateReviewCommentAsync(
+            commentId, "Subject", "Ref", "Text", oldRowVersion, CancellationToken.None);
+
+        lastUpdated.Should().Equal(newRowVersion);
+        var command = connection.Executed.Should().ContainSingle().Subject;
+        command.Parameters["Id"].Should().Be(commentId);
+        command.Parameters["LastUpdated"].Should().Be(oldRowVersion);
+    }
+
+    [Fact]
+    public async Task UpdateReviewCommentAsync_ThrowsConcurrencyException_WhenEditedByAnotherUser()
+    {
+        connection.Script(ProfileSectionStoredProcedures.UpdateReviewComment, new FakeCommandScript
+        {
+            Throws = new FakeDbException("The Review Comment has been edited by another user")
+        });
+
+        var act = () => CreateRepository().UpdateReviewCommentAsync(
+            Guid.NewGuid(), "S", "R", "T", [1, 2, 3, 4, 5, 6, 7, 8], CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+    }
+
+    [Fact]
+    public async Task UpdateReviewCommentAsync_RethrowsAndLogs_OnOtherDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.UpdateReviewComment, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().UpdateReviewCommentAsync(
+            Guid.NewGuid(), "S", "R", "T", [1, 2, 3, 4, 5, 6, 7, 8], CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task DeleteReviewCommentAsync_CallsTheProcedureWithTheId()
+    {
+        var commentId = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.DeleteReviewComment, new FakeCommandScript());
+
+        await CreateRepository().DeleteReviewCommentAsync(commentId, CancellationToken.None);
+
+        connection.Executed.Should().ContainSingle().Which.Parameters["Id"].Should().Be(commentId);
+    }
+
+    [Fact]
+    public async Task DeleteReviewCommentAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.DeleteReviewComment, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().DeleteReviewCommentAsync(Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

@@ -164,6 +164,100 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
     }
 
     /// <inheritdoc />
+    public async Task<ReviewCommentResult> AddProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid? parentId,
+        string subject,
+        string commentReference,
+        string commentText,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            ProfileVersionId = profileVersionId,
+            ProfileSectionId = profileSectionId,
+            ParentId = parentId,
+            Subject = subject,
+            CommentReference = commentReference,
+            CommentText = commentText
+        };
+        using var response = await httpClient.PostAsJsonAsync("/api/profile-sections/review-comments", request, cancellationToken);
+
+        return ToReviewCommentResult(response.StatusCode);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReviewCommentResult> UpdateProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        string subject,
+        string commentReference,
+        string commentText,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            Id = commentId,
+            ProfileVersionId = profileVersionId,
+            ProfileSectionId = profileSectionId,
+            Subject = subject,
+            CommentReference = commentReference,
+            CommentText = commentText,
+            LastUpdated = lastUpdated
+        };
+        using var response = await httpClient.PutAsJsonAsync("/api/profile-sections/review-comments", request, cancellationToken);
+
+        return ToReviewCommentResult(response.StatusCode);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReviewCommentResult> DeleteProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync(
+            $"/api/profile-sections/review-comments/{commentId}?profileVersionId={profileVersionId}&profileSectionId={profileSectionId}",
+            cancellationToken);
+
+        return ToReviewCommentResult(response.StatusCode);
+    }
+
+    private static ReviewCommentResult ToReviewCommentResult(HttpStatusCode statusCode) => statusCode switch
+    {
+        HttpStatusCode.OK or HttpStatusCode.NoContent => new ReviewCommentResult { Outcome = ReviewCommentOutcome.Success },
+        HttpStatusCode.BadRequest => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.ValidationFailed,
+            ErrorMessage = "The review comment was not accepted."
+        },
+        HttpStatusCode.Forbidden => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.Forbidden,
+            ErrorMessage = "Only your own review comment, with no replies, can be changed on the current draft version."
+        },
+        HttpStatusCode.NotFound => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.NotFound,
+            ErrorMessage = "The review comment no longer exists."
+        },
+        HttpStatusCode.Conflict => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.Conflict,
+            ErrorMessage = "The review comment has been edited by another user."
+        },
+        _ => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.Error,
+            ErrorMessage = "We could not complete the request. Try again later."
+        }
+    };
+
+    /// <inheritdoc />
     public async Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken = default)

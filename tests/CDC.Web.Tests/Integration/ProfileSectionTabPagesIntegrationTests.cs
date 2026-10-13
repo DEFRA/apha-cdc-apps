@@ -17,6 +17,7 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
     private static readonly Guid SummarySectionId = Guid.NewGuid();
     private static readonly Guid EpidemiologySectionId = Guid.NewGuid();
     private static readonly Guid QuestionId = Guid.NewGuid();
+    private static readonly Guid ReviewCommentId = Guid.NewGuid();
     private static readonly Guid YearlyFrequencyId = Guid.NewGuid();
     private static readonly Guid CompleteStatusId = Guid.NewGuid();
 
@@ -96,7 +97,7 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
                         [noteTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "A relevant paper." }],
                         [furtherInformationTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "OIE Terrestrial Manual." }]
                     },
-                    reviewComments: [new ProfileReviewCommentDto { CommentSubject = "Check the dates", UserFullName = "Jane Doe", Level = 1 }],
+                    reviewComments: [new ProfileReviewCommentDto { Id = ReviewCommentId, CommentSubject = "Check the <dates>", CommentReference = "Ref 7", CommentText = "<p>Please <a href=\"https://example.com\">review</a></p><script>alert(1)</script>", UserFullName = "Jane Doe", Level = 1, CanEdit = true, CanDelete = true, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8], CommentDate = new DateTime(2026, 9, 11, 13, 14, 15) }],
                     contributions: [new ProfileSectionContributionDto { FullName = "John Smith", UserName = "jsmith", OrganisationName = "APHA" }],
                     allRevisionDates: new ProfileVersionAllRevisionDatesDto
                     {
@@ -179,8 +180,67 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
     {
         var body = await GetAsync("EditProfileReviewComments", Profile());
 
-        Assert.Contains("Check the dates", body);
+        Assert.Contains("Check the &lt;dates&gt;", body);
+        Assert.DoesNotContain("Check the <dates>", body);
         Assert.Contains("Jane Doe", body);
+        Assert.Contains("Ref 7", body);
+        Assert.Contains("11/09/26 13:14:15", body);
+        Assert.Contains(">Date and time</th>", body);
+        Assert.Contains(">Reviewer</th>", body);
+        Assert.Contains($"commentId={ReviewCommentId}", body);
+        Assert.Contains("Add a review comment:", body);
+        Assert.Contains("Items per page:", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReviewComments_HidesTheAddButton_WhenTheUserCannotEdit()
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile(canEdit: false));
+
+        Assert.DoesNotContain("Add a review comment:", body);
+        Assert.Contains("Check the", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReviewComments_ShowsTheAddPanel_WithTheRichTextEditor()
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile(), "?mode=add");
+
+        Assert.Contains("Add review comment", body);
+        Assert.Contains("name=\"Input.Subject\"", body);
+        Assert.Contains("name=\"Input.Reference\"", body);
+        Assert.Contains("name=\"Input.CommentText\"", body);
+        Assert.Contains("data-richtext-command=\"link\"", body);
+        Assert.Contains("data-spellcheck-target=\"Input_CommentText\"", body);
+        Assert.Contains("handler=Save", body);
+        Assert.Contains("__RequestVerificationToken", body);
+        Assert.Contains(">OK</button>", body);
+        Assert.Contains(">Cancel</a>", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReviewComments_ShowsTheViewPanel_WithSanitisedCommentAndTheActionButtons()
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile(), $"?commentId={ReviewCommentId}");
+
+        Assert.Contains("View review comment", body);
+        Assert.Contains("<a href=\"https://example.com\">review</a>", body);
+        Assert.DoesNotContain("<script>alert(1)</script>", body);
+        Assert.Contains(">Reply</a>", body);
+        Assert.Contains(">Edit</a>", body);
+        Assert.Contains("handler=Delete", body);
+        Assert.Contains(">Close</a>", body);
+        Assert.Contains("Are you sure you want to delete this review comment?", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReviewComments_ShowsTheEditPanel_PrefilledWithTheComment()
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile(), $"?mode=edit&commentId={ReviewCommentId}");
+
+        Assert.Contains("Edit review comment", body);
+        Assert.Contains("value=\"Ref 7\"", body);
+        Assert.Contains("name=\"Input.LastUpdated\" value=\"AQIDBAUGBwg=\"", body);
     }
 
     [Fact]

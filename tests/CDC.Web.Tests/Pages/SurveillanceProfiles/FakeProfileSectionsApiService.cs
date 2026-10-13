@@ -28,9 +28,20 @@ internal sealed class FakeProfileSectionsApiService(
     Exception? throwOnGetProfileSectionReviewComments = null,
     Exception? throwOnGetProfileVersionAllRevisionDates = null,
     SaveRevisionDatesResult? saveRevisionDatesResult = null,
-    Exception? throwOnSaveProfileVersionRevisionDates = null)
+    Exception? throwOnSaveProfileVersionRevisionDates = null,
+    ReviewCommentResult? reviewCommentResult = null,
+    Exception? throwOnChangeReviewComment = null)
     : IProfileSectionsApiService
 {
+    /// <summary>Gets the add request most recently passed to <c>AddProfileReviewCommentAsync</c>.</summary>
+    public (Guid? ParentId, string Subject, string Reference, string Text)? AddedReviewComment { get; private set; }
+
+    /// <summary>Gets the update request most recently passed to <c>UpdateProfileReviewCommentAsync</c>.</summary>
+    public (Guid CommentId, string Subject, string Reference, string Text, byte[] LastUpdated)? UpdatedReviewComment { get; private set; }
+
+    /// <summary>Gets the comment id most recently passed to <c>DeleteProfileReviewCommentAsync</c>.</summary>
+    public Guid? DeletedReviewCommentId { get; private set; }
+
     /// <summary>Gets the sections most recently passed to <c>SaveProfileVersionRevisionDatesAsync</c>.</summary>
     public IReadOnlyList<ProfileSectionRevisionDatesInputDto>? SavedRevisionDates { get; private set; }
 
@@ -130,6 +141,51 @@ internal sealed class FakeProfileSectionsApiService(
         throwOnGetProfileSectionReviewComments is not null
             ? Task.FromException<IReadOnlyList<ProfileReviewCommentDto>>(throwOnGetProfileSectionReviewComments)
             : Task.FromResult(reviewComments ?? []);
+
+    public Task<ReviewCommentResult> AddProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid? parentId,
+        string subject,
+        string commentReference,
+        string commentText,
+        CancellationToken cancellationToken = default)
+    {
+        AddedReviewComment = (parentId, subject, commentReference, commentText);
+
+        return ReviewCommentResultTask();
+    }
+
+    public Task<ReviewCommentResult> UpdateProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        string subject,
+        string commentReference,
+        string commentText,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken = default)
+    {
+        UpdatedReviewComment = (commentId, subject, commentReference, commentText, lastUpdated);
+
+        return ReviewCommentResultTask();
+    }
+
+    public Task<ReviewCommentResult> DeleteProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        CancellationToken cancellationToken = default)
+    {
+        DeletedReviewCommentId = commentId;
+
+        return ReviewCommentResultTask();
+    }
+
+    private Task<ReviewCommentResult> ReviewCommentResultTask() =>
+        throwOnChangeReviewComment is not null
+            ? Task.FromException<ReviewCommentResult>(throwOnChangeReviewComment)
+            : Task.FromResult(reviewCommentResult ?? new ReviewCommentResult { Outcome = ReviewCommentOutcome.Success });
 
     public Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,

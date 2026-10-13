@@ -1,5 +1,6 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.EditProfileReviewCommentsModel
+@using CDC.Web.Models
 @{
     Layout = "_ProfileSectionTabLayout";
 }
@@ -10,36 +11,225 @@
     <div class="govuk-tabs app-tab-carousel">
         <partial name="_ProfileSectionTabs" model="tabsModel" />
         <div class="govuk-tabs__panel" id="profile-review-comments-panel">
+            @if (Model.ActionMessage is not null)
+            {
+                if (Model.ActionMessageIsError)
+                {
+                    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="review-comment-message-title">
+                        <div role="alert">
+                            <h2 class="govuk-error-summary__title" id="review-comment-message-title">There is a problem</h2>
+                            <div class="govuk-error-summary__body">
+                                <p class="govuk-body">@Model.ActionMessage</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="review-comment-message-title" data-module="govuk-notification-banner">
+                        <div class="govuk-notification-banner__header">
+                            <h2 class="govuk-notification-banner__title" id="review-comment-message-title">Success</h2>
+                        </div>
+                        <div class="govuk-notification-banner__content">
+                            <p class="govuk-notification-banner__heading">@Model.ActionMessage</p>
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (Model.CanAdd)
+            {
+                <div class="app-review-comment-add">
+                    <span class="govuk-body govuk-!-margin-bottom-0">Add a review comment:</span>
+                    <a href="@Model.BuildAddUrl()" role="button" draggable="false" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button">Add</a>
+                </div>
+            }
+
+            <form method="get" class="govuk-!-margin-top-3">
+                <input type="hidden" name="section" value="@Model.CurrentSection.Id" />
+                <input type="hidden" id="PageNumber" name="pageNumber" value="1" />
+                <div class="govuk-form-group govuk-!-margin-bottom-3 app-label-select-inline">
+                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                    <select class="govuk-select" id="PageSize" name="pageSize" onchange="document.getElementById('PageNumber').value = '1'; this.form.requestSubmit()">
+                        @foreach (var option in CDC.Web.Pages.SurveillanceProfiles.NotesModel.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+            </form>
+
             @if (Model.ReviewComments.Count == 0)
             {
-                <p class="govuk-body">There are no review comments to display.</p>
+                <p class="govuk-body">@CDC.Web.Pages.SurveillanceProfiles.EditProfileReviewCommentsModel.NoCommentsMessage</p>
             }
             else
             {
-                <table class="govuk-table">
+                <table class="govuk-table app-review-comment-table">
+                    <caption class="govuk-visually-hidden">Review comments</caption>
                     <thead class="govuk-table__head">
                         <tr class="govuk-table__row">
                             <th scope="col" class="govuk-table__header">Subject</th>
                             <th scope="col" class="govuk-table__header">Reference</th>
-                            <th scope="col" class="govuk-table__header">Comment</th>
-                            <th scope="col" class="govuk-table__header">By</th>
-                            <th scope="col" class="govuk-table__header">Date</th>
+                            <th scope="col" class="govuk-table__header">Reviewer</th>
+                            <th scope="col" class="govuk-table__header">Date and time</th>
                         </tr>
                     </thead>
                     <tbody class="govuk-table__body">
                         @foreach (var comment in Model.ReviewComments)
                         {
                             <tr class="govuk-table__row">
-                                <td class="govuk-table__cell">@Html.Raw(comment.IndentedSubject)</td>
-                                <td class="govuk-table__cell">@comment.CommentReference</td>
-                                <td class="govuk-table__cell">@comment.CommentText</td>
-                                <td class="govuk-table__cell">@comment.UserFullName</td>
-                                <td class="govuk-table__cell">@comment.CommentDate</td>
+                                <td class="govuk-table__cell">
+                                    @if (comment.Level > 1)
+                                    {
+                                        <span aria-hidden="true">@(new string('\u00A0', (comment.Level - 1) * 5))</span>
+                                    }
+                                    <a class="govuk-link" href="@Model.BuildViewUrl(comment.Id)">@comment.DisplaySubject</a>
+                                    @if (comment.IsNew)
+                                    {
+                                        <strong class="app-review-comment-new">new!</strong>
+                                    }
+                                </td>
+                                <td class="govuk-table__cell">@comment.Reference</td>
+                                <td class="govuk-table__cell">@comment.Reviewer</td>
+                                <td class="govuk-table__cell">@comment.DateDisplay</td>
                             </tr>
                         }
                     </tbody>
                 </table>
+
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="app-pagination-center">
+                        <nav class="govuk-pagination" aria-label="Review comment pages">
+                            @if (Model.PageNumber > 1)
+                            {
+                                <div class="govuk-pagination__prev">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildListUrl(Model.PageNumber - 1)" rel="prev">
+                                        <span class="govuk-pagination__link-title">Previous</span>
+                                    </a>
+                                </div>
+                            }
+
+                            <ul class="govuk-pagination__list">
+                                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                                {
+                                    <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildListUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                    </li>
+                                }
+                            </ul>
+
+                            @if (Model.PageNumber < Model.TotalPages)
+                            {
+                                <div class="govuk-pagination__next">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildListUrl(Model.PageNumber + 1)" rel="next">
+                                        <span class="govuk-pagination__link-title">Next</span>
+                                    </a>
+                                </div>
+                            }
+                        </nav>
+                    </div>
+                }
+            }
+
+            @if (Model.Panel == ReviewCommentPanel.View && Model.Detail is not null)
+            {
+                <section class="app-review-comment-panel" aria-labelledby="review-comment-panel-heading">
+                    <h2 class="govuk-heading-m" id="review-comment-panel-heading">View review comment</h2>
+
+                    <div class="govuk-form-group">
+                        <span class="govuk-label govuk-label--s">Subject</span>
+                        <div class="app-review-comment-readonly">@Model.Detail.Subject</div>
+                    </div>
+                    <div class="govuk-form-group">
+                        <span class="govuk-label govuk-label--s">Reference</span>
+                        <div class="app-review-comment-readonly">@Model.Detail.Reference</div>
+                    </div>
+                    <div class="govuk-form-group">
+                        <span class="govuk-label govuk-label--s">Comment</span>
+                        <div class="app-review-comment-readonly">@Html.Raw(Model.Detail.CommentHtml)</div>
+                    </div>
+
+                    <form method="post" class="govuk-button-group" onsubmit="return confirm('@CDC.Web.Pages.SurveillanceProfiles.EditProfileReviewCommentsModel.DeleteConfirmation')">
+                        @if (Model.CanAdd)
+                        {
+                            <a href="@Model.BuildReplyUrl(Model.Detail.Id)" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Reply</a>
+                        }
+                        @if (Model.Detail.CanEdit)
+                        {
+                            <a href="@Model.BuildEditUrl(Model.Detail.Id)" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Edit</a>
+                        }
+                        @if (Model.Detail.CanDelete)
+                        {
+                            <button type="submit" asp-page-handler="Delete" asp-route-commentId="@Model.Detail.Id" asp-route-section="@Model.CurrentSection.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize" class="govuk-button govuk-button--warning" data-module="govuk-button">Delete</button>
+                        }
+                        <a class="govuk-button govuk-button--secondary" role="button" draggable="false" href="@Model.BuildListUrl()" data-module="govuk-button">Close</a>
+                    </form>
+                </section>
+            }
+
+            @if (Model.Panel is ReviewCommentPanel.Add or ReviewCommentPanel.Edit)
+            {
+                <section class="app-review-comment-panel" aria-labelledby="review-comment-panel-heading">
+                    <h2 class="govuk-heading-m" id="review-comment-panel-heading">@Model.PanelHeading</h2>
+
+                    <form method="post" asp-page-handler="Save" asp-route-section="@Model.CurrentSection.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize" novalidate>
+                        <input type="hidden" name="Input.ParentId" value="@Model.Input.ParentId" />
+                        <input type="hidden" name="Input.CommentId" value="@Model.Input.CommentId" />
+                        <input type="hidden" name="Input.LastUpdated" value="@Model.Input.LastUpdated" />
+
+                        @if (Model.ValidationErrors.Count > 0)
+                        {
+                            <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="review-comment-errors-title">
+                                <div role="alert">
+                                    <h2 class="govuk-error-summary__title" id="review-comment-errors-title">There is a problem</h2>
+                                    <div class="govuk-error-summary__body">
+                                        <ul class="govuk-list govuk-error-summary__list">
+                                            @foreach (var error in Model.ValidationErrors)
+                                            {
+                                                <li>@error</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="govuk-form-group">
+                            <label class="govuk-label govuk-label--s" for="Input_Subject">Subject</label>
+                            <input class="govuk-input" id="Input_Subject" name="Input.Subject" type="text" value="@Model.Input.Subject" spellcheck="true" />
+                        </div>
+
+                        <div class="govuk-form-group">
+                            <label class="govuk-label govuk-label--s" for="Input_Reference">Reference</label>
+                            <input class="govuk-input" id="Input_Reference" name="Input.Reference" type="text" value="@Model.Input.Reference" spellcheck="true" />
+                        </div>
+
+                        <div class="govuk-form-group">
+                            <label class="govuk-label govuk-label--s" for="Input_CommentText">Comment</label>
+                            <div class="app-richtext-toolbar" role="toolbar" aria-label="Comment formatting">
+                                <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="Input_CommentText" aria-label="Undo" title="Undo">&#8630;</button>
+                                <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="Input_CommentText" aria-label="Redo" title="Redo">&#8631;</button>
+                                <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="Input_CommentText" aria-label="Insert link" title="Insert link">&#128279;</button>
+                            </div>
+                            <textarea class="govuk-textarea app-richtext-editor" id="Input_CommentText" name="Input.CommentText" rows="8" spellcheck="true">@Model.Input.CommentText</textarea>
+                            <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="Input_CommentText" data-module="govuk-button">Spell check</button>
+                        </div>
+
+                        <div class="govuk-button-group">
+                            <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+                            <a class="govuk-button govuk-button--secondary" role="button" draggable="false" href="@Model.BuildListUrl()" data-module="govuk-button">Cancel</a>
+                        </div>
+                    </form>
+                </section>
             }
         </div>
     </div>
+}
+
+@section Scripts {
+    <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
+    <script src="~/js/spell-check.js" asp-append-version="true"></script>
 }

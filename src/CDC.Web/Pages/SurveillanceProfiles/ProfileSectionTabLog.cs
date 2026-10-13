@@ -1,3 +1,5 @@
+using CDC.Web.Models;
+
 namespace CDC.Web.Pages.SurveillanceProfiles;
 
 /// <summary>Source-generated structured log messages for the profile section tab pages.</summary>
@@ -38,4 +40,13 @@ internal static partial class ProfileSectionTabLog
 
     [LoggerMessage(EventId = 2311, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' from CDC.Api")]
     public static partial void ProfilePageLoadFailed(this ILogger logger, Exception exception, Guid profileId);
+
+    [LoggerMessage(EventId = 2312, Level = LogLevel.Error, Message = "Failed to save a review comment on profile '{ProfileId}' via CDC.Api")]
+    public static partial void ProfileReviewCommentSaveFailed(this ILogger logger, Exception exception, Guid profileId);
+
+    [LoggerMessage(EventId = 2313, Level = LogLevel.Error, Message = "Failed to delete a review comment on profile '{ProfileId}' via CDC.Api")]
+    public static partial void ProfileReviewCommentDeleteFailed(this ILogger logger, Exception exception, Guid profileId);
+
+    [LoggerMessage(EventId = 2314, Level = LogLevel.Warning, Message = "A review comment change on profile '{ProfileId}' was refused by CDC.Api with outcome {Outcome}")]
+    public static partial void ProfileReviewCommentChangeRefused(this ILogger logger, Guid profileId, ReviewCommentOutcome outcome);
 }

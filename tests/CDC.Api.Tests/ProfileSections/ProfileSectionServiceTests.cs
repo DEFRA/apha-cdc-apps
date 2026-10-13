@@ -437,35 +437,6 @@ public class ProfileSectionServiceTests
     }
 
     [Fact]
-    public async Task GetProfileSectionReviewCommentsAsync_MapsRepositoryComments()
-    {
-        var commentId = Guid.NewGuid();
-        repository
-            .Setup(repo => repo.GetProfileSectionReviewCommentsAsync(
-                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([
-                new ProfileReviewComment
-                {
-                    Id = commentId,
-                    CommentSubject = "A comment",
-                    UserFullName = "Jane Doe",
-                    Level = 1,
-                    ChildCount = 2
-                }
-            ]);
-
-        var result = await CreateService().GetProfileSectionReviewCommentsAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
-
-        var comment = result.Should().ContainSingle().Subject;
-        comment.Id.Should().Be(commentId);
-        comment.CommentSubject.Should().Be("A comment");
-        comment.UserFullName.Should().Be("Jane Doe");
-        comment.Level.Should().Be(1);
-        comment.ChildCount.Should().Be(2);
-    }
-
-    [Fact]
     public async Task GetProfileVersionAllRevisionDatesAsync_ReturnsEverySectionsRevisionData_InSectionNumberOrder_WithLookups()
     {
         var secondSectionId = Guid.NewGuid();

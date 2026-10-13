@@ -155,12 +155,13 @@ public class ProfileSectionHandlerTests
     {
         IReadOnlyList<ProfileReviewCommentDto> dto = [new() { CommentSubject = "A comment" }];
 
-        service
-            .Setup(svc => svc.GetProfileSectionReviewCommentsAsync(
+        var reviewCommentService = new Mock<IProfileReviewCommentService>(MockBehavior.Strict);
+        reviewCommentService
+            .Setup(svc => svc.GetAsync(
                 ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
-        var result = await new GetProfileSectionReviewCommentsQueryHandler(service.Object)
+        var result = await new GetProfileSectionReviewCommentsQueryHandler(reviewCommentService.Object)
             .Handle(
                 new GetProfileSectionReviewCommentsQuery(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId),
                 CancellationToken.None);

@@ -243,29 +243,6 @@ public sealed class ProfileSectionService(
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ProfileReviewCommentDto>> GetProfileSectionReviewCommentsAsync(
-        Guid profileVersionId,
-        Guid profileSectionId,
-        CancellationToken cancellationToken)
-    {
-        var comments = await repository.GetProfileSectionReviewCommentsAsync(profileVersionId, profileSectionId, cancellationToken);
-
-        return [.. comments.Select(comment => new ProfileReviewCommentDto
-        {
-            Id = comment.Id,
-            CommentDate = comment.CommentDate,
-            CommentSubject = comment.CommentSubject,
-            CommentReference = comment.CommentReference,
-            CommentText = comment.CommentText,
-            UserName = comment.UserName,
-            UserFullName = comment.UserFullName,
-            ParentId = comment.ParentId,
-            Level = comment.Level,
-            ChildCount = comment.ChildCount
-        })];
-    }
-
-    /// <inheritdoc />
     public async Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken)
