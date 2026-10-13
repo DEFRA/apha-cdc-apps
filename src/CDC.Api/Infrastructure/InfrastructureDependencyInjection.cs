@@ -1,3 +1,4 @@
+using CDC.Api.Features.DiseaseRanking.Interfaces;
 using CDC.Api.Features.PrioritisationVariables.Interfaces;
 using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement.Interfaces;
@@ -35,6 +36,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileQuestionRepository, ProfileQuestionRepository>();
         services.AddScoped<IProfileReportRepository, ProfileReportRepository>();
         services.AddScoped<IStaticReportRepository, StaticReportRepository>();
+        services.AddScoped<IDiseaseRankingRepository, DiseaseRankingRepository>();
         services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
         services.AddScoped<IProfileSectionRepository, ProfileSectionRepository>();
         services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
