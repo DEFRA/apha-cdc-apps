@@ -10,12 +10,26 @@
 @if (Model.IsHistoryPage)
 {
     <h1 class="govuk-heading-l">History for @Model.ReportTitle</h1>
+    <p class="govuk-body">
+        These are the published versions of this report. They were created using information held in the D2R2 database.
+    </p>
     <p class="govuk-body"><a class="govuk-link" asp-page="/Reports/General">Back to general reports</a></p>
 }
 else
 {
     <h1 class="govuk-heading-l">General reports</h1>
-    <p class="govuk-body">Select a report title to download the PDF. Use history to view previous versions and make a version public.</p>
+    <p class="govuk-body">
+        These general reports have been created for publication on this website. They were created using information held
+        in the D2R2 database.
+    </p>
+    <p class="govuk-body">
+        Standard reports on a specific disease, such as the summary prioritisation report, summary report or questions and
+        answers, are available from <a class="govuk-link" asp-page="/SurveillanceProfiles/Search">search disease profiles</a>.
+    </p>
+    <p class="govuk-body">
+        If the report you need is not listed, email
+        <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>.
+    </p>
 }
 
 @if (!string.IsNullOrEmpty(Model.StatusMessage))
@@ -46,8 +60,27 @@ else
 {
     <p class="govuk-body">There are no general reports to display.</p>
 }
-else if (Model.IsHistoryPage)
+else
 {
+    <form method="get" asp-page="/Reports/General" class="app-page-size-toolbar govuk-!-margin-bottom-3">
+        @if (Model.IsHistoryPage)
+        {
+            <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
+        }
+        <input type="hidden" name="PageNumber" value="1" />
+        <div class="govuk-form-group">
+            <label class="govuk-label" for="PageSize">Items per page:</label>
+            <select class="govuk-select" id="PageSize" name="PageSize" onchange="this.form.requestSubmit()">
+                @foreach (var option in CDC.Web.Pages.Reports.GeneralModel.PageSizeOptions)
+                {
+                    <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                }
+            </select>
+        </div>
+    </form>
+
+    if (Model.IsHistoryPage)
+    {
     <table class="govuk-table">
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
@@ -55,35 +88,43 @@ else if (Model.IsHistoryPage)
                 <th scope="col" class="govuk-table__header">Version</th>
                 <th scope="col" class="govuk-table__header">Public status</th>
                 <th scope="col" class="govuk-table__header">Effective dates</th>
-                <th scope="col" class="govuk-table__header">Action</th>
+                <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
         </thead>
         <tbody class="govuk-table__body">
-            @foreach (var report in Model.Reports)
+            @foreach (var report in Model.PagedReports)
             {
                 <tr class="govuk-table__row">
-                    <td class="govuk-table__cell">@report.Title</td>
+                    <td class="govuk-table__cell">
+                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" target="_blank" rel="noopener noreferrer">@report.Title<span class="govuk-visually-hidden"> version @($"{report.VersionMajor}.0") (opens in new tab)</span></a>
+                    </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
                     <td class="govuk-table__cell">@(report.IsPublic ? "Public" : "Not public")</td>
                     <td class="govuk-table__cell">@CDC.Web.Pages.Reports.GeneralModel.FormatEffectiveDates(report)</td>
                     <td class="govuk-table__cell">
-                        @if (!report.IsPublic && !report.IsUserManual)
+                        @if (Model.CanMakePublic(report))
                         {
-                            <form method="post" asp-page="/Reports/General" asp-page-handler="MakePublic" asp-route-staticReportId="@Model.StaticReportId">
-                                <input type="hidden" name="reportVersionId" value="@report.Id" />
-                                <button class="govuk-button govuk-button--secondary govuk-!-margin-0" type="submit" onclick="return confirm('This report version will become public and this action cannot be undone. Continue?');">
-                                    Make public
-                                </button>
-                            </form>
+                            <button type="button" class="govuk-link app-link-button" data-confirm-target="#make-public-@report.Id">Make public<span class="govuk-visually-hidden"> version @($"{report.VersionMajor}.0")</span></button>
+                            <dialog class="app-modal" id="make-public-@report.Id" aria-labelledby="make-public-@(report.Id)-title">
+                                <h2 class="govuk-heading-m" id="make-public-@(report.Id)-title">Confirm</h2>
+                                <p class="govuk-body">Are you sure you want to make this report public (this cannot be undone)?</p>
+                                <form method="post" asp-page="/Reports/General" asp-page-handler="MakePublic" asp-route-staticReportId="@Model.StaticReportId">
+                                    <input type="hidden" name="reportVersionId" value="@report.Id" />
+                                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                </form>
+                            </dialog>
                         }
                     </td>
                 </tr>
             }
         </tbody>
     </table>
-}
-else
-{
+    }
+    else
+    {
     <table class="govuk-table">
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
@@ -95,7 +136,7 @@ else
             </tr>
         </thead>
         <tbody class="govuk-table__body">
-            @foreach (var report in Model.Reports)
+            @foreach (var report in Model.PagedReports)
             {
                 <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
@@ -108,18 +149,65 @@ else
                         <a class="govuk-link govuk-!-margin-right-3" asp-page="/Reports/General" asp-route-staticReportId="@report.StaticReportId">History</a>
                         @if (Model.CanManageReports && report.IsCurrent)
                         {
-                            <form method="post" asp-page="/Reports/General" asp-page-handler="Delete" class="app-inline-form">
-                                <input type="hidden" name="reportVersionId" value="@report.Id" />
-                                <button type="submit" class="govuk-link app-link-button" onclick="return confirm('Are you sure you want to delete this report?');">
-                                    Delete<span class="govuk-visually-hidden"> @report.Title</span>
-                                </button>
-                            </form>
+                            <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-report-@report.Id">Delete<span class="govuk-visually-hidden"> @report.Title</span></button>
+                            <dialog class="app-modal" id="delete-report-@report.Id" aria-labelledby="delete-report-@(report.Id)-title">
+                                <h2 class="govuk-heading-m" id="delete-report-@(report.Id)-title">Confirm</h2>
+                                <p class="govuk-body">Are you sure you want to delete this report?</p>
+                                <form method="post" asp-page="/Reports/General" asp-page-handler="Delete">
+                                    <input type="hidden" name="reportVersionId" value="@report.Id" />
+                                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                </form>
+                            </dialog>
                         }
                     </td>
                 </tr>
             }
         </tbody>
     </table>
+    }
+
+    if (Model.TotalPages > 1)
+    {
+        <div class="app-pagination-center">
+            <nav class="govuk-pagination" aria-label="General reports pages">
+                @if (Model.PageNumber > 1)
+                {
+                    <div class="govuk-pagination__prev">
+                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                            <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                            </svg>
+                            <span class="govuk-pagination__link-title">Previous</span>
+                        </a>
+                    </div>
+                }
+
+                <ul class="govuk-pagination__list">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                        </li>
+                    }
+                </ul>
+
+                @if (Model.PageNumber < Model.TotalPages)
+                {
+                    <div class="govuk-pagination__next">
+                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                            <span class="govuk-pagination__link-title">Next</span>
+                            <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                            </svg>
+                        </a>
+                    </div>
+                }
+            </nav>
+        </div>
+    }
 }
 
 @if (Model.CanManageReports && !Model.IsHistoryPage)

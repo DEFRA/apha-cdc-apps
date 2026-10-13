@@ -29,6 +29,18 @@ public class GeneralModel : BreadcrumbPageModelBase
     [BindProperty]
     public bool MakePublic { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string PageSize { get; set; } = PageSizeOptions[0];
+
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
+    public static IReadOnlyList<string> PageSizeOptions { get; } = ["10", "15", "20", "30", "All"];
+
+    public IReadOnlyList<StaticReportListItemDto> PagedReports { get; private set; } = [];
+
+    public int TotalPages { get; private set; } = 1;
+
     [TempData]
     public string? StatusMessage { get; set; }
 
@@ -74,7 +86,7 @@ public class GeneralModel : BreadcrumbPageModelBase
 
         if (reportVersionId == Guid.Empty)
         {
-            return RedirectToPage("/Reports/General");
+            return RedirectToPage("/Reports/General", new { PageSize, PageNumber });
         }
 
         try
@@ -94,7 +106,7 @@ public class GeneralModel : BreadcrumbPageModelBase
             ErrorMessage = "The report version could not be deleted.";
         }
 
-        return RedirectToPage("/Reports/General");
+        return RedirectToPage("/Reports/General", new { PageSize, PageNumber });
     }
 
     public async Task<IActionResult> OnPostUploadAsync(CancellationToken cancellationToken)
@@ -190,30 +202,66 @@ public class GeneralModel : BreadcrumbPageModelBase
             logger.LogError(ex, "Failed to load general reports.");
             Reports = [];
         }
+
+        var pageSize = ResolvePageSize(PageSize);
+        TotalPages = pageSize > 0 ? Math.Max(1, (int)Math.Ceiling(Reports.Count / (double)pageSize)) : 1;
+        PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
+        PagedReports = pageSize > 0
+            ? [.. Reports.Skip((PageNumber - 1) * pageSize).Take(pageSize)]
+            : Reports;
     }
+
+    private static int ResolvePageSize(string pageSize)
+    {
+        if (string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        return int.TryParse(pageSize, out var parsedPageSize) && parsedPageSize > 0 ? parsedPageSize : 10;
+    }
+
+    /// <summary>Legacy <c>StaticReport.CanMakePublic</c>: non-public general reports, for report managers only.</summary>
+    public bool CanMakePublic(StaticReportListItemDto report) =>
+        CanManageReports && !report.IsPublic && !report.IsUserManual;
 
     public async Task<IActionResult> OnPostMakePublicAsync(Guid reportVersionId, CancellationToken cancellationToken)
     {
+        if (!await CheckCanManageAsync())
+        {
+            return Forbid();
+        }
+
+        var redirectValues = new { StaticReportId, PageSize, PageNumber };
+
         if (reportVersionId == Guid.Empty)
         {
-            return RedirectToPage("/Reports/General", new { StaticReportId = StaticReportId });
+            return RedirectToPage("/Reports/General", redirectValues);
         }
 
         try
         {
-            var isSuccess = await apiClient.SetStaticReportPublicAccessAsync(reportVersionId, cancellationToken);
-            if (!isSuccess)
+            if (await apiClient.SetStaticReportPublicAccessAsync(reportVersionId, cancellationToken))
+            {
+                StatusMessage = "The report version was made public.";
+            }
+            else
             {
                 logger.LogWarning("The public-access change request for static report version {StaticReportVersionId} was rejected.", reportVersionId);
+                ErrorMessage = "The report version could not be made public.";
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to make static report version {StaticReportVersionId} public.", reportVersionId);
+            ErrorMessage = "The report version could not be made public.";
         }
 
-        return RedirectToPage("/Reports/General", new { StaticReportId = StaticReportId });
+        return RedirectToPage("/Reports/General", redirectValues);
     }
+
+    public string? BuildPageUrl(int page) =>
+        Url.Page("/Reports/General", new { StaticReportId, PageSize, PageNumber = page });
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
         $"{apiBaseUrl}/api/static-reports/versions/{staticReportVersionId}/document";
