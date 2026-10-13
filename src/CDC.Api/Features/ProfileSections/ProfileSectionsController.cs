@@ -1,4 +1,5 @@
 using CDC.Api.Application.Extensions;
+using CDC.Api.Features.ProfileSections.Commands;
 using CDC.Api.Features.ProfileSections.Queries;
 using CDC.Common.Contracts;
 using MediatR;
@@ -81,6 +82,182 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new GetProfileSectionAnswersQuery(profileVersionId, profileSectionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets one profile version's per-section validation status.
+    /// </summary>
+    /// <remarks>
+    /// A section is valid once every mandatory field across its questions has a recorded answer,
+    /// matching the left-hand navigation's tick/cross indicator on the legacy
+    /// <c>EditProfileQuestions.aspx</c> page.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to check.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Each section's validation status.</returns>
+    /// <response code="200">The validation status was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpGet("validation-status")]
+    [ProducesResponseType(typeof(ProfileVersionValidationStatusDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ProfileVersionValidationStatusDto>> GetProfileVersionValidationStatus(
+        [FromQuery] Guid profileVersionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileVersionValidationStatusQuery(profileVersionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Validates one profile version's section against its mandatory fields.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy <c>ProfileVersionSection.Validate()</c> check shown by the "Validate"
+    /// button on <c>EditProfileQuestions.aspx</c>.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to validate.</param>
+    /// <param name="profileSectionId">The section to validate.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <response code="200">The section was validated.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpGet("validate")]
+    [ProducesResponseType(typeof(ProfileSectionValidationResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ProfileSectionValidationResultDto>> ValidateProfileVersionSection(
+        [FromQuery] Guid profileVersionId,
+        [FromQuery] Guid profileSectionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new ValidateProfileVersionSectionQuery(profileVersionId, profileSectionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Clears every recorded answer in one profile version's section.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway invoked by
+    /// the "Clear" button on <c>EditProfileQuestions.aspx</c>.
+    /// </remarks>
+    /// <param name="command">The profile version and section to clear.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The number of fields cleared.</returns>
+    /// <response code="200">The section was cleared.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpPost("clear")]
+    [ProducesResponseType(typeof(ClearProfileSectionResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ClearProfileSectionResultDto>> ClearProfileVersionSection(
+        [FromBody] ClearProfileVersionSectionCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Saves every submitted field answer in one profile version's section.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy <c>IProfileField.Save()</c> pathway invoked by the "Save" button on
+    /// <c>EditProfileQuestions.aspx</c>, for standard (non-per-species, non-repeating) questions
+    /// only. Answers for a per-species question, a repeating question, or an unrecognised field
+    /// are silently ignored.
+    /// </remarks>
+    /// <param name="command">The profile version, section and submitted field answers.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The number of fields saved.</returns>
+    /// <response code="200">The section was saved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpPost("save")]
+    [ProducesResponseType(typeof(SaveProfileSectionResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SaveProfileSectionResultDto>> SaveProfileVersionSection(
+        [FromBody] SaveProfileVersionSectionCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets every logged contribution to one profile version's section.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy "Contributions" tab, sourced from <c>spgProfileVersionSectionUser</c>.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="profileSectionId">The section to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every logged contribution, most recent first.</returns>
+    /// <response code="200">The contributions were retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpGet("contributions")]
+    [ProducesResponseType(typeof(IReadOnlyList<ProfileSectionContributionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<ProfileSectionContributionDto>>> GetProfileVersionSectionContributions(
+        [FromQuery] Guid profileVersionId,
+        [FromQuery] Guid profileSectionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileVersionSectionContributionsQuery(profileVersionId, profileSectionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets every review comment (and reply) for one profile version's section.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy "Review comments" tab, sourced from the recursive
+    /// <c>spgReviewCommentByProfileVersionSection</c> query.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="profileSectionId">The section to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every review comment, in thread order.</returns>
+    /// <response code="200">The review comments were retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpGet("review-comments")]
+    [ProducesResponseType(typeof(IReadOnlyList<ProfileReviewCommentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<ProfileReviewCommentDto>>> GetProfileSectionReviewComments(
+        [FromQuery] Guid profileVersionId,
+        [FromQuery] Guid profileSectionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileSectionReviewCommentsQuery(profileVersionId, profileSectionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets every section's technical/policy review dates for one profile version.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy "All Revision dates" tab, sourced from the revision result set of
+    /// <c>spgProfileVersionSection</c>.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Each section's revision dates, in section-number order.</returns>
+    /// <response code="200">The revision dates were retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpGet("all-revision-dates")]
+    [ProducesResponseType(typeof(ProfileVersionAllRevisionDatesDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ProfileVersionAllRevisionDatesDto>> GetProfileVersionAllRevisionDates(
+        [FromQuery] Guid profileVersionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileVersionAllRevisionDatesQuery(profileVersionId), cancellationToken);
 
         return result.ToActionResult(this);
     }

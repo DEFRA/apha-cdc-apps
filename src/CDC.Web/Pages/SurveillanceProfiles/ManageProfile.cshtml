@@ -157,13 +157,13 @@
                 @if (Model.Profile.LinkVisibility.CanPublishPublic)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./PublishPublic" asp-route-profileId="@Model.ProfileId">Publish (public)</a>
+                        <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmPublishPublicModal">Publish (public)</button>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanPublishDefranetOnly)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./PublishDefranetOnly" asp-route-profileId="@Model.ProfileId">Publish (Defranet only)</a>
+                        <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmPublishDefranetOnlyModal">Publish (Defranet only)</button>
                     </li>
                 }
             </ul>
@@ -182,6 +182,22 @@
                     "confirmDeleteCurrentVersionModal",
                     "Are you sure you want to delete this profile version?",
                     "DeleteCurrentVersion",
+                    Model.ProfileId))" />
+            }
+            @if (Model.Profile.LinkVisibility.CanPublishPublic)
+            {
+                <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                    "confirmPublishPublicModal",
+                    "Are you sure you want to publish this profile and make it public (this cannot be undone)?",
+                    "PublishPublic",
+                    Model.ProfileId))" />
+            }
+            @if (Model.Profile.LinkVisibility.CanPublishDefranetOnly)
+            {
+                <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                    "confirmPublishDefranetOnlyModal",
+                    "Are you sure you want to publish this profile but not make it public?",
+                    "PublishDefranetOnly",
                     Model.ProfileId))" />
             }
         }

@@ -41,6 +41,7 @@ public sealed class ProfileRepositoryTests : IDisposable
         "Id", "ScenarioId", "ProfileId", "VersionMajor", "VersionMinor",
         "StateName", "EffectiveDateFrom", "EffectiveDateTo", "IsPublic", "LastContributionDate"
     ];
+    private static readonly string[] Rs4Columns = ["ProfileVersionId", "ScenarioId", "ProfileId", "Name", "SpeciesId", "AffectedSpeciesType", "IsActive"];
 
     [Fact]
     public async Task GetAllProfilesAsync_MapsPublishedDraftAndScenarioBuckets()
@@ -86,6 +87,59 @@ public sealed class ProfileRepositoryTests : IDisposable
         executed.CommandText.Should().Be(ProfileStoredProcedures.GetAllProfiles);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsAffectedSpeciesFromResultSet4_AsSpeciesIdStrings()
+    {
+        var cattleSpeciesId = Guid.NewGuid();
+        var sheepSpeciesId = Guid.NewGuid();
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "Bovine tuberculosis"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, 1, 0, "Published", Utc(2026, 1, 10), null, true, null]
+                ]),
+                new FakeResultSet(Rs4Columns,
+                [
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, "Cattle", cattleSpeciesId, "Primary", true],
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, "Sheep", sheepSpeciesId, "Primary", false],
+                    // A duplicate association (e.g. from another version) must not produce a duplicate entry.
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, "Cattle", cattleSpeciesId, "Primary", true]
+                ])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.AffectedSpecies.Should().BeEquivalentTo([cattleSpeciesId.ToString(), sheepSpeciesId.ToString()]);
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_SkipsAffectedSpeciesRows_WhoseRootProfileIsNotInResultSet1()
+    {
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "Bovine tuberculosis"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                FakeResultSet.Empty(Rs3Columns),
+                new FakeResultSet(Rs4Columns,
+                [
+                    [Guid.NewGuid(), OrphanProfileId, OrphanProfileId, "Cattle", Guid.NewGuid(), "Primary", true]
+                ])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.AffectedSpecies.Should().BeEmpty();
     }
 
     [Fact]

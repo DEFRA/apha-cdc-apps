@@ -392,7 +392,7 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
         // The procedure has no output parameter for the new row version, so it is re-read.
         var updated = await connection.QuerySingleOrDefaultAsync<SpeciesDetailRow>(new CommandDefinition(
             SpeciesStoredProcedures.GetSpeciesById,
-            new { SpeciesId = command.SpeciesId },
+            new { command.SpeciesId },
             commandType: CommandType.StoredProcedure,
             cancellationToken: cancellationToken));
 

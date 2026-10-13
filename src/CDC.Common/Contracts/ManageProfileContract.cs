@@ -67,4 +67,102 @@ public abstract record ManageProfileContract
 
     /// <summary>Gets which action links are visible for the current user and profile state.</summary>
     public ManageProfileLinkVisibilityDto LinkVisibility { get; init; } = new();
+
+    /// <summary>Gets the major.minor version number of <see cref="CurrentProfileVersionId"/>, for
+    /// example "13.0". Empty when the profile has no current version.</summary>
+    public string CurrentVersionNumber { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether <see cref="CurrentProfileVersionId"/>'s status is
+    /// "Published" rather than "Draft".</summary>
+    public bool CurrentVersionIsPublished { get; init; }
+
+    /// <summary>Gets the date <see cref="CurrentProfileVersionId"/> became effective.</summary>
+    public DateTime? CurrentVersionValidFrom { get; init; }
+
+    /// <summary>Gets the date <see cref="CurrentProfileVersionId"/> was (or will be) superseded.
+    /// Only meaningful for a draft version; <see langword="null"/> for a current published
+    /// version.</summary>
+    public DateTime? CurrentVersionValidTo { get; init; }
+
+    /// <summary>
+    /// Gets the profile title and current version summary shown beneath it on
+    /// <c>EditProfileQuestions.aspx</c>, matching <c>ProfileVersionInfo.VersionToString()</c>
+    /// exactly: <c>"Version {number} (Published) Valid from {date}"</c> when there is no
+    /// effective-to date; <c>"... Valid from {date} to {date}"</c> when there is one; and, only
+    /// for a current draft with a non-empty <see cref="ProfileStatus"/>, that status name
+    /// appended in brackets (for example "(Validation complete)"). <see langword="null"/> when
+    /// the profile has no current version.
+    /// </summary>
+    public string? CurrentVersionDisplay
+    {
+        get
+        {
+            if (CurrentProfileVersionId == Guid.Empty || string.IsNullOrEmpty(CurrentVersionNumber))
+            {
+                return null;
+            }
+
+            var statusWord = CurrentVersionIsPublished ? "Published" : "Draft";
+
+            if (CurrentVersionValidTo is not null)
+            {
+                return $"Version {CurrentVersionNumber} ({statusWord}) Valid from {CurrentVersionValidFrom:dd/MM/yyyy} to {CurrentVersionValidTo:dd/MM/yyyy}";
+            }
+
+            var validationStatusSuffix = !CurrentVersionIsPublished && !string.IsNullOrEmpty(ProfileStatus)
+                ? $" ({ProfileStatus})"
+                : string.Empty;
+
+            return $"Version {CurrentVersionNumber} ({statusWord}) Valid from {CurrentVersionValidFrom:dd/MM/yyyy}{validationStatusSuffix}";
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether the "Print full profile" link is shown, matching
+    /// <c>ProfileVersionInfo.CanGetPrintVersion()</c>: the current version must not be Published.
+    /// </summary>
+    public bool CanPrintProfileSection { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the "Summary profile report" and "Summary prioritisation
+    /// report" links are shown, matching <c>ProfileVersionInfo.CanGetSummaryReport()</c>: the
+    /// current version must not be Published and must have no effective-to date.
+    /// </summary>
+    public bool CanViewProfileReports { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the "Validate" button is shown, matching
+    /// <c>ProfileVersionSection.CanEditProfileVersionSection()</c>: the current version must be a
+    /// current (no effective-to date) Draft, and the user must have edit access.
+    /// </summary>
+    public bool CanEditProfileSection { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the "Clear" button is shown, matching
+    /// <c>ProfileVersionSection.CanClearProfileVersionSection()</c>: the current version must be a
+    /// current (no effective-to date) Draft, and the user must be a profile editor.
+    /// </summary>
+    public bool CanClearProfileSection { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the "Review comments" tab is shown, matching
+    /// <c>ReviewCommentList.CanGetReviewCommentList()</c>: the current version must be Draft, and
+    /// the user must be a profile editor or policy profile user. Legacy also allows a profile
+    /// contributor/reviewer, which the user context does not model yet.
+    /// </summary>
+    public bool CanViewReviewComments { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the "Contributions" tab is shown, matching
+    /// <c>ProfileContributionInfoList.CanGetProfileContributionInfoList()</c>: the current version
+    /// must be Draft, and the user must be a profile editor or policy profile user.
+    /// </summary>
+    public bool CanViewContributions { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the "All Revision dates" tab is shown, matching
+    /// <c>ProfileVersionSection.CanGetRevisionInformation()</c>: the current version must be
+    /// Draft, and the user must be a profile editor or policy profile user.
+    /// </summary>
+    public bool CanViewAllRevisionDates { get; init; }
 }
