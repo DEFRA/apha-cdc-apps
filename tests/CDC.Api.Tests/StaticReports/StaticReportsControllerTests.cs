@@ -2,6 +2,7 @@ using CDC.Api.Features.StaticReports;
 using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 
@@ -71,6 +72,73 @@ public sealed class StaticReportsControllerTests
         var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
 
         response.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Theory]
+    [InlineData("", "report.pdf")]
+    [InlineData("  ", "report.pdf")]
+    [InlineData("a/b", "a_b.pdf")]
+    [InlineData("Manual.PDF", "Manual.PDF")]
+    public async Task GetStaticReportDocument_BuildsSafeDownloadFileName(string title, string expected)
+    {
+        service
+            .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaticReportDataDto { Title = title, PdfData = [1] });
+
+        var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
+
+        response.Should().BeOfType<FileContentResult>().Which.FileDownloadName.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task SetStaticReportPublicAccess_ReturnsNoContent()
+    {
+        service
+            .Setup(svc => svc.SetStaticReportPublicAccessAsync(VersionId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var response = await CreateController().SetStaticReportPublicAccess(VersionId, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Theory]
+    [InlineData("", 1)]
+    [InlineData("  ", 1)]
+    [InlineData("Report", 0)]
+    public async Task UploadStaticReport_ReturnsBadRequest_WhenTitleOrDataMissing(string title, int dataLength)
+    {
+        var request = new UploadStaticReportRequestDto { Title = title, PdfData = new byte[dataLength] };
+
+        var response = await CreateController().UploadStaticReport(request, CancellationToken.None);
+
+        response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public async Task UploadStaticReport_ReturnsNoContent_WhenStored()
+    {
+        var request = new UploadStaticReportRequestDto { Title = "Report", PdfData = [1, 2] };
+        service
+            .Setup(svc => svc.UploadStaticReportAsync(request, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var response = await CreateController().UploadStaticReport(request, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task UploadStaticReport_ReturnsConflict_WhenTitleClashes()
+    {
+        var request = new UploadStaticReportRequestDto { Title = "Report", PdfData = [1, 2] };
+        service
+            .Setup(svc => svc.UploadStaticReportAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StaticReportConflictException("clash"));
+
+        var response = await CreateController().UploadStaticReport(request, CancellationToken.None);
+
+        response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status409Conflict);
     }
 
     [Fact]

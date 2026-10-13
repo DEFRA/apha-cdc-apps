@@ -1,4 +1,5 @@
 using System.Data;
+using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
@@ -238,6 +239,41 @@ public sealed class StaticReportRepositoryTests : IDisposable
         var executed = connection.Executed.Should().ContainSingle().Subject;
         executed.CommandText.Should().Be(StaticReportStoredProcedures.SetStaticReportPublicAccess);
         executed.Parameters.Should().ContainKey("StaticReportVersionId").WhoseValue.Should().Be(VersionId);
+    }
+
+    [Fact]
+    public async Task SetStaticReportPublicAccessAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(StaticReportStoredProcedures.SetStaticReportPublicAccess, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().SetStaticReportPublicAccessAsync(VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task InsertStaticReportAsync_ExecutesStoredProcedureWithParameters()
+    {
+        connection.Script(StaticReportStoredProcedures.InsertStaticReport, new FakeCommandScript());
+        var request = new UploadStaticReportRequestDto { Title = "Report", PdfData = [1, 2, 3], IsUserManual = false, IsPublic = true };
+
+        await CreateRepository().InsertStaticReportAsync(request, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(StaticReportStoredProcedures.InsertStaticReport);
+        executed.Parameters.Should().ContainKey("Title").WhoseValue.Should().Be("Report");
+        executed.Parameters.Should().ContainKey("IsPublic").WhoseValue.Should().Be(true);
+    }
+
+    [Fact]
+    public async Task InsertStaticReportAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(StaticReportStoredProcedures.InsertStaticReport, new FakeCommandScript { Throws = new FakeDbException("boom") });
+        var request = new UploadStaticReportRequestDto { Title = "Report", PdfData = [1] };
+
+        var act = () => CreateRepository().InsertStaticReportAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
     }
 
     [Fact]

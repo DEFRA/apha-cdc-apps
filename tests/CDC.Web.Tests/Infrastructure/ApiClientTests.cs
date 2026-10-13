@@ -444,6 +444,107 @@ public class ApiClientTests
     }
 
     [Fact]
+    public async Task GetStaticReportHistoryAsync_ReturnsVersions_OnSuccess()
+    {
+        var reportId = Guid.NewGuid();
+        const string json = """
+            [{"id":"11111111-1111-1111-1111-111111111111","staticReportId":"22222222-2222-2222-2222-222222222222","title":"Report","versionMajor":1,"effectiveDateFrom":"2024-01-01T00:00:00Z","isUserManual":false,"isPublic":true,"fileSize":1}]
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var versions = await client.GetStaticReportHistoryAsync(reportId, publicOnly: true);
+
+        Assert.Single(versions);
+        Assert.Equal($"/api/static-reports/{reportId}/history", handler.LastRequestUri!.AbsolutePath);
+        Assert.Contains("publicOnly=True", handler.LastRequestUri.Query);
+    }
+
+    [Fact]
+    public async Task GetStaticReportHistoryAsync_ReturnsEmptyList_WhenTheResponseBodyIsNull()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var versions = await client.GetStaticReportHistoryAsync(Guid.NewGuid());
+
+        Assert.Empty(versions);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent, true)]
+    [InlineData(HttpStatusCode.InternalServerError, false)]
+    public async Task SetStaticReportPublicAccessAsync_ReturnsWhetherTheCallSucceeded(HttpStatusCode status, bool expected)
+    {
+        var versionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(status, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.SetStaticReportPublicAccessAsync(versionId);
+
+        Assert.Equal(expected, result);
+        Assert.Equal($"/api/static-reports/versions/{versionId}/public", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent, true)]
+    [InlineData(HttpStatusCode.NotFound, false)]
+    public async Task DeleteStaticReportVersionAsync_ReturnsWhetherTheCallSucceeded(HttpStatusCode status, bool expected)
+    {
+        var versionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(status, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.DeleteStaticReportVersionAsync(versionId);
+
+        Assert.Equal(expected, result);
+        Assert.Equal($"/api/static-reports/versions/{versionId}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UploadStaticReportAsync_ReturnsTrue_OnSuccess()
+    {
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.UploadStaticReportAsync("Report", [1, 2, 3], isPublic: true);
+
+        Assert.True(result);
+        Assert.Equal("/api/static-reports", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UploadStaticReportAsync_ThrowsRejected_WithProblemDetail_OnConflict()
+    {
+        const string json = """{"detail":"Title clashes with a user manual."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, json));
+
+        var exception = await Assert.ThrowsAsync<StaticReportUploadRejectedException>(
+            () => client.UploadStaticReportAsync("Report", [1], isPublic: false));
+
+        Assert.Equal("Title clashes with a user manual.", exception.Message);
+    }
+
+    [Fact]
+    public async Task UploadStaticReportAsync_ThrowsRejected_WithDefaultMessage_WhenConflictHasNoDetail()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, "{}"));
+
+        var exception = await Assert.ThrowsAsync<StaticReportUploadRejectedException>(
+            () => client.UploadStaticReportAsync("Report", [1], isPublic: false));
+
+        Assert.Equal("The report conflicts with an existing document.", exception.Message);
+    }
+
+    [Fact]
+    public async Task UploadStaticReportAsync_Throws_OnOtherFailureStatus()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => client.UploadStaticReportAsync("Report", [1], isPublic: false));
+    }
+
+    [Fact]
     public async Task CreateNewProfileVersionAsync_ReturnsSuccess_WithNewVersionId_OnOk()
     {
         var newVersionId = Guid.NewGuid();

@@ -54,6 +54,32 @@ public sealed class StaticReportServiceTests
     }
 
     [Fact]
+    public async Task UploadStaticReportAsync_DelegatesToRepository()
+    {
+        var request = new UploadStaticReportRequestDto { Title = "Report", PdfData = [1] };
+        repository
+            .Setup(repo => repo.InsertStaticReportAsync(request, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await CreateService().UploadStaticReportAsync(request, CancellationToken.None);
+
+        repository.Verify(repo => repo.InsertStaticReportAsync(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadStaticReportAsync_PropagatesConflict()
+    {
+        var request = new UploadStaticReportRequestDto { Title = "Report", PdfData = [1] };
+        repository
+            .Setup(repo => repo.InsertStaticReportAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StaticReportConflictException("clash"));
+
+        var act = () => CreateService().UploadStaticReportAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<StaticReportConflictException>().WithMessage("clash");
+    }
+
+    [Fact]
     public async Task GetStaticReportDataAsync_ReturnsRepositoryResult()
     {
         var dto = new StaticReportDataDto { Title = "Help using D2R2", PdfData = [1, 2, 3] };

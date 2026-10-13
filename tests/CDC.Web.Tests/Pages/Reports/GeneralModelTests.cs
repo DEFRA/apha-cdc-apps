@@ -362,6 +362,59 @@ public class GeneralModelTests
             model.GetDocumentUrl(VersionId));
     }
 
+    [Fact]
+    public void GetDocumentUrl_UsesRelativePath_WhenBaseUrlIsNull()
+    {
+        var model = new GeneralModel(
+            new FakeApiClient(),
+            new StubAuthorizationService(true),
+            Options.Create(new ApiOptions { BaseUrl = null! }),
+            new AlwaysEnabledLogger<GeneralModel>());
+
+        Assert.Equal($"/api/static-reports/versions/{VersionId}/document", model.GetDocumentUrl(VersionId));
+    }
+
+    [Theory]
+    [InlineData("abc", 10)]
+    [InlineData("0", 10)]
+    [InlineData("-5", 10)]
+    [InlineData("5", 5)]
+    public async Task OnGetAsync_ResolvesPageSize(string pageSize, int expectedItems)
+    {
+        var reports = Enumerable.Range(1, 12).Select(index => Report($"Report {index}")).ToList();
+        var model = CreatePageModel(reports: reports);
+        model.PageSize = pageSize;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedItems, model.PagedReports.Count);
+    }
+
+    [Fact]
+    public void BuildPageUrl_And_BuildHistoryUrl_UseThePageUrlHelper()
+    {
+        var model = CreatePageModel();
+        model.Url = new StubUrlHelper("/Reports/General?x=1");
+
+        Assert.Equal("/Reports/General?x=1", model.BuildPageUrl(2));
+        Assert.Equal("/Reports/General?x=1", model.BuildHistoryUrl(ReportId));
+    }
+
+    private sealed class StubUrlHelper(string result) : Microsoft.AspNetCore.Mvc.IUrlHelper
+    {
+        public ActionContext ActionContext { get; } = new() { RouteData = new Microsoft.AspNetCore.Routing.RouteData() };
+
+        public string? Action(Microsoft.AspNetCore.Mvc.Routing.UrlActionContext actionContext) => result;
+
+        public string? Content(string? contentPath) => contentPath;
+
+        public bool IsLocalUrl(string? url) => true;
+
+        public string? Link(string? routeName, object? values) => result;
+
+        public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext) => result;
+    }
+
     [Theory]
     [InlineData(false, "01/01/2024 -")]
     [InlineData(true, "01/01/2024 - 31/12/2024")]
