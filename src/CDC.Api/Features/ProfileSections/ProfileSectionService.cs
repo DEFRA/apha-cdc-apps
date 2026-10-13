@@ -1,7 +1,10 @@
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ProfileSections.Mapping;
+using CDC.Api.Infrastructure;
 using CDC.Common.Contracts;
+using FluentValidation;
+using FluentValidation.Results;
 
 namespace CDC.Api.Features.ProfileSections;
 
@@ -10,10 +13,20 @@ namespace CDC.Api.Features.ProfileSections;
 /// and maps domain entities onto the DTOs the API returns.
 /// </summary>
 /// <param name="repository">Profile section data access.</param>
+/// <param name="auditOptions">The temporary acting user recorded as the contributor until Entra ID supplies the signed-in user.</param>
 /// <param name="logger">Structured logger.</param>
-public sealed class ProfileSectionService(IProfileSectionRepository repository, ILogger<ProfileSectionService> logger)
+/// <param name="timeProvider">Supplies the current time for review completed dates; defaults to the system clock.</param>
+public sealed class ProfileSectionService(
+    IProfileSectionRepository repository,
+    SpeciesAuditOptions auditOptions,
+    ILogger<ProfileSectionService> logger,
+    TimeProvider? timeProvider = null)
     : IProfileSectionService
 {
+    private const string CompleteStatusName = "Complete";
+
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     /// <inheritdoc />
     public async Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken)
     {
@@ -116,10 +129,10 @@ public sealed class ProfileSectionService(IProfileSectionRepository repository, 
             .Distinct()
             .ToList();
 
-        // No authenticated user is available yet; mirrors the same Guid.Empty placeholder
-        // ProfileNoteService already uses for contribution logging until Entra ID lands.
+        // No authenticated user yet: the contribution is logged against the configured acting user
+        // (a real [User] row, as spiProfileVersionSectionUser has a foreign key) until Entra ID lands.
         var clearedCount = await repository.ClearProfileVersionSectionAnswersAsync(
-            profileVersionId, profileSectionId, instructions, Guid.Empty, cancellationToken);
+            profileVersionId, profileSectionId, instructions, auditOptions.AuditUserId, cancellationToken);
 
         logger.ClearedProfileVersionSection(profileVersionId, profileSectionId, clearedCount);
 
@@ -202,10 +215,9 @@ public sealed class ProfileSectionService(IProfileSectionRepository repository, 
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
-        // No authenticated user is available yet; mirrors the same Guid.Empty placeholder
-        // ProfileNoteService already uses for contribution logging until Entra ID lands.
+        // Acting user placeholder: see ClearProfileVersionSectionAsync.
         var savedCount = await repository.SaveProfileVersionSectionAnswersAsync(
-            profileVersionId, profileSectionId, instructions, Guid.Empty, cancellationToken);
+            profileVersionId, profileSectionId, instructions, auditOptions.AuditUserId, cancellationToken);
 
         logger.SavedProfileVersionSection(profileVersionId, profileSectionId, savedCount);
 
@@ -270,15 +282,156 @@ public sealed class ProfileSectionService(IProfileSectionRepository repository, 
                 ProfileSectionId = section.Id,
                 SectionName = section.Name,
                 SectionNumber = section.SectionNumber,
-                TechnicalReviewFrequencyMonths = revisionInfo?.TechnicalReviewFrequencyMonths,
-                NextTechnicalReview = revisionInfo?.NextTechnicalReview,
-                PolicyReviewFrequencyMonths = revisionInfo?.PolicyReviewFrequencyMonths,
-                NextPolicyReview = revisionInfo?.NextPolicyReview
+                AuthorReviewFrequencyId = revisionInfo?.AuthorReviewFrequencyId,
+                VaReviewFrequencyId = revisionInfo?.VaReviewFrequencyId,
+                PolicyReviewFrequencyId = revisionInfo?.PolicyReviewFrequencyId,
+                NextAuthorReview = revisionInfo?.NextAuthorReview,
+                NextVaReview = revisionInfo?.NextVaReview,
+                NextPolicyReview = revisionInfo?.NextPolicyReview,
+                AuthorReviewStatusId = revisionInfo?.AuthorReviewStatusId,
+                VaReviewStatusId = revisionInfo?.VaReviewStatusId,
+                PolicyReviewStatusId = revisionInfo?.PolicyReviewStatusId,
+                LastUpdated = revisionInfo?.LastUpdated ?? []
             });
         }
 
-        return new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId, Sections = sections };
+        var frequencies = await repository.GetReviewFrequenciesAsync(cancellationToken);
+        var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
+
+        return new ProfileVersionAllRevisionDatesDto
+        {
+            ProfileVersionId = profileVersionId,
+            Sections = sections,
+            ReviewFrequencies = [.. frequencies.Select(item => new ReviewLookupItemDto { Id = item.Id, Name = item.Name })],
+            ReviewStatuses = [.. statuses.Select(item => new ReviewLookupItemDto { Id = item.Id, Name = item.Name })]
+        };
     }
+
+    /// <inheritdoc />
+    public async Task<SaveProfileRevisionDatesResultDto> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
+        CancellationToken cancellationToken)
+    {
+        var frequencies = await repository.GetReviewFrequenciesAsync(cancellationToken);
+        var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
+        var validFrequencyIds = frequencies.Select(item => item.Id).ToHashSet();
+        var validStatusIds = statuses.Select(item => item.Id).ToHashSet();
+        var completeStatusId = statuses
+            .FirstOrDefault(item => string.Equals(item.Name, CompleteStatusName, StringComparison.OrdinalIgnoreCase))?.Id;
+
+        var failures = new List<ValidationFailure>();
+        var updates = new List<ProfileSectionRevisionUpdate>();
+
+        for (var index = 0; index < sections.Count; index++)
+        {
+            var input = sections[index];
+            var existing = await repository.GetProfileVersionSectionRevisionInfoAsync(profileVersionId, input.ProfileSectionId, cancellationToken);
+
+            if (existing is null)
+            {
+                failures.Add(new ValidationFailure($"Sections[{index}].ProfileSectionId", "The section does not exist in this profile version."));
+                continue;
+            }
+
+            var sectionFailureCount = failures.Count;
+            AddLookupFailures(failures, index, input, validFrequencyIds, validStatusIds);
+
+            if (failures.Count == sectionFailureCount && HasRevisionChanges(input, existing))
+            {
+                updates.Add(BuildRevisionUpdate(input, existing, completeStatusId));
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new ValidationException(failures);
+        }
+
+        // Acting user placeholder: see ClearProfileVersionSectionAsync.
+        var savedCount = await repository.UpdateProfileVersionSectionRevisionsAsync(
+            profileVersionId, updates, auditOptions.AuditUserId, cancellationToken);
+
+        logger.SavedProfileVersionRevisionDates(profileVersionId, savedCount, sections.Count);
+
+        return new SaveProfileRevisionDatesResultDto { SectionsSavedCount = savedCount };
+    }
+
+    private static void AddLookupFailures(
+        List<ValidationFailure> failures,
+        int index,
+        ProfileSectionRevisionDatesInputDto input,
+        HashSet<Guid> validFrequencyIds,
+        HashSet<Guid> validStatusIds)
+    {
+        var frequencyChecks = new (string Property, Guid? Value)[]
+        {
+            (nameof(input.AuthorReviewFrequencyId), input.AuthorReviewFrequencyId),
+            (nameof(input.VaReviewFrequencyId), input.VaReviewFrequencyId),
+            (nameof(input.PolicyReviewFrequencyId), input.PolicyReviewFrequencyId)
+        };
+        var statusChecks = new (string Property, Guid? Value)[]
+        {
+            (nameof(input.AuthorReviewStatusId), input.AuthorReviewStatusId),
+            (nameof(input.VaReviewStatusId), input.VaReviewStatusId),
+            (nameof(input.PolicyReviewStatusId), input.PolicyReviewStatusId)
+        };
+
+        foreach (var (property, value) in frequencyChecks.Where(check => check.Value is not null && !validFrequencyIds.Contains(check.Value.Value)))
+        {
+            failures.Add(new ValidationFailure($"Sections[{index}].{property}", "The review frequency is not a recognised option."));
+        }
+
+        foreach (var (property, value) in statusChecks.Where(check => check.Value is not null && !validStatusIds.Contains(check.Value.Value)))
+        {
+            failures.Add(new ValidationFailure($"Sections[{index}].{property}", "The review status is not a recognised option."));
+        }
+    }
+
+    /// <summary>Compares dates by calendar day: the page only edits the date, so a stored time of
+    /// day must not make an untouched section look changed.</summary>
+    private static bool HasRevisionChanges(ProfileSectionRevisionDatesInputDto input, ProfileSectionRevisionInfo existing) =>
+        input.AuthorReviewFrequencyId != existing.AuthorReviewFrequencyId
+        || input.VaReviewFrequencyId != existing.VaReviewFrequencyId
+        || input.PolicyReviewFrequencyId != existing.PolicyReviewFrequencyId
+        || input.AuthorReviewStatusId != existing.AuthorReviewStatusId
+        || input.VaReviewStatusId != existing.VaReviewStatusId
+        || input.PolicyReviewStatusId != existing.PolicyReviewStatusId
+        || input.NextAuthorReview?.Date != existing.NextAuthorReview?.Date
+        || input.NextVaReview?.Date != existing.NextVaReview?.Date
+        || input.NextPolicyReview?.Date != existing.NextPolicyReview?.Date;
+
+    private ProfileSectionRevisionUpdate BuildRevisionUpdate(
+        ProfileSectionRevisionDatesInputDto input,
+        ProfileSectionRevisionInfo existing,
+        Guid? completeStatusId)
+    {
+        var now = clock.GetLocalNow().DateTime;
+
+        return new ProfileSectionRevisionUpdate
+        {
+            ProfileSectionId = input.ProfileSectionId,
+            AuthorReviewFrequencyId = input.AuthorReviewFrequencyId,
+            VaReviewFrequencyId = input.VaReviewFrequencyId,
+            PolicyReviewFrequencyId = input.PolicyReviewFrequencyId,
+            NextAuthorReview = input.NextAuthorReview,
+            NextVaReview = input.NextVaReview,
+            NextPolicyReview = input.NextPolicyReview,
+            AuthorReviewStatusId = input.AuthorReviewStatusId,
+            VaReviewStatusId = input.VaReviewStatusId,
+            PolicyReviewStatusId = input.PolicyReviewStatusId,
+            AuthorReviewCompleted = CompletedDate(input.AuthorReviewStatusId, existing.AuthorReviewStatusId, completeStatusId, now),
+            VaReviewCompleted = CompletedDate(input.VaReviewStatusId, existing.VaReviewStatusId, completeStatusId, now),
+            PolicyReviewCompleted = CompletedDate(input.PolicyReviewStatusId, existing.PolicyReviewStatusId, completeStatusId, now),
+            LastUpdated = input.LastUpdated
+        };
+    }
+
+    /// <summary>Legacy rule: the completed date is stamped when a review's status changes to
+    /// Complete; any other state leaves it blank. The load procedure does not return the stored
+    /// completed dates, so an unchanged Complete status is written back blank, as in the legacy page.</summary>
+    private static DateTime? CompletedDate(Guid? newStatusId, Guid? existingStatusId, Guid? completeStatusId, DateTime now) =>
+        completeStatusId is not null && newStatusId == completeStatusId && newStatusId != existingStatusId ? now : null;
 
     private async Task<ProfileSectionMetadata?> GetSectionMetadataAsync(Guid profileSectionId, CancellationToken cancellationToken)
     {

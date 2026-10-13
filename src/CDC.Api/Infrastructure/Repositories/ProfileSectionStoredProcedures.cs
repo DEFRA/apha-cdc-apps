@@ -47,4 +47,15 @@ public static class ProfileSectionStoredProcedures
     /// "Review comments" tab. A recursive query; rows are pre-ordered so each reply immediately
     /// follows its parent.</summary>
     public const string GetProfileSectionReviewComments = "spgReviewCommentByProfileVersionSection";
+
+    /// <summary>Overwrites one section's revision columns (frequencies, next review dates,
+    /// statuses and completed dates), checking the row version. Rejects a version that is not a
+    /// current draft.</summary>
+    public const string UpdateProfileVersionSection = "spuProfileVersionSection";
+
+    /// <summary>Reads the review frequency options (<c>luSectionReviewFrequency</c>).</summary>
+    public const string GetSectionReviewFrequencies = "spgaluSectionReviewFrequency";
+
+    /// <summary>Reads the review status options (<c>luReviewStatus</c>).</summary>
+    public const string GetSectionReviewStatuses = "spgaluSectionReviewStatusType";
 }

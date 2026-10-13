@@ -122,8 +122,18 @@ public interface IProfileSectionsApiService
     /// <summary>Calls <c>GET /api/profile-sections/all-revision-dates</c>.</summary>
     /// <param name="profileVersionId">The profile version to read.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>Each section's revision dates, in section-number order.</returns>
+    /// <returns>Each section's revision data (in section-number order) and the drop-down options.</returns>
     Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/profile-sections/all-revision-dates</c>.</summary>
+    /// <param name="profileVersionId">The profile version being edited.</param>
+    /// <param name="sections">The submitted revision data of each section.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome, distinguishing a concurrent-edit conflict and a rejected submission from success.</returns>
+    Task<SaveRevisionDatesResult> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
         CancellationToken cancellationToken = default);
 }

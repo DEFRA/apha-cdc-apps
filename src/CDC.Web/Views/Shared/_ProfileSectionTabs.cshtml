@@ -1,0 +1,35 @@
+@model CDC.Web.Models.ProfileSectionTabsViewModel
+@* Each tab is its own page, so this only lists them; the active one is highlighted. When SubmitUrl is set
+   (the Questions page) a tab posts there so the page can save its answers first, as legacy tabStrip_TabClick did. *@
+<h2 class="govuk-tabs__title">Contents</h2>
+<div class="app-tab-carousel__nav">
+    <button type="button" class="app-richtext-toolbar__button" data-tab-scroll="left" title="scroll tabs left">
+        <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+            <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.449-4.1856-3.9768h12.896v-2h-12.984l4.2931-4.293-1.414-1.414z"></path>
+        </svg>
+        view more tabs
+    </button>
+    <button type="button" class="app-richtext-toolbar__button" data-tab-scroll="right" title="scroll tabs right">
+        view more tabs
+        <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+            <path d="m8.107-0.0078125-1.4136 1.414 4.2926 4.293h-12.986v2h12.896l-4.1855 3.9766 1.377 1.4492 6.7441-6.4062-6.7246-6.7266z"></path>
+        </svg>
+    </button>
+</div>
+<div class="app-tab-carousel__scroll">
+    <ul class="govuk-tabs__list">
+        @foreach (var tab in Model.Tabs)
+        {
+            <li class="govuk-tabs__list-item @(tab.IsActive ? "govuk-tabs__list-item--selected" : string.Empty)">
+                @if (Model.SubmitUrl is null)
+                {
+                    <a class="govuk-tabs__tab" href="@tab.Url" aria-current="@(tab.IsActive ? "page" : null)">@tab.Text</a>
+                }
+                else
+                {
+                    <button type="submit" class="govuk-tabs__tab app-tab-button" name="tab" value="@tab.Tab" formaction="@Model.SubmitUrl" aria-current="@(tab.IsActive ? "page" : null)">@tab.Text</button>
+                }
+            </li>
+        }
+    </ul>
+</div>

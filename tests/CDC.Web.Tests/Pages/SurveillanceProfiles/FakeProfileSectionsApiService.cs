@@ -26,9 +26,20 @@ internal sealed class FakeProfileSectionsApiService(
     ProfileVersionAllRevisionDatesDto? allRevisionDates = null,
     Exception? throwOnGetProfileVersionSectionContributions = null,
     Exception? throwOnGetProfileSectionReviewComments = null,
-    Exception? throwOnGetProfileVersionAllRevisionDates = null)
+    Exception? throwOnGetProfileVersionAllRevisionDates = null,
+    SaveRevisionDatesResult? saveRevisionDatesResult = null,
+    Exception? throwOnSaveProfileVersionRevisionDates = null)
     : IProfileSectionsApiService
 {
+    /// <summary>Gets the sections most recently passed to <c>SaveProfileVersionRevisionDatesAsync</c>.</summary>
+    public IReadOnlyList<ProfileSectionRevisionDatesInputDto>? SavedRevisionDates { get; private set; }
+
+    /// <summary>Gets the number of times <c>GetProfileVersionAllRevisionDatesAsync</c> was called.</summary>
+    public int GetAllRevisionDatesCallCount { get; private set; }
+
+    /// <summary>Gets the number of times <c>SaveProfileVersionSectionAsync</c> was called.</summary>
+    public int SaveProfileVersionSectionCallCount { get; private set; }
+
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(metadata ?? new ProfileQuestionnaireMetadataDto());
 
@@ -95,10 +106,14 @@ internal sealed class FakeProfileSectionsApiService(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
-        CancellationToken cancellationToken = default) =>
-        throwOnSaveProfileVersionSection is not null
+        CancellationToken cancellationToken = default)
+    {
+        SaveProfileVersionSectionCallCount++;
+
+        return throwOnSaveProfileVersionSection is not null
             ? Task.FromException<SaveProfileSectionResultDto>(throwOnSaveProfileVersionSection)
             : Task.FromResult(saveResult ?? new SaveProfileSectionResultDto());
+    }
 
     public Task<IReadOnlyList<ProfileSectionContributionDto>> GetProfileVersionSectionContributionsAsync(
         Guid profileVersionId,
@@ -118,8 +133,24 @@ internal sealed class FakeProfileSectionsApiService(
 
     public Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
-        CancellationToken cancellationToken = default) =>
-        throwOnGetProfileVersionAllRevisionDates is not null
+        CancellationToken cancellationToken = default)
+    {
+        GetAllRevisionDatesCallCount++;
+
+        return throwOnGetProfileVersionAllRevisionDates is not null
             ? Task.FromException<ProfileVersionAllRevisionDatesDto>(throwOnGetProfileVersionAllRevisionDates)
             : Task.FromResult(allRevisionDates ?? new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId });
+    }
+
+    public Task<SaveRevisionDatesResult> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
+        CancellationToken cancellationToken = default)
+    {
+        SavedRevisionDates = sections;
+
+        return throwOnSaveProfileVersionRevisionDates is not null
+            ? Task.FromException<SaveRevisionDatesResult>(throwOnSaveProfileVersionRevisionDates)
+            : Task.FromResult(saveRevisionDatesResult ?? new SaveRevisionDatesResult { Outcome = SaveRevisionDatesOutcome.Success, SectionsSavedCount = sections.Count });
+    }
 }

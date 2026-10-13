@@ -97,12 +97,33 @@ public interface IProfileSectionService
         Guid profileSectionId,
         CancellationToken cancellationToken);
 
-    /// <summary>Gets every section's technical/policy review dates for one profile version, for
-    /// the "All Revision dates" tab.</summary>
+    /// <summary>Gets every section's author/VA/policy review data for one profile version, plus the
+    /// frequency and status options, for the "All Revision dates" tab.</summary>
     /// <param name="profileVersionId">The profile version to read.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>Each section's revision dates, in section-number order.</returns>
+    /// <returns>Each section's revision data (in section-number order) and the drop-down options.</returns>
     Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Saves the "All Revision dates" tab, matching the legacy <c>ProfileVersionSection.Save()</c>
+    /// pathway for the revision fields. Only sections whose submitted values differ from the stored
+    /// ones are written. A review's completed date is set to now when its status changes to
+    /// "Complete" and cleared when it changes to anything else.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version being edited.</param>
+    /// <param name="sections">The submitted revision data of each section.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The number of sections written.</returns>
+    /// <exception cref="FluentValidation.ValidationException">
+    /// Thrown when a submitted section, frequency or status is not recognised.
+    /// </exception>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when a section was edited by another user, or the version is not a current draft.
+    /// </exception>
+    Task<SaveProfileRevisionDatesResultDto> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
         CancellationToken cancellationToken);
 }

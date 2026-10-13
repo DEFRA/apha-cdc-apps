@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using CDC.Api.Domain.Entities;
+using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using Dapper;
@@ -21,6 +22,8 @@ namespace CDC.Api.Infrastructure.Repositories;
 public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFactory, ILogger<ProfileSectionRepository> logger)
     : IProfileSectionRepository
 {
+    private const int RowVersionLength = 8;
+
     /// <inheritdoc />
     public async Task<ProfileQuestionnaireMetadata> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken)
     {
@@ -376,8 +379,10 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             await reader.NextResultAsync(cancellationToken);
 
             // Result set 2: ProfileSectionId, TechnicalReviewFrequency, PolicyReviewFrequency,
-            // NextTechnicalReview, NextPolicyReview, LastUpdated, ParentId, PolicyReviewStatusId,
-            // TechnicalReviewStatusId.
+            // AuthorReviewFrequency (all Guid FKs to luSectionReviewFrequency), NextTechnicalReview,
+            // NextPolicyReview, NextAuthorReview, LastUpdated, ParentId, PolicyReviewStatusId,
+            // TechnicalReviewStatusId, AuthorReviewStatusId (FKs to luReviewStatus). The database's
+            // "Technical" review is the UI's "VA" review.
             if (!await reader.ReadAsync(cancellationToken))
             {
                 return null;
@@ -386,15 +391,132 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             return new ProfileSectionRevisionInfo
             {
                 ProfileSectionId = reader.GetGuid(0),
-                TechnicalReviewFrequencyMonths = reader.ReadNullableInt32(1),
-                PolicyReviewFrequencyMonths = reader.ReadNullableInt32(2),
-                NextTechnicalReview = reader.ReadNullableDateTime(3),
-                NextPolicyReview = reader.ReadNullableDateTime(4)
+                VaReviewFrequencyId = reader.ReadNullableGuid(1),
+                PolicyReviewFrequencyId = reader.ReadNullableGuid(2),
+                AuthorReviewFrequencyId = reader.ReadNullableGuid(3),
+                NextVaReview = reader.ReadNullableDateTime(4),
+                NextPolicyReview = reader.ReadNullableDateTime(5),
+                NextAuthorReview = reader.ReadNullableDateTime(6),
+                LastUpdated = reader.ReadRowVersion(7),
+                PolicyReviewStatusId = reader.ReadNullableGuid(9),
+                VaReviewStatusId = reader.ReadNullableGuid(10),
+                AuthorReviewStatusId = reader.ReadNullableGuid(11)
             };
         }
         catch (DbException exception)
         {
             logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.GetProfileVersionSection);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ProfileReviewLookupItem>> GetReviewFrequenciesAsync(CancellationToken cancellationToken) =>
+        ReadReviewLookupAsync(ProfileSectionStoredProcedures.GetSectionReviewFrequencies, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ProfileReviewLookupItem>> GetReviewStatusesAsync(CancellationToken cancellationToken) =>
+        ReadReviewLookupAsync(ProfileSectionStoredProcedures.GetSectionReviewStatuses, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<int> UpdateProfileVersionSectionRevisionsAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionUpdate> updates,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        if (updates.Count == 0)
+        {
+            return 0;
+        }
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            foreach (var update in updates)
+            {
+                var parameters = new DynamicParameters();
+                parameters.Add("@ProfileVersionId", profileVersionId, DbType.Guid);
+                parameters.Add("@ProfileSectionId", update.ProfileSectionId, DbType.Guid);
+                parameters.Add("@TechnicalReviewFrequency", update.VaReviewFrequencyId, DbType.Guid);
+                parameters.Add("@PolicyReviewFrequency", update.PolicyReviewFrequencyId, DbType.Guid);
+                parameters.Add("@AuthorReviewFrequency", update.AuthorReviewFrequencyId, DbType.Guid);
+                parameters.Add("@NextTechnicalReview", update.NextVaReview, DbType.DateTime);
+                parameters.Add("@NextPolicyReview", update.NextPolicyReview, DbType.DateTime);
+                parameters.Add("@NextAuthorReview", update.NextAuthorReview, DbType.DateTime);
+                parameters.Add("@LastUpdated", update.LastUpdated, DbType.Binary, size: RowVersionLength);
+                parameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
+                parameters.Add("@PolicyReviewStatusId", update.PolicyReviewStatusId, DbType.Guid);
+                parameters.Add("@TechnicalReviewStatusId", update.VaReviewStatusId, DbType.Guid);
+                parameters.Add("@AuthorReviewStatusId", update.AuthorReviewStatusId, DbType.Guid);
+                parameters.Add("@PolicyReviewCompleted", update.PolicyReviewCompleted, DbType.DateTime);
+                parameters.Add("@TechnicalReviewCompleted", update.VaReviewCompleted, DbType.DateTime);
+                parameters.Add("@AuthorReviewCompleted", update.AuthorReviewCompleted, DbType.DateTime);
+
+                await connection.ExecuteAsync(new CommandDefinition(
+                    ProfileSectionStoredProcedures.UpdateProfileVersionSection,
+                    parameters,
+                    transaction,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+
+                await connection.ExecuteAsync(new CommandDefinition(
+                    ProfileSectionStoredProcedures.LogProfileVersionSectionContribution,
+                    new { UserId = userId, ProfileVersionId = profileVersionId, update.ProfileSectionId, LastContributionDate = DateTime.Now },
+                    transaction,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return updates.Count;
+        }
+        catch (DbException exception)
+        {
+            await RollbackAsync(transaction, cancellationToken);
+
+            if (SpeciesRepository.IsConcurrencyViolation(exception))
+            {
+                throw new ConcurrencyException(
+                    $"The revision dates of profile version '{profileVersionId}' could not be saved: a section was edited by another user, or the version is not a current draft. Re-read the revision dates and try again.",
+                    exception);
+            }
+
+            logger.StoredProcedureFailed(exception, ProfileSectionStoredProcedures.UpdateProfileVersionSection);
+            throw;
+        }
+    }
+
+    private async Task<IReadOnlyList<ProfileReviewLookupItem>> ReadReviewLookupAsync(
+        string storedProcedure,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    storedProcedure,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken),
+                CommandBehavior.Default);
+
+            // Id, display text, sequence number.
+            var items = new List<ProfileReviewLookupItem>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new ProfileReviewLookupItem { Id = reader.GetGuid(0), Name = reader.ReadString(1) });
+            }
+
+            return items;
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, storedProcedure);
             throw;
         }
     }

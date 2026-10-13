@@ -1,4 +1,6 @@
 using System.Data;
+using CDC.Api.Domain.Entities;
+using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
@@ -470,20 +472,36 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    private static readonly string[] RevisionColumns =
+    [
+        "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "AuthorReviewFrequency",
+        "NextTechnicalReview", "NextPolicyReview", "NextAuthorReview", "LastUpdated", "ParentId",
+        "PolicyReviewStatusId", "TechnicalReviewStatusId", "AuthorReviewStatusId"
+    ];
+
     [Fact]
-    public async Task GetProfileVersionSectionRevisionInfoAsync_MapsRevisionDates()
+    public async Task GetProfileVersionSectionRevisionInfoAsync_MapsFrequenciesDatesAndStatuses()
     {
+        var vaFrequency = Guid.NewGuid();
+        var policyFrequency = Guid.NewGuid();
+        var authorFrequency = Guid.NewGuid();
+        var policyStatus = Guid.NewGuid();
+        var vaStatus = Guid.NewGuid();
+        var authorStatus = Guid.NewGuid();
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+
         connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
         {
             ResultSets =
             [
                 FakeResultSet.Empty("Id", "Name", "IsActive"),
                 new FakeResultSet(
-                    [
-                        "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "NextTechnicalReview",
-                        "NextPolicyReview", "LastUpdated", "ParentId", "PolicyReviewStatusId", "TechnicalReviewStatusId"
-                    ],
-                    [[ProfileSectionTestData.SectionId, 12, 6, new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2027, 6, 1, 0, 0, 0, DateTimeKind.Utc), null, null, null, null]])
+                    RevisionColumns,
+                    [[
+                        ProfileSectionTestData.SectionId, vaFrequency, policyFrequency, authorFrequency,
+                        new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2027, 6, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2027, 9, 1, 0, 0, 0, DateTimeKind.Utc),
+                        rowVersion, null, policyStatus, vaStatus, authorStatus
+                    ]])
             ]
         });
 
@@ -492,14 +510,20 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
 
         revisionInfo.Should().NotBeNull();
         revisionInfo.ProfileSectionId.Should().Be(ProfileSectionTestData.SectionId);
-        revisionInfo.TechnicalReviewFrequencyMonths.Should().Be(12);
-        revisionInfo.NextTechnicalReview.Should().Be(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        revisionInfo.PolicyReviewFrequencyMonths.Should().Be(6);
+        revisionInfo.VaReviewFrequencyId.Should().Be(vaFrequency);
+        revisionInfo.PolicyReviewFrequencyId.Should().Be(policyFrequency);
+        revisionInfo.AuthorReviewFrequencyId.Should().Be(authorFrequency);
+        revisionInfo.NextVaReview.Should().Be(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         revisionInfo.NextPolicyReview.Should().Be(new DateTime(2027, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+        revisionInfo.NextAuthorReview.Should().Be(new DateTime(2027, 9, 1, 0, 0, 0, DateTimeKind.Utc));
+        revisionInfo.PolicyReviewStatusId.Should().Be(policyStatus);
+        revisionInfo.VaReviewStatusId.Should().Be(vaStatus);
+        revisionInfo.AuthorReviewStatusId.Should().Be(authorStatus);
+        revisionInfo.LastUpdated.Should().Equal(rowVersion);
     }
 
     [Fact]
-    public async Task GetProfileVersionSectionRevisionInfoAsync_MapsNullFrequenciesAndDates()
+    public async Task GetProfileVersionSectionRevisionInfoAsync_MapsNullFrequenciesDatesAndStatuses()
     {
         connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
         {
@@ -507,11 +531,8 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
             [
                 FakeResultSet.Empty("Id", "Name", "IsActive"),
                 new FakeResultSet(
-                    [
-                        "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "NextTechnicalReview",
-                        "NextPolicyReview", "LastUpdated", "ParentId", "PolicyReviewStatusId", "TechnicalReviewStatusId"
-                    ],
-                    [[ProfileSectionTestData.SectionId, null, null, null, null, null, null, null, null]])
+                    RevisionColumns,
+                    [[ProfileSectionTestData.SectionId, null, null, null, null, null, null, null, null, null, null, null]])
             ]
         });
 
@@ -519,10 +540,147 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
             ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
 
         revisionInfo.Should().NotBeNull();
-        revisionInfo.TechnicalReviewFrequencyMonths.Should().BeNull();
-        revisionInfo.NextTechnicalReview.Should().BeNull();
-        revisionInfo.PolicyReviewFrequencyMonths.Should().BeNull();
+        revisionInfo.VaReviewFrequencyId.Should().BeNull();
+        revisionInfo.PolicyReviewFrequencyId.Should().BeNull();
+        revisionInfo.AuthorReviewFrequencyId.Should().BeNull();
+        revisionInfo.NextVaReview.Should().BeNull();
         revisionInfo.NextPolicyReview.Should().BeNull();
+        revisionInfo.NextAuthorReview.Should().BeNull();
+        revisionInfo.AuthorReviewStatusId.Should().BeNull();
+        revisionInfo.LastUpdated.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetReviewFrequenciesAsync_MapsIdAndName()
+    {
+        var id = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.GetSectionReviewFrequencies, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Id", "LookupValue", "SequenceNumber"], [[id, "Every year", 2]])]
+        });
+
+        var result = await CreateRepository().GetReviewFrequenciesAsync(CancellationToken.None);
+
+        var item = result.Should().ContainSingle().Subject;
+        item.Id.Should().Be(id);
+        item.Name.Should().Be("Every year");
+    }
+
+    [Fact]
+    public async Task GetReviewStatusesAsync_MapsIdAndName()
+    {
+        var id = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.GetSectionReviewStatuses, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Id", "Name", "SequenceNumber"], [[id, "Complete", 3]])]
+        });
+
+        var result = await CreateRepository().GetReviewStatusesAsync(CancellationToken.None);
+
+        var item = result.Should().ContainSingle().Subject;
+        item.Id.Should().Be(id);
+        item.Name.Should().Be("Complete");
+    }
+
+    [Fact]
+    public async Task GetReviewFrequenciesAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetSectionReviewFrequencies, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().GetReviewFrequenciesAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task UpdateProfileVersionSectionRevisionsAsync_WritesEverySectionInOneTransaction_AndLogsContributions()
+    {
+        var secondSectionId = Guid.NewGuid();
+        var frequency = Guid.NewGuid();
+        var status = Guid.NewGuid();
+        var completed = new DateTime(2026, 10, 12);
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        var written = await CreateRepository().UpdateProfileVersionSectionRevisionsAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            [
+                new ProfileSectionRevisionUpdate
+                {
+                    ProfileSectionId = ProfileSectionTestData.SectionId,
+                    VaReviewFrequencyId = frequency,
+                    NextAuthorReview = new DateTime(2027, 1, 1),
+                    AuthorReviewStatusId = status,
+                    AuthorReviewCompleted = completed,
+                    LastUpdated = rowVersion
+                },
+                new ProfileSectionRevisionUpdate { ProfileSectionId = secondSectionId, LastUpdated = rowVersion }
+            ],
+            Guid.Empty,
+            CancellationToken.None);
+
+        written.Should().Be(2);
+        var updates = connection.Executed.Where(c => c.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionSection).ToList();
+        updates.Should().HaveCount(2).And.OnlyContain(c => c.HadTransaction);
+        updates[0].Parameters["ProfileSectionId"].Should().Be(ProfileSectionTestData.SectionId);
+        updates[0].Parameters["TechnicalReviewFrequency"].Should().Be(frequency);
+        updates[0].Parameters["PolicyReviewFrequency"].Should().BeNull();
+        updates[0].Parameters["NextAuthorReview"].Should().Be(new DateTime(2027, 1, 1));
+        updates[0].Parameters["AuthorReviewStatusId"].Should().Be(status);
+        updates[0].Parameters["AuthorReviewCompleted"].Should().Be(completed);
+        updates[0].Parameters["LastUpdated"].Should().Be(rowVersion);
+        updates[1].Parameters["ProfileSectionId"].Should().Be(secondSectionId);
+        connection.Executed.Where(c => c.CommandText == ProfileSectionStoredProcedures.LogProfileVersionSectionContribution && c.HadTransaction)
+            .Should().HaveCount(2);
+        connection.Transactions.Should().ContainSingle().Which.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateProfileVersionSectionRevisionsAsync_DoesNothing_WhenThereAreNoUpdates()
+    {
+        var written = await CreateRepository().UpdateProfileVersionSectionRevisionsAsync(
+            ProfileSectionTestData.ProfileVersionId, [], Guid.Empty, CancellationToken.None);
+
+        written.Should().Be(0);
+        connection.Executed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdateProfileVersionSectionRevisionsAsync_RollsBackAndThrowsConcurrencyException_WhenEditedByAnotherUser()
+    {
+        connection.Script(ProfileSectionStoredProcedures.UpdateProfileVersionSection, new FakeCommandScript
+        {
+            Throws = new FakeDbException("The profile version section has been edited by another user")
+        });
+
+        var act = () => CreateRepository().UpdateProfileVersionSectionRevisionsAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            [new ProfileSectionRevisionUpdate { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8] }],
+            Guid.Empty,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+        connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateProfileVersionSectionRevisionsAsync_RollsBackAndRethrows_OnOtherDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.UpdateProfileVersionSection, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().UpdateProfileVersionSectionRevisionsAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            [new ProfileSectionRevisionUpdate { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8] }],
+            Guid.Empty,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
     }
 
     [Fact]
@@ -533,9 +691,7 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
             ResultSets =
             [
                 FakeResultSet.Empty("Id", "Name", "IsActive"),
-                FakeResultSet.Empty(
-                    "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "NextTechnicalReview",
-                    "NextPolicyReview", "LastUpdated", "ParentId", "PolicyReviewStatusId", "TechnicalReviewStatusId")
+                FakeResultSet.Empty(RevisionColumns)
             ]
         });
 

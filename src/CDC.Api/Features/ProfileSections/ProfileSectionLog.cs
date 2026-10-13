@@ -23,4 +23,10 @@ internal static partial class ProfileSectionLog
 
     [LoggerMessage(EventId = 9006, Level = LogLevel.Information, Message = "Saved {FieldsSavedCount} field values for profile version {ProfileVersionId} section {ProfileSectionId}")]
     public static partial void SavedProfileVersionSection(this ILogger logger, Guid profileVersionId, Guid profileSectionId, int fieldsSavedCount);
+
+    [LoggerMessage(EventId = 9007, Level = LogLevel.Information, Message = "Saved revision dates for {SectionsSavedCount} of {SectionsSubmittedCount} submitted sections of profile version {ProfileVersionId}")]
+    public static partial void SavedProfileVersionRevisionDates(this ILogger logger, Guid profileVersionId, int sectionsSavedCount, int sectionsSubmittedCount);
+
+    [LoggerMessage(EventId = 9008, Level = LogLevel.Warning, Message = "Revision dates of profile version {ProfileVersionId} were not saved: a section was edited by another user or the version is not a current draft")]
+    public static partial void RevisionDatesConcurrencyConflict(this ILogger logger, Guid profileVersionId);
 }

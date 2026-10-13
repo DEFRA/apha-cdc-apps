@@ -3,14 +3,15 @@ using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace CDC.Web.Pages.SurveillanceProfiles;
 
 /// <summary>
-/// Displays the profile reference sections and their real questions/answers for a profile's
-/// current version, loaded entirely from CDC.Api. Replaces the legacy
-/// <c>EditProfileQuestions.aspx</c> page in its read-only ("browse profile") mode.
+/// The first tab of a profile section: its questions and recorded answers for the profile's current version,
+/// loaded entirely from CDC.Api. Replaces the legacy <c>EditProfileQuestions.aspx</c>. The other tabs are their own
+/// pages (<see cref="EditProfileReferencesModel"/>, <see cref="EditProfileFurtherInformationModel"/>,
+/// <see cref="EditProfileReviewCommentsModel"/>, <see cref="EditProfileAllRevisionDatesModel"/> and
+/// <see cref="EditProfileContributionsModel"/>), reached through the shared tab strip.
 /// </summary>
 /// <param name="apiClient">Typed client for the profile management endpoints on CDC.Api.</param>
 /// <param name="profileSectionsApiService">Typed client for the profile sections endpoints on CDC.Api.</param>
@@ -18,53 +19,10 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 public class EditProfileQuestionsModel(
     IApiClient apiClient,
     IProfileSectionsApiService profileSectionsApiService,
-    ILogger<EditProfileQuestionsModel> logger) : PageModel
+    ILogger<EditProfileQuestionsModel> logger) : ProfileSectionTabPageModel(apiClient, profileSectionsApiService, logger)
 {
-    /// <summary>Gets or sets the profile being browsed, bound from the page route.</summary>
-    [BindProperty(SupportsGet = true)]
-    public Guid ProfileId { get; set; }
-
-    /// <summary>Gets or sets the selected left-nav section id, bound from the querystring.</summary>
-    [BindProperty(SupportsGet = true)]
-    public Guid? Section { get; set; }
-
-    /// <summary>Gets the profile's full display title (with its scenario title in brackets, for
-    /// a "what-if" scenario), once loaded. Matches the legacy <c>ProfileVersionInfo.FullTitle</c>.</summary>
-    public string? ProfileTitle { get; private set; }
-
-    /// <summary>Gets the current version's display summary (for example, "Version 13.0 (Published)
-    /// Valid from 11/09/2026"), shown centred beneath the title. <see langword="null"/> when the
-    /// profile has no current version.</summary>
-    public string? VersionInfo { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "Print full profile" link is shown, matching
-    /// the legacy <c>ProfileVersionInfo.CanGetPrintVersion()</c> rule.</summary>
-    public bool CanPrintProfileSection { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "Summary profile report" and "Summary
-    /// prioritisation report" links are shown, matching the legacy
-    /// <c>ProfileVersionInfo.CanGetSummaryReport()</c> rule.</summary>
-    public bool CanViewProfileReports { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "Validate" button is shown, matching the
-    /// legacy <c>ProfileVersionSection.CanEditProfileVersionSection()</c> rule.</summary>
-    public bool CanEditProfileSection { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "Clear" button is shown, matching the legacy
-    /// <c>ProfileVersionSection.CanClearProfileVersionSection()</c> rule.</summary>
-    public bool CanClearProfileSection { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "Review comments" tab is shown, matching the
-    /// legacy <c>ReviewCommentList.CanGetReviewCommentList()</c> rule.</summary>
-    public bool CanViewReviewComments { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "Contributions" tab is shown, matching the
-    /// legacy <c>ProfileContributionInfoList.CanGetProfileContributionInfoList()</c> rule.</summary>
-    public bool CanViewContributions { get; private set; }
-
-    /// <summary>Gets a value indicating whether the "All Revision dates" tab is shown, matching
-    /// the legacy <c>ProfileVersionSection.CanGetRevisionInformation()</c> rule.</summary>
-    public bool CanViewAllRevisionDates { get; private set; }
+    /// <inheritdoc />
+    public override ProfileSectionTab ActiveTab => ProfileSectionTab.Questions;
 
     /// <summary>Gets the mandatory questions with no recorded answer in the current section, from
     /// the most recent "Validate" button submission. Empty until Validate has been used.</summary>
@@ -87,170 +45,34 @@ public class EditProfileQuestionsModel(
     /// used; when non-empty, the submitted answers were not sent to CDC.Api.</summary>
     public IReadOnlyList<string> SaveValidationErrors { get; private set; } = [];
 
-    /// <summary>Gets the profile's current version id, posted back by the Validate/Clear forms.
-    /// <see cref="Guid.Empty"/> when the profile has no current version.</summary>
-    public Guid CurrentProfileVersionId { get; private set; }
-
-    /// <summary>Gets a value indicating whether the profile failed to load.</summary>
-    public bool HasError { get; private set; }
-
-    /// <summary>Gets a value indicating whether the profile has no version to browse.</summary>
-    public bool HasNoVersion { get; private set; }
-
-    /// <summary>Gets the 16 profile reference sections, in section-number order, read directly
-    /// from <c>GET /api/profile-sections/metadata</c> (never hardcoded).</summary>
-    public IReadOnlyList<ProfileSectionMetadataDto> Sections { get; private set; } = [];
-
-    public ProfileSectionMetadataDto? CurrentSection { get; private set; }
-
-    public ProfileSectionMetadataDto? PreviousSection { get; private set; }
-
-    public ProfileSectionMetadataDto? NextSection { get; private set; }
-
-    /// <summary>Gets each section's validation status (section id to whether it passed
-    /// validation), used to render the green tick/red cross against each left-nav entry.
-    /// Sections absent from this dictionary (for example, after a load failure) show no icon.</summary>
-    public IReadOnlyDictionary<Guid, bool> SectionValidationStatus { get; private set; } = new Dictionary<Guid, bool>();
-
-    /// <summary>Gets the real questions and recorded answers for <see cref="CurrentSection"/>,
-    /// each field either rendered as a real editable control or, for a per-species/repeating
-    /// question, as a static read-only value.</summary>
+    /// <summary>Gets the real questions and recorded answers for the selected section, each field either
+    /// rendered as a real editable control or, for a per-species/repeating question, as a static read-only value.</summary>
     public IReadOnlyList<ProfileQuestionEditView> Questions { get; private set; } = [];
-
-    /// <summary>Gets the current section's scientific paper references, for the References tab.</summary>
-    public ProfileNoteGroupView ScientificPaperReferences { get; private set; } = EmptyNoteGroup("Scientific paper references");
-
-    /// <summary>Gets the current section's legislative references, for the References tab.</summary>
-    public ProfileNoteGroupView LegislativeReferences { get; private set; } = EmptyNoteGroup("Legislative references");
-
-    /// <summary>Gets the current section's sources of further information, for the Further
-    /// information tab.</summary>
-    public ProfileNoteGroupView FurtherInformation { get; private set; } = EmptyNoteGroup("Sources of further information");
-
-    /// <summary>Gets the current section's logged contributions, for the Contributions tab.</summary>
-    public IReadOnlyList<ProfileSectionContributionView> Contributions { get; private set; } = [];
-
-    /// <summary>Gets the current section's review comments, for the Review comments tab.</summary>
-    public IReadOnlyList<ProfileReviewCommentView> ReviewComments { get; private set; } = [];
-
-    /// <summary>Gets every section's revision dates, for the All Revision dates tab.</summary>
-    public IReadOnlyList<ProfileSectionRevisionDatesView> AllRevisionDates { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        var profileVersionId = Guid.Empty;
+        var notFound = await LoadProfileContextAsync(cancellationToken);
 
-        try
+        if (notFound is not null)
         {
-            var profile = await apiClient.GetManageProfileAsync(ProfileId, cancellationToken);
+            return notFound;
+        }
 
-            if (profile is null)
+        if (IsReady)
+        {
+            try
             {
-                return NotFound();
+                await LoadQuestionsAsync(CurrentProfileVersionId, CurrentSection!, cancellationToken);
             }
-
-            ApplyProfileFlags(profile);
-
-            var metadata = await profileSectionsApiService.GetProfileQuestionnaireMetadataAsync(cancellationToken);
-            Sections = metadata.Sections;
-
-            if (Sections.Count == 0)
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
             {
-                return Page();
+                Logger.ProfileQuestionsLoadFailed(exception, ProfileId);
+                HasError = true;
             }
-
-            CurrentSection = (Section.HasValue ? Sections.FirstOrDefault(s => s.Id == Section.Value) : null) ?? Sections[0];
-            var currentIndex = Sections.ToList().IndexOf(CurrentSection);
-            PreviousSection = currentIndex > 0 ? Sections[currentIndex - 1] : null;
-            NextSection = currentIndex < Sections.Count - 1 ? Sections[currentIndex + 1] : null;
-
-            if (profile.CurrentProfileVersionId == Guid.Empty)
-            {
-                HasNoVersion = true;
-                return Page();
-            }
-
-            profileVersionId = profile.CurrentProfileVersionId;
-            CurrentProfileVersionId = profileVersionId;
-            await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            logger.ProfileQuestionsLoadFailed(exception, ProfileId);
-            HasError = true;
-        }
-
-        // Kept outside the Questions try/catch above: the References and Further information
-        // tabs are a separate data source, so a failure there must not blank out the Questions
-        // tab that already loaded successfully.
-        if (!HasError && !HasNoVersion && CurrentSection is not null)
-        {
-            await LoadNotesResilientlyAsync(profileVersionId, CurrentSection, cancellationToken);
-        }
-
-        // A separate, independent load: one section's validation status must not depend on, or
-        // block, the currently selected section's questions/notes, and vice versa.
-        if (!HasError && !HasNoVersion)
-        {
-            await LoadValidationStatusAsync(profileVersionId, cancellationToken);
-        }
-
-        // Each Draft-only tab's data is loaded independently and only when its tab is visible,
-        // matching the legacy tabStrip.Tabs.Item(x).Visible gating of each tab's data fetch.
-        if (!HasError && !HasNoVersion && CurrentSection is not null)
-        {
-            await LoadDraftOnlyTabsAsync(profileVersionId, CurrentSection, cancellationToken);
         }
 
         return Page();
     }
-
-    private void ApplyProfileFlags(ManageProfileViewModel profile)
-    {
-        ProfileTitle = profile.FullTitle;
-        VersionInfo = profile.CurrentVersionDisplay;
-        CanPrintProfileSection = profile.CanPrintProfileSection;
-        CanViewProfileReports = profile.CanViewProfileReports;
-        CanEditProfileSection = profile.CanEditProfileSection;
-        CanClearProfileSection = profile.CanClearProfileSection;
-        CanViewReviewComments = profile.CanViewReviewComments;
-        CanViewContributions = profile.CanViewContributions;
-        CanViewAllRevisionDates = profile.CanViewAllRevisionDates;
-    }
-
-    private async Task LoadNotesResilientlyAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await LoadNotesAsync(profileVersionId, section, cancellationToken);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            logger.ProfileNotesLoadFailed(exception, ProfileId);
-        }
-    }
-
-    private async Task LoadDraftOnlyTabsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
-    {
-        if (CanViewContributions)
-        {
-            await LoadContributionsAsync(profileVersionId, section, cancellationToken);
-        }
-
-        if (CanViewReviewComments)
-        {
-            await LoadReviewCommentsAsync(profileVersionId, section, cancellationToken);
-        }
-
-        if (CanViewAllRevisionDates)
-        {
-            await LoadAllRevisionDatesAsync(profileVersionId, cancellationToken);
-        }
-    }
-
-    /// <summary>Builds the querystring URL for a left-nav/pagination link to a different section of this profile.</summary>
-    public string? BuildSectionUrl(Guid sectionId) =>
-        Url.Page("/SurveillanceProfiles/EditProfileQuestions", new { profileId = ProfileId, section = sectionId });
 
     /// <summary>
     /// Handles the "Validate" button: checks the current section's mandatory fields, matching the
@@ -264,21 +86,21 @@ public class EditProfileQuestionsModel(
     {
         await OnGetAsync(cancellationToken);
 
-        if (HasError || HasNoVersion || CurrentSection is null)
+        if (!IsReady)
         {
             return Page();
         }
 
         try
         {
-            var result = await profileSectionsApiService.ValidateProfileVersionSectionAsync(
-                profileVersionId, CurrentSection.Id, cancellationToken);
+            var result = await ProfileSectionsApi.ValidateProfileVersionSectionAsync(
+                profileVersionId, CurrentSection!.Id, cancellationToken);
             UnansweredQuestions = result.UnansweredQuestions;
             HasValidated = true;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            logger.ProfileSectionValidateFailed(exception, ProfileId, CurrentSection.Id);
+            Logger.ProfileSectionValidateFailed(exception, ProfileId, CurrentSection!.Id);
             HasError = true;
         }
 
@@ -297,15 +119,15 @@ public class EditProfileQuestionsModel(
     {
         await OnGetAsync(cancellationToken);
 
-        if (HasError || HasNoVersion || CurrentSection is null)
+        if (!IsReady)
         {
             return Page();
         }
 
         try
         {
-            var result = await profileSectionsApiService.ClearProfileVersionSectionAsync(
-                profileVersionId, CurrentSection.Id, cancellationToken);
+            var result = await ProfileSectionsApi.ClearProfileVersionSectionAsync(
+                profileVersionId, CurrentSection!.Id, cancellationToken);
             FieldsClearedCount = result.FieldsClearedCount;
 
             // Re-load so the page reflects the now-cleared answers rather than the stale ones
@@ -314,7 +136,7 @@ public class EditProfileQuestionsModel(
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            logger.ProfileSectionClearFailed(exception, ProfileId, CurrentSection.Id);
+            Logger.ProfileSectionClearFailed(exception, ProfileId, CurrentSection!.Id);
             HasError = true;
         }
 
@@ -334,210 +156,78 @@ public class EditProfileQuestionsModel(
     {
         await OnGetAsync(cancellationToken);
 
-        if (HasError || HasNoVersion || CurrentSection is null)
+        if (IsReady)
         {
-            return Page();
-        }
-
-        var (answers, validationErrors) = ParseSubmittedAnswers(CurrentSection);
-
-        if (validationErrors.Count > 0)
-        {
-            SaveValidationErrors = validationErrors;
-            return Page();
-        }
-
-        try
-        {
-            var result = await profileSectionsApiService.SaveProfileVersionSectionAsync(
-                profileVersionId, CurrentSection.Id, answers, cancellationToken);
-            FieldsSavedCount = result.FieldsSavedCount;
-
-            // Re-load so the page reflects the newly-saved answers rather than the stale ones
-            // already fetched by OnGetAsync above.
-            await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            logger.ProfileSectionSaveFailed(exception, ProfileId, CurrentSection.Id);
-            HasError = true;
+            await TrySaveSectionAsync(profileVersionId, cancellationToken);
         }
 
         return Page();
     }
 
-    /// <summary>Gets one section's validation status for the left-nav tick/cross icon, or
-    /// <see langword="null"/> when it is not known (for example, after a load failure).</summary>
-    public bool? GetSectionValidationStatus(Guid sectionId) =>
-        SectionValidationStatus.TryGetValue(sectionId, out var isValid) ? isValid : null;
-
-    /// <summary>Loads the current section's References and Further information tab content.
-    /// Resolves each note type by name rather than a hardcoded id, since note types are reference
-    /// data (<c>GET /api/profile-notes/types</c>); a missing type degrades to an empty group
-    /// rather than failing the whole page.</summary>
-    /// <summary>Loads every section's validation status, resiliently: a failure here degrades to
-    /// no icons being shown rather than failing the whole page.</summary>
-    private async Task LoadValidationStatusAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Handles a click on a tab. Legacy <c>tabStrip_TabClick</c> persists the section's answers before opening the
+    /// tab's page and stays put when they are invalid, so an edit is never lost by switching tab.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version being answered, posted from a hidden field.</param>
+    /// <param name="tab">The name of the tab clicked.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>A redirect to the tab's page, or this page again when the answers could not be saved.</returns>
+    public async Task<IActionResult> OnPostNavigateTabAsync(Guid profileVersionId, string? tab, CancellationToken cancellationToken)
     {
+        await OnGetAsync(cancellationToken);
+
+        if (!IsReady
+            || !Enum.TryParse<ProfileSectionTab>(tab, ignoreCase: true, out var target)
+            || !ProfileSectionTabs.VisibleTabs(CanViewReviewComments, CanViewAllRevisionDates, CanViewContributions).Contains(target))
+        {
+            return Page();
+        }
+
+        if (CanEditProfileSection && !await TrySaveSectionAsync(profileVersionId, cancellationToken))
+        {
+            return Page();
+        }
+
+        return RedirectToPage(ProfileSectionTabs.PagePath(target), new { profileId = ProfileId, section = CurrentSection!.Id });
+    }
+
+    /// <summary>Saves the submitted answers and reloads the page's answers; reports a rejected value or a CDC.Api
+    /// failure on the page.</summary>
+    /// <returns><see langword="true"/> when the answers were saved.</returns>
+    private async Task<bool> TrySaveSectionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var (answers, validationErrors) = ParseSubmittedAnswers(CurrentSection!);
+
+        if (validationErrors.Count > 0)
+        {
+            SaveValidationErrors = validationErrors;
+            return false;
+        }
+
         try
         {
-            var validationStatus = await profileSectionsApiService.GetProfileVersionValidationStatusAsync(profileVersionId, cancellationToken);
-            SectionValidationStatus = validationStatus.Sections.ToDictionary(section => section.ProfileSectionId, section => section.IsValid);
+            var result = await ProfileSectionsApi.SaveProfileVersionSectionAsync(
+                profileVersionId, CurrentSection!.Id, answers, cancellationToken);
+            FieldsSavedCount = result.FieldsSavedCount;
+
+            // Re-load so the page reflects the newly-saved answers rather than the stale ones
+            // already fetched by OnGetAsync above.
+            await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
+
+            return true;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            logger.ProfileSectionValidationStatusLoadFailed(exception, ProfileId);
+            Logger.ProfileSectionSaveFailed(exception, ProfileId, CurrentSection!.Id);
+            HasError = true;
+
+            return false;
         }
     }
-
-    private async Task LoadNotesAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
-    {
-        var noteTypes = await profileSectionsApiService.GetProfileNoteTypesAsync(cancellationToken);
-
-        var questionNumbersById = ProfileNoteDisplayHelper.BuildQuestionNumbersById(Sections);
-
-        ScientificPaperReferences = await LoadNoteGroupAsync(
-            noteTypes, "SCIENTIFICPAPERREFERENCE", "Scientific paper references",
-            profileVersionId, section.Id, questionNumbersById, cancellationToken);
-
-        LegislativeReferences = await LoadNoteGroupAsync(
-            noteTypes, "LEGISLATIVEREFERENCE", "Legislative references",
-            profileVersionId, section.Id, questionNumbersById, cancellationToken);
-
-        FurtherInformation = await LoadNoteGroupAsync(
-            noteTypes, "SOURCEOFFURTHERINFORMATION", "Sources of further information",
-            profileVersionId, section.Id, questionNumbersById, cancellationToken);
-    }
-
-    private async Task<ProfileNoteGroupView> LoadNoteGroupAsync(
-        IReadOnlyList<ProfileNoteTypeDto> noteTypes,
-        string normalisedNoteTypeName,
-        string fallbackHeading,
-        Guid profileVersionId,
-        Guid profileSectionId,
-        IReadOnlyDictionary<Guid, string> questionNumbersById,
-        CancellationToken cancellationToken)
-    {
-        var noteType = noteTypes.FirstOrDefault(type => ProfileNoteDisplayHelper.NormaliseNoteTypeName(type.Name) == normalisedNoteTypeName);
-
-        if (noteType is null)
-        {
-            return EmptyNoteGroup(fallbackHeading);
-        }
-
-        var notes = await profileSectionsApiService.GetProfileNotesBySectionAsync(
-            profileVersionId, profileSectionId, noteType.Id, cancellationToken);
-
-        var heading = string.IsNullOrEmpty(noteType.PluralName) ? fallbackHeading : noteType.PluralName;
-
-        var rows = notes
-            .OrderBy(note => ProfileTitleHtmlFormatter.ToPlainText(note.NoteText), StringComparer.OrdinalIgnoreCase)
-            .Select(note => new ProfileNoteRowView(
-                note.NoteText,
-                string.Join(", ", note.QuestionReferences
-                    .Select(reference => questionNumbersById.GetValueOrDefault(reference.ProfileQuestionId))
-                    .Where(number => !string.IsNullOrEmpty(number)))))
-            .ToList();
-
-        return new ProfileNoteGroupView(heading, ProfileNoteDisplayHelper.BuildEmptyMessage(heading), rows);
-    }
-
-    private static ProfileNoteGroupView EmptyNoteGroup(string heading) => new(heading, ProfileNoteDisplayHelper.BuildEmptyMessage(heading), []);
-
-    /// <summary>Loads the Contributions tab's content, resiliently: a failure here degrades to an
-    /// empty table rather than failing the whole page.</summary>
-    private async Task LoadContributionsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var contributions = await profileSectionsApiService.GetProfileVersionSectionContributionsAsync(profileVersionId, section.Id, cancellationToken);
-
-            Contributions =
-            [
-                .. contributions.Select(contribution => new ProfileSectionContributionView(
-                    contribution.FullName,
-                    contribution.UserName,
-                    contribution.OrganisationName,
-                    contribution.LastContributionDate.ToString(DateDisplayFormat, CultureInfo.InvariantCulture)))
-            ];
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            logger.ProfileSectionContributionsLoadFailed(exception, ProfileId);
-        }
-    }
-
-    /// <summary>Loads the Review comments tab's content, resiliently: a failure here degrades to
-    /// an empty list rather than failing the whole page.</summary>
-    private async Task LoadReviewCommentsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var comments = await profileSectionsApiService.GetProfileSectionReviewCommentsAsync(profileVersionId, section.Id, cancellationToken);
-
-            ReviewComments =
-            [
-                .. comments.Select(comment => new ProfileReviewCommentView(
-                    IndentSubject(comment.Level) + comment.CommentSubject,
-                    comment.CommentReference,
-                    comment.CommentText,
-                    comment.UserFullName,
-                    comment.CommentDate.ToString(DateDisplayFormat, CultureInfo.InvariantCulture)))
-            ];
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            logger.ProfileReviewCommentsLoadFailed(exception, ProfileId);
-        }
-    }
-
-    /// <summary>Indents a reply's subject by its thread depth, matching the legacy
-    /// <c>EditProfileReviewComments.aspx.vb</c>'s <c>IndentSubject()</c>.</summary>
-    private static string IndentSubject(int level) =>
-        level <= 1 ? string.Empty : new string('\u00A0', (level - 1) * 5);
-
-    /// <summary>Loads the All Revision dates tab's content, resiliently: a failure here degrades
-    /// to an empty table rather than failing the whole page.</summary>
-    private async Task LoadAllRevisionDatesAsync(Guid profileVersionId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var revisionDates = await profileSectionsApiService.GetProfileVersionAllRevisionDatesAsync(profileVersionId, cancellationToken);
-
-            AllRevisionDates =
-            [
-                .. revisionDates.Sections.Select(revisionDate => new ProfileSectionRevisionDatesView(
-                    $"{revisionDate.SectionNumber} {revisionDate.SectionName}",
-                    FormatReviewFrequency(revisionDate.TechnicalReviewFrequencyMonths),
-                    FormatReviewDate(revisionDate.NextTechnicalReview),
-                    FormatReviewFrequency(revisionDate.PolicyReviewFrequencyMonths),
-                    FormatReviewDate(revisionDate.NextPolicyReview)))
-            ];
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            logger.ProfileAllRevisionDatesLoadFailed(exception, ProfileId);
-        }
-    }
-
-    private static string FormatReviewFrequency(int? months)
-    {
-        if (months is not { } value)
-        {
-            return "Not set";
-        }
-
-        return value == 1 ? "1 month" : $"{value} months";
-    }
-
-    private static string FormatReviewDate(DateTime? date) =>
-        date?.ToString(DateDisplayFormat, CultureInfo.InvariantCulture) ?? "Not set";
-
-    private const string DateDisplayFormat = "dd/MM/yyyy";
 
     private async Task LoadQuestionsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
     {
-        var answers = await profileSectionsApiService.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
+        var answers = await ProfileSectionsApi.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
 
         var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
         var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
@@ -555,7 +245,7 @@ public class EditProfileQuestionsModel(
         foreach (var referenceTableId in referenceTableIds)
         {
             referenceValuesByTable[referenceTableId] =
-                await profileSectionsApiService.GetReferenceValuesAsync(referenceTableId, cancellationToken);
+                await ProfileSectionsApi.GetReferenceValuesAsync(referenceTableId, cancellationToken);
         }
 
         Questions =
@@ -833,35 +523,4 @@ public class EditProfileQuestionsModel(
 
         return "Not answered";
     }
-}
-
-/// <summary>Source-generated structured log messages for <see cref="EditProfileQuestionsModel"/>.</summary>
-internal static partial class EditProfileQuestionsLog
-{
-    [LoggerMessage(EventId = 2300, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' questions from CDC.Api")]
-    public static partial void ProfileQuestionsLoadFailed(this ILogger logger, Exception exception, Guid profileId);
-
-    [LoggerMessage(EventId = 2301, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' references/further information from CDC.Api")]
-    public static partial void ProfileNotesLoadFailed(this ILogger logger, Exception exception, Guid profileId);
-
-    [LoggerMessage(EventId = 2302, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' section validation status from CDC.Api")]
-    public static partial void ProfileSectionValidationStatusLoadFailed(this ILogger logger, Exception exception, Guid profileId);
-
-    [LoggerMessage(EventId = 2303, Level = LogLevel.Error, Message = "Failed to validate profile '{ProfileId}' section '{ProfileSectionId}' via CDC.Api")]
-    public static partial void ProfileSectionValidateFailed(this ILogger logger, Exception exception, Guid profileId, Guid profileSectionId);
-
-    [LoggerMessage(EventId = 2304, Level = LogLevel.Error, Message = "Failed to clear profile '{ProfileId}' section '{ProfileSectionId}' via CDC.Api")]
-    public static partial void ProfileSectionClearFailed(this ILogger logger, Exception exception, Guid profileId, Guid profileSectionId);
-
-    [LoggerMessage(EventId = 2305, Level = LogLevel.Error, Message = "Failed to save profile '{ProfileId}' section '{ProfileSectionId}' via CDC.Api")]
-    public static partial void ProfileSectionSaveFailed(this ILogger logger, Exception exception, Guid profileId, Guid profileSectionId);
-
-    [LoggerMessage(EventId = 2306, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' contributions from CDC.Api")]
-    public static partial void ProfileSectionContributionsLoadFailed(this ILogger logger, Exception exception, Guid profileId);
-
-    [LoggerMessage(EventId = 2307, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' review comments from CDC.Api")]
-    public static partial void ProfileReviewCommentsLoadFailed(this ILogger logger, Exception exception, Guid profileId);
-
-    [LoggerMessage(EventId = 2308, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' all revision dates from CDC.Api")]
-    public static partial void ProfileAllRevisionDatesLoadFailed(this ILogger logger, Exception exception, Guid profileId);
 }

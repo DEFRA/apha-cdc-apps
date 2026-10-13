@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
@@ -172,5 +173,45 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
             cancellationToken);
 
         return result ?? new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId };
+    }
+
+    /// <inheritdoc />
+    public async Task<SaveRevisionDatesResult> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new { ProfileVersionId = profileVersionId, Sections = sections };
+        using var response = await httpClient.PutAsJsonAsync("/api/profile-sections/all-revision-dates", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var saved = await response.Content.ReadFromJsonAsync<SaveProfileRevisionDatesResultDto>(cancellationToken);
+
+            return new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.Success,
+                SectionsSavedCount = saved?.SectionsSavedCount ?? 0
+            };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.Conflict,
+                ErrorMessage = "Another user has changed these revision dates, or this version can no longer be edited. Your changes have not been saved; the latest values are shown."
+            },
+            HttpStatusCode.BadRequest => new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.ValidationFailed,
+                ErrorMessage = "The revision dates were not accepted. Check the values and try again."
+            },
+            _ => new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.Error,
+                ErrorMessage = "We could not save the revision dates. Try again later."
+            }
+        };
     }
 }

@@ -188,6 +188,32 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Saves the "All Revision dates" tab of one profile version.
+    /// </summary>
+    /// <remarks>
+    /// Matches the legacy <c>EditProfileAllRevisionDates.aspx</c> Save button. Only sections whose
+    /// submitted values differ from the stored ones are written, all in one transaction.
+    /// </remarks>
+    /// <param name="command">The profile version and each section's submitted revision data.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The number of sections written.</returns>
+    /// <response code="200">The revision dates were saved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="409">A section was edited by another user, or the version is not a current draft.</response>
+    [HttpPut("all-revision-dates")]
+    [ProducesResponseType(typeof(SaveProfileRevisionDatesResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SaveProfileRevisionDatesResultDto>> SaveProfileVersionRevisionDates(
+        [FromBody] SaveProfileVersionRevisionDatesCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(command, cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
     /// Gets every logged contribution to one profile version's section.
     /// </summary>
     /// <remarks>
