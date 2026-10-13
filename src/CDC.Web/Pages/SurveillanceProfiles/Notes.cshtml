@@ -1,0 +1,174 @@
+@page "{profileId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.NotesModel
+@using CDC.Web.Infrastructure
+@{
+    ViewData["Title"] = "Profile references";
+
+    var subnavModel = new SectionSubnavViewModel(
+        "Profile reference sections",
+        [.. Model.Sections
+            .Select(navSection => new SectionNavItem(
+                navSection.SectionNumber,
+                navSection.Name,
+                Model.BuildEditProfileQuestionsUrl(Model.ProfileId, navSection.Id),
+                false))]);
+}
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId">
+                    @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle ?? string.Empty)
+                </a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">Profile references</li>
+        </ol>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="notes-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="notes-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">We could not load this profile. Try again later.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <h1 class="govuk-heading-l govuk-!-text-align-centre">Profile references</h1>
+
+    <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(false, false, Model.BuildNotesUrl(Model.ProfileId), true, subnavModel)" />
+        </div>
+        <div class="govuk-grid-column-three-quarters">
+            @if (Model.HasNoVersion)
+            {
+                <div class="govuk-inset-text">This profile has no current version to browse.</div>
+            }
+            else
+            {
+                <form method="get">
+                    <input type="hidden" name="profileId" value="@Model.ProfileId" />
+                    <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                    <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+                    <input type="hidden" id="PageNumber" name="pageNumber" value="1" />
+
+                    <div class="govuk-form-group app-label-select-inline">
+                        <label class="govuk-label" for="ReferenceTypeId">Select a reference type:</label>
+                        <select class="govuk-select" id="ReferenceTypeId" name="referenceTypeId" onchange="this.form.requestSubmit()">
+                            <option value="" selected="@(Model.SelectedReferenceTypeId is null ? "selected" : null)">Please select...</option>
+                            @foreach (var referenceType in Model.ReferenceTypes)
+                            {
+                                <option value="@referenceType.Id" selected="@(referenceType.Id == Model.SelectedReferenceTypeId ? "selected" : null)">@referenceType.PluralName</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (Model.SelectedReferenceTypeId is not null)
+                    {
+                        <h3 class="govuk-heading-m">@Model.NotesHeading</h3>
+
+                        @if (Model.TotalRecords > 0)
+                        {
+                            <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                                <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
+                                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                                    <select class="govuk-select" id="PageSize" name="pageSize" onchange="document.getElementById('PageNumber').value = '1'; this.form.requestSubmit()">
+                                        @foreach (var option in CDC.Web.Pages.SurveillanceProfiles.NotesModel.PageSizeOptions)
+                                        {
+                                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                    }
+                </form>
+
+                @if (Model.SelectedReferenceTypeId is not null)
+                {
+                    @if (Model.TotalRecords == 0)
+                    {
+                        <p class="govuk-body">@CDC.Web.Pages.SurveillanceProfiles.NotesModel.NoNotesMessage</p>
+                    }
+                    else
+                    {
+                    <table class="govuk-table app-profile-note-table">
+                        <caption class="govuk-visually-hidden">@Model.NotesHeading</caption>
+                        <thead class="govuk-table__head">
+                            <tr class="govuk-table__row">
+                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort("Reference")">
+                                    <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl("Reference")">References</a>
+                                </th>
+                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort("QuestionReference")">
+                                    <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl("QuestionReference")">Question reference</a>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="govuk-table__body">
+                            @foreach (var row in Model.Rows)
+                            {
+                                <tr class="govuk-table__row">
+                                    <td class="govuk-table__cell app-profile-note-table__text">@Html.Raw(row.ReferenceHtml)</td>
+                                    <td class="govuk-table__cell">@row.QuestionReferenceDisplay</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (Model.TotalPages > 1)
+                    {
+                        <div class="app-pagination-center">
+                            <nav class="govuk-pagination" aria-label="Notes pages">
+                                @if (Model.PageNumber > 1)
+                                {
+                                    <div class="govuk-pagination__prev">
+                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                                            <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                                <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                                            </svg>
+                                            <span class="govuk-pagination__link-title">Previous</span>
+                                        </a>
+                                    </div>
+                                }
+
+                                <ul class="govuk-pagination__list">
+                                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                                    {
+                                        <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                        </li>
+                                    }
+                                </ul>
+
+                                @if (Model.PageNumber < Model.TotalPages)
+                                {
+                                    <div class="govuk-pagination__next">
+                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                                            <span class="govuk-pagination__link-title">Next</span>
+                                            <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                                <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                }
+                            </nav>
+                        </div>
+                    }
+                }
+                }
+            }
+        </div>
+    </div>
+}

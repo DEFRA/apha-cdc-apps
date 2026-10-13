@@ -131,6 +131,19 @@ html {
   min-width: 12rem;
 }
 
+/* Puts a form-group's label and field on a single row instead of govuk-label's default stacked
+   layout (used by the Notes page's "Select a reference type"/"Items per page" controls). */
+.app-label-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.app-label-select-inline .govuk-label {
+  margin-bottom: 0;
+}
+
 /* Maintain contributors has only the "Items per page" control (no sort-by), so unlike
    .app-results-toolbar - whose space-between layout relies on a second item to space away from -
    it is pushed to the right explicitly. */
@@ -598,6 +611,19 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Tighter row height than the default govuk-table on the Notes page's references table, which
+   typically lists many short rows. */
+.app-profile-note-table .govuk-table__cell,
+.app-profile-note-table .govuk-table__header {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+/* Sortable column headers on the Notes page's references table. */
+.app-sortable-header a {
+  white-space: nowrap;
+}
+
 /* Shared confirmation dialog (e.g. "Create new draft version"): a native <dialog>, styled with
    GOV.UK tokens since GOV.UK Frontend has no official modal component, and Bootstrap is
    deliberately being phased out of this app (see _Layout.cshtml). Visibility, centring and
@@ -832,6 +858,7 @@ body {
 }
 
 .app-subnav__item {
+  display: block;
   padding: 0.5rem 0 0.5rem 0.75rem;
   border-left: 4px solid transparent;
 }
@@ -928,7 +955,8 @@ body {
 
 .app-tab-carousel__nav {
   display: none;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 1rem;
   margin-bottom: 0.5rem;
 }
 
@@ -965,6 +993,7 @@ body {
 .app-richtext-toolbar__button {
   border: 1px solid transparent;
   background: transparent;
+  color: #0b0c0c;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
 }
@@ -972,6 +1001,31 @@ body {
 .app-richtext-toolbar__button:hover,
 .app-richtext-toolbar__button:focus {
   border-color: var(--govuk-border-colour, #b1b4b6);
+}
+
+/* Icon-only formatting buttons (undo, redo, italic, bulleted list, link) shown above a
+   "Long Text" field's editor, matching the legacy TinyMCE toolbar's icon symbols. */
+.app-richtext-toolbar__button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-color: var(--govuk-border-colour, #b1b4b6);
+  background-color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.app-richtext-toolbar__button--italic {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.app-richtext-toolbar__divider {
+  width: 1px;
+  align-self: stretch;
+  background-color: var(--govuk-border-colour, #b1b4b6);
 }
 
 .app-richtext-editor {

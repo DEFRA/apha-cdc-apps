@@ -38,12 +38,14 @@ public sealed class ProfileNoteRepository(IDbConnectionFactory connectionFactory
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
 
-            return [.. rows.Select(row => new ProfileNoteType
-            {
-                Id = row.Id,
-                Name = row.Name ?? string.Empty,
-                PluralName = row.PluralName ?? string.Empty
-            })];
+            return [.. rows
+                .OrderBy(row => row.SequenceNumber)
+                .Select(row => new ProfileNoteType
+                {
+                    Id = row.Id,
+                    Name = row.Name ?? string.Empty,
+                    PluralName = row.PluralName ?? string.Empty
+                })];
         }
         catch (DbException exception)
         {
@@ -454,5 +456,5 @@ public sealed class ProfileNoteRepository(IDbConnectionFactory connectionFactory
     }
 
     /// <summary>Row shape returned by <c>spgaProfileNoteType</c>; column names map by Dapper convention.</summary>
-    private sealed record ProfileNoteTypeRow(Guid Id, string? Name, string? PluralName);
+    private sealed record ProfileNoteTypeRow(Guid Id, string? Name, string? PluralName, int SequenceNumber);
 }

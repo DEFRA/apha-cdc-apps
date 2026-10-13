@@ -48,6 +48,17 @@ public interface IProfileSectionsApiService
         Guid noteTypeId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>GET /api/profile-notes/by-version</c>, used by the standalone Notes page
+    /// to list every note of a given type across the whole profile version, not just one section.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="noteTypeId">The note type to filter by.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The matching notes; an empty list when none have been recorded.</returns>
+    Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/profile-sections/validation-status</c>.</summary>
     /// <param name="profileVersionId">The profile version to check.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
