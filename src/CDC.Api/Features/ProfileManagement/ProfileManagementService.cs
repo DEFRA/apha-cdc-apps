@@ -204,7 +204,7 @@ public sealed class ProfileManagementService(
     /// version must be a current (no effective-to date) Draft; the user must not be a "user
     /// management system" account. Legacy also allows a per-section contributor, which <see
     /// cref="IUserContext"/> does not model yet, so this simplifies to profile-editor access.</summary>
-    private static bool ComputeCanEditProfileSection(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
+    internal static bool ComputeCanEditProfileSection(Domain.Entities.ProfileVersionSummary? currentVersion, IUserContext userContext) =>
         currentVersion is not null && !currentVersion.IsPublished && currentVersion.EffectiveDateTo is null &&
         !userContext.IsUserManagementSystem && userContext.IsProfileEditor;
 

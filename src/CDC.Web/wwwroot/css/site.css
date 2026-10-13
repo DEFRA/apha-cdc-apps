@@ -1205,3 +1205,69 @@ body {
 .app-button-group--right.govuk-button-group {
   display: flex;
 }
+/* All Revision dates tab */
+.app-revision-set-all {
+    margin-bottom: 20px;
+}
+
+.app-revision-dates-layout td {
+    padding: 2px 6px 2px 0;
+    vertical-align: middle;
+}
+
+.app-revision-dates-layout .govuk-label {
+    margin: 0;
+}
+
+.app-revision-dates-layout__gap {
+    width: 30px;
+}
+
+.app-revision-dates-date {
+    width: 10em;
+}
+
+.app-revision-dates-readonly {
+    display: inline-block;
+    min-width: 130px;
+    min-height: 1.5em;
+    padding: 2px 5px;
+    border: 1px solid #0b0c0c;
+    background-color: #ffffff;
+}
+
+/* A tab that posts the page (so it can save first) but looks like the link tab. */
+.app-tab-button {
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Review comments tab: the "Add a review comment:" row, the red "new!" label and the add/view panel. */
+.app-review-comment-add {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.app-review-comment-new {
+  color: #d4351c;
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+.app-review-comment-panel {
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-review-comment-readonly {
+  padding: 0.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #f3f2f1;
+  overflow-wrap: anywhere;
+}

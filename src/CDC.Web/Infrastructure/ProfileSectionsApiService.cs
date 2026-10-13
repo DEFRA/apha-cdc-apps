@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
@@ -163,6 +164,98 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
     }
 
     /// <inheritdoc />
+    public async Task<ReviewCommentResult> AddProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid? parentId,
+        string subject,
+        string commentReference,
+        string commentText,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            ProfileVersionId = profileVersionId,
+            ProfileSectionId = profileSectionId,
+            ParentId = parentId,
+            Subject = subject,
+            CommentReference = commentReference,
+            CommentText = commentText
+        };
+        using var response = await httpClient.PostAsJsonAsync("/api/profile-sections/review-comments", request, cancellationToken);
+
+        return ToReviewCommentResult(response.StatusCode);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReviewCommentResult> UpdateProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        ReviewCommentContent content,
+        byte[] lastUpdated,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            Id = commentId,
+            ProfileVersionId = profileVersionId,
+            ProfileSectionId = profileSectionId,
+            content.Subject,
+            content.CommentReference,
+            content.CommentText,
+            LastUpdated = lastUpdated
+        };
+        using var response = await httpClient.PutAsJsonAsync("/api/profile-sections/review-comments", request, cancellationToken);
+
+        return ToReviewCommentResult(response.StatusCode);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReviewCommentResult> DeleteProfileReviewCommentAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        Guid commentId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync(
+            $"/api/profile-sections/review-comments/{commentId}?profileVersionId={profileVersionId}&profileSectionId={profileSectionId}",
+            cancellationToken);
+
+        return ToReviewCommentResult(response.StatusCode);
+    }
+
+    private static ReviewCommentResult ToReviewCommentResult(HttpStatusCode statusCode) => statusCode switch
+    {
+        HttpStatusCode.OK or HttpStatusCode.NoContent => new ReviewCommentResult { Outcome = ReviewCommentOutcome.Success },
+        HttpStatusCode.BadRequest => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.ValidationFailed,
+            ErrorMessage = "The review comment was not accepted."
+        },
+        HttpStatusCode.Forbidden => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.Forbidden,
+            ErrorMessage = "Only your own review comment, with no replies, can be changed on the current draft version."
+        },
+        HttpStatusCode.NotFound => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.NotFound,
+            ErrorMessage = "The review comment no longer exists."
+        },
+        HttpStatusCode.Conflict => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.Conflict,
+            ErrorMessage = "The review comment has been edited by another user."
+        },
+        _ => new ReviewCommentResult
+        {
+            Outcome = ReviewCommentOutcome.Error,
+            ErrorMessage = "We could not complete the request. Try again later."
+        }
+    };
+
+    /// <inheritdoc />
     public async Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken = default)
@@ -172,5 +265,45 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
             cancellationToken);
 
         return result ?? new ProfileVersionAllRevisionDatesDto { ProfileVersionId = profileVersionId };
+    }
+
+    /// <inheritdoc />
+    public async Task<SaveRevisionDatesResult> SaveProfileVersionRevisionDatesAsync(
+        Guid profileVersionId,
+        IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new { ProfileVersionId = profileVersionId, Sections = sections };
+        using var response = await httpClient.PutAsJsonAsync("/api/profile-sections/all-revision-dates", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var saved = await response.Content.ReadFromJsonAsync<SaveProfileRevisionDatesResultDto>(cancellationToken);
+
+            return new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.Success,
+                SectionsSavedCount = saved?.SectionsSavedCount ?? 0
+            };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.Conflict,
+                ErrorMessage = "Another user has changed these revision dates, or this version can no longer be edited. Your changes have not been saved; the latest values are shown."
+            },
+            HttpStatusCode.BadRequest => new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.ValidationFailed,
+                ErrorMessage = "The revision dates were not accepted. Check the values and try again."
+            },
+            _ => new SaveRevisionDatesResult
+            {
+                Outcome = SaveRevisionDatesOutcome.Error,
+                ErrorMessage = "We could not save the revision dates. Try again later."
+            }
+        };
     }
 }

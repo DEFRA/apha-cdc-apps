@@ -1,19 +1,19 @@
-using CDC.Web.Authorization.Models;
-using Microsoft.Extensions.Options;
+using CDC.Web.Authorization.Constants;
 
 namespace CDC.Web.Authorization.Services;
 
 /// <summary>
-/// Temporary <see cref="ICurrentUserService"/> that simulates an authenticated user from the
-/// <c>AuthorizationSettings</c> configuration section, until real authentication (Entra ID SAML)
-/// is integrated. Reads configuration only - never a hardcoded user id or role.
+/// Temporary <see cref="ICurrentUserService"/> that simulates an authenticated profile editor with
+/// hardcoded values until real authentication (Entra ID) supplies the signed-in user.
 /// </summary>
-/// <param name="options">The bound <c>AuthorizationSettings</c> configuration section.</param>
-public sealed class CurrentUserService(IOptions<AuthorizationSettings> options) : ICurrentUserService
+public sealed class CurrentUserService : ICurrentUserService
 {
-    /// <inheritdoc />
-    public string UserId => options.Value.PlaceholderUserId;
+    /// <summary>The placeholder user id; never a real identity.</summary>
+    public const string PlaceholderUserId = "REPLACE_WITH_REAL_AUTHENTICATED_USER";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Roles => options.Value.PlaceholderRoles;
+    public string UserId => PlaceholderUserId;
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Roles { get; } = [AuthorizationRoles.ProfileEditor];
 }

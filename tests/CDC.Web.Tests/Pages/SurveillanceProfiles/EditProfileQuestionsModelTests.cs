@@ -34,19 +34,10 @@ public class EditProfileQuestionsModelTests
         ProfileSectionAnswersDto? answers = null,
         Guid? section = null,
         IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
-        IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
-        IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
-        Exception? throwOnGetProfileNoteTypes = null,
         ProfileVersionValidationStatusDto? validationStatus = null,
         ProfileSectionValidationResultDto? sectionValidationResult = null,
         ClearProfileSectionResultDto? clearResult = null,
-        Exception? throwOnClearProfileVersionSection = null,
-        IReadOnlyList<ProfileSectionContributionDto>? contributions = null,
-        IReadOnlyList<ProfileReviewCommentDto>? reviewComments = null,
-        ProfileVersionAllRevisionDatesDto? allRevisionDates = null,
-        Exception? throwOnGetProfileVersionSectionContributions = null,
-        Exception? throwOnGetProfileSectionReviewComments = null,
-        Exception? throwOnGetProfileVersionAllRevisionDates = null)
+        Exception? throwOnClearProfileVersionSection = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -56,19 +47,10 @@ public class EditProfileQuestionsModelTests
                 metadata: metadata,
                 answers: answers,
                 referenceValuesByTable: referenceValuesByTable,
-                noteTypes: noteTypes,
-                notesByNoteType: notesByNoteType,
-                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes,
                 validationStatus: validationStatus,
                 sectionValidationResult: sectionValidationResult,
                 clearResult: clearResult,
-                throwOnClearProfileVersionSection: throwOnClearProfileVersionSection,
-                contributions: contributions,
-                reviewComments: reviewComments,
-                allRevisionDates: allRevisionDates,
-                throwOnGetProfileVersionSectionContributions: throwOnGetProfileVersionSectionContributions,
-                throwOnGetProfileSectionReviewComments: throwOnGetProfileSectionReviewComments,
-                throwOnGetProfileVersionAllRevisionDates: throwOnGetProfileVersionAllRevisionDates),
+                throwOnClearProfileVersionSection: throwOnClearProfileVersionSection),
             new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
@@ -307,9 +289,6 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(pageModel.HasNoVersion);
         Assert.Empty(pageModel.Questions);
-        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
-        Assert.Empty(pageModel.LegislativeReferences.Notes);
-        Assert.Empty(pageModel.FurtherInformation.Notes);
     }
 
     [Fact]
@@ -327,96 +306,6 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(pageModel.GetSectionValidationStatus(SummarySectionId));
         Assert.Null(pageModel.GetSectionValidationStatus(EpidemiologySectionId));
-    }
-
-    [Fact]
-    public async Task OnGetAsync_PopulatesReferencesAndFurtherInformation_MatchedByNoteTypeName_RegardlessOfCasingOrSpacing()
-    {
-        var scientificPaperReferenceTypeId = Guid.NewGuid();
-        var legislativeReferenceTypeId = Guid.NewGuid();
-        var furtherInformationTypeId = Guid.NewGuid();
-
-        var noteTypes = new List<ProfileNoteTypeDto>
-        {
-            new() { Id = scientificPaperReferenceTypeId, Name = "scientific paper reference", PluralName = "Scientific paper references" },
-            new() { Id = legislativeReferenceTypeId, Name = "Legislative Reference", PluralName = "Legislative references" },
-            new() { Id = furtherInformationTypeId, Name = "SourceOfFurtherInformation", PluralName = "Sources of further information" }
-        };
-
-        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
-        {
-            [scientificPaperReferenceTypeId] =
-            [
-                new ProfileNoteDto
-                {
-                    Id = Guid.NewGuid(),
-                    NoteText = "Zebra et al. (2020) <a href='https://example.com'>https://example.com</a>",
-                    QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
-                },
-                new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }
-            ],
-            [legislativeReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Animal Health Act 1981" }]
-        };
-
-        var pageModel = CreatePageModel(
-            Profile(),
-            metadata: TwoSectionMetadata(),
-            noteTypes: noteTypes,
-            notesByNoteType: notesByNoteType);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Equal("Scientific paper references", pageModel.ScientificPaperReferences.Heading);
-        Assert.Equal(2, pageModel.ScientificPaperReferences.Notes.Count);
-        Assert.Equal("Aardvark et al. (2019)", pageModel.ScientificPaperReferences.Notes[0].NoteTextHtml);
-        Assert.Equal("1.1", pageModel.ScientificPaperReferences.Notes[1].QuestionReferenceDisplay);
-        Assert.Contains("<a href=", pageModel.ScientificPaperReferences.Notes[1].NoteTextHtml);
-
-        Assert.Equal("Legislative references", pageModel.LegislativeReferences.Heading);
-        Assert.Single(pageModel.LegislativeReferences.Notes);
-
-        Assert.Empty(pageModel.FurtherInformation.Notes);
-        Assert.Equal("Sources of further information", pageModel.FurtherInformation.Heading);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DefaultsToEmptyGroups_WhenNoteTypesAreNotFound()
-    {
-        var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata());
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
-        Assert.Equal("There are no scientific paper references to display.", pageModel.ScientificPaperReferences.EmptyMessage);
-        Assert.Empty(pageModel.LegislativeReferences.Notes);
-        Assert.Empty(pageModel.FurtherInformation.Notes);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_StillReturnsQuestions_WhenLoadingReferencesFails()
-    {
-        var answers = new ProfileSectionAnswersDto
-        {
-            ProfileVersionId = ProfileVersionId,
-            ProfileSectionId = SummarySectionId,
-            QuestionNames = [new ProfileQuestionNameDto { Id = QuestionId, Name = "Is the disease endemic in GB?" }],
-            FieldValues = []
-        };
-
-        var pageModel = CreatePageModel(
-            Profile(),
-            metadata: TwoSectionMetadata(),
-            answers: answers,
-            throwOnGetProfileNoteTypes: new HttpRequestException("connection refused"));
-
-        var result = await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.IsType<PageResult>(result);
-        Assert.False(pageModel.HasError);
-        Assert.Single(pageModel.Questions);
-        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
-        Assert.Empty(pageModel.LegislativeReferences.Notes);
-        Assert.Empty(pageModel.FurtherInformation.Notes);
     }
 
     [Fact]
@@ -706,165 +595,6 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_LoadsContributions_WhenCanViewContributionsIsTrue()
-    {
-        var contributions = new List<ProfileSectionContributionDto>
-        {
-            new()
-            {
-                FullName = "Jane Doe",
-                UserName = "jdoe",
-                OrganisationName = "APHA",
-                LastContributionDate = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc)
-            }
-        };
-
-        var pageModel = CreatePageModel(DraftProfileWithAllTabsVisible(), metadata: TwoSectionMetadata(), contributions: contributions);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        var contribution = Assert.Single(pageModel.Contributions);
-        Assert.Equal("Jane Doe", contribution.FullName);
-        Assert.Equal("jdoe", contribution.UserName);
-        Assert.Equal("APHA", contribution.OrganisationName);
-        Assert.Equal("11/09/2026", contribution.LastContributionDate);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DoesNotLoadContributions_WhenCanViewContributionsIsFalse()
-    {
-        var contributions = new List<ProfileSectionContributionDto> { new() { FullName = "Jane Doe" } };
-
-        var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata(), contributions: contributions);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Empty(pageModel.Contributions);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_LoadsReviewComments_IndentedByThreadDepth_WhenCanViewReviewCommentsIsTrue()
-    {
-        var reviewComments = new List<ProfileReviewCommentDto>
-        {
-            new()
-            {
-                CommentSubject = "Top level",
-                UserFullName = "Jane Doe",
-                Level = 1,
-                CommentDate = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new()
-            {
-                CommentSubject = "A reply",
-                UserFullName = "John Smith",
-                Level = 2,
-                CommentDate = new DateTime(2026, 9, 12, 0, 0, 0, DateTimeKind.Utc)
-            }
-        };
-
-        var pageModel = CreatePageModel(DraftProfileWithAllTabsVisible(), metadata: TwoSectionMetadata(), reviewComments: reviewComments);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Equal(2, pageModel.ReviewComments.Count);
-        Assert.Equal("Top level", pageModel.ReviewComments[0].IndentedSubject);
-        Assert.StartsWith("\u00A0", pageModel.ReviewComments[1].IndentedSubject, StringComparison.Ordinal);
-        Assert.EndsWith("A reply", pageModel.ReviewComments[1].IndentedSubject, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_LoadsAllRevisionDates_WhenCanViewAllRevisionDatesIsTrue()
-    {
-        var allRevisionDates = new ProfileVersionAllRevisionDatesDto
-        {
-            ProfileVersionId = ProfileVersionId,
-            Sections =
-            [
-                new ProfileSectionRevisionDatesDto
-                {
-                    ProfileSectionId = SummarySectionId,
-                    SectionName = "Summary",
-                    SectionNumber = 1,
-                    TechnicalReviewFrequencyMonths = 12,
-                    NextTechnicalReview = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    PolicyReviewFrequencyMonths = null,
-                    NextPolicyReview = null
-                }
-            ]
-        };
-
-        var pageModel = CreatePageModel(DraftProfileWithAllTabsVisible(), metadata: TwoSectionMetadata(), allRevisionDates: allRevisionDates);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        var section = Assert.Single(pageModel.AllRevisionDates);
-        Assert.Equal("1 Summary", section.SectionDisplay);
-        Assert.Equal("12 months", section.TechnicalReviewFrequencyDisplay);
-        Assert.Equal("01/01/2027", section.NextTechnicalReviewDisplay);
-        Assert.Equal("Not set", section.PolicyReviewFrequencyDisplay);
-        Assert.Equal("Not set", section.NextPolicyReviewDisplay);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_FormatsASingleMonthFrequency_WithoutAPluralSuffix()
-    {
-        var allRevisionDates = new ProfileVersionAllRevisionDatesDto
-        {
-            ProfileVersionId = ProfileVersionId,
-            Sections = [new ProfileSectionRevisionDatesDto { ProfileSectionId = SummarySectionId, SectionName = "Summary", SectionNumber = 1, TechnicalReviewFrequencyMonths = 1 }]
-        };
-
-        var pageModel = CreatePageModel(DraftProfileWithAllTabsVisible(), metadata: TwoSectionMetadata(), allRevisionDates: allRevisionDates);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Equal("1 month", Assert.Single(pageModel.AllRevisionDates).TechnicalReviewFrequencyDisplay);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DoesNotFail_WhenLoadingContributionsThrows()
-    {
-        var pageModel = CreatePageModel(
-            DraftProfileWithAllTabsVisible(),
-            metadata: TwoSectionMetadata(),
-            throwOnGetProfileVersionSectionContributions: new HttpRequestException("boom"));
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.False(pageModel.HasError);
-        Assert.Empty(pageModel.Contributions);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DoesNotFail_WhenLoadingReviewCommentsThrows()
-    {
-        var pageModel = CreatePageModel(
-            DraftProfileWithAllTabsVisible(),
-            metadata: TwoSectionMetadata(),
-            throwOnGetProfileSectionReviewComments: new HttpRequestException("boom"));
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.False(pageModel.HasError);
-        Assert.Empty(pageModel.ReviewComments);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DoesNotFail_WhenLoadingAllRevisionDatesThrows()
-    {
-        var pageModel = CreatePageModel(
-            DraftProfileWithAllTabsVisible(),
-            metadata: TwoSectionMetadata(),
-            throwOnGetProfileVersionAllRevisionDates: new HttpRequestException("boom"));
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.False(pageModel.HasError);
-        Assert.Empty(pageModel.AllRevisionDates);
-    }
-
-    [Fact]
     public async Task OnGetAsync_MarksQuestionValid_WhenItsMandatoryFieldsAreAnswered()
     {
         var answers = new ProfileSectionAnswersDto
@@ -902,5 +632,112 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(Assert.Single(editablePageModel.Questions).CanEditReferences);
         Assert.False(Assert.Single(readOnlyPageModel.Questions).CanEditReferences);
+    }
+
+    private static (EditProfileQuestionsModel PageModel, FakeProfileSectionsApiService Service) CreateNavigatingPageModel(
+        ManageProfileViewModel profile,
+        IDictionary<string, string>? formValues = null,
+        Exception? throwOnSave = null)
+    {
+        var service = new FakeProfileSectionsApiService(
+            metadata: StandardQuestionMetadata(),
+            throwOnSaveProfileVersionSection: throwOnSave);
+
+        var pageModel = ProfileTabTestData.Configure(
+            new EditProfileQuestionsModel(new FakeApiClient(manageProfile: profile), service, new AlwaysEnabledLogger<EditProfileQuestionsModel>()),
+            formValues ?? new Dictionary<string, string>(),
+            StandardSectionId);
+
+        return (pageModel, service);
+    }
+
+    [Theory]
+    [InlineData("References", "/SurveillanceProfiles/EditProfileReferences")]
+    [InlineData("FurtherInformation", "/SurveillanceProfiles/EditProfileFurtherInformation")]
+    [InlineData("ReviewComments", "/SurveillanceProfiles/EditProfileReviewComments")]
+    [InlineData("AllRevisionDates", "/SurveillanceProfiles/EditProfileAllRevisionDates")]
+    [InlineData("Contributions", "/SurveillanceProfiles/EditProfileContributions")]
+    [InlineData("Questions", "/SurveillanceProfiles/EditProfileQuestions")]
+    public async Task OnPostNavigateTabAsync_SavesTheAnswers_ThenRedirectsToTheTabsPage(string tab, string expectedPage)
+    {
+        var (pageModel, service) = CreateNavigatingPageModel(EditableProfile() with
+        {
+            CanViewReviewComments = true,
+            CanViewAllRevisionDates = true,
+            CanViewContributions = true
+        });
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(expectedPage, redirect.PageName);
+        Assert.Equal(ProfileTabTestData.ProfileId, redirect.RouteValues!["profileId"]);
+        Assert.Equal(StandardSectionId, redirect.RouteValues["section"]);
+        Assert.Equal(1, service.SaveProfileVersionSectionCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostNavigateTabAsync_DoesNotSave_WhenTheUserCannotEditTheSection()
+    {
+        var (pageModel, service) = CreateNavigatingPageModel(Profile());
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostNavigateTabAsync_StaysOnThePage_WhenTheAnswersAreInvalid()
+    {
+        var (pageModel, service) = CreateNavigatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string> { [$"field_{DecimalFieldId}"] = "not a number" });
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Single(pageModel.SaveValidationErrors);
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostNavigateTabAsync_StaysOnThePage_WhenSavingFails()
+    {
+        var (pageModel, _) = CreateNavigatingPageModel(EditableProfile(), throwOnSave: new HttpRequestException("boom"));
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Theory]
+    [InlineData("ReviewComments")]
+    [InlineData("AllRevisionDates")]
+    [InlineData("Contributions")]
+    public async Task OnPostNavigateTabAsync_StaysOnThePage_WhenTheTabIsNotVisibleToTheUser(string tab)
+    {
+        var (pageModel, service) = CreateNavigatingPageModel(EditableProfile());
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("Species")]
+    [InlineData("99")]
+    public async Task OnPostNavigateTabAsync_StaysOnThePage_ForAnUnknownTab(string? tab)
+    {
+        var (pageModel, service) = CreateNavigatingPageModel(EditableProfile());
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
     }
 }
