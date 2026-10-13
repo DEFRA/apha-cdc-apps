@@ -214,7 +214,7 @@ else
 {
     if (!Model.ShowUpload)
     {
-        <a class="govuk-button" role="button" draggable="false" data-module="govuk-button" asp-page="/Reports/General" asp-route-showUpload="true">Add</a>
+        <form method="get" asp-page="/Reports/General"><button type="submit" class="govuk-button" data-module="govuk-button" name="showUpload" value="true">Add</button></form>
     }
     else
     {

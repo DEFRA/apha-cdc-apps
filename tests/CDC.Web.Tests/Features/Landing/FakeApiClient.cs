@@ -19,7 +19,10 @@ internal sealed class FakeApiClient( // NOSONAR
     IReadOnlyList<StaticReportListItemDto>? staticReports = null,
     Exception? throwOnGetCurrentStaticReports = null,
     CreateNewProfileVersionResult? createNewProfileVersionResult = null,
-    DeleteProfileVersionResult? deleteProfileVersionResult = null) : IApiClient
+    DeleteProfileVersionResult? deleteProfileVersionResult = null,
+    IReadOnlyList<StaticReportListItemDto>? staticReportHistory = null,
+    bool staticReportOperationResult = false,
+    Exception? throwOnStaticReportOperation = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -95,16 +98,21 @@ internal sealed class FakeApiClient( // NOSONAR
             : Task.FromResult(_staticReports);
 
     public Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(Guid staticReportId, bool publicOnly = false, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<StaticReportListItemDto>>([]);
+        Task.FromResult(staticReportHistory ?? []);
 
     public Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(false);
+        StaticReportOperation();
 
     public Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(false);
+        StaticReportOperation();
 
     public Task<bool> UploadStaticReportAsync(string title, byte[] pdfData, bool isPublic, CancellationToken cancellationToken = default) =>
-        Task.FromResult(false);
+        StaticReportOperation();
+
+    private Task<bool> StaticReportOperation() =>
+        throwOnStaticReportOperation is not null
+            ? Task.FromException<bool>(throwOnStaticReportOperation)
+            : Task.FromResult(staticReportOperationResult);
 
     public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
         Guid profileVersionId,

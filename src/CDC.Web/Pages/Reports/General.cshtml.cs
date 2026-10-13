@@ -7,8 +7,10 @@ using Microsoft.Extensions.Options;
 
 namespace CDC.Web.Pages.Reports;
 
-public class GeneralModel : BreadcrumbPageModelBase
+public partial class GeneralModel : BreadcrumbPageModelBase
 {
+    private const string ReportsPage = "/Reports/General";
+    private const string ReportsTitle = "General reports";
     private const long MaxUploadBytes = 20 * 1024 * 1024;
     private static readonly byte[] PdfSignature = "%PDF-"u8.ToArray();
 
@@ -53,7 +55,7 @@ public class GeneralModel : BreadcrumbPageModelBase
 
     public bool IsHistoryPage => StaticReportId is Guid staticReportId && staticReportId != Guid.Empty;
 
-    public string ReportTitle { get; private set; } = "General reports";
+    public string ReportTitle { get; private set; } = ReportsTitle;
 
     public IReadOnlyList<StaticReportListItemDto> Reports { get; private set; } = [];
 
@@ -62,7 +64,7 @@ public class GeneralModel : BreadcrumbPageModelBase
         IAuthorizationService authorizationService,
         IOptions<ApiOptions> apiOptions,
         ILogger<GeneralModel> logger)
-        : base("General reports")
+        : base(ReportsTitle)
     {
         this.apiClient = apiClient;
         this.authorizationService = authorizationService;
@@ -86,7 +88,7 @@ public class GeneralModel : BreadcrumbPageModelBase
 
         if (reportVersionId == Guid.Empty)
         {
-            return RedirectToPage("/Reports/General", new { PageSize, PageNumber });
+            return RedirectToPage(ReportsPage, new { PageSize, PageNumber });
         }
 
         try
@@ -102,11 +104,11 @@ public class GeneralModel : BreadcrumbPageModelBase
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to delete static report version {StaticReportVersionId}.", reportVersionId);
+            LogDeleteFailed(ex, reportVersionId);
             ErrorMessage = "The report version could not be deleted.";
         }
 
-        return RedirectToPage("/Reports/General", new { PageSize, PageNumber });
+        return RedirectToPage(ReportsPage, new { PageSize, PageNumber });
     }
 
     public async Task<IActionResult> OnPostUploadAsync(CancellationToken cancellationToken)
@@ -127,7 +129,7 @@ public class GeneralModel : BreadcrumbPageModelBase
                 if (await apiClient.UploadStaticReportAsync(title!, pdfData!, MakePublic, cancellationToken))
                 {
                     StatusMessage = "The report was uploaded successfully.";
-                    return RedirectToPage("/Reports/General");
+                    return RedirectToPage(ReportsPage);
                 }
 
                 error = "Failed to upload the report. Try again.";
@@ -138,7 +140,7 @@ public class GeneralModel : BreadcrumbPageModelBase
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to upload a static report.");
+                LogUploadFailed(ex);
                 error = "Failed to upload the report. Try again.";
             }
         }
@@ -189,17 +191,17 @@ public class GeneralModel : BreadcrumbPageModelBase
             if (IsHistoryPage)
             {
                 Reports = await apiClient.GetStaticReportHistoryAsync(StaticReportId!.Value, publicOnly: false, cancellationToken);
-                ReportTitle = Reports.FirstOrDefault()?.Title ?? "General reports";
+                ReportTitle = Reports.Count > 0 ? Reports[0].Title : ReportsTitle;
             }
             else
             {
                 Reports = await apiClient.GetCurrentStaticReportsAsync(isUserManual: false, publicOnly: false, cancellationToken);
-                ReportTitle = "General reports";
+                ReportTitle = ReportsTitle;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to load general reports.");
+            LogLoadFailed(ex);
             Reports = [];
         }
 
@@ -211,6 +213,20 @@ public class GeneralModel : BreadcrumbPageModelBase
             : Reports;
     }
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to delete static report version {StaticReportVersionId}.")]
+    private partial void LogDeleteFailed(Exception ex, Guid staticReportVersionId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to upload a static report.")]
+    private partial void LogUploadFailed(Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to load general reports.")]
+    private partial void LogLoadFailed(Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The public-access change request for static report version {StaticReportVersionId} was rejected.")]
+    private partial void LogMakePublicRejected(Guid staticReportVersionId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to make static report version {StaticReportVersionId} public.")]
+    private partial void LogMakePublicFailed(Exception ex, Guid staticReportVersionId);
     private static int ResolvePageSize(string pageSize)
     {
         if (string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase))
@@ -236,7 +252,7 @@ public class GeneralModel : BreadcrumbPageModelBase
 
         if (reportVersionId == Guid.Empty)
         {
-            return RedirectToPage("/Reports/General", redirectValues);
+            return RedirectToPage(ReportsPage, redirectValues);
         }
 
         try
@@ -247,27 +263,27 @@ public class GeneralModel : BreadcrumbPageModelBase
             }
             else
             {
-                logger.LogWarning("The public-access change request for static report version {StaticReportVersionId} was rejected.", reportVersionId);
+                LogMakePublicRejected(reportVersionId);
                 ErrorMessage = "The report version could not be made public.";
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to make static report version {StaticReportVersionId} public.", reportVersionId);
+            LogMakePublicFailed(ex, reportVersionId);
             ErrorMessage = "The report version could not be made public.";
         }
 
-        return RedirectToPage("/Reports/General", redirectValues);
+        return RedirectToPage(ReportsPage, redirectValues);
     }
 
     public string? BuildPageUrl(int page) =>
-        Url.Page("/Reports/General", new { StaticReportId, PageSize, PageNumber = page });
+        Url.Page(ReportsPage, new { StaticReportId, PageSize, PageNumber = page });
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
         $"{apiBaseUrl}/api/static-reports/versions/{staticReportVersionId}/document";
 
     public string? BuildHistoryUrl(Guid staticReportId) =>
-        Url.Page("/Reports/General", new { StaticReportId = staticReportId });
+        Url.Page(ReportsPage, new { StaticReportId = staticReportId });
 
     public static string FormatEffectiveDates(StaticReportListItemDto report) =>
         report.EffectiveDateTo is null
