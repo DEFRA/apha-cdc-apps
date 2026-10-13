@@ -1,0 +1,155 @@
+@model CDC.Web.Models.RevisionDatesTabView
+@using CDC.Web.Infrastructure
+@using CDC.Web.Models
+@* Layout of legacy EditProfileAllRevisionDates.aspx: "Set For All Sections:" first, then one block per section with
+   the three frequency / next review rows followed by the three status rows. Read-only users see the values as text. *@
+@{
+    var reviews = new[]
+    {
+        new { Name = "Author", Lower = "author", Frequency = ProfileRevisionDatesForm.FieldAuthorFrequency, Next = ProfileRevisionDatesForm.FieldNextAuthor, Status = ProfileRevisionDatesForm.FieldAuthorStatus },
+        new { Name = "VA", Lower = "VA", Frequency = ProfileRevisionDatesForm.FieldVaFrequency, Next = ProfileRevisionDatesForm.FieldNextVa, Status = ProfileRevisionDatesForm.FieldVaStatus },
+        new { Name = "Policy", Lower = "policy", Frequency = ProfileRevisionDatesForm.FieldPolicyFrequency, Next = ProfileRevisionDatesForm.FieldNextPolicy, Status = ProfileRevisionDatesForm.FieldPolicyStatus }
+    };
+
+    static string ValueOf(RevisionDatesRowView row, string field) => field switch
+    {
+        ProfileRevisionDatesForm.FieldAuthorFrequency => row.AuthorFrequency,
+        ProfileRevisionDatesForm.FieldVaFrequency => row.VaFrequency,
+        ProfileRevisionDatesForm.FieldPolicyFrequency => row.PolicyFrequency,
+        ProfileRevisionDatesForm.FieldNextAuthor => row.NextAuthorReview,
+        ProfileRevisionDatesForm.FieldNextVa => row.NextVaReview,
+        ProfileRevisionDatesForm.FieldNextPolicy => row.NextPolicyReview,
+        ProfileRevisionDatesForm.FieldAuthorStatus => row.AuthorStatus,
+        ProfileRevisionDatesForm.FieldVaStatus => row.VaStatus,
+        ProfileRevisionDatesForm.FieldPolicyStatus => row.PolicyStatus,
+        _ => string.Empty
+    };
+
+    static string SetForAllValue(RevisionDatesSetForAllView setForAll, string field) => field switch
+    {
+        ProfileRevisionDatesForm.FieldAuthorStatus => setForAll.AuthorStatus,
+        ProfileRevisionDatesForm.FieldNextAuthor => setForAll.NextAuthorReview,
+        ProfileRevisionDatesForm.FieldVaStatus => setForAll.VaStatus,
+        ProfileRevisionDatesForm.FieldNextVa => setForAll.NextVaReview,
+        ProfileRevisionDatesForm.FieldPolicyStatus => setForAll.PolicyStatus,
+        ProfileRevisionDatesForm.FieldNextPolicy => setForAll.NextPolicyReview,
+        _ => string.Empty
+    };
+
+    static string OptionText(IReadOnlyList<RevisionDatesOption> options, string value) =>
+        string.IsNullOrEmpty(value) ? string.Empty : options.FirstOrDefault(option => option.Value == value)?.Text ?? string.Empty;
+}
+@if (Model.Rows.Count == 0)
+{
+    <p class="govuk-body">There are no revision dates to display.</p>
+}
+else
+{
+    if (Model.IsEditable)
+    {
+        <div class="govuk-hint" id="revision-date-hint">Enter dates as, for example, 1 January 2027. Leave a date blank to clear it.</div>
+
+        <div class="app-revision-set-all" id="revision-dates-set-all">
+            <h3 class="govuk-heading-s">Set For All Sections:</h3>
+            <table class="app-revision-dates-layout" role="presentation">
+                @foreach (var review in reviews)
+                {
+                    var statusId = $"revall-{review.Status}";
+                    var nextId = $"revall-{review.Next}";
+                    <tr>
+                        <td><label class="govuk-label" for="@statusId">@review.Name review status:</label></td>
+                        <td>
+                            <select class="govuk-select" id="@statusId" name="@ProfileRevisionDatesForm.SetForAllFieldName(review.Status)" data-revision-setall="@review.Status">
+                                @foreach (var option in Model.StatusOptions)
+                                {
+                                    <option value="@option.Value" selected="@(option.Value == SetForAllValue(Model.SetForAll, review.Status))">@option.Text</option>
+                                }
+                            </select>
+                        </td>
+                        <td class="app-revision-dates-layout__gap"></td>
+                        <td><label class="govuk-label" for="@nextId">Next @review.Lower review:</label></td>
+                        <td>
+                            <input class="govuk-input app-revision-dates-date" id="@nextId" name="@ProfileRevisionDatesForm.SetForAllFieldName(review.Next)" type="text" autocomplete="off"
+                                   value="@SetForAllValue(Model.SetForAll, review.Next)" data-revision-setall="@review.Next" aria-describedby="revision-date-hint" />
+                        </td>
+                    </tr>
+                }
+            </table>
+            <hr class="govuk-section-break govuk-section-break--visible" />
+        </div>
+    }
+
+    foreach (var row in Model.Rows)
+    {
+        <h3 class="govuk-heading-s">@row.SectionDisplay</h3>
+        foreach (var error in row.Errors)
+        {
+            <p class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @error</p>
+        }
+
+        <table class="app-revision-dates-layout" role="presentation">
+            @foreach (var review in reviews)
+            {
+                var frequencyId = $"rev-{row.ProfileSectionId:N}-{review.Frequency}";
+                var nextId = $"rev-{row.ProfileSectionId:N}-{review.Next}";
+                <tr>
+                    <td><label class="govuk-label" for="@frequencyId">@review.Name review frequency:</label></td>
+                    <td>
+                        @if (Model.IsEditable)
+                        {
+                            <select class="govuk-select" id="@frequencyId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Frequency)">
+                                @foreach (var option in Model.FrequencyOptions)
+                                {
+                                    <option value="@option.Value" selected="@(option.Value == ValueOf(row, review.Frequency))">@option.Text</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <span class="app-revision-dates-readonly" id="@frequencyId">@OptionText(Model.FrequencyOptions, ValueOf(row, review.Frequency))</span>
+                        }
+                    </td>
+                    <td class="app-revision-dates-layout__gap"></td>
+                    <td><label class="govuk-label" for="@nextId">Next @review.Lower review:</label></td>
+                    <td>
+                        @if (Model.IsEditable)
+                        {
+                            <input class="govuk-input app-revision-dates-date" id="@nextId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Next)" type="text" autocomplete="off"
+                                   value="@ValueOf(row, review.Next)" data-revision-field="@review.Next" aria-describedby="revision-date-hint" />
+                        }
+                        else
+                        {
+                            <span class="app-revision-dates-readonly" id="@nextId">@ValueOf(row, review.Next)</span>
+                        }
+                    </td>
+                </tr>
+            }
+            @foreach (var review in reviews)
+            {
+                var statusId = $"rev-{row.ProfileSectionId:N}-{review.Status}";
+                <tr>
+                    <td><label class="govuk-label" for="@statusId">@review.Name review status:</label></td>
+                    <td>
+                        @if (Model.IsEditable)
+                        {
+                            <select class="govuk-select" id="@statusId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Status)" data-revision-field="@review.Status">
+                                @foreach (var option in Model.StatusOptions)
+                                {
+                                    <option value="@option.Value" selected="@(option.Value == ValueOf(row, review.Status))">@option.Text</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <span class="app-revision-dates-readonly" id="@statusId">@OptionText(Model.StatusOptions, ValueOf(row, review.Status))</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </table>
+        if (Model.IsEditable)
+        {
+            <input type="hidden" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, ProfileRevisionDatesForm.FieldLastUpdated)" value="@row.LastUpdated" />
+        }
+    }
+}
