@@ -1264,6 +1264,19 @@ body {
 .app-button-group--right.govuk-button-group {
   display: flex;
 }
+
+/* Disease ranking report: a report dropdown with its actions beside it, wrapping on narrow screens. */
+.app-select-with-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.app-select-with-actions .govuk-select {
+  max-width: 100%;
+}
+
 /* All Revision dates tab */
 .app-revision-set-all {
     margin-bottom: 20px;
