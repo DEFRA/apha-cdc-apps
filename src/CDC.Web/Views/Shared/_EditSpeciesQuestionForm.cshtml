@@ -1,0 +1,92 @@
+@model CDC.Web.Pages.EditSpeciesModel
+@if (Model.EditableQuestions.Count == 0)
+{
+    <p class="govuk-body">No sub-sections are available for this section.</p>
+}
+else
+{
+    <form method="post" asp-page-handler="Save" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key" asp-route-edit="true">
+        <input type="hidden" name="LastUpdatedBase64" value="@Convert.ToBase64String(Model.AnswerDataLastUpdated)" />
+
+        <div class="govuk-accordion" data-module="govuk-accordion" id="edit-species-accordion">
+            @foreach (var question in Model.EditableQuestions)
+            {
+                var anchor = question.Number.Replace(".", "-");
+                <div class="govuk-accordion__section" id="question-@anchor">
+                    <div class="govuk-accordion__section-header">
+                        <h3 class="govuk-accordion__section-heading">
+                            <span class="govuk-accordion__section-button" id="edit-species-accordion-heading-@anchor">
+                                @question.Number @question.Text
+                            </span>
+                        </h3>
+                    </div>
+                    <div id="edit-species-accordion-content-@anchor" class="govuk-accordion__section-content">
+                        @foreach (var field in question.Fields)
+                        {
+                            var fieldName = $"field_{field.FieldId}";
+
+                            if (string.Equals(field.DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <fieldset class="govuk-fieldset">
+                                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label</legend>
+                                    <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                        @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                                        {
+                                            var option = field.Options[optionIndex];
+                                            var optionId = $"{fieldName}-{optionIndex}";
+                                            <div class="govuk-checkboxes__item">
+                                                <input class="govuk-checkboxes__input" id="@optionId" name="@fieldName" type="checkbox" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
+                                                <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                                            </div>
+                                        }
+                                    </div>
+                                </fieldset>
+                            }
+                            else if (string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Legacy DropDownListProfileField: a single-select dropdown, not radios.
+                                <div class="govuk-form-group">
+                                    <label class="govuk-label" for="@fieldName">@field.Label</label>
+                                    <select class="govuk-select" id="@fieldName" name="@fieldName">
+                                        <option value="">Please select...</option>
+                                        @foreach (var option in field.Options)
+                                        {
+                                            <option value="@option.Id" selected="@(option.IsChecked ? "selected" : null)">@option.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                            else if (string.Equals(field.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Legacy BooleanProfileField: a Yes/No dropdown, not a checkbox or radios.
+                                <div class="govuk-form-group">
+                                    <label class="govuk-label" for="@fieldName">@field.Label</label>
+                                    <select class="govuk-select" id="@fieldName" name="@fieldName">
+                                        <option value="">Please select...</option>
+                                        <option value="true" selected="@(field.BooleanValue == true ? "selected" : null)">Yes</option>
+                                        <option value="false" selected="@(field.BooleanValue == false ? "selected" : null)">No</option>
+                                    </select>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="govuk-form-group">
+                                    <label class="govuk-label" for="@fieldName">@field.Label</label>
+                                    <textarea class="govuk-textarea" id="@fieldName" name="@fieldName" rows="3">@field.TextValue</textarea>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="govuk-button-group">
+            <button type="submit" class="govuk-button" data-module="govuk-button">Save</button>
+            <a asp-page="/EditSpecies" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key"
+                class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                View data
+            </a>
+        </div>
+    </form>
+}

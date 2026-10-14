@@ -22,12 +22,24 @@ public class StaticReportsModelTests
     private static StaticReportsModel CreatePageModel(
         IReadOnlyList<StaticReportListItemDto>? staticReports = null,
         Exception? throwOnGetCurrentStaticReports = null,
+        IReadOnlyList<StaticReportListItemDto>? staticReportHistory = null,
+        Exception? throwOnGetStaticReportHistory = null,
+        bool canUploadStaticReports = true,
+        UploadStaticReportResult? uploadStaticReportResult = null,
+        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
         string? baseUrl = "https://api.example.test")
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
         return new StaticReportsModel(
-            new FakeApiClient(staticReports: staticReports, throwOnGetCurrentStaticReports: throwOnGetCurrentStaticReports),
+            new FakeApiClient(
+                staticReports: staticReports,
+                throwOnGetCurrentStaticReports: throwOnGetCurrentStaticReports,
+                staticReportHistory: staticReportHistory,
+                throwOnGetStaticReportHistory: throwOnGetStaticReportHistory,
+                canUploadStaticReports: canUploadStaticReports,
+                uploadStaticReportResult: uploadStaticReportResult,
+                deleteStaticReportVersionResult: deleteStaticReportVersionResult),
             Options.Create(new ApiOptions { BaseUrl = baseUrl ?? string.Empty }),
             new AlwaysEnabledLogger<StaticReportsModel>())
         {
@@ -36,8 +48,21 @@ public class StaticReportsModelTests
                 HttpContext = new DefaultHttpContext(),
                 ViewData = new ViewDataDictionary(modelMetadataProvider, new ModelStateDictionary())
             },
-            MetadataProvider = modelMetadataProvider
+            MetadataProvider = modelMetadataProvider,
+            Url = new FakeUrlHelper(values => $"/HelpSupport/StaticReports?PageNumber={values["PageNumber"]}")
         };
+    }
+
+    private static FormFile CreateFormFile(string fileName, string contentType, byte[]? content = null)
+    {
+        var bytes = content ?? [1, 2, 3];
+        var formFile = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "UploadedFile", fileName)
+        {
+            Headers = new HeaderDictionary()
+        };
+        formFile.ContentType = contentType;
+
+        return formFile;
     }
 
     private static StaticReportListItemDto Report(string title, DateTime? effectiveDateTo = null) => new()
@@ -52,6 +77,7 @@ public class StaticReportsModelTests
         IsPublic = true,
         FileSize = 1024
     };
+
 
     [Fact]
     public async Task OnGetAsync_PopulatesReports_WhenTheApiSucceeds()
@@ -174,6 +200,113 @@ public class StaticReportsModelTests
         var report = Report("Report A", new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc));
 
         Assert.Equal("01/01/2024 - 01/06/2024", StaticReportsModel.FormatEffectiveDates(report));
+    }
+
+    [Fact]
+    public async Task OnGetAsync_LoadsHistory_WhenStaticReportIdIsSet()
+    {
+        var pageModel = CreatePageModel(staticReportHistory: [Report("Help using D2R2") with { IsUserManual = true }]);
+        pageModel.StaticReportId = StaticReportId;
+        pageModel.UserManual = 1;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.True(pageModel.IsHistoryMode);
+        Assert.Equal("History for Help using D2R2", pageModel.Breadcrumb!.PageName);
+        Assert.Equal("Help Using D2R2", pageModel.Breadcrumb.ParentPageName);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ReturnsEmptyHistory_WhenTheApiThrows()
+    {
+        var pageModel = CreatePageModel(throwOnGetStaticReportHistory: new HttpRequestException("connection refused"));
+        pageModel.StaticReportId = StaticReportId;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(pageModel.Reports);
+        Assert.Equal("History", pageModel.Breadcrumb!.PageName);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenNoFileIsChosen()
+    {
+        var pageModel = CreatePageModel();
+        pageModel.UploadedFile = null;
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Contains("Please choose a file to upload", pageModel.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenFileIsNotAPdf()
+    {
+        var pageModel = CreatePageModel();
+        pageModel.UploadedFile = CreateFormFile("manual.docx", "application/msword");
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Contains("must be a Pdf", pageModel.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenFileNameIsTooShort()
+    {
+        var pageModel = CreatePageModel();
+        pageModel.UploadedFile = CreateFormFile("a.pd", "application/pdf");
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Contains("filename was less than 5 characters long", pageModel.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsSuccess_WhenTheApiSucceeds()
+    {
+        var pageModel = CreatePageModel(uploadStaticReportResult: new UploadStaticReportResult(UploadStaticReportOutcome.Success, null));
+        pageModel.UploadedFile = CreateFormFile("Help using D2R2.pdf", "application/pdf");
+        pageModel.MakePublic = true;
+
+        var result = await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("The report was uploaded successfully", pageModel.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheApiReturnsForbidden()
+    {
+        var pageModel = CreatePageModel(
+            uploadStaticReportResult: new UploadStaticReportResult(UploadStaticReportOutcome.Forbidden, "Not permitted"));
+        pageModel.UploadedFile = CreateFormFile("Help using D2R2.pdf", "application/pdf");
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Contains("Not permitted", pageModel.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_ShowsSuccess_WhenTheApiSucceeds()
+    {
+        var pageModel = CreatePageModel(
+            deleteStaticReportVersionResult: new DeleteStaticReportVersionResult(DeleteStaticReportVersionOutcome.Success, null));
+
+        var result = await pageModel.OnPostDeleteAsync(VersionId, CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("The report version was successfully deleted", pageModel.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAsync_ShowsError_WhenTheApiFails()
+    {
+        var pageModel = CreatePageModel(
+            deleteStaticReportVersionResult: new DeleteStaticReportVersionResult(DeleteStaticReportVersionOutcome.Forbidden, "Not permitted"));
+
+        await pageModel.OnPostDeleteAsync(VersionId, CancellationToken.None);
+
+        Assert.Contains("Not permitted", pageModel.ErrorMessage);
     }
 
     /// <summary>Minimal <see cref="IUrlHelper"/> double: only <see cref="RouteUrl"/> is used by

@@ -86,6 +86,58 @@ public class EntraOpenIdConnectEventsTests
     }
 
     [Fact]
+    public async Task TokenValidated_ResolverAllows_TrimsBulkyIdTokenClaims_ButKeepsTheOnesTheAppReadsAndTheResolvedOnes()
+    {
+        var identity = new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.Name, "Jane Internal"),
+            new Claim("oid", "22222222-2222-2222-2222-222222222222"),
+            new Claim(ClaimTypes.NameIdentifier, "subject"),
+            new Claim("preferred_username", "jane@example.com"),
+            new Claim("onprem_samaccountname", "jane"),
+            new Claim("aio", "bulky"),
+            new Claim("groups", "g1"),
+            new Claim("groups", "g2")
+        ]);
+        var principal = new ClaimsPrincipal(identity);
+        var resolver = new StubResolver(EntraInternalUserResolution.Allow(new Dictionary<string, string> { ["internalUserId"] = "id", ["aio"] = "added-by-resolver" }));
+        var services = new ServiceCollection();
+        services.AddSingleton<IEntraInternalUserResolver>(resolver);
+        var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), principal, new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.Contains(identity.Claims, c => c.Type == ClaimTypes.Name);
+        Assert.Contains(identity.Claims, c => c.Type == "oid");
+        Assert.Contains(identity.Claims, c => c.Type == ClaimTypes.NameIdentifier);
+        Assert.Contains(identity.Claims, c => c.Type == "preferred_username");
+        Assert.Contains(identity.Claims, c => c.Type == "internalUserId");
+        Assert.Contains(identity.Claims, c => c.Type == "aio" && c.Value == "added-by-resolver");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "onprem_samaccountname");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "groups");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "aio" && c.Value == "bulky");
+    }
+
+    [Fact]
+    public async Task TokenValidated_ResolverDenies_LeavesTheClaimsUntouched()
+    {
+        var identity = new ClaimsIdentity([new Claim("aio", "bulky"), new Claim(ClaimTypes.Name, "test-user")]);
+        var services = new ServiceCollection();
+        services.AddSingleton<IEntraInternalUserResolver>(new StubResolver(EntraInternalUserResolution.Deny("/Account/NotPermitted")));
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            Response = { Body = new MemoryStream() }
+        };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(identity), new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.Contains(identity.Claims, c => c.Type == "aio");
+    }
+
+    [Fact]
     public async Task TicketReceived_RemovesTheAccessToken_AndKeepsTheOthers()
     {
         var properties = new AuthenticationProperties();

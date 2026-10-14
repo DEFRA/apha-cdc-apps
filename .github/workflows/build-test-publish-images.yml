@@ -82,6 +82,7 @@ jobs:
             api:
               - 'src/CDC.Api/**'
               - 'tests/CDC.Api.Tests/**'
+              - 'src/CDC.Common/**'
               - 'CDC.slnx'
               - 'Directory.Build.*'
               - 'Directory.Packages.props'
@@ -92,8 +93,11 @@ jobs:
             web:
               - 'src/CDC.Web/**'
               - 'tests/CDC.Web.Tests/**'
+              - 'src/CDC.Common/**'
               - 'src/CDC.Auth.Cidm/**'
               - 'tests/CDC.Auth.Cidm.Tests/**'
+              - 'src/CDC.Auth.Entra/**'
+              - 'tests/CDC.Auth.Entra.Tests/**'
               - 'CDC.slnx'
               - 'Directory.Build.*'
               - 'Directory.Packages.props'
@@ -318,12 +322,23 @@ jobs:
 
           dotnet build CDC.slnx --configuration Release --no-restore
 
-          dotnet test CDC.slnx \
-            --configuration Release \
-            --no-restore \
-            --logger "trx;LogFilePrefix=cdc-sonar-tests" \
-            --results-directory "${{ runner.temp }}/test-results" \
-            /p:Threshold=0
+          # coverlet.msbuild 10.0.1 intermittently throws "Unable to read beyond the end of the
+          # stream" after tests pass (https://github.com/coverlet-coverage/coverlet/issues/1957).
+          # Retry rather than fail the analysis on this known, transient third-party issue.
+          max_attempts=3
+          for attempt in $(seq 1 "${max_attempts}"); do
+            if dotnet test CDC.slnx \
+              --configuration Release \
+              --no-restore \
+              --logger "trx;LogFilePrefix=cdc-sonar-tests" \
+              --results-directory "${{ runner.temp }}/test-results" \
+              /p:Threshold=0; then
+              break
+            fi
+            if [ "${attempt}" -eq "${max_attempts}" ]; then exit 1; fi
+            echo "::warning::dotnet test failed (attempt ${attempt} of ${max_attempts}) - retrying."
+            sleep 5
+          done
 
           "${{ runner.temp }}/scanner/dotnet-sonarscanner" end \
             /d:sonar.token="${SONAR_TOKEN}"
