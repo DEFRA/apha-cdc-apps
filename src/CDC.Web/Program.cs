@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Events;
 using CDC.Auth.Entra;
