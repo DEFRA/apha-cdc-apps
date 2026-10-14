@@ -26,14 +26,14 @@ public static class ProfileVersionTreeBuilder
             var profileTitle = ProfileTitleHtmlFormatter.ToPlainText(profile.Title);
             var lineages = new List<TreeNodeViewModel>();
 
-            AddLineage(lineages, versions, profileTitle, CurrentSituationLabel, $"{profile.Id}-current", profile.PublishedVersions, profile.DraftVersions, selectedValues);
+            AddLineage(lineages, versions, profileTitle, CurrentSituationLabel, $"{profile.Id}-current", profile.PublishedVersions, profile.DraftVersions);
 
             var scenarioNumber = 0;
             foreach (var scenario in profile.WhatIfScenarios)
             {
                 scenarioNumber++;
                 var scenarioTitle = ScenarioLabel(scenario, scenarioNumber);
-                AddLineage(lineages, versions, profileTitle, scenarioTitle, $"{profile.Id}-{scenario.ScenarioId}", scenario.PublishedVersions, scenario.DraftVersions, selectedValues);
+                AddLineage(lineages, versions, profileTitle, scenarioTitle, $"{profile.Id}-{scenario.ScenarioId}", scenario.PublishedVersions, scenario.DraftVersions);
             }
 
             if (lineages.Count == 0)
@@ -85,8 +85,7 @@ public static class ProfileVersionTreeBuilder
         string lineageLabel,
         string lineageKey,
         IReadOnlyList<ProfileHistoryItemDto> published,
-        IReadOnlyList<ProfileHistoryItemDto> drafts,
-        IReadOnlySet<string> selectedValues)
+        IReadOnlyList<ProfileHistoryItemDto> drafts)
     {
         var rows = published.Select(version => (Version: version, Status: "Published"))
             .Concat(drafts.Select(version => (Version: version, Status: "Draft")))

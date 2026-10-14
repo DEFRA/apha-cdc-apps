@@ -140,7 +140,7 @@ public sealed partial class ProfileVersionComparisonService(
 
     private static List<(PartKey Key, ProfileFieldValueDto Value)> Keyed(ProfileQuestionMetadataDto question, ProfileSectionAnswersDto answers)
     {
-        Dictionary<Guid, int> rows = question.IsRepeating
+        var rows = question.IsRepeating
             ? answers.QuestionRows
                 .Where(row => row.QuestionId == question.Id)
                 .OrderBy(row => row.SequenceNumber)
@@ -256,7 +256,7 @@ public sealed partial class ProfileVersionComparisonService(
     private sealed class Lookups(IProfileSectionsApiService sectionsApi, ISpeciesApiService speciesApi, CancellationToken cancellationToken)
     {
         private readonly Dictionary<Guid, IReadOnlyDictionary<Guid, string>> referenceValues = [];
-        private IReadOnlyDictionary<Guid, string>? speciesNames;
+        private Dictionary<Guid, string>? speciesNames;
 
         public async Task<IReadOnlyDictionary<Guid, string>> OptionsAsync(ProfileFieldMetadataDto field)
         {
