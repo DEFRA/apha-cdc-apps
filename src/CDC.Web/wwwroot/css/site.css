@@ -169,6 +169,24 @@ html {
   min-width: 12rem;
 }
 
+/* "Items per page" label and select on one line, right-aligned above a list. */
+.app-page-size-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-page-size-toolbar .govuk-form-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.app-page-size-toolbar .govuk-label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
 /* Edit profile contributor panel (see MaintainContributors.cshtml). */
 .app-contributor-edit {
   width: 100%;
@@ -721,6 +739,10 @@ body {
   padding: 0;
   font: inherit;
   cursor: pointer;
+}
+
+.app-inline-form {
+  display: inline;
 }
 
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg

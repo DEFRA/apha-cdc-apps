@@ -78,6 +78,9 @@ public interface IApiClient
         bool isPublic,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Marks one static report version as public via <c>PUT /api/static-reports/versions/{staticReportVersionId}/public</c>.</summary>
+    Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes a static report or user manual version via
     /// <c>DELETE /api/static-reports/versions/{staticReportVersionId}</c>.</summary>
     Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
@@ -387,6 +390,12 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
             _ => new UploadStaticReportResult(
                 UploadStaticReportOutcome.ValidationFailed, problem?.Detail ?? "The document could not be uploaded. Please try again.")
         };
+    }
+
+    public async Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsync($"/api/static-reports/versions/{staticReportVersionId}/public", null, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(

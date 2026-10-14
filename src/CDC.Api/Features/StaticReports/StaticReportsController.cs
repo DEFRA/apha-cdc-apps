@@ -93,6 +93,23 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     }
 
     /// <summary>
+    /// Marks one general report version as public.
+    /// </summary>
+    /// <param name="staticReportVersionId">The version to make public.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The report version was marked public.</response>
+    [HttpPut("versions/{staticReportVersionId:guid}/public")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetStaticReportPublicAccess(
+        Guid staticReportVersionId,
+        CancellationToken cancellationToken)
+    {
+        await staticReportService.SetStaticReportPublicAccessAsync(staticReportVersionId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Uploads a new version of a static report or user manual.
     /// </summary>
     /// <param name="request">The title, PDF bytes, and visibility flags for the new version.</param>

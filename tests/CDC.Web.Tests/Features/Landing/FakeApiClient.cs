@@ -24,7 +24,9 @@ internal sealed class FakeApiClient( // NOSONAR
     UploadStaticReportResult? uploadStaticReportResult = null,
     DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
     CreateNewProfileVersionResult? createNewProfileVersionResult = null,
-    DeleteProfileVersionResult? deleteProfileVersionResult = null) : IApiClient
+    DeleteProfileVersionResult? deleteProfileVersionResult = null,
+    bool staticReportOperationResult = false,
+    Exception? throwOnStaticReportOperation = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -115,18 +117,27 @@ internal sealed class FakeApiClient( // NOSONAR
     public Task<bool> CanUploadStaticReportsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(canUploadStaticReports);
 
+    public Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default) =>
+        throwOnStaticReportOperation is not null
+            ? Task.FromException<bool>(throwOnStaticReportOperation)
+            : Task.FromResult(staticReportOperationResult);
+
     public Task<UploadStaticReportResult> UploadStaticReportAsync(
         string title,
         byte[] pdfData,
         bool isUserManual,
         bool isPublic,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(_uploadStaticReportResult);
+        throwOnStaticReportOperation is not null
+            ? Task.FromException<UploadStaticReportResult>(throwOnStaticReportOperation)
+            : Task.FromResult(_uploadStaticReportResult);
 
     public Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
         Guid staticReportVersionId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(_deleteStaticReportVersionResult);
+        throwOnStaticReportOperation is not null
+            ? Task.FromException<DeleteStaticReportVersionResult>(throwOnStaticReportOperation)
+            : Task.FromResult(_deleteStaticReportVersionResult);
 
     public Task<CreateNewProfileVersionResult> CreateNewProfileVersionAsync(
         Guid profileVersionId,

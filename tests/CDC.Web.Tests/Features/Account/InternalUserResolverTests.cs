@@ -281,6 +281,9 @@ public class InternalUserResolverTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new UploadStaticReportResult(UploadStaticReportOutcome.Forbidden, "Not implemented in this fake."));
 
+        public Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
         public Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
             Guid staticReportVersionId,
             CancellationToken cancellationToken = default) =>
