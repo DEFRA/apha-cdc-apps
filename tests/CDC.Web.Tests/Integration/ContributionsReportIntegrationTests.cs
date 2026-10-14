@@ -59,7 +59,7 @@ public class ContributionsReportIntegrationTests
             ]
         };
         var pdf = new CapturingPdfService();
-        using var factory = CreateFactory(new FixedReportsApi(new ContributionsReportResult(ContributionsReportOutcome.Success, report)), pdf);
+        using var factory = CreateFactory(new CDC.Web.Tests.Pages.SurveillanceProfiles.FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.Success, report)), pdf);
         var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/ViewContributionsReport/{profileId}");
@@ -84,7 +84,7 @@ public class ContributionsReportIntegrationTests
     {
         var report = new ContributionsReportDto { ProfileTitle = "Anthrax", Versions = [new ContributionsReportVersionDto { FullTitle = "Anthrax" }] };
         using var factory = CreateFactory(
-            new FixedReportsApi(new ContributionsReportResult(ContributionsReportOutcome.Success, report)),
+            new CDC.Web.Tests.Pages.SurveillanceProfiles.FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.Success, report)),
             new CapturingPdfService(new PdfRenderException("no browser")));
         var client = await factory.SignedInClientAsync();
 
@@ -99,7 +99,7 @@ public class ContributionsReportIntegrationTests
     [Fact]
     public async Task ContributionsReport_ReturnsNotFound_WhenTheProfileHasNoDraftVersions()
     {
-        using var factory = CreateFactory(new FixedReportsApi(new ContributionsReportResult(ContributionsReportOutcome.NotFound)), new CapturingPdfService());
+        using var factory = CreateFactory(new CDC.Web.Tests.Pages.SurveillanceProfiles.FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.NotFound)), new CapturingPdfService());
         var client = await factory.SignedInClientAsync();
 
         var response = await client.GetAsync($"/SurveillanceProfiles/ViewContributionsReport/{Guid.NewGuid()}");
@@ -116,12 +116,6 @@ public class ContributionsReportIntegrationTests
                 services.RemoveAll<IPlaywrightPdfService>();
                 services.AddSingleton(pdf);
             }));
-
-    private sealed class FixedReportsApi(ContributionsReportResult result) : IProfileReportsApiService
-    {
-        public Task<ContributionsReportResult> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(result);
-    }
 
     private sealed class CapturingPdfService(Exception? throwOnRender = null) : IPlaywrightPdfService
     {

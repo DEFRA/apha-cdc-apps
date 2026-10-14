@@ -16,4 +16,28 @@ public static class ProfileReportStoredProcedures
 
     /// <summary>Reads a profile's version history in one state (draft or published); the first result set lists the versions.</summary>
     public const string GetProfileHistory = "spgProfileHistory";
+
+    /// <summary>Reads one profile version's title, number, state and dates; the first result set holds the version.</summary>
+    public const string GetProfileVersionInfoById = "spgProfileVersionInfoById";
+
+    /// <summary>Reads the questionnaire: sections (with notes), questions (with relevance rules), fields and field-group child fields.</summary>
+    public const string GetQuestionnaireMetadata = "spgaProfileSectionMetadata";
+
+    /// <summary>Reads one profile version section: profiled species, revision dates, question names, answer rows and field values.</summary>
+    public const string GetProfileVersionSection = "spgProfileVersionSection";
+
+    /// <summary>Reads a maintainable reference table's values, including which are inactive.</summary>
+    public const string GetReferenceValuesByTable = "spgReferenceValueByTable";
+
+    /// <summary>Reads any reference table's values, for tables that are not user-maintainable.</summary>
+    public const string GetLookupValuesByTable = "spgLookupValueByTable";
+
+    /// <summary>Reads each species' score and rank per prioritisation category for a profile version.</summary>
+    public const string GetPrioritisationCategoryScores = "spgPrioritisationCategoryScoreByProfileVersionId";
+
+    /// <summary>Reads each species' value and score per prioritisation criterion for a profile version.</summary>
+    public const string GetPrioritisationCriterionScores = "spgPrioritisationCriterionScoreByProfileVersionId";
+
+    /// <summary>Reads the species that were prioritised for a profile version.</summary>
+    public const string GetPrioritisedSpecies = "spgPrioritisedSpeciesByProfileVersionId";
 }

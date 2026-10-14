@@ -11,6 +11,9 @@ public sealed record TreeNodeViewModel
     /// Branches only: whether the node starts expanded.
     public bool Expanded { get; init; }
 
+    /// Optional marker rendered as data-app-tree-kind, so a page's script can find a kind of node.
+    public string? Kind { get; init; }
+
     public IReadOnlyList<TreeNodeViewModel> Children { get; init; } = [];
 }
 
@@ -38,6 +41,10 @@ public sealed record TreeViewViewModel
     /// Whether more than one node may be checked at once (checkboxes) rather than exactly one
     /// (radios, the default).
     public bool AllowMultipleSelection { get; init; }
+
+    /// Multi-select trees only: checking a node checks everything under it, and checking a node
+    /// checks its ancestors, instead of the default "a node excludes its ancestors and descendants".
+    public bool CascadeSelection { get; init; }
 
     /// Values that should render pre-checked when <see cref="AllowMultipleSelection"/> is true.
     public IReadOnlySet<string> SelectedValues { get; init; } = new HashSet<string>();

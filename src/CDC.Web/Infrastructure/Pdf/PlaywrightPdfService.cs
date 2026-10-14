@@ -80,6 +80,8 @@ public sealed partial class PlaywrightPdfService(IConfiguration configuration, I
         {
             Format = "A4",
             PrintBackground = true,
+            Outline = options.GenerateOutline,
+            PreferCSSPageSize = options.PreferCssPageSize,
             DisplayHeaderFooter = displayHeaderFooter,
             HeaderTemplate = options.HeaderHtml ?? "<span></span>",
             FooterTemplate = options.FooterHtml ?? "<span></span>",

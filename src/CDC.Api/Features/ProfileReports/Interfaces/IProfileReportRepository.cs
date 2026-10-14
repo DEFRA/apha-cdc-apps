@@ -40,4 +40,10 @@ public interface IProfileReportRepository
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>The draft versions, newest first; empty when the profile has none.</returns>
     Task<IReadOnlyList<DraftProfileVersion>> GetDraftProfileVersionsAsync(Guid profileId, CancellationToken cancellationToken);
+
+    /// <summary>Reads one profile version's title, number, state and dates via <c>spgProfileVersionInfoById</c>.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The version's header, or <see langword="null"/> when it does not exist.</returns>
+    Task<ProfileVersionHeader?> GetProfileVersionHeaderAsync(Guid profileVersionId, CancellationToken cancellationToken);
 }

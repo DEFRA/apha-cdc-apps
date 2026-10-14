@@ -27,20 +27,27 @@ public sealed class ProfileReportRepository(IDbConnectionFactory connectionFacto
 
         try
         {
-            var rows = await connection.QueryAsync<ProfileVersionReportRow>(new CommandDefinition(
+            await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
                 ProfileReportStoredProcedures.GetProfileVersionReports,
                 new { ProfileVersionId = profileVersionId, IsAuthenticated = isAuthenticated },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
 
-            return [.. rows.Select(row => new ProfileVersionReport
+            // Id, ReportName, DisplayName, HasPdfData, FileSize (NULL until a PDF is stored), DisplayPublic.
+            var reports = new List<ProfileVersionReport>();
+            while (await reader.ReadAsync(cancellationToken))
             {
-                Id = row.Id,
-                ReportName = row.ReportName ?? string.Empty,
-                DisplayName = row.DisplayName ?? string.Empty,
-                HasPdfData = row.HasPdfData,
-                FileSize = row.FileSize
-            })];
+                reports.Add(new ProfileVersionReport
+                {
+                    Id = reader.GetGuid(0),
+                    ReportName = reader.ReadString(1),
+                    DisplayName = reader.ReadString(2),
+                    HasPdfData = reader.ReadBoolean(3),
+                    FileSize = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader.GetValue(4), CultureInfo.InvariantCulture)
+                });
+            }
+
+            return reports;
         }
         catch (DbException exception)
         {
@@ -138,6 +145,48 @@ public sealed class ProfileReportRepository(IDbConnectionFactory connectionFacto
         }
     }
 
+    /// <inheritdoc />
+    public async Task<ProfileVersionHeader?> GetProfileVersionHeaderAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+                ProfileReportStoredProcedures.GetProfileVersionInfoById,
+                new { Id = profileVersionId },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            // First result set: Id, ProfileId, Title, VersionMajor, VersionMinor, State, EffectiveDateFrom,
+            // EffectiveDateTo, IsLatestVersion, ScenarioTitle, ParentId, IsPublic, ProfileStatusId, ProfileStatusName.
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new ProfileVersionHeader
+            {
+                Id = reader.GetGuid(0),
+                ProfileId = reader.ReadGuid(1),
+                Title = reader.ReadString(2),
+                VersionMajor = Convert.ToInt32(reader.GetValue(3), CultureInfo.InvariantCulture),
+                VersionMinor = Convert.ToInt32(reader.GetValue(4), CultureInfo.InvariantCulture),
+                IsPublished = !string.Equals(reader.ReadString(5), "Draft", StringComparison.Ordinal),
+                EffectiveDateFrom = reader.GetDateTime(6),
+                EffectiveDateTo = reader.ReadNullableDateTime(7),
+                ScenarioTitle = reader.ReadString(9),
+                IsPublic = reader.ReadBoolean(11),
+                ProfileStatusName = reader.ReadString(13)
+            };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileReportStoredProcedures.GetProfileVersionInfoById);
+            throw;
+        }
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = connectionFactory.CreateConnection();
@@ -161,7 +210,4 @@ public sealed class ProfileReportRepository(IDbConnectionFactory connectionFacto
             throw;
         }
     }
-
-    /// <summary>Row shape returned by <c>spgProfileVersionReportByProfileVersionId</c>; column names map by Dapper convention.</summary>
-    private sealed record ProfileVersionReportRow(Guid Id, string? ReportName, string? DisplayName, bool HasPdfData, int FileSize);
 }

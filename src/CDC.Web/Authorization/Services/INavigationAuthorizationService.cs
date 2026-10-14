@@ -41,4 +41,10 @@ public interface INavigationAuthorizationService
 
     /// <summary>Legacy: <c>GetContributionsReportCommand.CanGetReport()</c>.</summary>
     Task<bool> CanViewContributionsReportAsync(ClaimsPrincipal user);
+
+    /// <summary>Legacy: <c>TemplateService.CanView()</c>.</summary>
+    Task<bool> CanViewBespokeReportAsync(ClaimsPrincipal user);
+
+    /// <summary>Legacy: <c>ProfilesIdentity.IsProfileEditor</c>.</summary>
+    Task<bool> IsProfileEditorAsync(ClaimsPrincipal user);
 }

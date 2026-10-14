@@ -31,6 +31,9 @@ public sealed class ProfileReportService(
     private const string PendingMessage =
         "This report is not yet available. PDF generation is being migrated from TallPDF to Razor views and Playwright.";
 
+    // The legacy page filtered this report out of the list: it is only produced for printing.
+    private const string FullProfileReportName = "FullProfileGUID";
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileVersionReportDto>> GetProfileVersionReportsAsync(
         Guid profileVersionId,
@@ -63,16 +66,30 @@ public sealed class ProfileReportService(
     }
 
     /// <inheritdoc />
-    public async Task<CreateProfileReportResultDto> CreateProfileReportAsync(
+    public async Task<Result<CreateProfileReportResultDto>> CreateProfileReportAsync(
         CreateProfileReportCommand command,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var header = await repository.GetProfileVersionHeaderAsync(command.ProfileVersionId, cancellationToken);
+
+        if (header is null)
+        {
+            return Result.NotFound<CreateProfileReportResultDto>("The profile version does not exist.");
+        }
+
+        if (!CanCreateReports(header))
+        {
+            logger.CreateProfileReportRefused(command.ProfileVersionId);
+
+            return Result.Forbidden<CreateProfileReportResultDto>("You do not have permission to create a profile report.");
+        }
+
         var profileReportId = await repository.CreateProfileReportAsync(command, cancellationToken);
         logger.CreatedProfileReport(profileReportId, command.ProfileVersionId);
 
-        return new CreateProfileReportResultDto { ProfileReportId = profileReportId };
+        return Result.Success(new CreateProfileReportResultDto { ProfileReportId = profileReportId });
     }
 
     /// <inheritdoc />
@@ -142,6 +159,41 @@ public sealed class ProfileReportService(
             ProfileId = profileId,
             ProfileTitle = draftVersions[0].FullTitle,
             Versions = versions
+        });
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<ProfileReportsOverviewDto>> GetProfileReportsOverviewAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var header = await repository.GetProfileVersionHeaderAsync(profileVersionId, cancellationToken);
+
+        if (header is null)
+        {
+            return Result.NotFound<ProfileReportsOverviewDto>("The profile version does not exist.");
+        }
+
+        var reports = await repository.GetProfileVersionReportsAsync(profileVersionId, true, cancellationToken);
+        var listed = reports.Where(report => !string.Equals(report.ReportName, FullProfileReportName, StringComparison.Ordinal)).ToList();
+
+        logger.RetrievedProfileReportsOverview(profileVersionId, listed.Count);
+
+        return Result.Success(new ProfileReportsOverviewDto
+        {
+            ProfileVersionId = header.Id,
+            ProfileId = header.ProfileId,
+            FullTitle = header.FullTitle,
+            VersionLabel = header.VersionLabel,
+            IsPublished = header.IsPublished,
+            IsCurrent = header.IsCurrent,
+            CanCreateReports = CanCreateReports(header),
+            Reports = [.. listed.Select(report => new ProfileReportListItemDto
+            {
+                Id = report.Id,
+                ReportName = report.ReportName,
+                DisplayName = report.DisplayName,
+                HasPdfData = report.HasPdfData,
+                FileSize = report.FileSize
+            })]
         });
     }
 
@@ -250,6 +302,19 @@ public sealed class ProfileReportService(
     // No database call and no TallPDF dependency: the PDF payload is produced by the separate
     // Razor + Playwright pipeline once that lands. See PendingReport's remarks for why this is
     // deliberately not a byte-array response.
+    // Legacy CreateProfileReportCommand.CanCreateProfileReport; contributor/reviewer access is not modelled by IUserContext yet.
+    private bool CanCreateReports(ProfileVersionHeader header)
+    {
+        if (userContext.IsUserManagementSystem || !header.IsCurrent)
+        {
+            return false;
+        }
+
+        return header.IsPublished
+            ? userContext.IsProfileEditor
+            : userContext.IsProfileEditor || userContext.IsPolicyProfileUser;
+    }
+
     private static PendingReport CreatePendingReport(string title) => new()
     {
         Title = title,

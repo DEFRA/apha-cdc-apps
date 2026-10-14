@@ -1,0 +1,121 @@
+@using CDC.Web.Infrastructure
+@model CDC.Web.Models.PrioritisationDocumentViewModel
+@{
+    Layout = "/Views/Pdf/_PdfLayout.cshtml";
+    ViewData["Title"] = Model.ReportTitle;
+    ViewData["DraftWatermark"] = Model.ShowDraftWatermark;
+}
+
+<section class="rpt-section">
+    <h1 class="rpt-title">@Model.ReportTitle for: @ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</h1>
+
+    @if (!Model.HasData)
+    {
+        <p class="rpt-not-relevant">@CDC.Web.Infrastructure.Reports.ProfilePrioritisationDocuments.NoDataMessage</p>
+    }
+
+    @foreach (var block in Model.Blocks)
+    {
+        @if (block.Question is not null)
+        {
+            @await Html.PartialAsync("/Views/Pdf/_ReportQuestion.cshtml", block.Question)
+        }
+
+        @if (block.CategoryTable is not null)
+        {
+            <table class="rpt-category">
+                <tbody>
+                    @foreach (var row in block.CategoryTable.Rows)
+                    {
+                        <tr>
+                            <td>@ProfileTitleHtmlFormatter.Format(row.SpeciesName)</td>
+                            <td class="rpt-category__rank">
+                                @if (row.IsPlaceholder)
+                                {
+                                    <span class="rpt-placeholder">@row.Rank</span>
+                                }
+                                else
+                                {
+                                    @row.Rank
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (block.Note is not null)
+        {
+            <p class="rpt-note-italic">@block.Note</p>
+        }
+    }
+</section>
+
+@foreach (var criteriaPage in Model.CriteriaPages)
+{
+    <section id="@criteriaPage.Anchor" class="rpt-section rpt-section--new-page">
+        <h2 class="rpt-section-heading">@criteriaPage.Heading: @criteriaPage.SpeciesHeading</h2>
+
+        <table class="rpt-criteria">
+            <thead>
+                <tr>
+                    <th scope="col"></th>
+                    @foreach (var speciesName in criteriaPage.SpeciesNames)
+                    {
+                        <th scope="col" class="rpt-criteria__species">@ProfileTitleHtmlFormatter.Format(speciesName)</th>
+                    }
+                </tr>
+            </thead>
+            @foreach (var category in criteriaPage.Categories)
+            {
+                <tbody>
+                    <tr class="rpt-criteria__category" style="background-color: @category.BackgroundColour; color: @category.ForegroundColour;">
+                        <td>@ProfileTitleHtmlFormatter.Format(category.DisplayName)</td>
+                        @foreach (var rank in category.Ranks)
+                        {
+                            <td>
+                                @if (rank.IsPlaceholder)
+                                {
+                                    <span class="rpt-placeholder">@rank.Text</span>
+                                }
+                                else
+                                {
+                                    @rank.Text
+                                }
+                            </td>
+                        }
+                    </tr>
+                    @foreach (var criterion in category.Criteria)
+                    {
+                        <tr>
+                            <td>@ProfileTitleHtmlFormatter.Format(criterion.Name)</td>
+                            @foreach (var value in criterion.Values)
+                            {
+                                <td>
+                                    @if (value.IsPlaceholder)
+                                    {
+                                        <span class="rpt-placeholder">@value.Text</span>
+                                    }
+                                    else
+                                    {
+                                        @ProfileTitleHtmlFormatter.Format(value.Text)
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            }
+        </table>
+    </section>
+}
+
+<section class="rpt-warning">
+    <h2 class="rpt-section-heading">@CDC.Web.Infrastructure.Reports.ProfileReportLayout.WarningTitle</h2>
+    <table>
+        <tr>
+            <td>@CDC.Web.Infrastructure.Reports.ProfileReportLayout.WarningText</td>
+        </tr>
+    </table>
+</section>

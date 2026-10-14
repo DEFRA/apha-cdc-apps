@@ -31,14 +31,20 @@ public interface IProfileReportService
     /// <summary>Persists a generated report document.</summary>
     /// <param name="command">The report to persist.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The persisted report's identifier.</returns>
-    Task<CreateProfileReportResultDto> CreateProfileReportAsync(CreateProfileReportCommand command, CancellationToken cancellationToken);
+    /// <returns>The persisted report's identifier; forbidden when the user may not create reports for the version; not found when the version does not exist.</returns>
+    Task<Result<CreateProfileReportResultDto>> CreateProfileReportAsync(CreateProfileReportCommand command, CancellationToken cancellationToken);
 
     /// <summary>Gets the data behind a profile's contributions report: every draft version and each section's logged contributions.</summary>
     /// <param name="profileId">The profile to report on.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The report data; forbidden when the user may not run the report; not found when the profile has no draft versions.</returns>
     Task<Result<ContributionsReportDto>> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken);
+
+    /// <summary>Gets what the "Profile reports" page shows for a profile version: its title, number, whether the user may regenerate reports, and the reports.</summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The overview; not found when the profile version does not exist.</returns>
+    Task<Result<ProfileReportsOverviewDto>> GetProfileReportsOverviewAsync(Guid profileVersionId, CancellationToken cancellationToken);
 
     /// <summary>Gets a printable profile section report descriptor.</summary>
     /// <param name="profileVersionId">The profile version to report on.</param>

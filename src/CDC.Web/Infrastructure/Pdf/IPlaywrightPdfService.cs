@@ -32,6 +32,12 @@ public sealed record PdfRenderOptions
 
     /// <summary>Gets the right page margin in millimetres.</summary>
     public double MarginRightMm { get; init; } = 12.7;
+
+    /// <summary>Gets a value indicating whether the PDF gets a bookmark outline built from its headings.</summary>
+    public bool GenerateOutline { get; init; }
+
+    /// <summary>Gets a value indicating whether a CSS <c>@page</c> size (for example a landscape named page) takes priority over A4 portrait.</summary>
+    public bool PreferCssPageSize { get; init; }
 }
 
 /// <summary>Thrown when a document could not be rendered to a valid PDF.</summary>

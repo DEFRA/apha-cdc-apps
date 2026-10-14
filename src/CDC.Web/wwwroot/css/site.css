@@ -552,6 +552,20 @@ body {
   margin-bottom: 10px;
 }
 
+/* A tree with long labels (the bespoke report's questions) uses the full width and the legacy page's 400px height. */
+.app-tree__panel--wide {
+  max-width: 100%;
+  max-height: 400px;
+}
+
+/* "Create bespoke report": the template buttons sit on the left and "Generate bespoke report" on the right. */
+.app-bespoke-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
 .app-tree__toggle-all {
   appearance: none;
   display: inline-flex;
@@ -649,6 +663,11 @@ body {
   padding: 0;
   font: inherit;
   cursor: pointer;
+}
+
+/* Lets a POST form sit inline beside a link in a table cell. */
+.app-inline-form {
+  display: inline;
 }
 
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg

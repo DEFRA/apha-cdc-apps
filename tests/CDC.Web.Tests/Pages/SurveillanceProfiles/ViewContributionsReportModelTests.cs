@@ -18,7 +18,7 @@ public class ViewContributionsReportModelTests
     [Fact]
     public async Task OnGetAsync_ReturnsThePdfAsAnAttachmentNamedAfterTheProfile()
     {
-        var reports = new FakeReportsApi(new ContributionsReportResult(ContributionsReportOutcome.Success, CreateReport()));
+        var reports = new FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.Success, CreateReport()));
         var renderer = new FakeViewRenderer("<html>report</html>");
         var pdf = new FakePdfService(PdfBytes);
 
@@ -37,7 +37,7 @@ public class ViewContributionsReportModelTests
     [Fact]
     public async Task OnGetAsync_ReturnsNotFound_WhenTheProfileHasNoDraftVersions()
     {
-        var model = CreatePageModel(new FakeReportsApi(new ContributionsReportResult(ContributionsReportOutcome.NotFound)));
+        var model = CreatePageModel(new FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.NotFound)));
 
         Assert.IsType<NotFoundResult>(await model.OnGetAsync(CancellationToken.None));
     }
@@ -45,7 +45,7 @@ public class ViewContributionsReportModelTests
     [Fact]
     public async Task OnGetAsync_Returns403_WhenTheApiRefusesTheUser()
     {
-        var model = CreatePageModel(new FakeReportsApi(new ContributionsReportResult(ContributionsReportOutcome.Forbidden)));
+        var model = CreatePageModel(new FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.Forbidden)));
 
         var result = await model.OnGetAsync(CancellationToken.None);
 
@@ -55,7 +55,7 @@ public class ViewContributionsReportModelTests
     [Fact]
     public async Task OnGetAsync_ShowsTheErrorPage_WhenTheApiFails()
     {
-        var model = CreatePageModel(new FakeReportsApi(new ContributionsReportResult(ContributionsReportOutcome.Error)));
+        var model = CreatePageModel(new FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.Error)));
 
         Assert.IsType<PageResult>(await model.OnGetAsync(CancellationToken.None));
         Assert.Equal(ViewContributionsReportModel.FailureMessage, model.ErrorMessage);
@@ -67,7 +67,7 @@ public class ViewContributionsReportModelTests
     [InlineData(typeof(NotSupportedException))]
     public async Task OnGetAsync_ShowsTheErrorPage_WhenTheApiCallThrows(Type exceptionType)
     {
-        var reports = new FakeReportsApi(throwOnGet: (Exception)Activator.CreateInstance(exceptionType)!);
+        var reports = new FakeProfileReportsApiService(throwOnContributions: (Exception)Activator.CreateInstance(exceptionType)!);
         var model = CreatePageModel(reports);
 
         Assert.IsType<PageResult>(await model.OnGetAsync(CancellationToken.None));
@@ -79,7 +79,7 @@ public class ViewContributionsReportModelTests
     [InlineData(false)]
     public async Task OnGetAsync_ShowsTheErrorPage_WhenRenderingFails(bool failInViewRenderer)
     {
-        var reports = new FakeReportsApi(new ContributionsReportResult(ContributionsReportOutcome.Success, CreateReport()));
+        var reports = new FakeProfileReportsApiService(contributions: new ContributionsReportResult(ContributionsReportOutcome.Success, CreateReport()));
         var renderer = new FakeViewRenderer("<html/>", failInViewRenderer ? new InvalidOperationException("view missing") : null);
         var pdf = new FakePdfService(PdfBytes, failInViewRenderer ? null : new PdfRenderException("no browser"));
         var model = CreatePageModel(reports, renderer, pdf);
@@ -99,7 +99,7 @@ public class ViewContributionsReportModelTests
     };
 
     private static ViewContributionsReportModel CreatePageModel(
-        FakeReportsApi reports,
+        FakeProfileReportsApiService reports,
         FakeViewRenderer? renderer = null,
         FakePdfService? pdf = null) =>
         new(reports, renderer ?? new FakeViewRenderer("<html/>"), pdf ?? new FakePdfService(PdfBytes), NullLogger<ViewContributionsReportModel>.Instance)
@@ -107,18 +107,6 @@ public class ViewContributionsReportModelTests
             ProfileId = ProfileId,
             PageContext = new PageContext { HttpContext = new DefaultHttpContext() }
         };
-
-    private sealed class FakeReportsApi(ContributionsReportResult? result = null, Exception? throwOnGet = null) : IProfileReportsApiService
-    {
-        public Guid? RequestedProfileId { get; private set; }
-
-        public Task<ContributionsReportResult> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken = default)
-        {
-            RequestedProfileId = profileId;
-
-            return throwOnGet is not null ? throw throwOnGet : Task.FromResult(result!);
-        }
-    }
 
     private sealed class FakeViewRenderer(string html, Exception? throwOnRender = null) : IRazorViewRenderer
     {

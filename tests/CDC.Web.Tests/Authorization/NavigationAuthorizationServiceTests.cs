@@ -117,6 +117,21 @@ public class NavigationAuthorizationServiceTests
     }
 
     [Fact]
+    public async Task CanViewBespokeReport_AndIsProfileEditor_FollowTheirLegacyRoles()
+    {
+        var service = CreateService();
+
+        Assert.True(await service.CanViewBespokeReportAsync(CreateUser(AuthorizationRoles.ProfileEditor)));
+        Assert.True(await service.CanViewBespokeReportAsync(CreateUser(AuthorizationRoles.PolicyProfileUser)));
+        Assert.False(await service.CanViewBespokeReportAsync(CreateUser(AuthorizationRoles.Contributor)));
+        Assert.False(await service.CanViewBespokeReportAsync(CreateUser(AuthorizationRoles.UserManagementSystem)));
+
+        Assert.True(await service.IsProfileEditorAsync(CreateUser(AuthorizationRoles.ProfileEditor)));
+        Assert.False(await service.IsProfileEditorAsync(CreateUser(AuthorizationRoles.PolicyProfileUser)));
+        Assert.False(await service.IsProfileEditorAsync(new ClaimsPrincipal(new ClaimsIdentity())));
+    }
+
+    [Fact]
     public async Task CanAccessAsync_EvaluatesAnArbitraryPolicyName_ForDataDrivenNavigation()
     {
         var service = CreateService();

@@ -10,6 +10,7 @@ using CDC.Web.Features.Account;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
+using CDC.Web.Infrastructure.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -123,6 +124,20 @@ builder.Services.AddHttpClient<IProfileReportsApiService, ProfileReportsApiServi
 // One Chromium browser is shared for the app's lifetime, so this must be a singleton.
 builder.Services.AddSingleton<IPlaywrightPdfService, PlaywrightPdfService>();
 builder.Services.AddScoped<IRazorViewRenderer, RazorViewRenderer>();
+builder.Services.AddScoped<IProfileReportGenerator, ProfileReportGenerator>();
+builder.Services.AddScoped<ProfileReportReferenceLoader>();
+builder.Services.AddScoped<IProfileReportPdfBuilder, SummaryProfileReportPdfBuilder>();
+builder.Services.AddScoped<IProfileReportPdfBuilder, QABriefReportPdfBuilder>();
+builder.Services.AddScoped<IProfileReportPdfBuilder, SummaryPrioritisationReportPdfBuilder>();
+builder.Services.AddScoped<FullProfileReportPdfBuilder>();
+builder.Services.AddScoped<IProfileReportPdfBuilder>(services => services.GetRequiredService<FullProfileReportPdfBuilder>());
+builder.Services.AddScoped<IBespokeReportPdfBuilder, BespokeReportPdfBuilder>();
+
+builder.Services.AddHttpClient<IBespokeReportTemplatesApiService, BespokeReportTemplatesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {

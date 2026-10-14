@@ -38,6 +38,12 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>GetContributionsReportCommand.CanGetReport()</c>. Search results and Manage profile: the "Contributions" report link.</summary>
     public const string CanViewContributionsReport = nameof(CanViewContributionsReport);
 
+    /// <summary>Legacy: <c>TemplateService.CanView()</c> / <c>GetProfileVersionBespokeReportCommand.CanGetReport()</c>. Profile reports: the "Create bespoke report" button and the bespoke report page.</summary>
+    public const string CanViewBespokeReport = nameof(CanViewBespokeReport);
+
+    /// <summary>Legacy: <c>ProfilesIdentity.IsProfileEditor</c> (also <c>TemplateService.CanEdit()</c>). Profile reports: hides the intro text; bespoke report: saving and deleting templates.</summary>
+    public const string IsProfileEditor = nameof(IsProfileEditor);
+
     /// <summary>Legacy: <c>GlobalUserList.CanGetGlobalUserList()</c>. Not yet wired to any page -
     /// scaffolded for the footer/admin-pages phase.</summary>
     public const string CanManageGlobalUsers = nameof(CanManageGlobalUsers);

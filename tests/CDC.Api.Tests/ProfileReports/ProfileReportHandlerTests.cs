@@ -79,7 +79,7 @@ public class ProfileReportHandlerTests
         };
         var resultDto = new CreateProfileReportResultDto { ProfileReportId = ProfileReportTestData.ProfileReportId };
 
-        service.Setup(svc => svc.CreateProfileReportAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync(resultDto);
+        service.Setup(svc => svc.CreateProfileReportAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(resultDto));
 
         var result = await new CreateProfileReportCommandHandler(service.Object).Handle(command, CancellationToken.None);
 
@@ -114,6 +114,54 @@ public class ProfileReportHandlerTests
             .Handle(new GetContributionsReportQuery(ProfileReportTestData.ProfileId), CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetProfileReportsOverviewQueryHandler_PassesTheServiceResultThrough()
+    {
+        var dto = new ProfileReportsOverviewDto { ProfileVersionId = ProfileReportTestData.ProfileVersionId };
+
+        service
+            .Setup(svc => svc.GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var result = await new GetProfileReportsOverviewQueryHandler(service.Object)
+            .Handle(new GetProfileReportsOverviewQuery(ProfileReportTestData.ProfileVersionId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetProfileReportContentQueryHandler_PassesTheServiceResultThrough()
+    {
+        var contentService = new Mock<IProfileReportContentService>(MockBehavior.Strict);
+        var dto = new ProfileReportContentDto { ProfileVersionId = ProfileReportTestData.ProfileVersionId };
+        contentService
+            .Setup(svc => svc.GetProfileReportContentAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var result = await new GetProfileReportContentQueryHandler(contentService.Object)
+            .Handle(new GetProfileReportContentQuery(ProfileReportTestData.ProfileVersionId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetProfilePrioritisationScoresQueryHandler_PassesTheServiceResultThrough()
+    {
+        var contentService = new Mock<IProfileReportContentService>(MockBehavior.Strict);
+        var dto = new ProfilePrioritisationScoresDto();
+        contentService
+            .Setup(svc => svc.GetProfilePrioritisationScoresAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var result = await new GetProfilePrioritisationScoresQueryHandler(contentService.Object)
+            .Handle(new GetProfilePrioritisationScoresQuery(ProfileReportTestData.ProfileVersionId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
     }
 
     [Fact]

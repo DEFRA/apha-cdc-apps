@@ -78,13 +78,8 @@ public class ProfileReportServiceTests
     [Fact]
     public async Task CreateProfileReport_ReturnsReportId()
     {
-        var command = new CreateProfileReportCommand
-        {
-            ProfileVersionId = ProfileReportTestData.ProfileVersionId,
-            ProfileReportId = ProfileReportTestData.ProfileReportId,
-            ReportName = "FullProfileGUID",
-            ReportData = ProfileReportTestData.ReportBytes
-        };
+        var command = CreateCommand();
+        GivenHeader(isPublished: false, effectiveDateTo: null);
 
         repository
             .Setup(repo => repo.CreateProfileReportAsync(command, It.IsAny<CancellationToken>()))
@@ -92,8 +87,131 @@ public class ProfileReportServiceTests
 
         var result = await CreateService().CreateProfileReportAsync(command, CancellationToken.None);
 
-        result.ProfileReportId.Should().Be(ProfileReportTestData.ProfileReportId);
+        result.IsSuccess.Should().BeTrue();
+        result.Value.ProfileReportId.Should().Be(ProfileReportTestData.ProfileReportId);
     }
+
+    [Fact]
+    public async Task CreateProfileReport_ReturnsNotFound_WhenTheVersionDoesNotExist()
+    {
+        repository
+            .Setup(repo => repo.GetProfileVersionHeaderAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionHeader?)null);
+
+        var result = await CreateService().CreateProfileReportAsync(CreateCommand(), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, true, false)]
+    [InlineData(false, true, true, false, false)]
+    [InlineData(false, false, true, false, true)]
+    public async Task CreateProfileReport_ReturnsForbidden_WhenTheUserMayNotCreateReports(
+        bool isPublished,
+        bool isSuperseded,
+        bool isEditor,
+        bool isPolicyUser,
+        bool isUserManagementSystem)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isEditor);
+        userContext.SetupGet(context => context.IsPolicyProfileUser).Returns(isPolicyUser);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagementSystem);
+        GivenHeader(isPublished, isSuperseded ? new DateTime(2026, 10, 1) : null);
+
+        var result = await CreateService().CreateProfileReportAsync(CreateCommand(), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetProfileReportsOverview_ReturnsNotFound_WhenTheVersionDoesNotExist()
+    {
+        repository
+            .Setup(repo => repo.GetProfileVersionHeaderAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionHeader?)null);
+
+        var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task GetProfileReportsOverview_ListsTheReportsWithoutTheFullProfile_AndTheVersionDetails()
+    {
+        GivenHeader(isPublished: false, effectiveDateTo: null);
+        repository
+            .Setup(repo => repo.GetProfileVersionReportsAsync(ProfileReportTestData.ProfileVersionId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                ProfileReportTestData.ProfileVersionReport(),
+                ProfileReportTestData.ProfileVersionReport() with { Id = Guid.NewGuid(), ReportName = "SummaryProfileGUID", DisplayName = "Summary profile", HasPdfData = false, FileSize = 0 }
+            ]);
+
+        var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.FullTitle.Should().Be("Avian influenza (What if)");
+        result.Value.VersionLabel.Should().Be("2.1");
+        result.Value.IsPublished.Should().BeFalse();
+        result.Value.IsCurrent.Should().BeTrue();
+        result.Value.CanCreateReports.Should().BeTrue();
+        var report = result.Value.Reports.Should().ContainSingle().Subject;
+        report.ReportName.Should().Be("SummaryProfileGUID");
+        report.HasPdfData.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true, false, true, false, false, true)]
+    [InlineData(false, false, false, true, false, true)]
+    [InlineData(false, false, false, false, false, false)]
+    [InlineData(false, true, true, false, false, false)]
+    [InlineData(false, false, true, false, true, false)]
+    [InlineData(true, false, false, true, false, false)]
+    public async Task GetProfileReportsOverview_AppliesTheLegacyCanCreateRule(
+        bool isPublished,
+        bool isSuperseded,
+        bool isEditor,
+        bool isPolicyUser,
+        bool isUserManagementSystem,
+        bool expected)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isEditor);
+        userContext.SetupGet(context => context.IsPolicyProfileUser).Returns(isPolicyUser);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagementSystem);
+        GivenHeader(isPublished, isSuperseded ? new DateTime(2026, 10, 1) : null);
+        repository
+            .Setup(repo => repo.GetProfileVersionReportsAsync(ProfileReportTestData.ProfileVersionId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Value.CanCreateReports.Should().Be(expected);
+    }
+
+    private static CreateProfileReportCommand CreateCommand() => new()
+    {
+        ProfileVersionId = ProfileReportTestData.ProfileVersionId,
+        ProfileReportId = ProfileReportTestData.ProfileReportId,
+        ReportName = "FullProfileGUID",
+        ReportData = ProfileReportTestData.ReportBytes
+    };
+
+    private void GivenHeader(bool isPublished, DateTime? effectiveDateTo) =>
+        repository
+            .Setup(repo => repo.GetProfileVersionHeaderAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionHeader
+            {
+                Id = ProfileReportTestData.ProfileVersionId,
+                ProfileId = ProfileReportTestData.ProfileId,
+                Title = "Avian influenza",
+                ScenarioTitle = "What if",
+                VersionMajor = 2,
+                VersionMinor = 1,
+                IsPublished = isPublished,
+                EffectiveDateFrom = new DateTime(2026, 1, 1),
+                EffectiveDateTo = effectiveDateTo
+            });
 
     private static readonly Guid FirstVersionId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
     private static readonly Guid SecondVersionId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002");
