@@ -1,15 +1,46 @@
 @page
 @model CDC.Web.Pages.HelpSupport.StaticReportsModel
 @{
-    ViewData["Title"] = Model.IsUserManual ? "Help Using D2R2" : "Static reports";
+    ViewData["Title"] = Model.Breadcrumb.PageName;
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
-<h1 class="govuk-heading-l">@(Model.IsUserManual ? "Help Using D2R2" : "Static reports")</h1>
+<h1 class="govuk-heading-l">@Model.Breadcrumb.PageName</h1>
 
-@if (Model.IsUserManual)
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-static-reports-success-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="app-static-reports-success-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="govuk-notification-banner" role="alert" aria-labelledby="app-static-reports-error-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="app-static-reports-error-title">Important</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.ErrorMessage</p>
+        </div>
+    </div>
+}
+
+@if (Model.IsHistoryMode)
+{
+    <p class="govuk-body">
+        Below is a list of published versions of this @(Model.IsUserManual ? "user manual" : "report"). These have been generated from
+        information held within the D2R2 Database. If you have any suggestions for improving the manual system, then you can contact us
+        using the following email address: <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>
+    </p>
+}
+else if (Model.IsUserManual)
 {
     <p class="govuk-body">
         Below is a list of manuals for using D2R2. Each manual has been tailored according to the particular privileges
@@ -41,8 +72,9 @@ else
 {
     <form method="get" id="static-reports-form">
         <input type="hidden" name="UserManual" value="@Model.UserManual" />
+        <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
         <input type="hidden" id="PageNumber" name="PageNumber" value="1" />
-        <div class="app-results-toolbar govuk-!-margin-bottom-3">
+        <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
             <div class="govuk-form-group govuk-!-margin-bottom-0">
                 <label class="govuk-label" for="PageSize">Items per page:</label>
                 <select class="govuk-select" id="PageSize" name="PageSize" onchange="this.form.requestSubmit()">
@@ -56,6 +88,7 @@ else
     </form>
 
     <table class="govuk-table">
+        <caption class="govuk-table__caption govuk-visually-hidden">@Model.Breadcrumb.PageName</caption>
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
                 <th scope="col" class="govuk-table__header">Title</th>
@@ -65,8 +98,11 @@ else
                     <th scope="col" class="govuk-table__header">Public?</th>
                 }
                 <th scope="col" class="govuk-table__header">Effective dates</th>
-                <th scope="col" class="govuk-table__header"></th>
-                <th scope="col" class="govuk-table__header"></th>
+                @if (!Model.IsHistoryMode)
+                {
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">History</span></th>
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
+                }
             </tr>
         </thead>
         <tbody class="govuk-table__body">
@@ -82,8 +118,30 @@ else
                         <td class="govuk-table__cell">@(report.IsPublic ? "Yes" : "No")</td>
                     }
                     <td class="govuk-table__cell">@CDC.Web.Pages.HelpSupport.StaticReportsModel.FormatEffectiveDates(report)</td>
-                    <td class="govuk-table__cell"><a class="govuk-link" href="#">History</a></td>
-                    <td class="govuk-table__cell"><a class="govuk-link" href="#">Delete</a></td>
+                    @if (!Model.IsHistoryMode)
+                    {
+                        <td class="govuk-table__cell">
+                            <a class="govuk-link" href="@Model.BuildHistoryUrl(report.StaticReportId)">History<span class="govuk-visually-hidden"> for @report.Title</span></a>
+                        </td>
+                        <td class="govuk-table__cell">
+                            @if (report.CanDelete)
+                            {
+                                <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-static-report-@report.Id">Delete<span class="govuk-visually-hidden"> @report.Title</span></button>
+                                <dialog class="app-modal" id="delete-static-report-@report.Id" aria-labelledby="delete-static-report-@(report.Id)-title">
+                                    <h2 class="govuk-heading-m" id="delete-static-report-@(report.Id)-title">Confirm</h2>
+                                    <p class="govuk-body">Are you sure you want to delete this @(Model.IsUserManual ? "user manual" : "report")?</p>
+                                    <form method="post" asp-page-handler="Delete">
+                                        <input type="hidden" name="staticReportVersionId" value="@report.Id" />
+                                        <input type="hidden" name="UserManual" value="@Model.UserManual" />
+                                        <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                        <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                        <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                                        <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                    </form>
+                                </dialog>
+                            }
+                        </td>
+                    }
                 </tr>
             }
         </tbody>
@@ -129,3 +187,36 @@ else
         </div>
     }
 }
+
+@if (!Model.IsHistoryMode && Model.CanUpload)
+{
+    @if (Model.ShowUploadPanel)
+    {
+        <div class="govuk-form-group">
+            <h2 class="govuk-heading-m">Upload a @(Model.IsUserManual ? "user manual" : "static report")</h2>
+            <form method="post" asp-page-handler="Upload" enctype="multipart/form-data">
+                <input type="hidden" name="UserManual" value="@Model.UserManual" />
+                <div class="govuk-form-group">
+                    <label class="govuk-label" for="UploadedFile">@(Model.IsUserManual ? "User manual:" : "Report file:")</label>
+                    <input class="govuk-file-upload" id="UploadedFile" name="UploadedFile" type="file" accept="application/pdf" required />
+                </div>
+                @if (!Model.IsUserManual)
+                {
+                    <div class="govuk-checkboxes govuk-form-group" data-module="govuk-checkboxes">
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="MakePublic" name="MakePublic" type="checkbox" value="true" />
+                            <label class="govuk-label govuk-checkboxes__label" for="MakePublic">Make report public (this cannot be undone)</label>
+                        </div>
+                    </div>
+                }
+                <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="@Model.UserManual">Cancel</a>
+            </form>
+        </div>
+    }
+    else
+    {
+        <a class="govuk-button" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="@Model.UserManual" asp-route-ShowUploadPanel="true">Add</a>
+    }
+}
+
