@@ -12,8 +12,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
-    <!-- Overrides SqlClient's transitive 9.0.4, which is vulnerable (CVE-2026-84008, CVE-2026-70162); needs 9.0.21 or later. -->
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="Dapper" Version="2.1.66" />
     <!-- Overrides the vulnerable 9.0.4 version pulled in transitively by Microsoft.Data.SqlClient. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
