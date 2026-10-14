@@ -7,6 +7,7 @@
     data-app-tree-name="@Model.ItemNameSingular"
     data-app-tree-name-plural="@Model.ItemNamePlural"
     data-app-tree-multiple="@(Model.AllowMultipleSelection ? "true" : "false")"
+    data-app-tree-hierarchy-exclusive="@(Model.EnforceHierarchyExclusivity ? "true" : "false")"
     data-app-tree-empty-label="@Model.EmptySelectionLabel"
     data-app-tree-scroll-to-selection="@(Model.ScrollToSelectionOnLoad ? "true" : "false")">
     @{

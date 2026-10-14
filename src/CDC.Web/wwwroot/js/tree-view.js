@@ -36,6 +36,7 @@
             this.$root = $root;
             this.idPrefix = $root.id || 'item';
             this.multiple = $root.dataset.appTreeMultiple === TRUE;
+            this.hierarchyExclusive = $root.dataset.appTreeHierarchyExclusive !== 'false';
 
             const $form = $root.closest('form');
             this.$status = $form ? $form.querySelector('.app-tree__status') : null;
@@ -272,7 +273,7 @@
                 return;
             }
 
-            if (this.multiple && input.checked) {
+            if (this.multiple && input.checked && this.hierarchyExclusive) {
                 this.enforceHierarchyExclusivity(input.closest(ITEM));
             }
 
