@@ -1,4 +1,4 @@
-﻿using CDC.Api.Features.DiseaseRanking.Interfaces;
+using CDC.Api.Features.DiseaseRanking.Interfaces;
 using CDC.Api.Features.DiseaseRankingFilters.Interfaces;
 using CDC.Api.Features.PrioritisationVariables.Interfaces;
 using CDC.Api.Features.ProfileContributors.Interfaces;
