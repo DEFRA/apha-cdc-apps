@@ -471,6 +471,21 @@ public class ApiClientTests
         Assert.Empty(versions);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent, true)]
+    [InlineData(HttpStatusCode.InternalServerError, false)]
+    public async Task SetStaticReportPublicAccessAsync_ReturnsWhetherTheCallSucceeded(HttpStatusCode status, bool expected)
+    {
+        var versionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(status, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.SetStaticReportPublicAccessAsync(versionId);
+
+        Assert.Equal(expected, result);
+        Assert.Equal($"/api/static-reports/versions/{versionId}/public", handler.LastRequestUri!.AbsolutePath);
+    }
+
     [Fact]
     public async Task CanUploadStaticReportsAsync_ReturnsTrue_WhenPermitted()
     {

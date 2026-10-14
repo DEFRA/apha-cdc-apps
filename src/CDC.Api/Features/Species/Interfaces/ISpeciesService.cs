@@ -65,4 +65,23 @@ public interface ISpeciesService
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The audit trail.</returns>
     Task<IReadOnlyList<SpeciesAuditTrailEntryDto>> GetSpeciesAuditTrailAsync(CancellationToken cancellationToken);
+
+    /// <summary>Moves a species up or down within its parent's sequence, with an audit trail entry.</summary>
+    /// <param name="speciesId">The species to move.</param>
+    /// <param name="isMovingUp">True to swap with the previous sibling; false for the next.</param>
+    /// <param name="userId">The id of the <c>[User]</c> row recorded as the author of the change.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Marks a species inactive, with an audit trail entry. The species row, its answer
+    /// data and its hierarchy relationships are retained unchanged.</summary>
+    /// <param name="command">The species to inactivate.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task InactivateSpeciesAsync(InactivateSpeciesCommand command, CancellationToken cancellationToken);
+
+    /// <summary>Deletes a species, with an audit trail entry. The caller is responsible for
+    /// enforcing the business rules (active, not in use, no children) before calling this.</summary>
+    /// <param name="command">The species to delete.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task DeleteSpeciesAsync(DeleteSpeciesCommand command, CancellationToken cancellationToken);
 }

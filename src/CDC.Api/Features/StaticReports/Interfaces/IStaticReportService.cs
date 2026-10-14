@@ -24,6 +24,9 @@ public interface IStaticReportService
     /// <returns>The document, or <see langword="null"/> when no such version exists.</returns>
     Task<StaticReportDataDto?> GetStaticReportDataAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
 
+    /// <summary>Marks one general report version as public.</summary>
+    Task SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
+
     /// <summary>Deletes one version.</summary>
     /// <returns>Whether the version was deleted, was not found, or the current user is not permitted to delete it.</returns>
     Task<DeleteStaticReportVersionOutcome> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);

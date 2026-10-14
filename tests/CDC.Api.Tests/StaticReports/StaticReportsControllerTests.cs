@@ -79,6 +79,18 @@ public sealed class StaticReportsControllerTests
     }
 
     [Fact]
+    public async Task SetStaticReportPublicAccess_ReturnsNoContent()
+    {
+        service
+            .Setup(svc => svc.SetStaticReportPublicAccessAsync(VersionId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var response = await CreateController().SetStaticReportPublicAccess(VersionId, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
     public async Task DeleteStaticReportVersion_ReturnsNoContent_WhenDeleted()
     {
         service

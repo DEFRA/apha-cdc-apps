@@ -31,6 +31,9 @@ public static class AuthorizationPolicyRegistration
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
             AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
 
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageReports,
+            AuthorizationRoles.ProfileEditor);
+
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageSpeciesData,
             AuthorizationRoles.ProfileEditor);
 

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Events;
 using CDC.Auth.Entra;
@@ -128,6 +128,12 @@ builder.Services.Configure<PdfRendererOptions>(builder.Configuration.GetSection(
 builder.Services.AddSingleton<IPdfRenderer, PlaywrightPdfRenderer>();
 builder.Services.AddScoped<IRazorViewToStringRenderer, RazorViewToStringRenderer>();
 builder.Services.AddScoped<IDiseaseRankingPdfService, DiseaseRankingPdfService>();
+
+builder.Services.AddHttpClient<IDiseaseRankingFiltersApiService, DiseaseRankingFiltersApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
