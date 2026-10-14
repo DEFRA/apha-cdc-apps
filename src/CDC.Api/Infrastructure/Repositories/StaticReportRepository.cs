@@ -100,6 +100,33 @@ public sealed class StaticReportRepository(IDbConnectionFactory connectionFactor
         }
     }
 
+    /// <inheritdoc />
+    public async Task UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                StaticReportStoredProcedures.UploadStaticReport,
+                new { Title = title, PdfData = pdfData, IsUserManual = isUserManual, IsPublic = isPublic },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            logger.UploadedStaticReport(title, isUserManual);
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, StaticReportStoredProcedures.UploadStaticReport);
+            throw;
+        }
+    }
+
     private async Task<IReadOnlyList<StaticReportDto>> ReadStaticReportsAsync(
         string storedProcedure,
         object parameters,

@@ -57,9 +57,12 @@ dotnet run --project src/CDC.Web/CDC.Web.csproj
 ## CIDM authentication (CDC.Web - external users)
 
 External users sign in via [DEFRA Customer Identity (CIDM)](https://www.gov.uk/using-your-gov-uk-one-login),
-using OpenID Connect. Internal/Entra ID sign-in is not yet implemented (see "Tech stack" above).
+using OpenID Connect. Internal users sign in via Microsoft Entra ID.
 
-Configuration is supplied via `IConfiguration` - never hardcoded or committed to source control:
+Configuration is supplied via `IConfiguration` - never hardcoded or committed to source control. Both
+`CDC.Web`'s CIDM and Entra ID options are validated on startup (`ValidateOnStart`), so the app will refuse
+to start at all - with an `OptionsValidationException` listing every missing key - until all of the below
+are set:
 
 | Config key           | Purpose                                    |
 | -------------------- | ------------------------------------------- |
@@ -68,8 +71,13 @@ Configuration is supplied via `IConfiguration` - never hardcoded or committed to
 | `Cidm:ClientId`      | OIDC client ID                              |
 | `Cidm:ClientSecret`  | OIDC client secret                          |
 | `Cidm:ServiceId`     | DEFRA-specific `serviceId` authorize param  |
+| `Entra:TenantId`     | Entra ID tenant (directory) ID              |
+| `Entra:ClientId`     | Entra ID app registration client ID         |
+| `Entra:ClientSecret` | Entra ID app registration client secret     |
 
-For local development, set them via `dotnet user-secrets`:
+For local development, set them via `dotnet user-secrets`. If you don't have real CIDM/Entra ID app
+registrations to hand, any non-empty placeholder values are enough to satisfy startup validation and run
+the app locally - sign-in itself just won't complete against a real identity provider:
 
 ```powershell
 cd src/CDC.Web
@@ -78,6 +86,9 @@ dotnet user-secrets set "Cidm:Policy" "<policy-name>"
 dotnet user-secrets set "Cidm:ClientId" "<client-id>"
 dotnet user-secrets set "Cidm:ClientSecret" "<client-secret>"
 dotnet user-secrets set "Cidm:ServiceId" "<service-id>"
+dotnet user-secrets set "Entra:TenantId" "<tenant-id>"
+dotnet user-secrets set "Entra:ClientId" "<client-id>"
+dotnet user-secrets set "Entra:ClientSecret" "<client-secret>"
 ```
 
 

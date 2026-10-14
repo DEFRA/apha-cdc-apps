@@ -33,6 +33,12 @@ public abstract record StaticReportVersionContract
     /// <summary>Gets the stored document size in bytes.</summary>
     public required int FileSize { get; init; }
 
+    /// <summary>Gets a value indicating whether the current user may delete this version. Mirrors
+    /// the legacy <c>StaticReport.CanDelete</c> (<c>IsCurrent AndAlso identity.IsProfileEditor</c>).
+    /// Computed server-side by CDC.Api; defaults to <see langword="false"/> so existing callers
+    /// that do not set it keep today's behaviour.</summary>
+    public bool CanDelete { get; init; }
+
     /// <summary>Gets a value indicating whether this is the version currently in effect.</summary>
     public bool IsCurrent => EffectiveDateTo is null;
 }

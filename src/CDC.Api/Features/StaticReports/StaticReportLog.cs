@@ -20,4 +20,13 @@ internal static partial class StaticReportLog
 
     [LoggerMessage(EventId = 8004, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
+
+    [LoggerMessage(EventId = 8005, Level = LogLevel.Information, Message = "Uploaded a new version of '{Title}' (user manual: {IsUserManual})")]
+    public static partial void UploadedStaticReport(this ILogger logger, string title, bool isUserManual);
+
+    [LoggerMessage(EventId = 8006, Level = LogLevel.Warning, Message = "Upload of '{Title}' was denied: the current user is not a profile editor")]
+    public static partial void UploadStaticReportForbidden(this ILogger logger, string title);
+
+    [LoggerMessage(EventId = 8007, Level = LogLevel.Warning, Message = "Delete of static report version {StaticReportVersionId} was denied: the current user is not a profile editor")]
+    public static partial void DeleteStaticReportVersionForbidden(this ILogger logger, Guid staticReportVersionId);
 }
