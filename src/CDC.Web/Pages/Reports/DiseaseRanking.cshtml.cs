@@ -75,7 +75,7 @@ public class DiseaseRankingModel(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            LogFailedToGenerateReportMessage(logger, reportKey, kind, ex);
+            LogFailedToGenerateReportMessage(logger, normalizedReportKey, kind, ex);
             ModelState.AddModelError(fieldName, "The report could not be generated. Try again later");
         }
 
