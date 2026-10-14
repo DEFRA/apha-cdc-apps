@@ -1,0 +1,253 @@
+@page
+@model CDC.Web.Pages.DiseaseRanking.EditFiltersModel
+@{
+    ViewData["Title"] = "Edit disease ranking filters";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <h1 class="govuk-heading-l">Edit disease ranking filters</h1>
+    </div>
+    <div class="govuk-grid-column-one-third govuk-!-text-align-right">
+        <a asp-page="/Reports/DiseaseRanking" class="govuk-back-link">Back</a>
+    </div>
+</div>
+
+@if (Model.SuccessMessage is not null)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="edit-filters-success-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="edit-filters-success-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+        </div>
+    </div>
+}
+
+@if (Model.HasError)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="edit-filters-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="edit-filters-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <p class="govuk-body">@Model.ErrorMessage</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="save-filter-error-summary-title">
+            <div role="alert">
+                <h2 class="govuk-error-summary__title" id="save-filter-error-summary-title">There is a problem</h2>
+                <div class="govuk-error-summary__body">
+                    <ul class="govuk-list govuk-error-summary__list">
+                        @foreach (var (key, message) in ViewData.ModelState.SelectMany(entry => entry.Value!.Errors.Select(error => (entry.Key, error.ErrorMessage))))
+                        {
+                            @if (key.Length == 0)
+                            {
+                                <li>@message</li>
+                            }
+                            else
+                            {
+                                <li><a href="#@(key.Replace('.', '_'))">@message</a></li>
+                            }
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    }
+
+    <form method="post">
+        <div class="govuk-button-group">
+            <button type="submit" asp-page-handler="CreateNew" formnovalidate class="govuk-button" data-module="govuk-button">
+                Create new filter
+            </button>
+        </div>
+
+        <div class="govuk-form-group">
+            <label class="govuk-label" asp-for="SelectedFilterNumber">Select Filter</label>
+            <select class="govuk-select" asp-for="SelectedFilterNumber">
+                <option value="">Select Filter</option>
+                @foreach (var filter in Model.Filters)
+                {
+                    <option value="@filter.FilterNumber">@filter.DiseaseName</option>
+                }
+            </select>
+        </div>
+        <button type="submit" asp-page-handler="SelectFilter" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">
+            View filter
+        </button>
+
+        @if (Model.SelectionErrorMessage is not null)
+        {
+            <p class="govuk-error-message" id="select-filter-error">
+                <span class="govuk-visually-hidden">Error:</span> @Model.SelectionErrorMessage
+            </p>
+        }
+    </form>
+}
+
+@if (Model.ShowFilterPanel)
+{
+    <form method="post" class="govuk-!-margin-top-6">
+        <input type="hidden" asp-for="Input.FilterNumber" />
+
+        <h2 class="govuk-heading-m">Species</h2>
+        <p class="govuk-hint">Select at least one species or species group. Required.</p>
+
+        <details class="govuk-details" data-module="govuk-details">
+            <summary class="govuk-details__summary">
+                <span class="govuk-details__summary-text">Show filter by species</span>
+            </summary>
+            <div class="govuk-details__text">
+                <div class="govuk-form-group app-tree__form-group">
+                    <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
+                        <legend class="govuk-visually-hidden">Species and species groups</legend>
+
+                        <div class="app-tree__panel">
+                            <div class="app-tree__controls">
+                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                                    <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                            <path d="M1 1l5 5 5-5" />
+                                        </svg>
+                                    </span>
+                                    <span class="app-tree__toggle-all-text">Open all</span>
+                                </button>
+                            </div>
+                            <partial name="_TreeView" model="Model.SpeciesTree" />
+                        </div>
+
+                        <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+                    </fieldset>
+                </div>
+            </div>
+        </details>
+
+        <div class="govuk-form-group@(ViewData.ModelState["Input.DiseaseName"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+            <label class="govuk-label govuk-label--m" asp-for="Input.DiseaseName">Report title</label>
+            <span class="govuk-error-message" asp-validation-for="Input.DiseaseName"></span>
+            <input class="govuk-input" asp-for="Input.DiseaseName" maxlength="500" autocomplete="off" />
+        </div>
+
+        <div class="govuk-form-group@(ViewData.ModelState["Input.Disease1"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Endemic or exotic diseases</legend>
+                <span class="govuk-error-message" asp-validation-for="Input.Disease1"></span>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    @foreach (var value in new[] { "endemic diseases", "exotic diseases", "both" })
+                    {
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="disease1-@value.Replace(' ', '-')" type="radio" asp-for="Input.Disease1" value="@value" />
+                            <label class="govuk-label govuk-radios__label" for="disease1-@value.Replace(' ', '-')">@value</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group@(ViewData.ModelState["Input.Disease2"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Zoonotic diseases</legend>
+                <span class="govuk-error-message" asp-validation-for="Input.Disease2"></span>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    @foreach (var value in new[] { "zoonotic", "non-zoonotic", "both" })
+                    {
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="disease2-@value" type="radio" asp-for="Input.Disease2" value="@value" />
+                            <label class="govuk-label govuk-radios__label" for="disease2-@value">@value</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group@(ViewData.ModelState["Input.Disease3"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Notifiable diseases</legend>
+                <span class="govuk-error-message" asp-validation-for="Input.Disease3"></span>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    @foreach (var value in new[] { "notifiable", "non-notifiable", "both" })
+                    {
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="disease3-@value" type="radio" asp-for="Input.Disease3" value="@value" />
+                            <label class="govuk-label govuk-radios__label" for="disease3-@value">@value</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group@(ViewData.ModelState["Input.Disease4"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Infectious diseases</legend>
+                <span class="govuk-error-message" asp-validation-for="Input.Disease4"></span>
+                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                    @foreach (var value in new[] { "infectious", "non-infectious", "both" })
+                    {
+                        <div class="govuk-radios__item">
+                            <input class="govuk-radios__input" id="disease4-@value" type="radio" asp-for="Input.Disease4" value="@value" />
+                            <label class="govuk-label govuk-radios__label" for="disease4-@value">@value</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Transmissible agent type</legend>
+                <div class="govuk-checkboxes govuk-checkboxes--inline" data-module="govuk-checkboxes">
+                    @foreach (var type in CDC.Web.Pages.DiseaseRanking.EditFiltersModel.AgentTypeChoices)
+                    {
+                        var typeId = $"disease-type-{type.Replace(' ', '-')}";
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="@typeId" type="checkbox" name="Input.DiseaseTypes" value="@type"
+                                checked="@(Model.Input.DiseaseTypes.Contains(type) ? "checked" : null)" />
+                            <label class="govuk-label govuk-checkboxes__label" for="@typeId">@type</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="govuk-button-group">
+            <button type="submit" asp-page-handler="Save" class="govuk-button" data-module="govuk-button">
+                @(Model.IsNewFilter ? "Submit" : "Update")
+            </button>
+            @if (!Model.IsNewFilter)
+            {
+                <button type="button" class="govuk-button govuk-button--warning" data-module="govuk-button"
+                    data-confirm-target="#delete-filter-modal">
+                    Delete filter
+                </button>
+            }
+        </div>
+    </form>
+
+    @if (!Model.IsNewFilter)
+    {
+        <dialog class="app-modal" id="delete-filter-modal" aria-labelledby="delete-filter-modal-title">
+            <h2 class="govuk-heading-m" id="delete-filter-modal-title">Confirm</h2>
+            <p class="govuk-body">Are you sure you want to delete this filter?</p>
+            <form method="post" asp-page-handler="Delete">
+                <input type="hidden" name="filterNumber" value="@Model.Input.FilterNumber" />
+                <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">OK</button>
+                <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+            </form>
+        </dialog>
+    }
+}
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+}

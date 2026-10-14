@@ -1,4 +1,5 @@
 using System.Data;
+using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
@@ -224,6 +225,28 @@ public sealed class StaticReportRepositoryTests : IDisposable
         connection.Script(StaticReportStoredProcedures.GetStaticReportVersionData, new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetStaticReportDataAsync(VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task SetStaticReportPublicAccessAsync_ExecutesStoredProcedure()
+    {
+        connection.Script(StaticReportStoredProcedures.SetStaticReportPublicAccess, new FakeCommandScript());
+
+        await CreateRepository().SetStaticReportPublicAccessAsync(VersionId, CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(StaticReportStoredProcedures.SetStaticReportPublicAccess);
+        executed.Parameters.Should().ContainKey("StaticReportVersionId").WhoseValue.Should().Be(VersionId);
+    }
+
+    [Fact]
+    public async Task SetStaticReportPublicAccessAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(StaticReportStoredProcedures.SetStaticReportPublicAccess, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().SetStaticReportPublicAccessAsync(VersionId, CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }

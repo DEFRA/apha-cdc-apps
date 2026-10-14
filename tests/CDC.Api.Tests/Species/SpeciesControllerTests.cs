@@ -352,6 +352,136 @@ public class SpeciesControllerTests
         problem.Detail.Should().Be("Save failed: there is already a species with this name");
     }
 
+    [Fact]
+    public async Task ChangeSpeciesPosition_ReturnsNoContent()
+    {
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<ChangeSpeciesPositionCommand>(command =>
+                    command.SpeciesId == SpeciesTestData.SpeciesId && command.IsMovingUp && command.UserId == AuditUserId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().ChangeSpeciesPosition(
+            SpeciesTestData.SpeciesId,
+            new ChangeSpeciesPositionRequestDto { IsMovingUp = true },
+            CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task ChangeSpeciesPosition_ReturnsBadRequest_WhenNoSiblingExists()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<ChangeSpeciesPositionCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.ValidationFailed<Unit>("This species cannot be moved in that direction."));
+
+        var response = await CreateController().ChangeSpeciesPosition(
+            SpeciesTestData.SpeciesId,
+            new ChangeSpeciesPositionRequestDto { IsMovingUp = false },
+            CancellationToken.None);
+
+        var problem = AssertProblem(response, StatusCodes.Status400BadRequest);
+        problem.Detail.Should().Be("This species cannot be moved in that direction.");
+    }
+
+    [Fact]
+    public async Task InactivateSpecies_ReturnsNoContent()
+    {
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<InactivateSpeciesCommand>(command =>
+                    command.SpeciesId == SpeciesTestData.SpeciesId
+                    && command.Reason == "No longer surveyed"
+                    && command.UserId == AuditUserId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().InactivateSpecies(
+            SpeciesTestData.SpeciesId,
+            new InactivateSpeciesRequestDto { Reason = "No longer surveyed", LastUpdated = SpeciesTestData.RowVersion },
+            CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task InactivateSpecies_ReturnsConflict_WhenAnotherUserHasSaved()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<InactivateSpeciesCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Conflict<Unit>("Edited by another user."));
+
+        var response = await CreateController().InactivateSpecies(
+            SpeciesTestData.SpeciesId,
+            new InactivateSpeciesRequestDto { Reason = "No longer surveyed", LastUpdated = SpeciesTestData.RowVersion },
+            CancellationToken.None);
+
+        var problem = AssertProblem(response, StatusCodes.Status409Conflict);
+        problem.Detail.Should().Be("Edited by another user.");
+    }
+
+    [Fact]
+    public async Task DeleteSpecies_ReturnsNoContent()
+    {
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<DeleteSpeciesCommand>(command =>
+                    command.SpeciesId == SpeciesTestData.SpeciesId
+                    && command.Reason == "Duplicate of an existing entry"
+                    && command.UserId == AuditUserId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().DeleteSpecies(
+            SpeciesTestData.SpeciesId,
+            new DeleteSpeciesRequestDto { Reason = "Duplicate of an existing entry", LastUpdated = SpeciesTestData.RowVersion },
+            CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task DeleteSpecies_ReturnsBadRequest_WhenTheSpeciesCannotBeDeleted()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<DeleteSpeciesCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.ValidationFailed<Unit>("You cannot delete a species that is used within a current profile."));
+
+        var response = await CreateController().DeleteSpecies(
+            SpeciesTestData.SpeciesId,
+            new DeleteSpeciesRequestDto { Reason = "Duplicate", LastUpdated = SpeciesTestData.RowVersion },
+            CancellationToken.None);
+
+        var problem = AssertProblem(response, StatusCodes.Status400BadRequest);
+        problem.Detail.Should().Be("You cannot delete a species that is used within a current profile.");
+    }
+
+    [Fact]
+    public async Task DeleteSpecies_ReturnsNotFound_WhenTheSpeciesDoesNotExist()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<DeleteSpeciesCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<Unit>("Species not found."));
+
+        var response = await CreateController().DeleteSpecies(
+            SpeciesTestData.SpeciesId,
+            new DeleteSpeciesRequestDto { Reason = "Duplicate", LastUpdated = SpeciesTestData.RowVersion },
+            CancellationToken.None);
+
+        var problem = AssertProblem(response, StatusCodes.Status404NotFound);
+        problem.Detail.Should().Be("Species not found.");
+    }
+
+    [Fact]
+    public async Task DeleteSpecies_ThrowsArgumentNullException_WhenRequestIsNull()
+    {
+        var act = async () => await CreateController().DeleteSpecies(SpeciesTestData.SpeciesId, null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
     private static ProblemDetails AssertProblem(ActionResult? result, int expectedStatusCode)
     {
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;

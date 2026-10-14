@@ -132,6 +132,18 @@ public sealed class StaticReportServiceTests
     }
 
     [Fact]
+    public async Task SetStaticReportPublicAccessAsync_DelegatesToRepository()
+    {
+        repository
+            .Setup(repo => repo.SetStaticReportPublicAccessAsync(VersionId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        await CreateService().SetStaticReportPublicAccessAsync(VersionId, CancellationToken.None);
+
+        repository.Verify(repo => repo.SetStaticReportPublicAccessAsync(VersionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task DeleteStaticReportVersionAsync_ReturnsForbidden_WhenUserIsNotProfileEditor()
     {
         var dto = new StaticReportDataDto { Title = "Help using D2R2", PdfData = [1, 2, 3] };

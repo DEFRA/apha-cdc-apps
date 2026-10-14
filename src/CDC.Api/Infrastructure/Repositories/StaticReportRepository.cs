@@ -79,6 +79,26 @@ public sealed class StaticReportRepository(IDbConnectionFactory connectionFactor
     }
 
     /// <inheritdoc />
+    public async Task SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                StaticReportStoredProcedures.SetStaticReportPublicAccess,
+                new { StaticReportVersionId = staticReportVersionId },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, StaticReportStoredProcedures.SetStaticReportPublicAccess);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);

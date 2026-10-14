@@ -60,4 +60,41 @@ public interface ISpeciesApiService
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The reference values; an empty list when the table has none.</returns>
     Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/species/{speciesId}/position</c> to swap the species' sequence
+    /// number with its previous or next sibling.</summary>
+    /// <param name="speciesId">The species to move.</param>
+    /// <param name="isMovingUp">True to swap with the previous sibling; false for the next.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the call. <see cref="SpeciesUpdateOutcome.ValidationFailed"/> when
+    /// no sibling exists at the resulting position.</returns>
+    Task<ChangeSpeciesPositionResult> ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/species/{speciesId}/inactivate</c>.</summary>
+    /// <param name="speciesId">The species to inactivate.</param>
+    /// <param name="request">The reason for change and row version.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the call.</returns>
+    Task<InactivateSpeciesResult> InactivateSpeciesAsync(
+        Guid speciesId,
+        InactivateSpeciesRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>DELETE /api/species/{speciesId}</c>.</summary>
+    /// <param name="speciesId">The species to delete.</param>
+    /// <param name="request">The reason for change and row version.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the call.</returns>
+    Task<DeleteSpeciesResult> DeleteSpeciesAsync(
+        Guid speciesId,
+        DeleteSpeciesRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>PUT /api/species/answers</c> to save question responses for one species.</summary>
+    /// <param name="request">The changes to apply.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the call.</returns>
+    Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
+        UpdateSpeciesAnswerDataRequestDto request,
+        CancellationToken cancellationToken = default);
 }

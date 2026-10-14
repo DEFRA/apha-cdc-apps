@@ -23,6 +23,9 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports".</summary>
     public const string CanViewReports = nameof(CanViewReports);
 
+    /// <summary>Legacy: <c>StaticReport.CanDelete</c> and <c>UploadStaticReportCommand.CanUploadStaticReport()</c>. General reports page: delete and add.</summary>
+    public const string CanManageReports = nameof(CanManageReports);
+
     /// <summary>Legacy: <c>SpeciesDataChange.CanAddSpeciesDataChange()</c>. Header: "Maintain species data".</summary>
     public const string CanManageSpeciesData = nameof(CanManageSpeciesData);
 
