@@ -7,6 +7,7 @@ using CDC.Common.Correlation;
 using CDC.Common.Health;
 using CDC.Web.Authorization;
 using CDC.Web.Features.Account;
+using CDC.Web.Features.DiseaseRanking;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
@@ -144,6 +145,21 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
     client.BaseAddress = apiBaseUri;
 })
     .AddStandardResilienceHandler();
+
+// Disease ranking reports; forwards the correlation ID so the report build is traceable across both services.
+builder.Services.AddHttpClient<IDiseaseRankingApiService, DiseaseRankingApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddStandardResilienceHandler();
+
+// Disease ranking PDFs: report data from CDC.Api -> Razor view -> HTML -> headless Chromium -> PDF.
+// The renderer holds one shared browser, so it is a singleton.
+builder.Services.Configure<PdfRendererOptions>(builder.Configuration.GetSection(PdfRendererOptions.SectionName));
+builder.Services.AddSingleton<IPdfRenderer, PlaywrightPdfRenderer>();
+builder.Services.AddScoped<IRazorViewToStringRenderer, RazorViewToStringRenderer>();
+builder.Services.AddScoped<IDiseaseRankingPdfService, DiseaseRankingPdfService>();
 
 builder.Services.AddHttpClient<IDiseaseRankingFiltersApiService, DiseaseRankingFiltersApiService>(client =>
 {

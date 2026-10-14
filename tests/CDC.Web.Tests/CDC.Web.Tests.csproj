@@ -5,7 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <ExcludeByFile>**/wwwroot/js/tree-view.js,**/*.cshtml</ExcludeByFile>
+    <!-- PlaywrightPdfRenderer drives a real Chromium process, so it is exercised by the manual PDF
+         check rather than unit tests; every consumer is tested against a fake IPdfRenderer. -->
+    <ExcludeByFile>**/wwwroot/js/tree-view.js,**/*.cshtml,**/PlaywrightPdfRenderer.cs</ExcludeByFile>
     <!-- CDC.Auth.Cidm and CDC.Auth.Entra each have their own dedicated test project (with a 90%
          gate already); only exercising them indirectly here via DI wiring would otherwise drag
          this project's own coverage total down. A comma (not semicolon) separates the two patterns -
