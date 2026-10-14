@@ -17,3 +17,10 @@ public sealed record StaticReportDataDto
     /// <summary>Gets the PDF bytes held in the database.</summary>
     public required byte[] PdfData { get; init; }
 }
+
+/// <summary>Whether the current user may upload static reports or user manuals.</summary>
+public sealed record StaticReportUploadPermissionDto
+{
+    /// <summary>Gets a value indicating whether the current user may upload documents.</summary>
+    public required bool CanUpload { get; init; }
+}
