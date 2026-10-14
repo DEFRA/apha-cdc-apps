@@ -124,4 +124,14 @@ public class ProfileSectionTabPageModelTests
         Assert.True(pageModel.IsReady);
         Assert.Equal(ProfileVersionId, pageModel.CurrentProfileVersionId);
     }
+
+    [Fact]
+    public async Task HasFormErrors_IsFalse_ForATabThatReportsNoErrors()
+    {
+        var pageModel = CreatePageModel(Profile());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasFormErrors);
+    }
 }
