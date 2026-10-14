@@ -101,9 +101,14 @@ public static class ProfileReportDocuments
         {
             var found = ProfileReportLayout.FindQuestion(content, section, question);
 
-            return found is null
-                ? null
-                : new ReportQuestionView($"{number} {ProfileTitleHtmlFormatter.ToPlainText(found.NonTechnicalName)}", showName ? found.Name : null, found, level);
+            if (found is null)
+            {
+                return null;
+            }
+
+            var name = showName ? found.Name : null;
+
+            return new ReportQuestionView($"{number} {ProfileTitleHtmlFormatter.ToPlainText(found.NonTechnicalName)}", name, found, level);
         }
 
         // Legacy BuildQuestion16: the answer to 2.1 picks which pair of follow-up questions is printed.

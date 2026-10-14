@@ -1,5 +1,5 @@
-using CDC.Api.Features.DiseaseRankingFilters.Interfaces;
 using CDC.Api.Features.BespokeReportTemplates.Interfaces;
+using CDC.Api.Features.DiseaseRankingFilters.Interfaces;
 using CDC.Api.Features.PrioritisationVariables.Interfaces;
 using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement.Interfaces;

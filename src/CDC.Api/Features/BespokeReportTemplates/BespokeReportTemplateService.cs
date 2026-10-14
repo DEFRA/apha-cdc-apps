@@ -24,6 +24,9 @@ public sealed class BespokeReportTemplateService(
     private const string EditPermissionMessage = "You do not have permission to change bespoke report templates.";
     private const string NotFoundMessage = "The bespoke report template does not exist.";
 
+    private const string ViewAction = "view";
+    private const string ChangeAction = "change";
+
     // Legacy BespokeReportTemplateService.CanView() and CanEdit().
     private bool CanView => (userContext.IsProfileEditor || userContext.IsPolicyProfileUser) && !userContext.IsUserManagementSystem;
 
@@ -34,7 +37,7 @@ public sealed class BespokeReportTemplateService(
     {
         if (!CanView)
         {
-            logger.TemplateRequestRefused("view");
+            logger.TemplateRequestRefused(ViewAction);
 
             return Result.Forbidden<IReadOnlyList<BespokeReportTemplateSummaryDto>>(ViewPermissionMessage);
         }
@@ -51,7 +54,7 @@ public sealed class BespokeReportTemplateService(
     {
         if (!CanView)
         {
-            logger.TemplateRequestRefused("view");
+            logger.TemplateRequestRefused(ViewAction);
 
             return Result.Forbidden<BespokeReportTemplateDto>(ViewPermissionMessage);
         }
@@ -68,7 +71,7 @@ public sealed class BespokeReportTemplateService(
     {
         if (!CanEdit)
         {
-            logger.TemplateRequestRefused("change");
+            logger.TemplateRequestRefused(ChangeAction);
 
             return Result.Forbidden<BespokeReportTemplateDto>(EditPermissionMessage);
         }
@@ -94,7 +97,7 @@ public sealed class BespokeReportTemplateService(
     {
         if (!CanEdit)
         {
-            logger.TemplateRequestRefused("change");
+            logger.TemplateRequestRefused(ChangeAction);
 
             return Result.Forbidden<BespokeReportTemplateDto>(EditPermissionMessage);
         }
@@ -118,7 +121,7 @@ public sealed class BespokeReportTemplateService(
     {
         if (!CanEdit)
         {
-            logger.TemplateRequestRefused("change");
+            logger.TemplateRequestRefused(ChangeAction);
 
             return Result.Forbidden<BespokeReportTemplateDto>(EditPermissionMessage);
         }
@@ -150,7 +153,7 @@ public sealed class BespokeReportTemplateService(
     {
         if (!CanEdit)
         {
-            logger.TemplateRequestRefused("change");
+            logger.TemplateRequestRefused(ChangeAction);
 
             return Result.Forbidden<Unit>(EditPermissionMessage);
         }

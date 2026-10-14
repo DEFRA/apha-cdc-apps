@@ -28,7 +28,7 @@
                     @foreach (var row in block.CategoryTable.Rows)
                     {
                         <tr>
-                            <td>@ProfileTitleHtmlFormatter.Format(row.SpeciesName)</td>
+                            <th scope="row">@ProfileTitleHtmlFormatter.Format(row.SpeciesName)</th>
                             <td class="rpt-category__rank">
                                 @if (row.IsPlaceholder)
                                 {
@@ -113,9 +113,5 @@
 
 <section class="rpt-warning">
     <h2 class="rpt-section-heading">@CDC.Web.Infrastructure.Reports.ProfileReportLayout.WarningTitle</h2>
-    <table>
-        <tr>
-            <td>@CDC.Web.Infrastructure.Reports.ProfileReportLayout.WarningText</td>
-        </tr>
-    </table>
+    <div class="rpt-warning__text">@CDC.Web.Infrastructure.Reports.ProfileReportLayout.WarningText</div>
 </section>

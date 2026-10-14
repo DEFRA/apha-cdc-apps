@@ -316,9 +316,9 @@ public class CreateBespokeReportModel(
             case BespokeTemplatesOutcome.Success:
                 SuccessMessage = successMessage;
 
-                return RedirectToPage(new { profileVersionId = ProfileVersionId, templateId = result!.Template!.Id });
+                return RedirectToPage(new { profileVersionId = ProfileVersionId, templateId = result.Template!.Id });
             case BespokeTemplatesOutcome.Forbidden:
-                logger.BespokeTemplateRequestRefused(ProfileVersionId, result!.Outcome);
+                logger.BespokeTemplateRequestRefused(ProfileVersionId, result.Outcome);
 
                 return StatusCode(StatusCodes.Status403Forbidden);
             case BespokeTemplatesOutcome.Conflict:
