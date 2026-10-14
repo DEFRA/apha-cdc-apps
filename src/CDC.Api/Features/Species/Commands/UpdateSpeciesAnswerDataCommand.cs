@@ -34,6 +34,7 @@ public enum SpeciesFieldValueKind
 public sealed record SpeciesFieldValueChange
 {
     /// <summary>Gets the species field being answered.</summary>
+    [JsonRequired]
     public Guid FieldId { get; init; }
 
     /// <summary>Gets the kind of value being supplied.</summary>
