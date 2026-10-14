@@ -219,6 +219,168 @@ public class SpeciesHandlerTests
     }
 
     [Fact]
+    public async Task InactivateSpeciesCommandHandler_ReturnsSuccess()
+    {
+        var command = SpeciesTestData.InactivateSpeciesCommand();
+
+        service
+            .Setup(svc => svc.InactivateSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateInactivateCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task InactivateSpeciesCommandHandler_ReturnsConflict_WhenTheRepositoryDetectsAConcurrentEdit()
+    {
+        var command = SpeciesTestData.InactivateSpeciesCommand();
+
+        service
+            .Setup(svc => svc.InactivateSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("Edited by another user."));
+
+        var result = await CreateInactivateCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("Edited by another user.");
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesCommandHandler_ReturnsSuccess_WhenTheSpeciesCanBeDeleted()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(command.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpeciesTestData.DeletableSpeciesDetail());
+        service
+            .Setup(svc => svc.DeleteSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateDeleteCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesCommandHandler_ReturnsNotFound_WhenTheSpeciesDoesNotExist()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(command.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SpeciesDetailDto?)null);
+
+        var result = await CreateDeleteCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesCommandHandler_ReturnsValidationFailed_WhenTheSpeciesIsInactive()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+        var detail = SpeciesTestData.DeletableSpeciesDetail() with { IsActive = false };
+
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(command.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(detail);
+
+        var result = await CreateDeleteCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+        result.Error.Should().Be("You cannot delete a species that is inactive");
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesCommandHandler_ReturnsValidationFailed_WhenTheSpeciesIsUsedInAProfile()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+        var detail = SpeciesTestData.DeletableSpeciesDetail() with { IsInUse = true };
+
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(command.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(detail);
+
+        var result = await CreateDeleteCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+        result.Error.Should().Be("You cannot delete a species that is used within a current profile.");
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesCommandHandler_ReturnsValidationFailed_WhenTheSpeciesHasChildren()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+        var detail = SpeciesTestData.DeletableSpeciesDetail() with { ChildCount = 1 };
+
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(command.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(detail);
+
+        var result = await CreateDeleteCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+        result.Error.Should().Be("You cannot delete a species that has children");
+    }
+
+    [Fact]
+    public async Task DeleteSpeciesCommandHandler_ReturnsConflict_WhenTheRepositoryDetectsAConcurrentEdit()
+    {
+        var command = SpeciesTestData.DeleteSpeciesCommand();
+
+        service
+            .Setup(svc => svc.GetSpeciesDetailAsync(command.SpeciesId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpeciesTestData.DeletableSpeciesDetail());
+        service
+            .Setup(svc => svc.DeleteSpeciesAsync(command, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("Edited by another user."));
+
+        var result = await CreateDeleteCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("Edited by another user.");
+    }
+
+    [Fact]
+    public async Task ChangeSpeciesPositionCommandHandler_ReturnsSuccess()
+    {
+        var command = new ChangeSpeciesPositionCommand(SpeciesTestData.SpeciesId, IsMovingUp: true, SpeciesTestData.AuditUserId);
+
+        service
+            .Setup(svc => svc.ChangeSpeciesPositionAsync(command.SpeciesId, command.IsMovingUp, command.UserId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateChangePositionCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangeSpeciesPositionCommandHandler_ReturnsValidationFailed_WhenNoSiblingExistsAtThatPosition()
+    {
+        var command = new ChangeSpeciesPositionCommand(SpeciesTestData.SpeciesId, IsMovingUp: false, SpeciesTestData.AuditUserId);
+
+        service
+            .Setup(svc => svc.ChangeSpeciesPositionAsync(command.SpeciesId, command.IsMovingUp, command.UserId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new SpeciesReorderBlockedException("Sequence change failed: There is no species above/below this one"));
+
+        var result = await CreateChangePositionCommandHandler().Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+        result.Error.Should().Be("Sequence change failed: There is no species above/below this one");
+    }
+
+    [Fact]
     public async Task AddSpeciesCommandHandler_ReturnsSuccess()
     {
         var command = SpeciesTestData.AddSpeciesCommand();
@@ -255,6 +417,15 @@ public class SpeciesHandlerTests
 
     private UpdateSpeciesNameParentCommandHandler CreateNameParentCommandHandler() =>
         new(service.Object, NullLogger<UpdateSpeciesNameParentCommandHandler>.Instance);
+
+    private InactivateSpeciesCommandHandler CreateInactivateCommandHandler() =>
+        new(service.Object, NullLogger<InactivateSpeciesCommandHandler>.Instance);
+
+    private DeleteSpeciesCommandHandler CreateDeleteCommandHandler() =>
+        new(service.Object, NullLogger<DeleteSpeciesCommandHandler>.Instance);
+
+    private ChangeSpeciesPositionCommandHandler CreateChangePositionCommandHandler() =>
+        new(service.Object);
 
     private UpdateSpeciesAnswerDataCommandHandler CreateCommandHandler() =>
         new(service.Object, NullLogger<UpdateSpeciesAnswerDataCommandHandler>.Instance);

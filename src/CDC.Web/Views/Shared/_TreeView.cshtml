@@ -7,7 +7,8 @@
     data-app-tree-name="@Model.ItemNameSingular"
     data-app-tree-name-plural="@Model.ItemNamePlural"
     data-app-tree-multiple="@(Model.AllowMultipleSelection ? "true" : "false")"
-    data-app-tree-empty-label="@Model.EmptySelectionLabel">
+    data-app-tree-empty-label="@Model.EmptySelectionLabel"
+    data-app-tree-scroll-to-selection="@(Model.ScrollToSelectionOnLoad ? "true" : "false")">
     @{
         // Rendered by a recursive local function rather than a partial per node, so that every
         // <li> is emitted inside this parent <ul>, not defined outside it.
@@ -26,7 +27,13 @@
                 <div class="app-tree__row">
                     <div class="@itemClass app-tree__radio">
                         <input class="@inputClass" id="@inputId" name="@Model.FieldName" type="@inputType" value="@node.Value" checked="@isSelected" />
-                        <label class="govuk-label @labelClass" for="@inputId">@node.Label</label>
+                        <label class="govuk-label @labelClass@(node.IsInactive ? " app-tree__label--inactive" : string.Empty)" for="@inputId">
+                            @node.Label
+                            @if (node.IsInactive)
+                            {
+                                <span class="app-tree__inactive-tag">(inactive)</span>
+                            }
+                        </label>
                     </div>
                 </div>
                 @if (node.Children.Count > 0)

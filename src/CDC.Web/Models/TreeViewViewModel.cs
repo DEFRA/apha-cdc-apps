@@ -8,7 +8,11 @@ public sealed record TreeNodeViewModel
 
     public required string Label { get; init; }
 
-    /// Branches only: whether the node starts expanded.
+    /// <summary>Whether the species/species group is inactive. Renders greyed out with an
+    /// "(inactive)" label; selectable but visually distinct from active nodes.</summary>
+    public bool IsInactive { get; init; }
+
+    /// <summary>Branches only: whether the node starts expanded.</summary>
     public bool Expanded { get; init; }
 
     public IReadOnlyList<TreeNodeViewModel> Children { get; init; } = [];
@@ -44,4 +48,8 @@ public sealed record TreeViewViewModel
 
     /// Label describing the empty/no-selection state, for example "Any species".
     public string? EmptySelectionLabel { get; init; }
+
+    /// Whether the tree should auto-scroll to the selected node on load - only while actively
+    /// reordering (Maintain species data), not on an ordinary page load.
+    public bool ScrollToSelectionOnLoad { get; init; }
 }
