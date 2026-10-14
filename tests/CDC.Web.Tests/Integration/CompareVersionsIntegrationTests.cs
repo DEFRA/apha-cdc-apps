@@ -112,8 +112,8 @@ public class CompareVersionsIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-        Assert.Contains("Old text", pdf.Html, StringComparison.Ordinal);
-        Assert.Contains("New text", pdf.Html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"removed\">Old</span> text", pdf.Html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"added\">New</span> text", pdf.Html, StringComparison.Ordinal);
         Assert.True(pdf.Html.IndexOf("Version 1.0", StringComparison.Ordinal) < pdf.Html.IndexOf("Version 2.0", StringComparison.Ordinal));
     }
 

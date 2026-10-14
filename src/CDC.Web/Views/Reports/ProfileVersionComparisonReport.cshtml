@@ -1,4 +1,5 @@
 @model CDC.Web.Models.ProfileVersionComparisonReport
+@using CDC.Web.Infrastructure
 @* Rendered to HTML and converted to PDF by Playwright, so styles are inline and nothing is fetched. *@
 <!DOCTYPE html>
 <html lang="en">
@@ -11,16 +12,21 @@
         h2 { font-size: 13px; margin: 14px 0 4px; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 6px; }
         thead { display: table-header-group; }
-        th, td { border: 1px solid #b1b4b6; padding: 4px 6px; vertical-align: top; text-align: left; word-wrap: break-word; }
-        th { background: #f3f2f1; }
+        th, td { border: 1px solid #b1b4b6; padding: 4px 6px; vertical-align: top; text-align: left; word-wrap: break-word; white-space: pre-wrap; }
+        th { background: #f3f2f1; white-space: normal; }
         tr { page-break-inside: avoid; }
-        .question td { background: #e8e8e8; font-weight: bold; }
+        .question td, .group td { background: #e8e8e8; font-weight: bold; white-space: normal; }
+        .group td { background: #f3f2f1; font-weight: normal; font-style: italic; }
+        .removed { color: #d4351c; text-decoration: line-through; }
+        .added { color: #005a30; font-weight: bold; text-decoration: underline; }
+        .key { margin: 0 0 8px; }
         .identical { text-align: center; font-style: italic; margin: 4px 0 10px; }
         .none { text-align: center; font-style: italic; }
     </style>
 </head>
 <body>
     <h1>Profile version comparison</h1>
+    <p class="key"><span class="removed">Struck-through text</span> was removed. <span class="added">Bold underlined text</span> was added.</p>
 
     @if (Model.Sections.All(item => item.IsIdentical))
     {
@@ -51,21 +57,22 @@
                     <tr class="question">
                         <td colspan="3">@question.Number @question.Text</td>
                     </tr>
-                    @foreach (var field in question.Fields)
+                    @foreach (var group in question.Groups)
                     {
-                        <tr>
-                            <td>@field.Label</td>
-                            @if (field.IsHtml)
-                            {
-                                <td>@Html.Raw(field.Left)</td>
-                                <td>@Html.Raw(field.Right)</td>
-                            }
-                            else
-                            {
-                                <td>@field.Left</td>
-                                <td>@field.Right</td>
-                            }
-                        </tr>
+                        @if (group.Heading is not null)
+                        {
+                            <tr class="group">
+                                <td colspan="3">@group.Heading</td>
+                            </tr>
+                        }
+                        @foreach (var field in group.Fields)
+                        {
+                            <tr>
+                                <td>@field.Label</td>
+                                <td>@ComparisonHtml.Render(field.Left)</td>
+                                <td>@ComparisonHtml.Render(field.Right)</td>
+                            </tr>
+                        }
                     }
                 }
             </tbody>

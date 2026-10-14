@@ -15,7 +15,10 @@
     const GROUP = ':scope > ul.app-tree__group';
     const ROW = ':scope > .app-tree__row';
     const TOGGLE = '.app-tree__toggle';
-    const INPUT = 'input[type="radio"], input[type="checkbox"]';
+    // :is() keeps the list scoped when this is appended to a ROW selector; a bare comma would let
+    // the second input match anywhere in the item, so a node with no input of its own (a
+    // non-selectable branch) would resolve to its first descendant's checkbox.
+    const INPUT = ':is(input[type="radio"], input[type="checkbox"])';
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 

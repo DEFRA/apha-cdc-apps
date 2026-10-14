@@ -87,8 +87,20 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                 });
             }
 
-            // Result set 4: repeating question rows - not needed for read-only browsing.
-            await reader.NextResultAsync(cancellationToken);
+            // Result set 4: Id, ProfileQuestionId, SequenceNumber - repeating question rows.
+            var questionRows = new List<ProfileQuestionRow>();
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    questionRows.Add(new ProfileQuestionRow
+                    {
+                        Id = reader.GetGuid(0),
+                        QuestionId = reader.GetGuid(1),
+                        SequenceNumber = reader.ReadInt32(2)
+                    });
+                }
+            }
 
             // Result set 5: Id, SpeciesId, RowId, BooleanValue, ListValue, DecimalValue, DateValue,
             // TextValue, ProfileFieldId, ProfileFieldGroupId, QuestionNumber, QuestionId, FieldNumber.
@@ -118,6 +130,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                 ProfileVersionId = profileVersionId,
                 ProfileSectionId = profileSectionId,
                 QuestionNames = questionNames,
+                QuestionRows = questionRows,
                 FieldValues = fieldValues
             };
         }
