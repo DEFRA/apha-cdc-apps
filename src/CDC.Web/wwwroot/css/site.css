@@ -609,7 +609,9 @@ body {
   margin-bottom: 15px;
 }
 
+/* Keeps absolutely positioned descendants (visually-hidden labels) inside the scroll area. */
 .app-tree__panel {
+  position: relative;
   max-height: 480px;
   padding: 10px 15px 10px 5px;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
