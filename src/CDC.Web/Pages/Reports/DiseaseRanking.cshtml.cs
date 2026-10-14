@@ -52,7 +52,9 @@ public class DiseaseRankingModel(
         string fieldName,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(reportKey))
+        var normalizedReportKey = reportKey?.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedReportKey))
         {
             ModelState.AddModelError(fieldName, "Select a report");
             await LoadOptionsAsync(cancellationToken);
@@ -62,7 +64,7 @@ public class DiseaseRankingModel(
 
         try
         {
-            var pdf = await pdfService.GenerateAsync(reportKey, kind, cancellationToken);
+            var pdf = await pdfService.GenerateAsync(normalizedReportKey, kind, cancellationToken);
 
             if (pdf is not null)
             {

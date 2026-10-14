@@ -173,6 +173,18 @@ public sealed class DiseaseRankingServiceTests
     }
 
     [Fact]
+    public async Task GetReportAsync_WithWhitespaceAroundTheKey_UsesTheReport()
+    {
+        SetUpSpecies();
+        SetUpRankedProfiles(null, Ranked(CattleId, "Anthrax"));
+
+        var report = await CreateService().GetReportAsync("  terrestrial  ", DiseaseRankingReportKind.Scored, CancellationToken.None);
+
+        report.Should().NotBeNull();
+        report!.FooterTitle.Should().Be("RFI scoring report for Terrestrial.");
+    }
+
+    [Fact]
     public async Task GetReportAsync_ReturnsNull_WhenTheKeyIsNeitherAGroupNorAGuid()
     {
         var report = await CreateService().GetReportAsync("not-a-report", DiseaseRankingReportKind.Scored, CancellationToken.None);

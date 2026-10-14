@@ -49,17 +49,18 @@ public sealed partial class DiseaseRankingService(
         DiseaseRankingReportKind kind,
         CancellationToken cancellationToken)
     {
-        var selection = await SelectProfilesAsync(reportKey, cancellationToken);
+        var normalizedReportKey = reportKey.Trim();
+        var selection = await SelectProfilesAsync(normalizedReportKey, cancellationToken);
 
         if (selection is null)
         {
-            logger.UnknownReport(reportKey);
+            logger.UnknownReport(normalizedReportKey);
             return null;
         }
 
         var (scope, profiles) = selection.Value;
 
-        logger.BuiltReport(kind, reportKey, profiles.Count);
+        logger.BuiltReport(kind, normalizedReportKey, profiles.Count);
 
         return DiseaseRankingReportBuilder.Build(kind, scope, profiles);
     }
@@ -81,17 +82,19 @@ public sealed partial class DiseaseRankingService(
         string reportKey,
         CancellationToken cancellationToken)
     {
-        if (string.Equals(reportKey, TerrestrialKey, StringComparison.OrdinalIgnoreCase))
+        var normalizedReportKey = reportKey.Trim();
+
+        if (string.Equals(normalizedReportKey, TerrestrialKey, StringComparison.OrdinalIgnoreCase))
         {
             return (new DiseaseRankingScope("Terrestrial Diseases", "Terrestrial"), await GetBySpeciesGroupAsync(isAquatic: false, cancellationToken));
         }
 
-        if (string.Equals(reportKey, AquaticKey, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedReportKey, AquaticKey, StringComparison.OrdinalIgnoreCase))
         {
             return (new DiseaseRankingScope("Aquatic Diseases", "Aquatic"), await GetBySpeciesGroupAsync(isAquatic: true, cancellationToken));
         }
 
-        if (!Guid.TryParse(reportKey, out var filterId))
+        if (!Guid.TryParse(normalizedReportKey, out var filterId))
         {
             return null;
         }
