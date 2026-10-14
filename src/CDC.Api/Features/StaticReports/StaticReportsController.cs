@@ -35,6 +35,15 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     }
 
     /// <summary>
+    /// Gets whether the current user may upload a new static report or user manual.
+    /// </summary>
+    /// <response code="200">The permission was retrieved.</response>
+    [HttpGet("upload-permission")]
+    [ProducesResponseType(typeof(StaticReportUploadPermissionDto), StatusCodes.Status200OK)]
+    public ActionResult<StaticReportUploadPermissionDto> GetUploadPermission() =>
+        Ok(new StaticReportUploadPermissionDto { CanUpload = staticReportService.CanUploadStaticReports });
+
+    /// <summary>
     /// Gets every version of one static report or user manual.
     /// </summary>
     /// <param name="staticReportId">The logical report to read the history of.</param>
@@ -54,16 +63,16 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     }
 
     /// <summary>
-    /// Gets the stored document for one version.
+    /// Gets the stored document for one version as a PDF file.
     /// </summary>
     /// <param name="staticReportVersionId">The version to read.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="200">The document was retrieved.</response>
     /// <response code="404">No document is stored for the supplied version.</response>
     [HttpGet("versions/{staticReportVersionId:guid}/document")]
-    [ProducesResponseType(typeof(StaticReportDataDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> GetStaticReportDocument(
+    public async Task<IActionResult> GetStaticReportDocument(
         Guid staticReportVersionId,
         CancellationToken cancellationToken)
     {
@@ -74,24 +83,13 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
             return NotFound();
         }
 
-        var fileName = BuildDownloadFileName(document.Title);
-        return File(document.PdfData, "application/pdf", fileName);
-    }
+        // "inline", not "attachment" - and set via the header directly, not File()'s
+        // fileDownloadName parameter (which always forces "attachment") - so browsers render the
+        // PDF rather than downloading it.
+        var fileName = document.Title.Replace("\"", string.Empty, StringComparison.Ordinal);
+        Response.Headers.ContentDisposition = $"inline; filename=\"{fileName}.pdf\"";
 
-    private static string BuildDownloadFileName(string title)
-    {
-        var baseName = string.IsNullOrWhiteSpace(title) ? "report" : title.Trim();
-        var invalidChars = System.IO.Path.GetInvalidFileNameChars();
-        foreach (var invalidChar in invalidChars)
-        {
-            baseName = baseName.Replace(invalidChar, '_');
-        }
-
-        var fileName = baseName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
-            ? baseName
-            : $"{baseName}.pdf";
-
-        return string.IsNullOrWhiteSpace(fileName) ? "report.pdf" : fileName;
+        return File(document.PdfData, "application/pdf", enableRangeProcessing: true);
     }
 
     /// <summary>
@@ -112,36 +110,29 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     }
 
     /// <summary>
-    /// Uploads a PDF as a new report, or as a new version of the report with the same title.
+    /// Uploads a new version of a static report or user manual.
     /// </summary>
-    /// <param name="request">The report to store.</param>
+    /// <param name="request">The title, PDF bytes, and visibility flags for the new version.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <response code="204">The report was stored.</response>
-    /// <response code="400">The title or document is missing.</response>
-    /// <response code="409">The title clashes with an existing user manual.</response>
+    /// <response code="204">The version was uploaded.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The current user may not upload documents.</response>
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> UploadStaticReport(
         [FromBody] UploadStaticReportRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Title) || request.PdfData.Length == 0)
-        {
-            return Problem("A title and a PDF document are required.", statusCode: StatusCodes.Status400BadRequest);
-        }
+        var result = await staticReportService.UploadStaticReportAsync(request, cancellationToken);
 
-        try
+        return result.Outcome switch
         {
-            await staticReportService.UploadStaticReportAsync(request, cancellationToken);
-        }
-        catch (StaticReportConflictException exception)
-        {
-            return Problem(exception.Message, statusCode: StatusCodes.Status409Conflict);
-        }
-
-        return NoContent();
+            UploadStaticReportOutcome.Success => NoContent(),
+            UploadStaticReportOutcome.Forbidden => Problem(result.ErrorMessage, statusCode: StatusCodes.Status403Forbidden),
+            _ => Problem(result.ErrorMessage, statusCode: StatusCodes.Status400BadRequest)
+        };
     }
 
     /// <summary>
@@ -150,16 +141,24 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     /// <param name="staticReportVersionId">The version to delete.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="204">The version was deleted.</response>
+    /// <response code="403">The current user may not delete this version.</response>
     /// <response code="404">No such version exists.</response>
     [HttpDelete("versions/{staticReportVersionId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteStaticReportVersion(
         Guid staticReportVersionId,
         CancellationToken cancellationToken)
     {
-        var deleted = await staticReportService.DeleteStaticReportVersionAsync(staticReportVersionId, cancellationToken);
+        var outcome = await staticReportService.DeleteStaticReportVersionAsync(staticReportVersionId, cancellationToken);
 
-        return deleted ? NoContent() : NotFound();
+        return outcome switch
+        {
+            DeleteStaticReportVersionOutcome.Success => NoContent(),
+            DeleteStaticReportVersionOutcome.Forbidden => Problem(
+                "You do not have permission to delete this document.", statusCode: StatusCodes.Status403Forbidden),
+            _ => NotFound()
+        };
     }
 }

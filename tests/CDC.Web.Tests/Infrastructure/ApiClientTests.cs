@@ -446,18 +446,19 @@ public class ApiClientTests
     [Fact]
     public async Task GetStaticReportHistoryAsync_ReturnsVersions_OnSuccess()
     {
-        var reportId = Guid.NewGuid();
-        const string json = """
-            [{"id":"11111111-1111-1111-1111-111111111111","staticReportId":"22222222-2222-2222-2222-222222222222","title":"Report","versionMajor":1,"effectiveDateFrom":"2024-01-01T00:00:00Z","isUserManual":false,"isPublic":true,"fileSize":1}]
+        var staticReportId = Guid.NewGuid();
+        var json = $$"""
+            [{"id":"11111111-1111-1111-1111-111111111111","staticReportId":"{{staticReportId}}","title":"Help using D2R2","versionMajor":2,"effectiveDateFrom":"2024-01-01T00:00:00Z","isUserManual":true,"isPublic":false,"fileSize":2048}]
             """;
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
         var client = CreateClient(handler);
 
-        var versions = await client.GetStaticReportHistoryAsync(reportId, publicOnly: true);
+        var versions = await client.GetStaticReportHistoryAsync(staticReportId, publicOnly: false);
 
-        Assert.Single(versions);
-        Assert.Equal($"/api/static-reports/{reportId}/history", handler.LastRequestUri!.AbsolutePath);
-        Assert.Contains("publicOnly=True", handler.LastRequestUri.Query);
+        var version = Assert.Single(versions);
+        Assert.Equal(2, version.VersionMajor);
+        Assert.Equal($"/api/static-reports/{staticReportId}/history", handler.LastRequestUri!.AbsolutePath);
+        Assert.Contains("publicOnly=False", handler.LastRequestUri.Query);
     }
 
     [Fact]
@@ -485,63 +486,111 @@ public class ApiClientTests
         Assert.Equal($"/api/static-reports/versions/{versionId}/public", handler.LastRequestUri!.AbsolutePath);
     }
 
-    [Theory]
-    [InlineData(HttpStatusCode.NoContent, true)]
-    [InlineData(HttpStatusCode.NotFound, false)]
-    public async Task DeleteStaticReportVersionAsync_ReturnsWhetherTheCallSucceeded(HttpStatusCode status, bool expected)
+    [Fact]
+    public async Task CanUploadStaticReportsAsync_ReturnsTrue_WhenPermitted()
     {
-        var versionId = Guid.NewGuid();
-        var handler = new RecordingHttpMessageHandler(status, string.Empty);
+        const string json = """{"canUpload":true}""";
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
         var client = CreateClient(handler);
 
-        var result = await client.DeleteStaticReportVersionAsync(versionId);
+        var canUpload = await client.CanUploadStaticReportsAsync();
 
-        Assert.Equal(expected, result);
-        Assert.Equal($"/api/static-reports/versions/{versionId}", handler.LastRequestUri!.AbsolutePath);
+        Assert.True(canUpload);
+        Assert.Equal("/api/static-reports/upload-permission", handler.LastRequestUri!.AbsolutePath);
     }
 
     [Fact]
-    public async Task UploadStaticReportAsync_ReturnsTrue_OnSuccess()
+    public async Task CanUploadStaticReportsAsync_ReturnsFalse_WhenTheResponseBodyIsNull()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var canUpload = await client.CanUploadStaticReportsAsync();
+
+        Assert.False(canUpload);
+    }
+
+    [Fact]
+    public async Task UploadStaticReportAsync_ReturnsSuccess_OnNoContent()
     {
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
         var client = CreateClient(handler);
 
-        var result = await client.UploadStaticReportAsync("Report", [1, 2, 3], isPublic: true);
+        var result = await client.UploadStaticReportAsync("Help using D2R2", [1, 2, 3], isUserManual: true, isPublic: false);
 
-        Assert.True(result);
+        Assert.Equal(UploadStaticReportOutcome.Success, result.Outcome);
+        Assert.Null(result.ErrorMessage);
         Assert.Equal("/api/static-reports", handler.LastRequestUri!.AbsolutePath);
     }
 
     [Fact]
-    public async Task UploadStaticReportAsync_ThrowsRejected_WithProblemDetail_OnConflict()
+    public async Task UploadStaticReportAsync_ReturnsForbidden_OnHttpForbidden()
     {
-        const string json = """{"detail":"Title clashes with a user manual."}""";
-        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, json));
+        const string json = """{"detail":"You do not have permission to upload documents."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Forbidden, json));
 
-        var exception = await Assert.ThrowsAsync<StaticReportUploadRejectedException>(
-            () => client.UploadStaticReportAsync("Report", [1], isPublic: false));
+        var result = await client.UploadStaticReportAsync("Help using D2R2", [1, 2, 3], isUserManual: true, isPublic: false);
 
-        Assert.Equal("Title clashes with a user manual.", exception.Message);
+        Assert.Equal(UploadStaticReportOutcome.Forbidden, result.Outcome);
+        Assert.Equal("You do not have permission to upload documents.", result.ErrorMessage);
     }
 
     [Fact]
-    public async Task UploadStaticReportAsync_ThrowsRejected_WithDefaultMessage_WhenConflictHasNoDetail()
+    public async Task UploadStaticReportAsync_ReturnsValidationFailed_OnAnyOtherStatusCode()
     {
-        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, "{}"));
+        const string json = """{"detail":"Please choose a file to upload."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, json));
 
-        var exception = await Assert.ThrowsAsync<StaticReportUploadRejectedException>(
-            () => client.UploadStaticReportAsync("Report", [1], isPublic: false));
+        var result = await client.UploadStaticReportAsync(string.Empty, [], isUserManual: true, isPublic: false);
 
-        Assert.Equal("The report conflicts with an existing document.", exception.Message);
+        Assert.Equal(UploadStaticReportOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("Please choose a file to upload.", result.ErrorMessage);
     }
 
     [Fact]
-    public async Task UploadStaticReportAsync_Throws_OnOtherFailureStatus()
+    public async Task DeleteStaticReportVersionAsync_ReturnsSuccess_OnNoContent()
+    {
+        var staticReportVersionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.DeleteStaticReportVersionAsync(staticReportVersionId);
+
+        Assert.Equal(DeleteStaticReportVersionOutcome.Success, result.Outcome);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal($"/api/static-reports/versions/{staticReportVersionId}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task DeleteStaticReportVersionAsync_ReturnsForbidden_OnHttpForbidden()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Forbidden, string.Empty));
+
+        var result = await client.DeleteStaticReportVersionAsync(Guid.NewGuid());
+
+        Assert.Equal(DeleteStaticReportVersionOutcome.Forbidden, result.Outcome);
+        Assert.Equal("You do not have permission to delete this document.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DeleteStaticReportVersionAsync_ReturnsNotFound_OnHttp404()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var result = await client.DeleteStaticReportVersionAsync(Guid.NewGuid());
+
+        Assert.Equal(DeleteStaticReportVersionOutcome.NotFound, result.Outcome);
+        Assert.Equal("This document could not be found. Another user may have already deleted it.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DeleteStaticReportVersionAsync_ReturnsError_OnAnyOtherStatusCode()
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
 
-        await Assert.ThrowsAsync<HttpRequestException>(
-            () => client.UploadStaticReportAsync("Report", [1], isPublic: false));
+        var result = await client.DeleteStaticReportVersionAsync(Guid.NewGuid());
+
+        Assert.Equal(DeleteStaticReportVersionOutcome.Error, result.Outcome);
+        Assert.Equal("The document could not be deleted. Please try again.", result.ErrorMessage);
     }
 
     [Fact]

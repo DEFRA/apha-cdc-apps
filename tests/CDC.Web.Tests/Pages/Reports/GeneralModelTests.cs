@@ -34,7 +34,8 @@ public class GeneralModelTests
         IReadOnlyList<StaticReportListItemDto>? history = null,
         Exception? throwOnGetReports = null,
         bool operationResult = false,
-        Exception? throwOnOperation = null)
+        Exception? throwOnOperation = null,
+        UploadStaticReportResult? uploadResult = null)
     {
         var metadataProvider = new EmptyModelMetadataProvider();
 
@@ -43,6 +44,10 @@ public class GeneralModelTests
                 staticReports: reports,
                 throwOnGetCurrentStaticReports: throwOnGetReports,
                 staticReportHistory: history,
+                uploadStaticReportResult: uploadResult ?? new UploadStaticReportResult(
+                    operationResult ? UploadStaticReportOutcome.Success : UploadStaticReportOutcome.ValidationFailed, null),
+                deleteStaticReportVersionResult: new DeleteStaticReportVersionResult(
+                    operationResult ? DeleteStaticReportVersionOutcome.Success : DeleteStaticReportVersionOutcome.Error, null),
                 staticReportOperationResult: operationResult,
                 throwOnStaticReportOperation: throwOnOperation),
             new StubAuthorizationService(canManage),
@@ -320,7 +325,7 @@ public class GeneralModelTests
     [Fact]
     public async Task OnPostUploadAsync_ShowsRejectionMessage_WhenApiRejectsUpload()
     {
-        var model = CreatePageModel(throwOnOperation: new StaticReportUploadRejectedException("Duplicate title"));
+        var model = CreatePageModel(uploadResult: new UploadStaticReportResult(UploadStaticReportOutcome.ValidationFailed, "Duplicate title"));
         model.ReportFile = File("report.pdf", Encoding.ASCII.GetBytes("%PDF-1.7 data"));
 
         await model.OnPostUploadAsync(CancellationToken.None);

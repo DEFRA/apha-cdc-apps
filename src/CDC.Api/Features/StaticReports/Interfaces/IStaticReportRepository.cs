@@ -36,6 +36,12 @@ public interface IStaticReportRepository
     /// <summary>Deletes one version.</summary>
     Task DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
 
-    /// <summary>Stores an uploaded report as a new report, or a new version of an existing one.</summary>
-    Task InsertStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken);
+    /// <summary>Inserts a new version of a static report or user manual. An existing report with
+    /// the same title gains a new version; otherwise a new logical report is created.</summary>
+    Task UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken);
 }

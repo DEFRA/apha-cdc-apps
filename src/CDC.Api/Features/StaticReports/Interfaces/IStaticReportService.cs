@@ -28,9 +28,13 @@ public interface IStaticReportService
     Task SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
 
     /// <summary>Deletes one version.</summary>
-    /// <returns><see langword="false"/> when no such version exists.</returns>
-    Task<bool> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
+    /// <returns>Whether the version was deleted, was not found, or the current user is not permitted to delete it.</returns>
+    Task<DeleteStaticReportVersionOutcome> DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
 
-    /// <summary>Stores an uploaded report as a new report, or a new version of an existing one.</summary>
-    Task UploadStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken);
+    /// <summary>Gets a value indicating whether the current user may upload static reports or user
+    /// manuals. Mirrors the legacy <c>UploadStaticReportCommand.CanUploadStaticReport</c>.</summary>
+    bool CanUploadStaticReports { get; }
+
+    /// <summary>Uploads a new version of a static report or user manual.</summary>
+    Task<UploadStaticReportResult> UploadStaticReportAsync(UploadStaticReportRequestDto request, CancellationToken cancellationToken);
 }

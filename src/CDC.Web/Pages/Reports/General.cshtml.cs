@@ -93,13 +93,14 @@ public partial class GeneralModel : BreadcrumbPageModelBase
 
         try
         {
-            if (await apiClient.DeleteStaticReportVersionAsync(reportVersionId, cancellationToken))
+            var result = await apiClient.DeleteStaticReportVersionAsync(reportVersionId, cancellationToken);
+            if (result.Outcome == DeleteStaticReportVersionOutcome.Success)
             {
                 StatusMessage = "The report version was successfully deleted.";
             }
             else
             {
-                ErrorMessage = "The report version could not be deleted.";
+                ErrorMessage = result.ErrorMessage ?? "The report version could not be deleted.";
             }
         }
         catch (Exception ex)
@@ -126,17 +127,14 @@ public partial class GeneralModel : BreadcrumbPageModelBase
         {
             try
             {
-                if (await apiClient.UploadStaticReportAsync(title!, pdfData!, MakePublic, cancellationToken))
+                var result = await apiClient.UploadStaticReportAsync(title!, pdfData!, isUserManual: false, MakePublic, cancellationToken);
+                if (result.Outcome == UploadStaticReportOutcome.Success)
                 {
                     StatusMessage = "The report was uploaded successfully.";
                     return RedirectToPage(ReportsPage);
                 }
 
-                error = "Failed to upload the report. Try again.";
-            }
-            catch (StaticReportUploadRejectedException ex)
-            {
-                error = ex.Message;
+                error = result.ErrorMessage ?? "Failed to upload the report. Try again.";
             }
             catch (Exception ex)
             {
