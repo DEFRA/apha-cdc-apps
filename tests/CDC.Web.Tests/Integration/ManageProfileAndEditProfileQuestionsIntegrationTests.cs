@@ -3,6 +3,7 @@ using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.TestSupport;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -164,4 +165,62 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
         Assert.Contains("Epidemiology", body);
         Assert.DoesNotContain("A relevant paper.", body);
     }
+
+    [Fact]
+    public async Task EditProfileQuestions_LinksPrintFullProfileAndPrintSection_ToThePrintPageInANewTab_WhenTheUserMayPrint()
+    {
+        var profileId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel
+        {
+            ProfileId = profileId,
+            ProfileTitle = "Bovine tuberculosis",
+            CurrentProfileVersionId = Guid.NewGuid(),
+            CanPrintProfileSection = true,
+            CanViewProfileReports = true
+        };
+
+        using var factory = CreateProfilePageFactory(profile);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{profileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewProfilePrintVersion/{profileId}\" target=\"_blank\" rel=\"noopener noreferrer\">Print full profile", body);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewProfilePrintVersion/{profileId}?section={ProfileTabTestData.SummarySectionId}\" draggable=\"false\" class=\"govuk-button govuk-button--secondary\"", body);
+        Assert.DoesNotContain("window.print", body);
+        Assert.Contains("The summary reports are not yet available in this migrated view.", body);
+    }
+
+    [Fact]
+    public async Task EditProfileQuestions_HidesThePrintLinks_WhenTheUserMayNotPrint()
+    {
+        var profileId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel
+        {
+            ProfileId = profileId,
+            ProfileTitle = "Bovine tuberculosis",
+            CurrentProfileVersionId = Guid.NewGuid()
+        };
+
+        using var factory = CreateProfilePageFactory(profile);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{profileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.DoesNotContain("ViewProfilePrintVersion", body);
+        Assert.Contains("No profile reports are available for this version.", body);
+    }
+
+    private WebApplicationFactory<Program> CreateProfilePageFactory(ManageProfileViewModel profile) =>
+        _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: profile));
+                services.RemoveAll<IProfileSectionsApiService>();
+                services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata: ProfileTabTestData.TwoSectionMetadata()));
+            }));
 }

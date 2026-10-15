@@ -152,6 +152,7 @@ public class ProfileReportDocumentsTests
         Assert.Null(document.Sections[1].Note);
         Assert.Equal(["1.1 First q", "1.2 Second"], document.Sections[0].Questions.Select(question => question.Heading));
         Assert.Same(NoReferences, document.References);
+        Assert.Equal("3. Sources of further information and references", document.ReferencesHeading);
     }
 
     [Fact]
@@ -163,6 +164,50 @@ public class ProfileReportDocumentsTests
 
         Assert.False(document.ShowFrontPage);
         Assert.Equal("2. Two", Assert.Single(document.Sections).Heading);
+        Assert.Null(document.ReferencesHeading);
+    }
+
+    [Fact]
+    public void BuildFullProfile_KeepsTheReferenceHeadingsOfAFullPrint_ButDropsThemForOneSection()
+    {
+        var content = ReportContent.Create([ReportContent.Section(1, "One"), ReportContent.Section(2, "Two")]);
+        IReadOnlyList<ReportReferenceSectionView> references = [new("2. Two", [new ReportReferenceTableView("Scientific paper reference", "- none -", [])])];
+
+        var full = ProfileReportDocuments.BuildFullProfile(content, Guid.Empty, references);
+        var single = ProfileReportDocuments.BuildFullProfile(content, content.Sections[1].Id, references);
+
+        Assert.Same(references, full.References);
+        Assert.Equal("2. Two", Assert.Single(full.References!).Heading);
+        Assert.Null(Assert.Single(single.References!).Heading);
+        Assert.Equal("Scientific paper reference", Assert.Single(Assert.Single(single.References!).Tables).Title);
+    }
+
+    [Fact]
+    public void CreateDocument_TitlesThePdfWithTheLegacyVersionDescription()
+    {
+        var content = ReportContent.Create([], effectiveDateTo: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var document = ProfileReportDocuments.BuildFullProfile(content, Guid.Empty, NoReferences);
+
+        Assert.Equal("Full profile for Anthrax (What if) - v1.2 (Draft) Valid from 04/03/2026 to 01/04/2026", document.DocumentTitle);
+    }
+
+    [Theory]
+    [InlineData(false, null, "", "Anthrax (What if) - v1.2 (Draft) Valid from 04/03/2026")]
+    [InlineData(false, null, "Validation complete", "Anthrax (What if) - v1.2 (Draft) Valid from 04/03/2026 (Validation complete)")]
+    [InlineData(false, "2026-04-01", "Validation complete", "Anthrax (What if) - v1.2 (Draft) Valid from 04/03/2026 to 01/04/2026")]
+    [InlineData(false, "2026-04-01", "", "Anthrax (What if) - v1.2 (Draft) Valid from 04/03/2026 to 01/04/2026")]
+    [InlineData(true, null, "Active", "Anthrax (What if) - v1.2 (Published) Valid from 04/03/2026")]
+    [InlineData(true, "2026-04-01", "Active", "Anthrax (What if) - v1.2 (Published) Valid from 04/03/2026 to 01/04/2026")]
+    public void BuildVersionDescription_FollowsTheLegacyProfileVersionToString(bool isPublished, string? effectiveDateTo, string profileStatusName, string expected)
+    {
+        var content = ReportContent.Create(
+            [],
+            isPublished,
+            effectiveDateTo: effectiveDateTo is null ? null : DateTime.Parse(effectiveDateTo, System.Globalization.CultureInfo.InvariantCulture),
+            profileStatusName: profileStatusName);
+
+        Assert.Equal(expected, ProfileReportLayout.BuildVersionDescription(content));
     }
 
     [Fact]
