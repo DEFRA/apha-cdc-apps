@@ -30,7 +30,12 @@ internal sealed class FakeProfileSectionsApiService(
     SaveRevisionDatesResult? saveRevisionDatesResult = null,
     Exception? throwOnSaveProfileVersionRevisionDates = null,
     ReviewCommentResult? reviewCommentResult = null,
-    Exception? throwOnChangeReviewComment = null)
+    Exception? throwOnChangeReviewComment = null,
+    IReadOnlyList<ProfileQuestionInfoDto>? questionInfos = null,
+    Exception? throwOnGetProfileQuestionInfoList = null,
+    ProfileNoteChangeResult? noteChangeResult = null,
+    Exception? throwOnUpdateProfileNotes = null,
+    Exception? throwOnGetProfileNotesBySection = null)
     : IProfileSectionsApiService
 {
     /// <summary>Gets the add request most recently passed to <c>AddProfileReviewCommentAsync</c>.</summary>
@@ -50,6 +55,24 @@ internal sealed class FakeProfileSectionsApiService(
 
     /// <summary>Gets the number of times <c>SaveProfileVersionSectionAsync</c> was called.</summary>
     public int SaveProfileVersionSectionCallCount { get; private set; }
+
+    /// <summary>Gets the number of times <c>UpdateProfileNotesAsync</c> was called.</summary>
+    public int UpdateProfileNotesCallCount { get; private set; }
+
+    /// <summary>Gets the profile version most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public Guid? ChangedNotesProfileVersionId { get; private set; }
+
+    /// <summary>Gets the note type most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public Guid? ChangedNotesNoteTypeId { get; private set; }
+
+    /// <summary>Gets the inserts most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public IReadOnlyList<ProfileNoteInsert>? SavedNoteInserts { get; private set; }
+
+    /// <summary>Gets the updates most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public IReadOnlyList<ProfileNoteUpdate>? SavedNoteUpdates { get; private set; }
+
+    /// <summary>Gets the section most recently passed to <c>GetProfileQuestionInfoListAsync</c>.</summary>
+    public Guid? RequestedQuestionInfoSectionId { get; private set; }
 
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(metadata ?? new ProfileQuestionnaireMetadataDto());
@@ -78,10 +101,12 @@ internal sealed class FakeProfileSectionsApiService(
         Guid profileSectionId,
         Guid noteTypeId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(
-            notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
-                ? notes
-                : []);
+        throwOnGetProfileNotesBySection is not null
+            ? Task.FromException<IReadOnlyList<ProfileNoteDto>>(throwOnGetProfileNotesBySection)
+            : Task.FromResult(
+                notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
+                    ? notes
+                    : []);
 
     public Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAsync(
         Guid profileVersionId,
@@ -93,6 +118,35 @@ internal sealed class FakeProfileSectionsApiService(
                 notesByVersionAndNoteType is not null && notesByVersionAndNoteType.TryGetValue(noteTypeId, out var versionNotes)
                     ? versionNotes
                     : []);
+
+    public Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        IReadOnlyList<ProfileNoteInsert> inserts,
+        IReadOnlyList<ProfileNoteUpdate> updates,
+        CancellationToken cancellationToken = default)
+    {
+        UpdateProfileNotesCallCount++;
+        ChangedNotesProfileVersionId = profileVersionId;
+        ChangedNotesNoteTypeId = noteTypeId;
+        SavedNoteInserts = inserts;
+        SavedNoteUpdates = updates;
+
+        return throwOnUpdateProfileNotes is not null
+            ? Task.FromException<ProfileNoteChangeResult>(throwOnUpdateProfileNotes)
+            : Task.FromResult(noteChangeResult ?? new ProfileNoteChangeResult { Outcome = ProfileNoteChangeOutcome.Success });
+    }
+
+    public Task<IReadOnlyList<ProfileQuestionInfoDto>> GetProfileQuestionInfoListAsync(
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default)
+    {
+        RequestedQuestionInfoSectionId = profileSectionId;
+
+        return throwOnGetProfileQuestionInfoList is not null
+            ? Task.FromException<IReadOnlyList<ProfileQuestionInfoDto>>(throwOnGetProfileQuestionInfoList)
+            : Task.FromResult(questionInfos ?? []);
+    }
 
     public Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
         Guid profileVersionId,

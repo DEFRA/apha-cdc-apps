@@ -20,6 +20,9 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
     private static readonly Guid ReviewCommentId = Guid.NewGuid();
     private static readonly Guid YearlyFrequencyId = Guid.NewGuid();
     private static readonly Guid CompleteStatusId = Guid.NewGuid();
+    private static readonly Guid FurtherInformationNoteId = Guid.NewGuid();
+    private static readonly Guid MasterListNoteId = Guid.NewGuid();
+    private static readonly byte[] NoteRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
     private readonly CdcWebTestFactory _factory;
 
@@ -65,19 +68,36 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         ]
     };
 
-    private async Task<string> GetAsync(string page, ManageProfileViewModel profile, string query = "")
+    private async Task<string> GetAsync(string page, ManageProfileViewModel profile, string query = "", IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null)
     {
-        var response = await SendAsync(page, profile, query);
+        var response = await SendAsync(page, profile, query, furtherInformationNotes);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         return await response.Content.ReadAsStringAsync();
     }
 
-    private async Task<HttpResponseMessage> SendAsync(string page, ManageProfileViewModel profile, string query = "")
+    private async Task<HttpResponseMessage> SendAsync(string page, ManageProfileViewModel profile, string query = "", IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null)
     {
         var noteTypeId = Guid.NewGuid();
         var furtherInformationTypeId = Guid.NewGuid();
+
+        // The section's source is linked to the Summary section's question; the master list also holds one that is not linked yet.
+        IReadOnlyList<ProfileNoteDto> sectionSources = furtherInformationNotes ??
+        [
+            new ProfileNoteDto
+            {
+                Id = FurtherInformationNoteId,
+                NoteText = "OIE Terrestrial Manual.",
+                LastUpdated = NoteRowVersion,
+                QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
+            }
+        ];
+        IReadOnlyList<ProfileNoteDto> masterList =
+        [
+            .. sectionSources,
+            new ProfileNoteDto { Id = MasterListNoteId, NoteText = "<p>WAHIS database.</p>", LastUpdated = NoteRowVersion }
+        ];
 
         using var factory = _factory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
@@ -95,8 +115,13 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
                     notesByNoteType: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
                     {
                         [noteTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "A relevant paper." }],
-                        [furtherInformationTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "OIE Terrestrial Manual." }]
+                        [furtherInformationTypeId] = sectionSources
                     },
+                    notesByVersionAndNoteType: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
+                    {
+                        [furtherInformationTypeId] = masterList
+                    },
+                    questionInfos: [new ProfileQuestionInfoDto { Id = QuestionId, Name = "Is it endemic?", QuestionNumber = 1 }],
                     reviewComments: [new ProfileReviewCommentDto { Id = ReviewCommentId, CommentSubject = "Check the <dates>", CommentReference = "Ref 7", CommentText = "<p>Please <a href=\"https://example.com\">review</a></p><script>alert(1)</script>", UserFullName = "Jane Doe", Level = 1, CanEdit = true, CanDelete = true, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8], CommentDate = new DateTime(2026, 9, 11, 13, 14, 15) }],
                     contributions: [new ProfileSectionContributionDto { FullName = "John Smith", UserName = "jsmith", OrganisationName = "APHA" }],
                     allRevisionDates: new ProfileVersionAllRevisionDatesDto
@@ -173,6 +198,133 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
 
         Assert.Contains("OIE Terrestrial Manual.", body);
         Assert.DoesNotContain("A relevant paper.", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheAddAndSelectButtons_AboveTheSourcesTable()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile());
+
+        Assert.Contains("Add a new source of further information:", body);
+        Assert.Contains("Add<span class=\"govuk-visually-hidden\"> a new source of further information</span></a>", body);
+        Assert.Contains("mode=add", body);
+        Assert.Contains("Select a source of further information from the master list:", body);
+        Assert.Contains("mode=select", body);
+        Assert.Contains("Items per page:", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheSourcesTable_WithSortableHeadersAndRowActions()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile());
+
+        Assert.Contains("aria-sort=\"ascending\"", body);
+        Assert.Contains(">Source of further information</a>", body);
+        Assert.Contains(">Question reference</a>", body);
+        Assert.Contains(">1.1</td>", body);
+        Assert.Contains($"noteId={FurtherInformationNoteId}", body);
+        Assert.Contains($"data-confirm-target=\"#delete-note-{FurtherInformationNoteId}\"", body);
+        Assert.Contains("handler=Delete", body);
+        Assert.Contains("name=\"lastUpdated\" value=\"AQIDBAUGBwg=\"", body);
+        Assert.Contains("Are you sure you want to delete the association to this source of further information?", body);
+        Assert.DoesNotContain("WAHIS database.", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheLegacyEmptyMessage_WhenTheSectionHasNoSources()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), furtherInformationNotes: []);
+
+        Assert.Contains("There are no sources of further information to display.", body);
+        Assert.Contains("Add a new source of further information:", body);
+        Assert.Contains("Select a source of further information from the master list:", body);
+        Assert.DoesNotContain("app-profile-note-table", body);
+        Assert.DoesNotContain("Items per page:", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_HidesEveryEditingControl_WhenTheUserCannotEdit()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(canEdit: false), "?mode=add");
+
+        Assert.Contains("OIE Terrestrial Manual.", body);
+        Assert.DoesNotContain("Add a new source of further information:", body);
+        Assert.DoesNotContain("Select a source of further information from the master list:", body);
+        Assert.DoesNotContain("handler=Delete", body);
+        Assert.DoesNotContain("noteId=", body);
+        Assert.DoesNotContain("name=\"Input.NoteText\"", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheAddPanel_WithTheRichTextEditorAndTheSectionsQuestions()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), "?mode=add");
+
+        Assert.Contains("Add a source of further information", body);
+        Assert.Contains("name=\"Input.NoteText\"", body);
+        Assert.Contains("data-richtext-command=\"link\"", body);
+        Assert.Contains("data-spellcheck-target=\"Input_NoteText\"", body);
+        Assert.Contains("Question references</legend>", body);
+        Assert.Contains("id=\"Input_QuestionIds_0\" name=\"Input.QuestionIds\"", body);
+        Assert.Contains("1.1: Is it endemic?", body);
+        Assert.Contains("name=\"Input.Mode\" value=\"add\"", body);
+        Assert.Contains("handler=Save", body);
+        Assert.Contains("handler=TickAll", body);
+        Assert.Contains("handler=UntickAll", body);
+        Assert.Contains("__RequestVerificationToken", body);
+        Assert.Contains(">Tick all</button>", body);
+        Assert.Contains(">Untick all</button>", body);
+        Assert.Contains(">OK</button>", body);
+        Assert.Contains(">Cancel</a>", body);
+        Assert.DoesNotContain("checked=", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_MakesOkTheDefaultButton_SoEnterDoesNotPressTickAll()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), "?mode=add");
+
+        var hiddenDefault = body.IndexOf("<button type=\"submit\" hidden>OK</button>", StringComparison.Ordinal);
+        var tickAll = body.IndexOf(">Tick all</button>", StringComparison.Ordinal);
+
+        Assert.True(hiddenDefault >= 0, "The form should start with a hidden OK button.");
+        Assert.True(hiddenDefault < tickAll, "The hidden OK button should come before Tick all.");
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheSelectPanel_ListingOnlyTheMasterListSourcesNotYetLinked()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), "?mode=select");
+
+        Assert.Contains("Select a source of further information", body);
+        Assert.Contains("name=\"noteId\"", body);
+        Assert.Contains("Please select...", body);
+        Assert.Contains($"<option value=\"{MasterListNoteId}\">WAHIS database.</option>", body);
+        Assert.DoesNotContain($"<option value=\"{FurtherInformationNoteId}\"", body);
+        Assert.DoesNotContain("app-note-readonly", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheChosenSourceInTheSelectPanel()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), $"?mode=select&noteId={MasterListNoteId}");
+
+        Assert.Contains($"<option value=\"{MasterListNoteId}\" selected=\"selected\">WAHIS database.</option>", body);
+        Assert.Contains("<div class=\"app-note-readonly\">WAHIS database.</div>", body);
+        Assert.Contains($"name=\"Input.NoteId\" value=\"{MasterListNoteId}\"", body);
+        Assert.Contains("name=\"Input.Mode\" value=\"select\"", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheViewPanel_WithTheLinkedQuestionTicked()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), $"?noteId={FurtherInformationNoteId}");
+
+        Assert.Contains("View a source of further information", body);
+        Assert.Contains("<div class=\"app-note-readonly\">OIE Terrestrial Manual.</div>", body);
+        Assert.Contains("name=\"Input.Mode\" value=\"view\"", body);
+        Assert.Contains("name=\"Input.LastUpdated\" value=\"AQIDBAUGBwg=\"", body);
+        Assert.Matches("id=\"Input_QuestionIds_0\" name=\"Input.QuestionIds\" type=\"checkbox\" value=\"[^\"]+\" checked=\"checked\"", body);
     }
 
     [Fact]

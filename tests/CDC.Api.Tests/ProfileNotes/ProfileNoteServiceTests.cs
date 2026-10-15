@@ -2,6 +2,7 @@ using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileNotes.Commands;
 using CDC.Api.Features.ProfileNotes.Dtos;
 using CDC.Api.Features.ProfileNotes.Interfaces;
+using CDC.Api.Infrastructure;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -10,10 +11,12 @@ namespace CDC.Api.Tests.ProfileNotes;
 
 public class ProfileNoteServiceTests
 {
+    private static readonly Guid AuditUserId = Guid.Parse("8a3c0e55-4d2f-4f6a-9d5b-0b4c2f7a1e10");
+
     private readonly Mock<IProfileNoteRepository> repository = new(MockBehavior.Strict);
 
     private CDC.Api.Features.ProfileNotes.ProfileNoteService CreateService() =>
-        new(repository.Object, NullLogger<CDC.Api.Features.ProfileNotes.ProfileNoteService>.Instance);
+        new(repository.Object, new SpeciesAuditOptions(AuditUserId), NullLogger<CDC.Api.Features.ProfileNotes.ProfileNoteService>.Instance);
 
     [Fact]
     public async Task GetNoteTypes_MapsEachType()
@@ -69,7 +72,7 @@ public class ProfileNoteServiceTests
     }
 
     [Fact]
-    public async Task UpdateNotes_PassesEmptyUserId_AndMapsResult()
+    public async Task UpdateNotes_PassesTheActingUser_AndMapsResult()
     {
         var command = new UpdateNotesCommand
         {
@@ -80,7 +83,7 @@ public class ProfileNoteServiceTests
         var repositoryResult = new ProfileNoteChangesetResult([ProfileNoteTestData.NoteId], [ProfileNoteTestData.NewRowVersion], []);
 
         repository
-            .Setup(repo => repo.UpdateNotesAsync(command, Guid.Empty, It.IsAny<CancellationToken>()))
+            .Setup(repo => repo.UpdateNotesAsync(command, AuditUserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(repositoryResult);
 
         var result = await CreateService().UpdateNotesAsync(command, CancellationToken.None);

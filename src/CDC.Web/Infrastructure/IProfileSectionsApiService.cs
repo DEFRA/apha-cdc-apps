@@ -59,6 +59,29 @@ public interface IProfileSectionsApiService
         Guid noteTypeId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>PUT /api/profile-notes</c>, adding notes and changing which questions existing notes are linked to
+    /// in one transaction.</summary>
+    /// <param name="profileVersionId">The profile version the notes belong to.</param>
+    /// <param name="noteTypeId">The note type being changed.</param>
+    /// <param name="inserts">The notes to add.</param>
+    /// <param name="updates">The notes whose question links change.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome, distinguishing a concurrent-edit conflict and a rejected submission from success.</returns>
+    Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        IReadOnlyList<ProfileNoteInsert> inserts,
+        IReadOnlyList<ProfileNoteUpdate> updates,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-questions</c>, used to list the questions a note can be linked to.</summary>
+    /// <param name="profileSectionId">The section whose questions are wanted.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The section's questions; an empty list when it has none.</returns>
+    Task<IReadOnlyList<ProfileQuestionInfoDto>> GetProfileQuestionInfoListAsync(
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/profile-sections/validation-status</c>.</summary>
     /// <param name="profileVersionId">The profile version to check.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
