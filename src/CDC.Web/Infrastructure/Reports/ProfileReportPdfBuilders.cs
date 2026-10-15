@@ -112,10 +112,16 @@ public sealed class FullProfileReportPdfBuilder(
     /// <param name="profileVersionId">The profile version to report on.</param>
     /// <param name="profileSectionId">The section to print.</param>
     /// <param name="cancellationToken">Cancels the build.</param>
-    /// <returns>The PDF.</returns>
-    public async Task<byte[]> BuildSectionAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken)
+    /// <returns>The PDF, or <see langword="null"/> when the profile version has no such section.</returns>
+    public async Task<byte[]?> BuildSectionAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken)
     {
         var content = await LoadContentAsync(profileVersionId, cancellationToken);
+
+        if (content.Sections.All(section => section.Id != profileSectionId))
+        {
+            return null;
+        }
+
         var references = await referenceLoader.LoadAsync(content, profileSectionId, cancellationToken);
 
         return await RenderAsync(ProfileReportDocuments.BuildFullProfile(content, profileSectionId, references), cancellationToken);

@@ -2,6 +2,7 @@ using CDC.Api.Features.ProfileNotes.Commands;
 using CDC.Api.Features.ProfileNotes.Dtos;
 using CDC.Api.Features.ProfileNotes.Interfaces;
 using CDC.Api.Features.ProfileNotes.Mapping;
+using CDC.Api.Infrastructure;
 
 namespace CDC.Api.Features.ProfileNotes;
 
@@ -10,8 +11,12 @@ namespace CDC.Api.Features.ProfileNotes;
 /// <see cref="IProfileNoteRepository"/> and maps domain entities onto the DTOs the API returns.
 /// </summary>
 /// <param name="repository">Profile note data access.</param>
+/// <param name="auditOptions">The temporary acting user recorded as the contributor until Entra ID supplies the signed-in user.</param>
 /// <param name="logger">Structured logger.</param>
-public sealed class ProfileNoteService(IProfileNoteRepository repository, ILogger<ProfileNoteService> logger)
+public sealed class ProfileNoteService(
+    IProfileNoteRepository repository,
+    SpeciesAuditOptions auditOptions,
+    ILogger<ProfileNoteService> logger)
     : IProfileNoteService
 {
     /// <inheritdoc />
@@ -53,10 +58,8 @@ public sealed class ProfileNoteService(IProfileNoteRepository repository, ILogge
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // No authenticated user is available yet; the legacy contract never passed UserId
-        // across the WCF interface either, so this mirrors the same placeholder CDC.Api
-        // already uses elsewhere (ProfileRepository.GetAllProfilesAsync) until Entra ID lands.
-        var result = await repository.UpdateNotesAsync(command, Guid.Empty, cancellationToken);
+        // Each section the change touches records a contributor, which is a foreign key to [User], so a real user id is needed.
+        var result = await repository.UpdateNotesAsync(command, auditOptions.AuditUserId, cancellationToken);
         logger.AppliedChangeset(command.ProfileVersionId);
 
         return result.ToDto();

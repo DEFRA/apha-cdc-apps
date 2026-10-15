@@ -2,12 +2,15 @@
 <h2 class="govuk-heading-s">Profile reports</h2>
 @if (Model.CanPrintProfileSection || Model.CanViewProfileReports)
 {
-    @* Report generation (print/summary PDFs) is not implemented yet; only visibility
-       is ported from the legacy CanGetPrintVersion()/CanGetSummaryReport() rules. *@
+    @* "Print full profile" downloads the PDF, as the legacy ShowProfilePrintVersion.aspx did; like the legacy window.open it opens in a
+       new tab, so an error page cannot lose edits made on this page. The summary reports are not implemented yet; only their visibility
+       is ported from the legacy CanGetSummaryReport() rule. *@
     <ul class="govuk-list govuk-body govuk-!-font-size-16">
         @if (Model.CanPrintProfileSection)
         {
-            <li>Print full profile</li>
+            <li>
+                <a class="govuk-link govuk-link--no-visited-state" href="@Model.PrintFullProfileUrl" target="_blank" rel="noopener noreferrer">Print full profile<span class="govuk-visually-hidden"> (opens in new tab)</span></a>
+            </li>
         }
         @if (Model.CanViewProfileReports)
         {
@@ -15,7 +18,10 @@
             <li>Summary prioritisation report</li>
         }
     </ul>
-    <p class="govuk-body govuk-!-font-size-16">Report generation is not yet available in this migrated view.</p>
+    @if (Model.CanViewProfileReports)
+    {
+        <p class="govuk-body govuk-!-font-size-16">The summary reports are not yet available in this migrated view.</p>
+    }
 }
 else
 {

@@ -5,7 +5,8 @@
    profile title and version, the left-nav section list, then the tab's own page and the previous/next section links. *@
 @{
     Layout = "_Layout";
-    ViewData["Title"] = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
+    var pageTitle = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
+    ViewData["Title"] = Model.HasFormErrors ? $"Error: {pageTitle}" : pageTitle;
 
     var body = RenderBody();
 
@@ -64,7 +65,7 @@ else
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-one-quarter">
-            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(Model.CanPrintProfileSection, Model.CanViewProfileReports, Model.BuildNotesUrl(Model.ProfileId), false, subnavModel)" />
+            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(Model.CanPrintProfileSection, Model.CanViewProfileReports, Model.BuildNotesUrl(Model.ProfileId), false, subnavModel, Model.BuildPrintUrl())" />
         </div>
         <div class="govuk-grid-column-three-quarters">
             @if (Model.CurrentSection is null)

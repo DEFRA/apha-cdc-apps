@@ -27,7 +27,11 @@ public static class ProfileReportDocuments
     /// <param name="content">The profile version's report content.</param>
     /// <param name="profileSectionId">The one section to print, or <see cref="Guid.Empty"/> for every section.</param>
     /// <param name="references">The landscape reference tables.</param>
-    /// <returns>The document. A single-section print has no front page.</returns>
+    /// <returns>
+    /// The document. As in the legacy <c>FullProfilePdf</c>, a full print ends with a "Sources of further information and
+    /// references" section that has a heading per profile section; a single-section print has no front page and just that
+    /// section's three reference tables on a landscape page after it.
+    /// </returns>
     public static ProfileReportDocumentViewModel BuildFullProfile(
         ProfileReportContentDto content,
         Guid profileSectionId,
@@ -48,12 +52,15 @@ public static class ProfileReportDocuments
                 ]))
             .ToList();
 
+        var isFullPrint = profileSectionId == Guid.Empty;
+
         return ProfileReportLayout.CreateDocument(
             FullProfileTitle,
             content,
             sections,
-            showFrontPage: profileSectionId == Guid.Empty,
-            references);
+            showFrontPage: isFullPrint,
+            references: isFullPrint ? references : [.. references.Select(section => section with { Heading = null })],
+            referencesHeading: isFullPrint ? $"{sections.Count + 1}. Sources of further information and references" : null);
     }
 
     /// <summary>Lays out the summary profile: ten headings over the legacy renumbered selection of questions.</summary>

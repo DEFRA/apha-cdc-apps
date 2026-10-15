@@ -4,10 +4,11 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     Layout = "/Views/Pdf/_PdfLayout.cshtml";
-    ViewData["Title"] = Model.ReportTitle;
+    ViewData["Title"] = Model.DocumentTitle ?? Model.ReportTitle;
     ViewData["DraftWatermark"] = Model.ShowDraftWatermark;
     var internalReportsUrl = Configuration["ProfileReports:InternalHomePageUrl"];
     var contentsSections = Model.Sections.Where(body => body.Heading is not null).ToList();
+    var hasReferences = Model.References is { Count: > 0 };
 }
 
 @if (Model.ShowFrontPage)
@@ -27,6 +28,10 @@
                 @foreach (var entry in contentsSections)
                 {
                     <li><a href="#@entry.Anchor">@entry.Heading</a></li>
+                }
+                @if (hasReferences && Model.ReferencesHeading is not null)
+                {
+                    <li><a href="#references">@Model.ReferencesHeading</a></li>
                 }
             </ol>
         }
@@ -61,14 +66,20 @@
     </section>
 }
 
-@if (Model.References is { Count: > 0 })
+@if (hasReferences)
 {
-    <section class="rpt-landscape">
-        <h2 class="rpt-section-heading">@(Model.Sections.Count + 1). Sources of further information and references</h2>
-
-        @foreach (var referenceSection in Model.References)
+    <section id="references" class="rpt-landscape">
+        @if (Model.ReferencesHeading is not null)
         {
-            <h3 class="rpt-references-section">@referenceSection.Heading</h3>
+            <h2 class="rpt-section-heading">@Model.ReferencesHeading</h2>
+        }
+
+        @foreach (var referenceSection in Model.References!)
+        {
+            @if (referenceSection.Heading is not null)
+            {
+                <h3 class="rpt-references-section">@referenceSection.Heading</h3>
+            }
 
             @foreach (var table in referenceSection.Tables)
             {

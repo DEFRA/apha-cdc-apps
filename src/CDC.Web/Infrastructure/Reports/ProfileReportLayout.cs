@@ -19,6 +19,29 @@ public static class ProfileReportLayout
     /// <summary>The legacy front-page line that points internal users at the other reports.</summary>
     public const string InternalReportsLinkText = "For internal Defra users other reports are available on: ";
 
+    private const string VersionDateFormat = "dd/MM/yyyy";
+
+    /// <summary>
+    /// Describes a profile version as plain text the way the legacy <c>ProfileVersionInfo.ToString()</c> did:
+    /// "{title} - v{version} ({status}) Valid from {date}", with " to {date}" when the version has an effective end date,
+    /// and the profile's status in brackets at the end for a current draft.
+    /// </summary>
+    /// <param name="content">The profile version's report content.</param>
+    /// <returns>For example "Anthrax - v1.2 (Draft) Valid from 04/03/2026 to 01/04/2026".</returns>
+    public static string BuildVersionDescription(ProfileReportContentDto content)
+    {
+        var validFrom = content.EffectiveDateFrom.ToString(VersionDateFormat, CultureInfo.InvariantCulture);
+        var validity = content.EffectiveDateTo is { } validTo
+            ? $"Valid from {validFrom} to {validTo.ToString(VersionDateFormat, CultureInfo.InvariantCulture)}"
+            : $"Valid from {validFrom}";
+        var status = content.IsPublished ? "Published" : "Draft";
+        var description = $"{ProfileTitleHtmlFormatter.ToPlainText(content.FullTitle)} - v{content.VersionLabel} ({status}) {validity}";
+
+        return !content.IsPublished && content.EffectiveDateTo is null && content.ProfileStatusName.Length > 0
+            ? $"{description} ({content.ProfileStatusName})"
+            : description;
+    }
+
     /// <summary>Finds a question by its section and question numbers, as the legacy <c>ProfileVersionQuestionData(section, question)</c> did.</summary>
     /// <param name="content">The profile version's report content.</param>
     /// <param name="sectionNumber">The section number.</param>
@@ -53,13 +76,15 @@ public static class ProfileReportLayout
     /// <param name="sections">The body sections.</param>
     /// <param name="showFrontPage">Whether the title page and contents list are printed.</param>
     /// <param name="references">The landscape reference tables, or <see langword="null"/>.</param>
+    /// <param name="referencesHeading">The heading over the landscape reference pages, or <see langword="null"/> for none.</param>
     /// <returns>The document, ready for the Razor view.</returns>
     public static ProfileReportDocumentViewModel CreateDocument(
         string reportTitle,
         ProfileReportContentDto content,
         IReadOnlyList<ReportSectionView> sections,
         bool showFrontPage = true,
-        IReadOnlyList<ReportReferenceSectionView>? references = null) =>
+        IReadOnlyList<ReportReferenceSectionView>? references = null,
+        string? referencesHeading = null) =>
         new(
             reportTitle,
             content.FullTitle,
@@ -68,7 +93,9 @@ public static class ProfileReportLayout
             content.ShowDraftWatermark,
             showFrontPage,
             sections,
-            references);
+            references,
+            referencesHeading,
+            $"{reportTitle} for {BuildVersionDescription(content)}");
 
     /// <summary>Builds a question table's view, plain-texting the name as the legacy captions did.</summary>
     /// <param name="number">The number shown before the name, for example "2.1".</param>

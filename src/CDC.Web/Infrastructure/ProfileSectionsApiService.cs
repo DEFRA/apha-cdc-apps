@@ -82,6 +82,50 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
     }
 
     /// <inheritdoc />
+    public async Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        IReadOnlyList<ProfileNoteInsert> inserts,
+        IReadOnlyList<ProfileNoteUpdate> updates,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new { ProfileVersionId = profileVersionId, NoteTypeId = noteTypeId, Inserts = inserts, Updates = updates };
+        using var response = await httpClient.PutAsJsonAsync("/api/profile-notes", request, cancellationToken);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.OK or HttpStatusCode.NoContent => new ProfileNoteChangeResult { Outcome = ProfileNoteChangeOutcome.Success },
+            HttpStatusCode.BadRequest => new ProfileNoteChangeResult
+            {
+                Outcome = ProfileNoteChangeOutcome.ValidationFailed,
+                ErrorMessage = "The change was not accepted."
+            },
+            HttpStatusCode.Conflict => new ProfileNoteChangeResult
+            {
+                Outcome = ProfileNoteChangeOutcome.Conflict,
+                ErrorMessage = "Another user has changed this note. Your change has not been saved; reopen the note and try again."
+            },
+            _ => new ProfileNoteChangeResult
+            {
+                Outcome = ProfileNoteChangeOutcome.Error,
+                ErrorMessage = "We could not save the change. Try again later."
+            }
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileQuestionInfoDto>> GetProfileQuestionInfoListAsync(
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default)
+    {
+        var questions = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileQuestionInfoDto>>(
+            $"/api/profile-questions?profileSectionId={profileSectionId}",
+            cancellationToken);
+
+        return questions ?? [];
+    }
+
+    /// <inheritdoc />
     public async Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken = default)

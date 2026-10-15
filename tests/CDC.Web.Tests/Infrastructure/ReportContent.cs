@@ -8,7 +8,9 @@ internal static class ReportContent
     public static ProfileReportContentDto Create(
         IReadOnlyList<ProfileReportSectionDto> sections,
         bool isPublished = false,
-        bool showDraftWatermark = true) => new()
+        bool showDraftWatermark = true,
+        DateTime? effectiveDateTo = null,
+        string profileStatusName = "") => new()
         {
             ProfileVersionId = Guid.NewGuid(),
             ProfileId = Guid.NewGuid(),
@@ -16,6 +18,8 @@ internal static class ReportContent
             VersionLabel = "1.2",
             IsPublished = isPublished,
             EffectiveDateFrom = new DateTime(2026, 3, 4),
+            EffectiveDateTo = effectiveDateTo,
+            ProfileStatusName = profileStatusName,
             ShowDraftWatermark = showDraftWatermark,
             Sections = sections
         };

@@ -103,6 +103,18 @@ public class ProfileSectionTabPageModelTests
     }
 
     [Fact]
+    public async Task BuildPrintUrl_OpensThePrintPage_ForTheWholeProfileOrOneSection()
+    {
+        var pageModel = CreatePageModel(DraftProfile());
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.StartsWith($"/SurveillanceProfiles/ViewProfilePrintVersion?profileId={ProfileId}", pageModel.BuildPrintUrl());
+        Assert.Equal(
+            $"/SurveillanceProfiles/ViewProfilePrintVersion?profileId={ProfileId}&section={EpidemiologySectionId}",
+            pageModel.BuildPrintUrl(EpidemiologySectionId));
+    }
+
+    [Fact]
     public async Task IsReady_IsFalse_WhenTheProfileHasNoVersion()
     {
         var pageModel = CreatePageModel(Profile(currentProfileVersionId: Guid.Empty));
@@ -123,5 +135,15 @@ public class ProfileSectionTabPageModelTests
 
         Assert.True(pageModel.IsReady);
         Assert.Equal(ProfileVersionId, pageModel.CurrentProfileVersionId);
+    }
+
+    [Fact]
+    public async Task HasFormErrors_IsFalse_ForATabThatReportsNoErrors()
+    {
+        var pageModel = CreatePageModel(Profile());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasFormErrors);
     }
 }

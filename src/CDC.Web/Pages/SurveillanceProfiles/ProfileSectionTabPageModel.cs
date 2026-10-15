@@ -93,6 +93,10 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets a value indicating whether the profile, a version and a section all loaded.</summary>
     public bool IsReady => !HasError && !HasNoVersion && CurrentSection is not null;
 
+    /// <summary>Gets a value indicating whether the page is reporting a validation or save error, which puts "Error: " at
+    /// the start of the page title as the GOV.UK Design System requires. A page that has error messages overrides this.</summary>
+    public virtual bool HasFormErrors => false;
+
     /// <summary>Gets the typed client for the profile sections endpoints.</summary>
     protected IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
 
@@ -119,6 +123,13 @@ public abstract class ProfileSectionTabPageModel(
     /// <returns>The same tab's page URL for that section.</returns>
     public string? BuildPaginationUrl(Guid sectionId) =>
         Url.Page(ProfileSectionTabs.PagePath(ActiveTab), new { profileId = ProfileId, section = sectionId });
+
+    /// <summary>Builds the URL that downloads the print version of the profile, which the legacy page opened with
+    /// <c>window.open('ShowProfilePrintVersion.aspx?...')</c>.</summary>
+    /// <param name="sectionId">The one section to print, or <see langword="null"/> to print the full profile.</param>
+    /// <returns>The print page URL.</returns>
+    public string? BuildPrintUrl(Guid? sectionId = null) =>
+        Url.Page(ViewProfilePrintVersionModel.PagePath, new { profileId = ProfileId, section = sectionId });
 
     /// <summary>Builds the tab strip for the selected section.</summary>
     /// <param name="submitHandler">When set, tabs post to this page handler (which receives the tab's name in
