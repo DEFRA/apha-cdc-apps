@@ -213,6 +213,39 @@ public class GlobalUsersServiceTests
     }
 
     [Fact]
+    public async Task SaveAsync_ReturnsValidationFailed_ForOverlongFullName()
+    {
+        var command = Save(isNew: true, fullName: new string('a', 101));
+        repository.Setup(repo => repo.GetUserAsync(command.Id, It.IsAny<CancellationToken>())).ReturnsAsync((GlobalUser?)null);
+
+        var result = await CreateService().SaveAsync(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ReturnsValidationFailed_ForOverlongOrganisation()
+    {
+        var command = Save(isNew: true, organisation: new string('a', 101));
+        repository.Setup(repo => repo.GetUserAsync(command.Id, It.IsAny<CancellationToken>())).ReturnsAsync((GlobalUser?)null);
+
+        var result = await CreateService().SaveAsync(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ReturnsValidationFailed_ForMalformedNewUserName()
+    {
+        var command = Save(isNew: true, userName: "nodomain");
+        repository.Setup(repo => repo.GetUserAsync(command.Id, It.IsAny<CancellationToken>())).ReturnsAsync((GlobalUser?)null);
+
+        var result = await CreateService().SaveAsync(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+    }
+
+    [Fact]
     public async Task SaveAsync_ReturnsConflict_WhenRowVersionMoved()
     {
         var command = Save(isNew: true);

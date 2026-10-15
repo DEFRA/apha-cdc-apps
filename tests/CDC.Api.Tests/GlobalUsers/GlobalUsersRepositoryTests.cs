@@ -248,6 +248,49 @@ public class GlobalUsersRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    [Fact]
+    public async Task GetUserAsync_Rethrows_WhenTheDatabaseFails()
+    {
+        connection.Script("spgUser", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetUserAsync(Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task FindUserByUsernameAsync_Rethrows_WhenTheDatabaseFails()
+    {
+        connection.Script("spgUserAuthorisation", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().FindUserByUsernameAsync(@"DEFRA\jsmith", CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_Rethrows_WhenTheConnectionCannotBeOpened()
+    {
+        connection.ThrowOnOpen = new FakeDbException("cannot open");
+
+        var act = () => CreateRepository().GetGlobalUsersAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_Throws_WhenTheFactoryDoesNotReturnADbConnection()
+    {
+        var nonDbConnection = new Mock<IDbConnection>();
+        var factory = new Mock<IDbConnectionFactory>();
+        factory.Setup(f => f.CreateConnection()).Returns(nonDbConnection.Object);
+        var repository = new GlobalUsersRepository(factory.Object, logger.Object);
+
+        var act = () => repository.GetGlobalUsersAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

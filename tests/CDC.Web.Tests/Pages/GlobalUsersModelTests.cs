@@ -27,6 +27,8 @@ public class GlobalUsersModelTests
 
         public bool Throw { get; init; }
 
+        public bool ThrowOnActions { get; init; }
+
         public SaveGlobalUserRequest? AddedRequest { get; private set; }
 
         public (Guid Id, SaveGlobalUserRequest Request)? Updated { get; private set; }
@@ -45,24 +47,24 @@ public class GlobalUsersModelTests
                 });
 
         public Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Lookup);
+            ThrowOnActions ? Task.FromException<GlobalUserLookupResult>(new HttpRequestException("boom")) : Task.FromResult(Lookup);
 
         public Task<GlobalUserActionResult> AddAsync(SaveGlobalUserRequest request, CancellationToken cancellationToken = default)
         {
             AddedRequest = request;
-            return Task.FromResult(ActionResult);
+            return ThrowOnActions ? Task.FromException<GlobalUserActionResult>(new HttpRequestException("boom")) : Task.FromResult(ActionResult);
         }
 
         public Task<GlobalUserActionResult> UpdateAsync(Guid id, SaveGlobalUserRequest request, CancellationToken cancellationToken = default)
         {
             Updated = (id, request);
-            return Task.FromResult(ActionResult);
+            return ThrowOnActions ? Task.FromException<GlobalUserActionResult>(new HttpRequestException("boom")) : Task.FromResult(ActionResult);
         }
 
         public Task<GlobalUserActionResult> DeleteAsync(Guid id, byte[] lastUpdated, CancellationToken cancellationToken = default)
         {
             DeletedId = id;
-            return Task.FromResult(ActionResult);
+            return ThrowOnActions ? Task.FromException<GlobalUserActionResult>(new HttpRequestException("boom")) : Task.FromResult(ActionResult);
         }
     }
 
@@ -352,5 +354,80 @@ public class GlobalUsersModelTests
 
         Assert.Equal("Changed.", model.DeleteErrorMessage);
         Assert.Null(model.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task Delete_ReportsError_WhenApiThrows()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService { ThrowOnActions = true });
+        model.UserId = Guid.NewGuid();
+
+        await model.OnPostDeleteAsync(CancellationToken.None);
+
+        Assert.Equal("We could not delete this global user. Try again later.", model.DeleteErrorMessage);
+    }
+
+    [Fact]
+    public async Task Lookup_ShowsGeneralError_WhenApiThrows()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService { ThrowOnActions = true });
+        model.UserName = @"DEFRA\x";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.Single(model.GeneralErrors);
+        Assert.False(model.ShowForm);
+    }
+
+    [Fact]
+    public async Task Save_ShowsGeneralError_WhenApiThrows()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService { ThrowOnActions = true });
+        model.UserId = Guid.NewGuid();
+        model.FullName = "Jo";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+
+        var result = await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Contains("We could not save your changes. Try again later.", model.GeneralErrors);
+    }
+
+    [Fact]
+    public async Task Save_RejectsOverlongNames()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService());
+        model.UserId = Guid.NewGuid();
+        model.FullName = new string('a', 101);
+        model.Organisation = new string('b', 101);
+        model.Role = GlobalUserRole.ProfileEditor;
+
+        await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.True(model.FieldErrors.ContainsKey("FullName"));
+        Assert.True(model.FieldErrors.ContainsKey("Organisation"));
+    }
+
+    [Theory]
+    [InlineData("All")]
+    [InlineData("20")]
+    [InlineData("junk")]
+    public async Task OnGet_AcceptsAnyPageSizeSelection(string pageSize)
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService { Users = [User()] });
+        model.PageSize = pageSize;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Single(model.Users);
+    }
+
+    [Fact]
+    public void IsCurrentUser_IsFalse_WhenNotSignedIn()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService(), signedInAsCurrentUser: false);
+
+        Assert.False(model.IsCurrentUser(CurrentUserId));
     }
 }
