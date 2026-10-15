@@ -3,6 +3,8 @@ using CDC.Api.Features.BespokeReportTemplates;
 using CDC.Api.Features.BespokeReportTemplates.Interfaces;
 using CDC.Api.Features.DiseaseRanking;
 using CDC.Api.Features.DiseaseRanking.Interfaces;
+using CDC.Api.Features.GlobalUsers;
+using CDC.Api.Features.GlobalUsers.Interfaces;
 using CDC.Api.Features.ProfileContributors;
 using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement;
@@ -65,6 +67,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IDiseaseRankingService, DiseaseRankingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IGlobalUsersService, GlobalUsersService>();
 
         return services;
     }
