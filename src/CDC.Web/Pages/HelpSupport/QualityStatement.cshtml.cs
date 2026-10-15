@@ -1,5 +1,4 @@
 using CDC.Web.Infrastructure;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -9,7 +8,6 @@ namespace CDC.Web.Pages.HelpSupport;
 /// Redirects to the current "D2R2 Quality Statement" document, served directly by CDC.Api -
 /// matches the pattern <see cref="StaticReportsModel.GetDocumentUrl"/> uses for its links.
 /// </summary>
-[AllowAnonymous]
 public class QualityStatementModel : BreadcrumbPageModelBase
 {
     /// <summary>Matches the title legacy uploads this report under - see <c>Footer.ascx.vb</c>.</summary>
@@ -50,7 +48,7 @@ public class QualityStatementModel : BreadcrumbPageModelBase
                 return NotFound();
             }
 
-            return Redirect($"{apiBaseUrl}/api/static-reports/versions/{currentVersion.Id}/document");
+            return Redirect($"{apiBaseUrl}/api/static-reports/versions/{currentVersion.Id}/document?download=true");
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
