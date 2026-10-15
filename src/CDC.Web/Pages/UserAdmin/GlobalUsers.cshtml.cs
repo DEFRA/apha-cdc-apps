@@ -22,6 +22,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
 
     private const string PageRoute = "/UserAdmin/GlobalUsers";
     private const int NameMaxLength = 100;
+    private const string UserNameField = "UserName";
 
     private static readonly Action<ILogger, Exception?> LogFailedToLoadUsersMessage =
         LoggerMessage.Define(LogLevel.Error, new EventId(1, nameof(LogFailedToLoadUsersMessage)), "Failed to load global users");
@@ -172,7 +173,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
 
         if (userName.Length == 0)
         {
-            FieldErrors = new Dictionary<string, string> { ["UserName"] = "Enter a username." };
+            FieldErrors = new Dictionary<string, string> { [UserNameField] = "Enter a username." };
             return Page();
         }
 
@@ -192,15 +193,15 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         switch (result.Outcome)
         {
             case GlobalUserLookupOutcome.Blocked:
-                FieldErrors = new Dictionary<string, string> { ["UserName"] = "This user cannot be made a global user." };
+                FieldErrors = new Dictionary<string, string> { [UserNameField] = "This user cannot be made a global user." };
                 break;
 
             case GlobalUserLookupOutcome.SsoUser:
-                FieldErrors = new Dictionary<string, string> { ["UserName"] = "SSO users cannot be given global access rights." };
+                FieldErrors = new Dictionary<string, string> { [UserNameField] = "SSO users cannot be given global access rights." };
                 break;
 
             case GlobalUserLookupOutcome.InvalidFormat:
-                FieldErrors = new Dictionary<string, string> { ["UserName"] = "Enter a username in the format Domain\\UserId." };
+                FieldErrors = new Dictionary<string, string> { [UserNameField] = "Enter a username in the format Domain\\UserId." };
                 break;
 
             default:

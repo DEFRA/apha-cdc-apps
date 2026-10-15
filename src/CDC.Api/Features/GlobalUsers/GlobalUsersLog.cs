@@ -1,3 +1,5 @@
+using CDC.Common.Contracts;
+
 namespace CDC.Api.Features.GlobalUsers;
 
 /// <summary>
@@ -13,7 +15,7 @@ internal static partial class GlobalUsersLog
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
 
     [LoggerMessage(EventId = 1402, Level = LogLevel.Information, Message = "Global user lookup finished with outcome {Outcome}")]
-    public static partial void LookupCompleted(this ILogger logger, string outcome);
+    public static partial void LookupCompleted(this ILogger logger, GlobalUserLookupOutcome outcome);
 
     [LoggerMessage(EventId = 1403, Level = LogLevel.Information, Message = "Saving global user {UserId}")]
     public static partial void SavingGlobalUser(this ILogger logger, Guid userId);

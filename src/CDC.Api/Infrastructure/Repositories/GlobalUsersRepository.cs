@@ -210,10 +210,15 @@ public sealed class GlobalUsersRepository(IDbConnectionFactory connectionFactory
         }
     }
 
-    private static GlobalUserRole ToRole(bool isProfileEditor, bool isPolicyProfileUser) =>
-        isProfileEditor ? GlobalUserRole.ProfileEditor
-        : isPolicyProfileUser ? GlobalUserRole.PolicyProfileUser
-        : GlobalUserRole.None;
+    private static GlobalUserRole ToRole(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        if (isProfileEditor)
+        {
+            return GlobalUserRole.ProfileEditor;
+        }
+
+        return isPolicyProfileUser ? GlobalUserRole.PolicyProfileUser : GlobalUserRole.None;
+    }
 
     private static bool HasMessage(DbException exception, string fragment) =>
         exception.Message.Contains(fragment, StringComparison.OrdinalIgnoreCase);

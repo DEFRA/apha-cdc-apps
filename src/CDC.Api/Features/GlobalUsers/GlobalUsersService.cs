@@ -55,7 +55,7 @@ public sealed partial class GlobalUsersService(IGlobalUsersRepository repository
         ArgumentNullException.ThrowIfNull(userName);
 
         var result = await ClassifyAsync(userName, cancellationToken);
-        logger.LookupCompleted(result.Outcome.ToString());
+        logger.LookupCompleted(result.Outcome);
 
         return result;
     }

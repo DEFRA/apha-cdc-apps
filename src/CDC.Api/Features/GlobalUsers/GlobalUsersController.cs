@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using CDC.Api.Application.Extensions;
 using CDC.Api.Features.GlobalUsers.Commands;
 using CDC.Api.Features.GlobalUsers.Dtos;
@@ -117,6 +118,7 @@ public sealed class GlobalUsersController(ISender mediator) : ControllerBase
 public sealed record SaveGlobalUserRequest
 {
     /// <summary>Gets the user's identifier. Ignored by the edit endpoint, which uses the route id.</summary>
+    [JsonRequired]
     public Guid Id { get; init; }
 
     /// <summary>Gets the username. Only used when the user does not yet exist.</summary>
@@ -129,9 +131,11 @@ public sealed record SaveGlobalUserRequest
     public string Organisation { get; init; } = string.Empty;
 
     /// <summary>Gets the system role to assign.</summary>
+    [JsonRequired]
     public GlobalUserRole Role { get; init; }
 
     /// <summary>Gets a value indicating whether the user receives review notification emails.</summary>
+    [JsonRequired]
     public bool SubscribedToReviewEmails { get; init; }
 
     /// <summary>Gets the row version last read for this user.</summary>
