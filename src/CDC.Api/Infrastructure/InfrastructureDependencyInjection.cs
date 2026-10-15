@@ -1,6 +1,7 @@
 using CDC.Api.Features.BespokeReportTemplates.Interfaces;
 using CDC.Api.Features.DiseaseRanking.Interfaces;
 using CDC.Api.Features.DiseaseRankingFilters.Interfaces;
+using CDC.Api.Features.ExternalUsers.Interfaces;
 using CDC.Api.Features.GlobalUsers.Interfaces;
 using CDC.Api.Features.PrioritisationVariables.Interfaces;
 using CDC.Api.Features.ProfileContributors.Interfaces;
@@ -48,6 +49,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IGlobalUsersRepository, GlobalUsersRepository>();
+        services.AddScoped<IExternalUsersRepository, ExternalUsersRepository>();
 
         return services;
     }

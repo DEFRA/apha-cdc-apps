@@ -187,7 +187,7 @@
 
         @if (Model.ShowLookup)
         {
-            <form method="post" asp-page-handler="LookupUser" asp-fragment="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" id="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" tabindex="-1" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
+            <form method="post" asp-page-handler="LookupUser" asp-fragment="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" id="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
                 <input type="hidden" asp-for="PageNumber" />
                 <input type="hidden" asp-for="PageSize" />
 
@@ -212,7 +212,7 @@
 
         @if (Model.ShowForm)
         {
-            <form method="post" asp-page-handler="Save" asp-fragment="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" id="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" tabindex="-1" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
+            <form method="post" asp-page-handler="Save" asp-fragment="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" id="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
                 <input type="hidden" asp-for="UserId" />
                 <input type="hidden" asp-for="UserName" />
                 <input type="hidden" asp-for="IsNewUser" />
