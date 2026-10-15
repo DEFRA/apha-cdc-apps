@@ -27,6 +27,7 @@ public class ProfileReportDocumentRenderingTests : IClassFixture<CdcWebTestFacto
 
         var html = await RenderAsync(ProfileReportDocuments.BuildFullProfile(content, Guid.Empty, []));
 
+        Assert.Contains("<title>Full profile for Anthrax (What if) - v1.2 (Draft) Valid from 04/03/2026</title>", html);
         Assert.Contains("Full profile for: Anthrax <em>(What if)</em>", html);
         Assert.Contains("<p>Version: 1.2</p>", html);
         Assert.DoesNotContain("Published:", html);
@@ -160,13 +161,41 @@ public class ProfileReportDocumentRenderingTests : IClassFixture<CdcWebTestFacto
 
         var html = await RenderAsync(ProfileReportDocuments.BuildFullProfile(content, Guid.Empty, references));
 
-        Assert.Contains("<section class=\"rpt-landscape\">", html);
-        Assert.Contains("2. Sources of further information and references", html);
+        Assert.Contains("<section id=\"references\" class=\"rpt-landscape\">", html);
+        Assert.Contains("<a href=\"#references\">2. Sources of further information and references</a>", html);
+        Assert.Contains("<h2 class=\"rpt-section-heading\">2. Sources of further information and references</h2>", html);
         Assert.Contains("<h3 class=\"rpt-references-section\">1. Description</h3>", html);
         Assert.Contains("<h4 class=\"rpt-references-title\">Scientific paper reference</h4>", html);
         Assert.Contains("<td>1.1, 2.4</td>", html);
         Assert.Contains("<td>Smith 2020</td>", html);
         Assert.Contains("<em>- No legislative references supplied -</em>", html);
+    }
+
+    [Fact]
+    public async Task RendersJustTheThreeReferenceTables_OnALandscapePage_ForASingleSectionPrint()
+    {
+        var content = ReportContent.Create([ReportContent.Section(1, "One"), ReportContent.Section(2, "Two")]);
+        var references = new[]
+        {
+            new ReportReferenceSectionView(
+                "2. Two",
+                [
+                    new ReportReferenceTableView("Scientific paper reference", "- No scientific paper references supplied -", [new ReportReferenceRow("2.1", "Smith 2020")]),
+                    new ReportReferenceTableView("Legislative reference", "- No legislative references supplied -", []),
+                    new ReportReferenceTableView("Source of further information", "- No sources of further information supplied -", [])
+                ])
+        };
+
+        var html = await RenderAsync(ProfileReportDocuments.BuildFullProfile(content, content.Sections[1].Id, references));
+
+        Assert.Contains("<section id=\"references\" class=\"rpt-landscape\">", html);
+        Assert.Contains("<h4 class=\"rpt-references-title\">Scientific paper reference</h4>", html);
+        Assert.Contains("<h4 class=\"rpt-references-title\">Legislative reference</h4>", html);
+        Assert.Contains("<h4 class=\"rpt-references-title\">Source of further information</h4>", html);
+        Assert.Contains("<td>Smith 2020</td>", html);
+        Assert.DoesNotContain("Sources of further information and references", html);
+        Assert.DoesNotContain("<h3 class=\"rpt-references-section\">", html);
+        Assert.DoesNotContain("href=\"#references\"", html);
     }
 
     [Fact]

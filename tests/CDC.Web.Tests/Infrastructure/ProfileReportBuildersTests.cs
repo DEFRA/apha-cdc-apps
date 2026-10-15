@@ -172,6 +172,7 @@ public class ProfileReportPdfBuilderTests
         var all = Assert.IsType<ProfileReportDocumentViewModel>(renderer.Model);
         Assert.True(all.ShowFrontPage);
         Assert.Equal(2, all.References!.Count);
+        Assert.Equal("3. Sources of further information and references", all.ReferencesHeading);
 
         var result = await builder.BuildSectionAsync(Guid.NewGuid(), content.Sections[1].Id, CancellationToken.None);
 
@@ -179,7 +180,26 @@ public class ProfileReportPdfBuilderTests
         var single = Assert.IsType<ProfileReportDocumentViewModel>(renderer.Model);
         Assert.False(single.ShowFrontPage);
         Assert.Equal("2. Two", Assert.Single(single.Sections).Heading);
-        Assert.Equal("2. Two", Assert.Single(single.References!).Heading);
+        Assert.Null(Assert.Single(single.References!).Heading);
+        Assert.Null(single.ReferencesHeading);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FullProfileBuilder_PrintsNothing_WhenTheVersionHasNoSuchSection(bool useEmptyId)
+    {
+        var content = ReportContent.Create([ReportContent.Section(1, "One")]);
+        var api = new FakeProfileReportsApiService(content: new ProfileReportContentResult(ProfileReportsOutcome.Success, content));
+        var renderer = new RecordingRenderer("<html/>");
+        var pdfService = new RecordingPdfService(Pdf);
+        var builder = new FullProfileReportPdfBuilder(api, renderer, pdfService, new ProfileReportReferenceLoader(new FakeProfileSectionsApiService()));
+
+        var result = await builder.BuildSectionAsync(Guid.NewGuid(), useEmptyId ? Guid.Empty : Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Null(renderer.Model);
+        Assert.Null(pdfService.Html);
     }
 
     [Theory]

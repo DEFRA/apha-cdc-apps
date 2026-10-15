@@ -50,6 +50,9 @@ public class ProfileReportContentServiceTests
         content.FullTitle.Should().Be("Avian influenza (What if)");
         content.VersionLabel.Should().Be("2.1");
         content.IsPublished.Should().BeTrue();
+        content.EffectiveDateFrom.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        content.EffectiveDateTo.Should().BeNull();
+        content.ProfileStatusName.Should().Be("Active");
         content.ShowDraftWatermark.Should().BeFalse();
         var section = content.Sections.Should().ContainSingle().Subject;
         section.Name.Should().Be("Description");
@@ -62,6 +65,20 @@ public class ProfileReportContentServiceTests
         built.NonTechnicalName.Should().Be("Is it here?");
         built.Kind.Should().Be(ProfileReportQuestionKind.Standard);
         built.IsRelevant.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetProfileReportContentAsync_ReturnsTheEffectiveEndDate_OfASupersededDraft()
+    {
+        GivenHeader(isPublished: false, effectiveDateTo: new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), statusName: "In progress");
+        GivenQuestionnaire();
+
+        var content = (await CreateService().GetProfileReportContentAsync(VersionId, CancellationToken.None)).Value;
+
+        content.IsPublished.Should().BeFalse();
+        content.EffectiveDateFrom.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        content.EffectiveDateTo.Should().Be(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
+        content.ProfileStatusName.Should().Be("In progress");
     }
 
     [Theory]

@@ -26,6 +26,12 @@ public sealed record ProfileReportContentDto
     /// <summary>Gets the date the version became effective.</summary>
     public DateTime EffectiveDateFrom { get; init; }
 
+    /// <summary>Gets the date the version stopped being effective, or <see langword="null"/> for the profile's current version.</summary>
+    public DateTime? EffectiveDateTo { get; init; }
+
+    /// <summary>Gets the profile's status name (for example "Validation complete"), or empty when it has none.</summary>
+    public string ProfileStatusName { get; init; } = string.Empty;
+
     /// <summary>
     /// Gets a value indicating whether the "DRAFT CONTENT" watermark is printed: the version is a
     /// draft that is either superseded or not yet at the "validation complete" status.
