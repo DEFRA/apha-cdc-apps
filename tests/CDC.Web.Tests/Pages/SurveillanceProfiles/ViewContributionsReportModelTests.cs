@@ -3,6 +3,7 @@ using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -107,31 +108,4 @@ public class ViewContributionsReportModelTests
             ProfileId = ProfileId,
             PageContext = new PageContext { HttpContext = new DefaultHttpContext() }
         };
-
-    private sealed class FakeViewRenderer(string html, Exception? throwOnRender = null) : IRazorViewRenderer
-    {
-        public string? ViewPath { get; private set; }
-
-        public Task<string> RenderAsync<TModel>(string viewPath, TModel model)
-        {
-            ViewPath = viewPath;
-
-            return throwOnRender is not null ? throw throwOnRender : Task.FromResult(html);
-        }
-    }
-
-    private sealed class FakePdfService(byte[] pdf, Exception? throwOnRender = null) : IPlaywrightPdfService
-    {
-        public string? Html { get; private set; }
-
-        public PdfRenderOptions? Options { get; private set; }
-
-        public Task<byte[]> RenderAsync(string html, PdfRenderOptions options, CancellationToken cancellationToken = default)
-        {
-            Html = html;
-            Options = options;
-
-            return throwOnRender is not null ? throw throwOnRender : Task.FromResult(pdf);
-        }
-    }
 }

@@ -11,6 +11,8 @@ namespace CDC.Web.Models;
 /// <param name="ShowFrontPage">Whether the title page and contents list are printed (a single-section print has none).</param>
 /// <param name="Sections">The body sections.</param>
 /// <param name="References">The landscape reference tables, or <see langword="null"/> for none.</param>
+/// <param name="ReferencesHeading">The heading over the landscape reference pages, which the contents list links to, or <see langword="null"/> for none (a single-section print has just the tables).</param>
+/// <param name="DocumentTitle">The title the PDF is saved with (the legacy document title), or <see langword="null"/> to use <paramref name="ReportTitle"/>.</param>
 public sealed record ProfileReportDocumentViewModel(
     string ReportTitle,
     string ProfileTitle,
@@ -19,7 +21,9 @@ public sealed record ProfileReportDocumentViewModel(
     bool ShowDraftWatermark,
     bool ShowFrontPage,
     IReadOnlyList<ReportSectionView> Sections,
-    IReadOnlyList<ReportReferenceSectionView>? References = null);
+    IReadOnlyList<ReportReferenceSectionView>? References = null,
+    string? ReferencesHeading = null,
+    string? DocumentTitle = null);
 
 /// <summary>One body section of a report.</summary>
 /// <param name="Heading">The section heading, or <see langword="null"/> for question tables with no heading above them.</param>
@@ -43,9 +47,9 @@ public sealed record ReportSectionView(
 public sealed record ReportQuestionView(string Heading, string? AdditionalInfo, ProfileReportQuestionDto? Question, int Level = 1, string? GuidanceHtml = null);
 
 /// <summary>One section's references on the landscape reference pages.</summary>
-/// <param name="Heading">The section heading, for example "1. Description".</param>
+/// <param name="Heading">The section heading, for example "1. Description", or <see langword="null"/> for tables with no heading above them.</param>
 /// <param name="Tables">One table per kind of reference.</param>
-public sealed record ReportReferenceSectionView(string Heading, IReadOnlyList<ReportReferenceTableView> Tables);
+public sealed record ReportReferenceSectionView(string? Heading, IReadOnlyList<ReportReferenceTableView> Tables);
 
 /// <summary>A table of one kind of reference for a section.</summary>
 /// <param name="Title">The kind of reference, for example "Scientific paper reference".</param>

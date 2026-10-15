@@ -57,6 +57,8 @@ public sealed class ProfileReportContentService(
             VersionLabel = header.VersionLabel,
             IsPublished = header.IsPublished,
             EffectiveDateFrom = header.EffectiveDateFrom,
+            EffectiveDateTo = header.EffectiveDateTo,
+            ProfileStatusName = header.ProfileStatusName,
             ShowDraftWatermark = ShowsDraftWatermark(header),
             Sections = sections
         });
