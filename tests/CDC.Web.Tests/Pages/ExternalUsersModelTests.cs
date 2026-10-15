@@ -29,6 +29,16 @@ public class ExternalUsersModelTests
 
         public ExternalUserAccessResult AccessResult { get; init; } = new(true, null);
 
+        public bool DeleteSucceeds { get; init; } = true;
+
+        public Exception? ThrowOnSetSubscription { get; init; }
+
+        public Exception? ThrowOnGetAccess { get; init; }
+
+        public Exception? ThrowOnSaveAccess { get; init; }
+
+        public Exception? ThrowOnDelete { get; init; }
+
         public (Guid Id, bool Subscribed)? Saved { get; private set; }
 
         public SaveExternalUserProfileAccessContract? SavedAccess { get; private set; }
@@ -46,24 +56,41 @@ public class ExternalUsersModelTests
 
         public Task<bool> SetReviewEmailSubscriptionAsync(Guid id, bool subscribed, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnSetSubscription is not null)
+            {
+                throw ThrowOnSetSubscription;
+            }
+
             Saved = (id, subscribed);
             return Task.FromResult(SaveSucceeds);
         }
 
         public Task<ExternalUserProfileAccessContract?> GetProfileAccessAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Access);
+            ThrowOnGetAccess is not null
+                ? Task.FromException<ExternalUserProfileAccessContract?>(ThrowOnGetAccess)
+                : Task.FromResult(Access);
 
         public Task<ExternalUserAccessResult> SaveProfileAccessAsync(
             Guid id, Guid profileId, SaveExternalUserProfileAccessContract request, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnSaveAccess is not null)
+            {
+                throw ThrowOnSaveAccess;
+            }
+
             SavedAccess = request;
             return Task.FromResult(AccessResult);
         }
 
         public Task<bool> DeleteProfileAccessAsync(Guid id, Guid profileId, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnDelete is not null)
+            {
+                throw ThrowOnDelete;
+            }
+
             DeletedProfileId = profileId;
-            return Task.FromResult(true);
+            return Task.FromResult(DeleteSucceeds);
         }
     }
 
@@ -79,7 +106,7 @@ public class ExternalUsersModelTests
     private static readonly ProfileSectionMetadataDto[] Sections =
         [.. Enumerable.Range(1, 16).Select(number => new ProfileSectionMetadataDto { Id = Guid.NewGuid(), ShortName = $"Section {number}", SectionNumber = number })];
 
-    private static ExternalUsersModel CreatePageModel(FakeExternalUsersApiService api)
+    private static ExternalUsersModel CreatePageModel(FakeExternalUsersApiService api, Exception? throwOnGetRoles = null)
     {
         var provider = new EmptyModelMetadataProvider();
         var httpContext = new DefaultHttpContext();
@@ -92,7 +119,7 @@ public class ExternalUsersModelTests
 
         return new ExternalUsersModel(
             api,
-            new FakeProfileContributorsApiService(profileUserRoles: roles),
+            new FakeProfileContributorsApiService(profileUserRoles: roles, throwOnGetProfileUserRoles: throwOnGetRoles),
             new FakeProfileSectionsApiService(metadata: new ProfileQuestionnaireMetadataDto { Sections = Sections }),
             NullLogger<ExternalUsersModel>.Instance)
         {
@@ -312,5 +339,158 @@ public class ExternalUsersModelTests
         Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal(GrantedProfileId, api.DeletedProfileId);
         Assert.NotNull(model.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task OnPostSave_ShowsError_WhenApiThrows()
+    {
+        var user = User();
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [user], ThrowOnSetSubscription = new HttpRequestException("down") });
+        model.UserId = user.Id;
+
+        var result = await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.NotNull(model.SaveError);
+    }
+
+    [Fact]
+    public async Task OnPostSaveAccess_Redirects_WhenUserIsNotInTheList()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [User()] });
+        model.UserId = Guid.NewGuid();
+
+        var result = await model.OnPostSaveAccessAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+    }
+
+    [Fact]
+    public async Task OnPostSaveAccess_ShowsError_WhenApiThrows()
+    {
+        var user = User();
+        var model = CreatePageModel(new FakeExternalUsersApiService
+        {
+            Users = [user],
+            Access = AccessWithOneGrant(),
+            ThrowOnSaveAccess = new HttpRequestException("down")
+        });
+        model.UserId = user.Id;
+        model.ProfileId = AvailableProfileId;
+        model.RoleId = ContributorRoleId;
+
+        var result = await model.OnPostSaveAccessAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("We could not save your changes. Try again later.", model.AccessError);
+        Assert.NotNull(model.AddingProfile);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAccess_SetsError_WhenApiRejects()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService { DeleteSucceeds = false });
+        model.UserId = Guid.NewGuid();
+        model.ProfileId = GrantedProfileId;
+
+        var result = await model.OnPostDeleteAccessAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("We could not remove this profile access. Try again later.", model.RemoveErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostDeleteAccess_SetsError_WhenApiThrows()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService { ThrowOnDelete = new HttpRequestException("down") });
+        model.UserId = Guid.NewGuid();
+
+        var result = await model.OnPostDeleteAccessAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("We could not remove this profile access. Try again later.", model.RemoveErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnGet_FlagsLoadError_WhenAccessCannotBeFetched()
+    {
+        var user = User();
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [user], ThrowOnGetAccess = new HttpRequestException("down") });
+        model.EditUserId = user.Id;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.True(model.HasAccessLoadError);
+        Assert.Null(model.Access);
+    }
+
+    [Fact]
+    public async Task OnGet_FlagsLoadError_WhenAccessIsNotFound()
+    {
+        var user = User();
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [user], Access = null });
+        model.EditUserId = user.Id;
+        model.AddProfileId = AvailableProfileId;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.True(model.HasAccessLoadError);
+        Assert.False(model.IsAccessPanelOpen);
+    }
+
+    [Fact]
+    public async Task OnGet_ClosesAccessPanel_WhenRolesCannotBeLoaded()
+    {
+        var user = User();
+        var model = CreatePageModel(
+            new FakeExternalUsersApiService { Users = [user], Access = AccessWithOneGrant() },
+            new HttpRequestException("down"));
+        model.EditUserId = user.Id;
+        model.AccessProfileId = GrantedProfileId;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.True(model.HasAccessLoadError);
+        Assert.Null(model.EditingGrant);
+        Assert.Null(model.AddingProfile);
+    }
+
+    [Fact]
+    public async Task OnGet_RequestsEveryUser_WhenPageSizeIsAll()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [User()] });
+        model.PageSize = "All";
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Single(model.Users);
+    }
+
+    [Fact]
+    public void UrlBuilders_DelegateToTheUrlHelper()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService());
+        model.Url = new StubUrlHelper("/UserAdmin/ExternalUsers?x=1");
+
+        Assert.Equal("/UserAdmin/ExternalUsers?x=1", model.BuildPageUrl(2));
+        Assert.Equal("/UserAdmin/ExternalUsers?x=1", model.BuildEditUrl(Guid.NewGuid()));
+        Assert.Equal("/UserAdmin/ExternalUsers?x=1", model.BuildAccessUrl(GrantedProfileId));
+        Assert.Equal("/UserAdmin/ExternalUsers?x=1", model.BuildCloseAccessUrl());
+        Assert.Equal("/UserAdmin/ExternalUsers?x=1", model.BuildCloseUrl());
+    }
+
+    private sealed class StubUrlHelper(string result) : IUrlHelper
+    {
+        public ActionContext ActionContext { get; } = new() { RouteData = new Microsoft.AspNetCore.Routing.RouteData() };
+
+        public string? Action(Microsoft.AspNetCore.Mvc.Routing.UrlActionContext actionContext) => result;
+
+        public string? Content(string? contentPath) => contentPath;
+
+        public bool IsLocalUrl(string? url) => true;
+
+        public string? Link(string? routeName, object? values) => result;
+
+        public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext) => result;
     }
 }

@@ -212,4 +212,31 @@ public class ExternalUsersServiceTests
         result.IsSuccess.Should().BeTrue();
         deleted!.LastUpdated.Should().Equal(rowVersion);
     }
+
+    [Fact]
+    public async Task SaveProfileAccessAsync_ReturnsNotFound_WhenContributorCannotBeLoaded()
+    {
+        var existing = User("a", false);
+        var profileId = Guid.NewGuid();
+        repository.Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([existing]);
+        contributors
+            .Setup(service => service.GetContributorForEditAsync(profileId, existing.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ContributorEditDto?)null);
+
+        var result = await CreateService().SaveProfileAccessAsync(
+            new SaveExternalUserProfileAccessCommand(existing.Id, profileId, Guid.NewGuid(), []), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteProfileAccessAsync_ReturnsNotFound_WhenUserIsNotExternal()
+    {
+        repository.Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+
+        var result = await CreateService().DeleteProfileAccessAsync(
+            new DeleteExternalUserProfileAccessCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
 }
