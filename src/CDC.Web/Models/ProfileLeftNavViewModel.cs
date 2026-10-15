@@ -10,9 +10,11 @@ namespace CDC.Web.Models;
 /// <param name="NotesUrl">The URL to the standalone Notes page.</param>
 /// <param name="IsNotesActive">Whether the Notes page is the one currently being viewed.</param>
 /// <param name="Subnav">The profile reference section list (1-16).</param>
+/// <param name="PrintFullProfileUrl">The URL that downloads the full profile PDF, which the "Print full profile" link opens.</param>
 public sealed record ProfileLeftNavViewModel(
     bool CanPrintProfileSection,
     bool CanViewProfileReports,
     string? NotesUrl,
     bool IsNotesActive,
-    SectionSubnavViewModel Subnav);
+    SectionSubnavViewModel Subnav,
+    string? PrintFullProfileUrl = null);

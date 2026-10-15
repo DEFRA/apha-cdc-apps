@@ -30,7 +30,8 @@
                 }
                 @if (Model.CanPrintProfileSection)
                 {
-                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" onclick="window.print(); return false;">Print</button>
+                    @* As the legacy btnPrintSection did, prints just this section's saved answers, in a new tab so an error page cannot lose unsaved edits. *@
+                    <a href="@Model.BuildPrintUrl(Model.CurrentSection.Id)" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button" target="_blank" rel="noopener noreferrer">Print<span class="govuk-visually-hidden"> this section (opens in new tab)</span></a>
                 }
             </div>
         }

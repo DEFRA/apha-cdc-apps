@@ -124,6 +124,13 @@ public abstract class ProfileSectionTabPageModel(
     public string? BuildPaginationUrl(Guid sectionId) =>
         Url.Page(ProfileSectionTabs.PagePath(ActiveTab), new { profileId = ProfileId, section = sectionId });
 
+    /// <summary>Builds the URL that downloads the print version of the profile, which the legacy page opened with
+    /// <c>window.open('ShowProfilePrintVersion.aspx?...')</c>.</summary>
+    /// <param name="sectionId">The one section to print, or <see langword="null"/> to print the full profile.</param>
+    /// <returns>The print page URL.</returns>
+    public string? BuildPrintUrl(Guid? sectionId = null) =>
+        Url.Page(ViewProfilePrintVersionModel.PagePath, new { profileId = ProfileId, section = sectionId });
+
     /// <summary>Builds the tab strip for the selected section.</summary>
     /// <param name="submitHandler">When set, tabs post to this page handler (which receives the tab's name in
     /// <c>tab</c>) instead of being plain links, so the page can save before navigating.</param>

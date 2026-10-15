@@ -1,0 +1,18 @@
+@using CDC.Common.Contracts
+@model CDC.Common.Contracts.ProfileReportQuestionDto
+
+@if (!Model.IsRelevant)
+{
+    <p class="rpt-not-relevant">- This question is not relevant -</p>
+}
+else if (Model.Kind == ProfileReportQuestionKind.Repeating && Model.Groups.Count == 0)
+{
+    <p class="rpt-not-relevant">- No answers were provided for this question -</p>
+}
+else
+{
+    @foreach (var group in Model.Groups)
+    {
+        @await Html.PartialAsync("/Views/Pdf/_ReportAnswerGroup.cshtml", group)
+    }
+}

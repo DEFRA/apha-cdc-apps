@@ -9,7 +9,6 @@ namespace CDC.Api.Domain.Entities;
 /// pipeline (see the <c>pdf-html-migration</c> workstream). This deliberately does not depend
 /// on TallPDF: <see cref="IsAvailable"/> is <see langword="false"/> until that pipeline is
 /// wired up to produce the actual document. Backs
-/// <see cref="Features.ProfileReports.Dtos.ContributionsReportDto"/>,
 /// <see cref="Features.ProfileReports.Dtos.ProfilePrintVersionDto"/>,
 /// <see cref="Features.ProfileReports.Dtos.ProfileVersionComparisonReportDto"/>,
 /// <see cref="Features.ProfileReports.Dtos.ProfileVersionBespokeReportDto"/>,

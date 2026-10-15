@@ -600,6 +600,20 @@ body {
   margin-bottom: 10px;
 }
 
+/* A tree with long labels (the bespoke report's questions) uses the full width and the legacy page's 400px height. */
+.app-tree__panel--wide {
+  max-width: 100%;
+  max-height: 400px;
+}
+
+/* "Create bespoke report": the template buttons sit on the left and "Generate bespoke report" on the right. */
+.app-bespoke-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
 /* Maintain species data: the tree and its action buttons sit side by side, with the
    buttons stacked vertically to the right - see Maintain.cshtml. Wraps to a stacked,
    full-width layout below tablet so the actions remain reachable on narrow viewports. */

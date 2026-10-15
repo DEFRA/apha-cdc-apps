@@ -1,0 +1,19 @@
+@using CDC.Web.Infrastructure
+@model CDC.Common.Contracts.ProfileReportAnswerGroupDto
+
+@if (Model.Heading is not null)
+{
+    <div class="rpt-subheading">@ProfileTitleHtmlFormatter.Format(Model.Heading)</div>
+}
+
+@if (!Model.IsRelevant)
+{
+    <p class="rpt-not-relevant">- This question is not relevant -</p>
+}
+else
+{
+    @foreach (var field in Model.Fields)
+    {
+        @await Html.PartialAsync("/Views/Pdf/_ReportField.cshtml", field)
+    }
+}
