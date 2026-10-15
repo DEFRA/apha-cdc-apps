@@ -1,0 +1,44 @@
+@using CDC.Web.Infrastructure
+@using CDC.Web.Infrastructure.Reports
+@model CDC.Web.Models.ReportQuestionView
+
+@if (Model.GuidanceHtml is not null)
+{
+    <table class="rpt-guidance">
+        <thead>
+            <tr>
+                <th scope="col"><h3>@Model.Heading</h3></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@ReportRichText.ToHtml(Model.GuidanceHtml)</td>
+            </tr>
+        </tbody>
+    </table>
+}
+else
+{
+    <table class="rpt-question rpt-question--level-@Model.Level">
+        <thead>
+            <tr>
+                <th scope="col"><h3>@Model.Heading</h3></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!string.IsNullOrWhiteSpace(Model.AdditionalInfo))
+            {
+                <tr>
+                    <td class="rpt-question__info">@ProfileTitleHtmlFormatter.ToPlainText(Model.AdditionalInfo)</td>
+                </tr>
+            }
+
+            @if (Model.Question is not null)
+            {
+                <tr>
+                    <td>@await Html.PartialAsync("/Views/Pdf/_ReportAnswers.cshtml", Model.Question)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

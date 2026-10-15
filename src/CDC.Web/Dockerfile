@@ -24,8 +24,15 @@ WORKDIR /app
 # port, if fronted by one) - coordinate any change here with infra.
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080 \
-    DOTNET_EnableDiagnostics=0
+    DOTNET_EnableDiagnostics=0 \
+    PLAYWRIGHT_BROWSERS_PATH=C:\\ms-playwright
+
+COPY --from=build /app/publish .
+
+# Playwright's headless Chromium prints the Razor-rendered reports (for example the contributions
+# report) to PDF. The browser is installed at image build time into PLAYWRIGHT_BROWSERS_PATH so the
+# container never downloads it at runtime.
+RUN powershell -NoProfile -ExecutionPolicy Bypass -File .\playwright.ps1 install chromium
 
 USER $APP_UID
-COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "CDC.Web.dll"]

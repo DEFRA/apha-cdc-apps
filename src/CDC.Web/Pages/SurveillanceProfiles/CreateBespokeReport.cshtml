@@ -1,0 +1,197 @@
+@page "{profileVersionId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.CreateBespokeReportModel
+@{
+    ViewData["Title"] = "Create bespoke report";
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-page="/SurveillanceProfiles/ProfileReports" asp-route-profileVersionId="@Model.ProfileVersionId">Profile reports</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Create bespoke report
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        <h1 class="govuk-heading-l">Create bespoke report</h1>
+
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="bespoke-success-title" data-module="govuk-notification-banner">
+                <div class="govuk-notification-banner__header">
+                    <h2 class="govuk-notification-banner__title" id="bespoke-success-title">Success</h2>
+                </div>
+                <div class="govuk-notification-banner__content">
+                    <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@Model.ErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.Tree is not null)
+        {
+            <p class="govuk-body" id="bespoke-intro">@Model.IntroText</p>
+
+            @* Choosing a template reloads the page with it selected, as the legacy drop-down's postback did. *@
+            <form method="get" id="bespoke-template-form">
+                <div class="govuk-form-group">
+                    <label class="govuk-label" for="TemplateId">Use previously created template:</label>
+                    <select class="govuk-select" id="TemplateId" name="TemplateId" onchange="this.form.requestSubmit()">
+                        <option value="">Select template (optional)</option>
+                        @foreach (var template in Model.Templates)
+                        {
+                            <option value="@template.Id" selected="@(template.Id == Model.SelectedTemplate?.Id ? "selected" : null)">@template.Title</option>
+                        }
+                    </select>
+                    <noscript>
+                        <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 govuk-!-margin-left-2">Select template</button>
+                    </noscript>
+                    @if (Model.IsProfileEditor && Model.SelectedTemplate is not null)
+                    {
+                        <button type="button" class="govuk-link app-link-button govuk-!-margin-left-4" data-confirm-target="#edit-title-dialog">Edit title</button>
+                    }
+                </div>
+            </form>
+
+            <form method="post" id="bespoke-report-form">
+                @if (Model.SelectedTemplate is not null)
+                {
+                    <input type="hidden" name="TemplateId" value="@Model.SelectedTemplate.Id" />
+                }
+
+                <div class="govuk-button-group">
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="exclude-guidance">
+                        Exclude guidance questions
+                    </button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="include-guidance">
+                        Include guidance questions
+                    </button>
+                </div>
+
+                <div class="govuk-form-group app-tree__form-group">
+                    <fieldset class="govuk-fieldset" aria-describedby="bespoke-tree-status">
+                        <legend class="govuk-visually-hidden">Sections, questions and guidance to include in the report</legend>
+
+                        <div class="app-tree__panel app-tree__panel--wide">
+                            <div class="app-tree__controls">
+                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                                    <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                            <path d="M1 1l5 5 5-5" />
+                                        </svg>
+                                    </span>
+                                    <span class="app-tree__toggle-all-text">Open all</span>
+                                </button>
+                            </div>
+                            <partial name="_TreeView" model="Model.Tree" />
+                        </div>
+
+                        <output class="govuk-body app-tree__status govuk-!-margin-top-3" id="bespoke-tree-status" hidden></output>
+                    </fieldset>
+
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
+                        Remove selection
+                    </button>
+                    <output class="govuk-visually-hidden" aria-live="polite" data-app-tree-announcement></output>
+                </div>
+
+                @if (Model.IsProfileEditor)
+                {
+                    <dialog class="app-modal" id="save-as-dialog" aria-labelledby="save-as-dialog-title"
+                            data-open-on-load="@(Model.OpenDialog == CDC.Web.Pages.SurveillanceProfiles.CreateBespokeReportModel.SaveAsDialog ? "true" : "false")">
+                        <h2 class="govuk-heading-m" id="save-as-dialog-title">Save template as</h2>
+                        <div class="govuk-form-group@(Model.NewTitleError is not null ? " govuk-form-group--error" : string.Empty)">
+                            <label class="govuk-label" for="NewTemplateTitle">Template title</label>
+                            @if (Model.NewTitleError is not null)
+                            {
+                                <p class="govuk-error-message" id="NewTemplateTitle-error"><span class="govuk-visually-hidden">Error:</span> @Model.NewTitleError</p>
+                            }
+                            <input class="govuk-input@(Model.NewTitleError is not null ? " govuk-input--error" : string.Empty)" id="NewTemplateTitle" name="NewTemplateTitle"
+                                   type="text" maxlength="255" autocomplete="off" data-bespoke-title-input
+                                   value="@(Model.NewTemplateTitle ?? Model.SelectedTemplate?.Title)"
+                                   aria-describedby="@(Model.NewTitleError is not null ? "NewTemplateTitle-error" : null)" />
+                        </div>
+                        <button type="submit" asp-page-handler="SaveAs" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Save</button>
+                        <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                    </dialog>
+
+                    @if (Model.SelectedTemplate is not null)
+                    {
+                        <dialog class="app-modal" id="edit-title-dialog" aria-labelledby="edit-title-dialog-title"
+                                data-open-on-load="@(Model.OpenDialog == CDC.Web.Pages.SurveillanceProfiles.CreateBespokeReportModel.EditTitleDialog ? "true" : "false")">
+                            <h2 class="govuk-heading-m" id="edit-title-dialog-title">Edit title</h2>
+                            <div class="govuk-form-group@(Model.EditTitleError is not null ? " govuk-form-group--error" : string.Empty)">
+                                <label class="govuk-label" for="EditedTemplateTitle">Template title</label>
+                                @if (Model.EditTitleError is not null)
+                                {
+                                    <p class="govuk-error-message" id="EditedTemplateTitle-error"><span class="govuk-visually-hidden">Error:</span> @Model.EditTitleError</p>
+                                }
+                                <input class="govuk-input@(Model.EditTitleError is not null ? " govuk-input--error" : string.Empty)" id="EditedTemplateTitle" name="EditedTemplateTitle"
+                                       type="text" maxlength="255" autocomplete="off" data-bespoke-title-input
+                                       value="@(Model.EditedTemplateTitle ?? Model.SelectedTemplate.Title)"
+                                       aria-describedby="@(Model.EditTitleError is not null ? "EditedTemplateTitle-error" : null)" />
+                            </div>
+                            <button type="submit" asp-page-handler="SaveTitle" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Save</button>
+                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                        </dialog>
+
+                        <dialog class="app-modal" id="delete-template-dialog" aria-labelledby="delete-template-dialog-title">
+                            <h2 class="govuk-heading-m" id="delete-template-dialog-title">Delete template</h2>
+                            <p class="govuk-body">Are you sure you want to delete this template?</p>
+                            <button type="submit" asp-page-handler="Delete" class="govuk-button govuk-button--warning govuk-!-margin-bottom-0 govuk-!-margin-right-2">Delete template</button>
+                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                        </dialog>
+                    }
+                }
+
+                <div class="app-bespoke-actions">
+                    <div class="govuk-button-group">
+                        @if (Model.IsProfileEditor)
+                        {
+                            <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-confirm-target="#save-as-dialog" data-bespoke-save-as>
+                                Save template as
+                            </button>
+                            @if (Model.SelectedTemplate is not null)
+                            {
+                                <button type="submit" asp-page-handler="Update" class="govuk-button govuk-button--secondary" data-module="govuk-button">Update template</button>
+                                <button type="button" class="govuk-button govuk-button--warning" data-module="govuk-button" data-confirm-target="#delete-template-dialog">Delete template</button>
+                            }
+                        }
+                    </div>
+                    <div class="govuk-button-group">
+                        <button type="submit" asp-page-handler="Generate" class="govuk-button" data-module="govuk-button">Generate bespoke report</button>
+                    </div>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script src="~/js/bespoke-report.js" asp-append-version="true"></script>
+}

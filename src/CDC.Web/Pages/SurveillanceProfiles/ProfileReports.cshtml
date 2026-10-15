@@ -1,0 +1,126 @@
+@page "{profileVersionId:guid}"
+@model CDC.Web.Pages.SurveillanceProfiles.ProfileReportsModel
+@{
+    ViewData["Title"] = Model.PageTitle;
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+            </li>
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                Profile reports
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.Overview is null)
+        {
+            <h1 class="govuk-heading-l">Profile reports</h1>
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@Model.ErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <h1 class="govuk-heading-l">@Model.PageTitle</h1>
+
+            @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+            {
+                <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="profile-reports-success-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="profile-reports-success-title">Success</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.RegenerationErrorMessage) || !string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="govuk-error-summary" data-module="govuk-error-summary">
+                    <div role="alert">
+                        <h2 class="govuk-error-summary__title">There is a problem</h2>
+                        <div class="govuk-error-summary__body">
+                            <p class="govuk-body">@(Model.RegenerationErrorMessage ?? Model.ErrorMessage)</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Model.ShowIntroText)
+            {
+                <p class="govuk-body" id="profile-reports-intro">
+                    Access disease profiles from this page. You can request permission to view disease scenarios or disease profiles
+                    still in draft form by contacting the D2R2 team at
+                    <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>
+                </p>
+            }
+
+            <table class="govuk-table" aria-label="This table displays reports for this disease profile">
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Title</th>
+                        <th scope="col" class="govuk-table__header">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr class="govuk-table__row">
+                            <td class="govuk-table__cell">
+                                @if (row.CanDownload)
+                                {
+                                    <a class="govuk-link" asp-page-handler="Download" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id">@row.DisplayName</a>
+                                }
+                                else
+                                {
+                                    @row.DisplayName
+                                }
+                            </td>
+                            <td class="govuk-table__cell">
+                                @if (row.CanDownload)
+                                {
+                                    <a class="govuk-link" asp-page-handler="Download" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id">Download PDF<span class="govuk-visually-hidden"> for @row.DisplayName</span></a>
+                                }
+                                @if (row.CanRegenerate)
+                                {
+                                    @if (row.CanDownload)
+                                    {
+                                        <span aria-hidden="true"> | </span>
+                                    }
+                                    <form method="post" asp-page-handler="Regenerate" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id" class="app-inline-form">
+                                        <button type="submit" class="govuk-link app-link-button">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.CanCreateBespokeReport)
+            {
+                <a class="govuk-button" draggable="false" data-module="govuk-button" asp-page="/SurveillanceProfiles/CreateBespokeReport" asp-route-profileVersionId="@Model.ProfileVersionId">Create bespoke report</a>
+            }
+
+            <p class="govuk-body">
+                <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.Overview.ProfileId">Browse disease profile</a>
+            </p>
+        }
+    </div>
+</div>

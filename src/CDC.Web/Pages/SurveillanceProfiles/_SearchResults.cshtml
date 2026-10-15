@@ -1,6 +1,10 @@
 @model CDC.Web.Pages.SurveillanceProfilesSearchModel
+@inject CDC.Web.Authorization.Services.INavigationAuthorizationService NavigationAuthorization
 @* Rendered both by the full page and, via SurveillanceProfilesSearchModel.OnGetAsync, as an
    AJAX fragment so filter changes can repopulate this section without a full page reload. *@
+@{
+    var canViewContributionsReport = await NavigationAuthorization.CanViewContributionsReportAsync(User);
+}
 
 <input type="hidden" id="PageNumber" name="PageNumber" value="@Model.PageNumber" form="search-form" />
 
@@ -70,8 +74,11 @@
                                     <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileTitle" asp-route-profileId="@profile.Id">Edit Title</a>
                                     <span aria-hidden="true"> | </span>
                                     <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
-                                    <span aria-hidden="true"> | </span>
-                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/MaintainContributors" asp-route-profileId="@profile.Id">Contributions</a>
+                                    @if (canViewContributionsReport)
+                                    {
+                                        <span aria-hidden="true"> | </span>
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
+                                    }
                                 </p>
                             </div>
 

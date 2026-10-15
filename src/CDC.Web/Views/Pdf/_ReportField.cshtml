@@ -1,0 +1,40 @@
+@using CDC.Common.Contracts
+@using CDC.Web.Infrastructure
+@using CDC.Web.Infrastructure.Reports
+@model CDC.Common.Contracts.ProfileReportFieldDto
+
+@if (!string.IsNullOrWhiteSpace(Model.Label))
+{
+    <p class="rpt-label">@ProfileTitleHtmlFormatter.ToPlainText(Model.Label)</p>
+}
+
+@switch (Model.Kind)
+{
+    case ProfileReportFieldKind.Options:
+        <ul class="rpt-options">
+            @foreach (var option in Model.Options)
+            {
+                <li><span class="rpt-checkbox @(option.Selected ? "rpt-checkbox--selected" : string.Empty)"></span><span>@ProfileTitleHtmlFormatter.Format(option.Text)</span></li>
+            }
+        </ul>
+        break;
+    case ProfileReportFieldKind.FieldGroup:
+        <div class="rpt-nested">
+            @foreach (var group in Model.Groups)
+            {
+                @await Html.PartialAsync("/Views/Pdf/_ReportAnswerGroup.cshtml", group)
+            }
+        </div>
+        break;
+    default:
+        if (string.IsNullOrWhiteSpace(Model.Text))
+        {
+            <p class="rpt-no-data">@ReportRichText.NoDataText</p>
+        }
+        else
+        {
+            <div class="rpt-text">@ReportRichText.ToHtml(Model.Text)</div>
+        }
+
+        break;
+}

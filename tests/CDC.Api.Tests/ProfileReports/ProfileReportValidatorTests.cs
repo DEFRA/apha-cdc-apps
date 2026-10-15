@@ -32,6 +32,40 @@ public class ProfileReportValidatorTests
     }
 
     [Fact]
+    public void GetProfilePrioritisationScoresQueryValidator_ValidatesTheProfileVersionId()
+    {
+        var validator = new GetProfilePrioritisationScoresQueryValidator();
+
+        validator.Validate(new GetProfilePrioritisationScoresQuery(Guid.Empty)).IsValid.Should().BeFalse();
+        validator.Validate(new GetProfilePrioritisationScoresQuery(ProfileReportTestData.ProfileVersionId)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetProfileReportContentQueryValidator_ValidatesTheProfileVersionId()
+    {
+        var validator = new GetProfileReportContentQueryValidator();
+
+        validator.Validate(new GetProfileReportContentQuery(Guid.Empty)).IsValid.Should().BeFalse();
+        validator.Validate(new GetProfileReportContentQuery(ProfileReportTestData.ProfileVersionId)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetProfileReportsOverviewQueryValidator_EmptyProfileVersionId_ShouldFail()
+    {
+        var result = new GetProfileReportsOverviewQueryValidator().Validate(new GetProfileReportsOverviewQuery(Guid.Empty));
+
+        result.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetProfileReportsOverviewQueryValidator_ProfileVersionId_ShouldPass()
+    {
+        var result = new GetProfileReportsOverviewQueryValidator().Validate(new GetProfileReportsOverviewQuery(ProfileReportTestData.ProfileVersionId));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void GetProfilePrintVersionQueryValidator_EmptyProfileVersionId_ShouldFail()
     {
         var result = new GetProfilePrintVersionQueryValidator().Validate(new GetProfilePrintVersionQuery(Guid.Empty, ProfileReportTestData.ProfileSectionId));
