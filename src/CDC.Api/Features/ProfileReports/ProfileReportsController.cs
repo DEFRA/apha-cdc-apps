@@ -2,6 +2,7 @@ using CDC.Api.Application.Extensions;
 using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Queries;
+using CDC.Common.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -46,6 +47,101 @@ public sealed class ProfileReportsController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new GetProfileVersionReportsQuery(profileVersionId, isAuthenticated), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets what the "Profile reports" page shows for a profile version.
+    /// </summary>
+    /// <remarks>
+    /// Replaces the legacy <c>ProfileReports.aspx</c> data sources: the version's title and number,
+    /// whether the user may regenerate its reports, and the reports (without the print-only full profile).
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The overview.</returns>
+    /// <response code="200">The overview was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="404">The profile version does not exist.</response>
+    [HttpGet("overview/{profileVersionId:guid}")]
+    [ProducesResponseType(typeof(ProfileReportsOverviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProfileReportsOverviewDto>> GetProfileReportsOverview(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileReportsOverviewQuery(profileVersionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets the display-ready content the profile report PDFs print for a profile version.
+    /// </summary>
+    /// <remarks>
+    /// Replaces the CSLA business objects the legacy TallPDF report classes (full profile, summary
+    /// profile, Q&amp;A brief, summary prioritisation, bespoke) loaded: every section's questions with
+    /// answers laid out as standard, repeating or per-species groups, list options resolved to
+    /// ticked and unticked labels, and relevance applied. CDC.Web renders it with Razor views.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The report content.</returns>
+    /// <response code="200">The content was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="404">The profile version does not exist.</response>
+    [HttpGet("content/{profileVersionId:guid}")]
+    [ProducesResponseType(typeof(ProfileReportContentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProfileReportContentDto>> GetProfileReportContent(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileReportContentQuery(profileVersionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets the prioritisation scores the summary prioritisation report prints for a profile version.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The scores; empty lists when prioritisation has not been run for the version.</returns>
+    /// <response code="200">The scores were retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="404">The profile version does not exist.</response>
+    [HttpGet("prioritisation/{profileVersionId:guid}")]
+    [ProducesResponseType(typeof(ProfilePrioritisationScoresDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProfilePrioritisationScoresDto>> GetProfilePrioritisationScores(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfilePrioritisationScoresQuery(profileVersionId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Gets the user guidance of a set of questions.
+    /// </summary>
+    /// <remarks>
+    /// A <c>POST</c> because the selected questions of a bespoke report do not fit a route or
+    /// querystring. It reads, and changes nothing. The legacy bespoke report looked each selected
+    /// question up with <c>ProfileQuestion.GetProfileQuestion</c> to print its guidance table.
+    /// </remarks>
+    /// <param name="request">The questions whose guidance is wanted.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The guidance of each question that exists.</returns>
+    /// <response code="200">The guidance was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    [HttpPost("guidance")]
+    [ProducesResponseType(typeof(IReadOnlyList<ProfileQuestionGuidanceDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<ProfileQuestionGuidanceDto>>> GetQuestionGuidance(
+        [FromBody] ProfileQuestionGuidanceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileQuestionGuidanceQuery(request.QuestionIds), cancellationToken);
 
         return result.ToActionResult(this);
     }
@@ -103,16 +199,25 @@ public sealed class ProfileReportsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Gets a profile's contribution history report descriptor.
+    /// Gets the data behind a profile's contributions report.
     /// </summary>
+    /// <remarks>
+    /// Replaces the legacy <c>GetContributionsReport</c> operation, which rendered a PDF with TallPDF:
+    /// this returns the report's content (every draft version and each section's contributions) and
+    /// CDC.Web renders it to PDF with a Razor view and Playwright.
+    /// </remarks>
     /// <param name="profileId">The profile to report on.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The report descriptor.</returns>
-    /// <response code="200">The report descriptor was retrieved.</response>
+    /// <returns>The report data.</returns>
+    /// <response code="200">The report data was retrieved.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user may not run the contributions report.</response>
+    /// <response code="404">The profile has no draft versions.</response>
     [HttpGet("contributions/{profileId:guid}")]
     [ProducesResponseType(typeof(ContributionsReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ContributionsReportDto>> GetContributionsReport(Guid profileId, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new GetContributionsReportQuery(profileId), cancellationToken);

@@ -3,6 +3,7 @@ using CDC.Api.Features.ProfileReports;
 using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -114,6 +115,114 @@ public class ProfileReportsControllerTests
         var response = await CreateController().GetContributionsReport(ProfileReportTestData.ProfileId, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetContributionsReport_ReturnsForbidden_WhenTheUserMayNotRunIt()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetContributionsReportQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<ContributionsReportDto>("no"));
+
+        var response = await CreateController().GetContributionsReport(ProfileReportTestData.ProfileId, CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
+    public async Task GetProfilePrioritisationScores_ReturnsOk()
+    {
+        var dto = new ProfilePrioritisationScoresDto();
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfilePrioritisationScoresQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var response = await CreateController().GetProfilePrioritisationScores(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetProfilePrioritisationScores_ReturnsNotFound_WhenTheVersionDoesNotExist()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfilePrioritisationScoresQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<ProfilePrioritisationScoresDto>("no"));
+
+        var response = await CreateController().GetProfilePrioritisationScores(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task GetProfileReportContent_ReturnsOk()
+    {
+        var dto = new ProfileReportContentDto { ProfileVersionId = ProfileReportTestData.ProfileVersionId };
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfileReportContentQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var response = await CreateController().GetProfileReportContent(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetProfileReportContent_ReturnsNotFound_WhenTheVersionDoesNotExist()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfileReportContentQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<ProfileReportContentDto>("no"));
+
+        var response = await CreateController().GetProfileReportContent(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task GetProfileReportsOverview_ReturnsOk()
+    {
+        var dto = new ProfileReportsOverviewDto { ProfileVersionId = ProfileReportTestData.ProfileVersionId };
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfileReportsOverviewQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var response = await CreateController().GetProfileReportsOverview(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetProfileReportsOverview_ReturnsNotFound_WhenTheVersionDoesNotExist()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfileReportsOverviewQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<ProfileReportsOverviewDto>("no"));
+
+        var response = await CreateController().GetProfileReportsOverview(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task CreateProfileReport_ReturnsForbidden_WhenTheUserMayNotCreateReports()
+    {
+        var command = new CreateProfileReportCommand
+        {
+            ProfileVersionId = ProfileReportTestData.ProfileVersionId,
+            ProfileReportId = ProfileReportTestData.ProfileReportId
+        };
+
+        mediator
+            .Setup(sender => sender.Send(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<CreateProfileReportResultDto>("no"));
+
+        var response = await CreateController().CreateProfileReport(command, CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status403Forbidden);
     }
 
     [Fact]

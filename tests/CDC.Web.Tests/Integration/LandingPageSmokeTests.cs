@@ -166,7 +166,6 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/UserAdmin/GlobalUsers")]
     [InlineData("/SurveillanceProfiles/PublishPublic/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/PublishDefranetOnly/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
-    [InlineData("/SurveillanceProfiles/ViewContributionsReport/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/CloneNewScenario/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/AllowPublicAccess/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/CreateNewDraftVersion/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]

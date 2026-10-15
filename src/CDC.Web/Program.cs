@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Events;
 using CDC.Auth.Entra;
@@ -10,6 +10,8 @@ using CDC.Web.Features.Account;
 using CDC.Web.Features.DiseaseRanking;
 using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
+using CDC.Web.Infrastructure.Pdf;
+using CDC.Web.Infrastructure.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -108,6 +110,36 @@ builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiSer
 })
     .AddStandardResilienceHandler();
 
+// The contributions report reads every draft version's sections, so CDC.Api can take longer than the default 10-second attempt timeout.
+builder.Services.AddHttpClient<IProfileReportsApiService, ProfileReportsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler(options =>
+    {
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(90);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(180);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
+    });
+
+// One Chromium browser is shared for the app's lifetime, so this must be a singleton.
+builder.Services.AddSingleton<IPlaywrightPdfService, PlaywrightPdfService>();
+builder.Services.AddScoped<IRazorViewRenderer, RazorViewRenderer>();
+builder.Services.AddScoped<IProfileReportGenerator, ProfileReportGenerator>();
+builder.Services.AddScoped<ProfileReportReferenceLoader>();
+builder.Services.AddScoped<IProfileReportPdfBuilder, SummaryProfileReportPdfBuilder>();
+builder.Services.AddScoped<IProfileReportPdfBuilder, QABriefReportPdfBuilder>();
+builder.Services.AddScoped<IProfileReportPdfBuilder, SummaryPrioritisationReportPdfBuilder>();
+builder.Services.AddScoped<FullProfileReportPdfBuilder>();
+builder.Services.AddScoped<IProfileReportPdfBuilder>(services => services.GetRequiredService<FullProfileReportPdfBuilder>());
+builder.Services.AddScoped<IBespokeReportPdfBuilder, BespokeReportPdfBuilder>();
+
+builder.Services.AddHttpClient<IBespokeReportTemplatesApiService, BespokeReportTemplatesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -115,7 +147,6 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
     .AddStandardResilienceHandler();
 
 builder.Services.AddScoped<IProfileVersionComparisonService, ProfileVersionComparisonService>();
-builder.Services.AddScoped<IRazorViewRenderer, RazorViewRenderer>();
 
 // Disease ranking reports; forwards the correlation ID so the report build is traceable across both services.
 builder.Services.AddHttpClient<IDiseaseRankingApiService, DiseaseRankingApiService>(client =>

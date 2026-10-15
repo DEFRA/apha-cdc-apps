@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CDC.Auth.Cidm;
 using CDC.Auth.Entra;
+using CDC.Web.Authorization.Constants;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -111,7 +112,7 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
                 if (context.Request.Path == TestSignInPath)
                 {
                     var identity = new ClaimsIdentity(
-                        [new Claim(ClaimTypes.Name, "test-user")],
+                        [new Claim(ClaimTypes.Name, "test-user"), new Claim(ClaimTypes.Role, AuthorizationRoles.ProfileEditor)],
                         CookieAuthenticationDefaults.AuthenticationScheme);
                     // Signed into both cookie schemes with the same test identity - most "protected"
                     // routes used across this test suite rely on the app's fallback policy (which

@@ -20,9 +20,9 @@
         }
 
         <p class="govuk-body govuk-!-margin-bottom-1">
-            @if (Model.ShowViewReportsLink)
+            @if (Model.ShowViewReportsLink && Model.CurrentVersion is not null)
             {
-                <a class="govuk-link" href="#">View reports</a>
+                <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileReports" asp-route-profileVersionId="@Model.CurrentVersion.VersionId">View reports</a>
                 <span aria-hidden="true"> | </span>
             }
             <a class="govuk-link" href="#">Clone profile</a>
@@ -70,7 +70,7 @@
                                 <p class="govuk-body govuk-!-margin-bottom-0 app-profile-card__version-actions">
                                     @if (row.ShowViewReportsLink)
                                     {
-                                        <a class="govuk-link" href="#">View reports</a>
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileReports" asp-route-profileVersionId="@row.Version.VersionId">View reports</a>
                                         <span aria-hidden="true"> | </span>
                                     }
                                     <a class="govuk-link" href="#">Clone profile</a>

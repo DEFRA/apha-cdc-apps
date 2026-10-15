@@ -1,24 +1,38 @@
+using CDC.Api.Application;
+using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports.Commands;
 using CDC.Api.Features.ProfileReports.Dtos;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileReports.Mapping;
+using CDC.Api.Features.ProfileSections.Interfaces;
+using CDC.Common.Contracts;
 
 namespace CDC.Api.Features.ProfileReports;
 
 /// <summary>
 /// Default <see cref="IProfileReportService"/>: reads and writes through
-/// <see cref="IProfileReportRepository"/> for the two data-backed operations, and returns a
+/// <see cref="IProfileReportRepository"/> for the two data-backed operations, assembles the
+/// contributions report from draft history and section contributions, and returns a
 /// <see cref="PendingReport"/> descriptor for every other legacy operation, none of which had a
 /// stored procedure of their own - they rendered PDFs in-process via TallPDF.
 /// </summary>
 /// <param name="repository">Profile report data access.</param>
+/// <param name="sectionRepository">Profile section data access, for section names and contributions.</param>
+/// <param name="userContext">The current user's profile-authoring role flags.</param>
 /// <param name="logger">Structured logger.</param>
-public sealed class ProfileReportService(IProfileReportRepository repository, ILogger<ProfileReportService> logger)
+public sealed class ProfileReportService(
+    IProfileReportRepository repository,
+    IProfileSectionRepository sectionRepository,
+    IUserContext userContext,
+    ILogger<ProfileReportService> logger)
     : IProfileReportService
 {
     private const string PendingMessage =
         "This report is not yet available. PDF generation is being migrated from TallPDF to Razor views and Playwright.";
+
+    // The legacy page filtered this report out of the list: it is only produced for printing.
+    private const string FullProfileReportName = "FullProfileGUID";
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileVersionReportDto>> GetProfileVersionReportsAsync(
@@ -52,29 +66,134 @@ public sealed class ProfileReportService(IProfileReportRepository repository, IL
     }
 
     /// <inheritdoc />
-    public async Task<CreateProfileReportResultDto> CreateProfileReportAsync(
+    public async Task<Result<CreateProfileReportResultDto>> CreateProfileReportAsync(
         CreateProfileReportCommand command,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var header = await repository.GetProfileVersionHeaderAsync(command.ProfileVersionId, cancellationToken);
+
+        if (header is null)
+        {
+            return Result.NotFound<CreateProfileReportResultDto>("The profile version does not exist.");
+        }
+
+        if (!CanCreateReports(header))
+        {
+            logger.CreateProfileReportRefused(command.ProfileVersionId);
+
+            return Result.Forbidden<CreateProfileReportResultDto>("You do not have permission to create a profile report.");
+        }
+
         var profileReportId = await repository.CreateProfileReportAsync(command, cancellationToken);
         logger.CreatedProfileReport(profileReportId, command.ProfileVersionId);
 
-        return new CreateProfileReportResultDto { ProfileReportId = profileReportId };
+        return Result.Success(new CreateProfileReportResultDto { ProfileReportId = profileReportId });
     }
 
     /// <inheritdoc />
-    public Task<ContributionsReportDto> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken)
+    public async Task<Result<ContributionsReportDto>> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken)
     {
-        var pending = CreatePendingReport("Contributions Report");
+        // Legacy GetContributionsReportCommand.CanGetReport().
+        if (!(userContext.IsProfileEditor || userContext.IsPolicyProfileUser) || userContext.IsUserManagementSystem)
+        {
+            logger.ContributionsReportRefused(profileId);
 
-        return Task.FromResult(new ContributionsReportDto
+            return Result.Forbidden<ContributionsReportDto>("You do not have permission to get the contributions report.");
+        }
+
+        var draftVersions = await repository.GetDraftProfileVersionsAsync(profileId, cancellationToken);
+
+        if (draftVersions.Count == 0)
+        {
+            return Result.NotFound<ContributionsReportDto>("The profile has no draft versions to report on.");
+        }
+
+        var metadata = await sectionRepository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
+        var sections = metadata.Sections.OrderBy(section => section.SectionNumber).ToList();
+        var versions = new List<ContributionsReportVersionDto>();
+
+        foreach (var version in draftVersions)
+        {
+            var sectionDtos = new List<ContributionsReportSectionDto>();
+
+            foreach (var section in sections)
+            {
+                var contributions = await sectionRepository.GetProfileVersionSectionContributionsAsync(version.Id, section.Id, cancellationToken);
+
+                sectionDtos.Add(new ContributionsReportSectionDto
+                {
+                    SectionNumber = section.SectionNumber,
+                    SectionName = section.Name,
+                    Contributions = [.. contributions.Select(contribution => new ProfileSectionContributionDto
+                    {
+                        UserId = contribution.UserId,
+                        UserName = contribution.UserName,
+                        OrganisationName = contribution.OrganisationName,
+                        FullName = contribution.FullName,
+                        LastContributionDate = contribution.LastContributionDate
+                    })]
+                });
+            }
+
+            versions.Add(new ContributionsReportVersionDto
+            {
+                ProfileVersionId = version.Id,
+                FullTitle = version.FullTitle,
+                VersionMajor = version.VersionMajor,
+                VersionMinor = version.VersionMinor,
+                IsCurrent = version.EffectiveDateTo is null,
+                EffectiveDateFrom = version.EffectiveDateFrom,
+                EffectiveDateTo = version.EffectiveDateTo,
+                ProfileStatusName = version.ProfileStatusName,
+                Sections = sectionDtos
+            });
+        }
+
+        logger.RetrievedContributionsReport(profileId, versions.Count);
+
+        // The legacy report titles itself from the newest draft version.
+        return Result.Success(new ContributionsReportDto
         {
             ProfileId = profileId,
-            Title = pending.Title,
-            IsAvailable = pending.IsAvailable,
-            Message = pending.Message
+            ProfileTitle = draftVersions[0].FullTitle,
+            Versions = versions
+        });
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<ProfileReportsOverviewDto>> GetProfileReportsOverviewAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var header = await repository.GetProfileVersionHeaderAsync(profileVersionId, cancellationToken);
+
+        if (header is null)
+        {
+            return Result.NotFound<ProfileReportsOverviewDto>("The profile version does not exist.");
+        }
+
+        var reports = await repository.GetProfileVersionReportsAsync(profileVersionId, true, cancellationToken);
+        var listed = reports.Where(report => !string.Equals(report.ReportName, FullProfileReportName, StringComparison.Ordinal)).ToList();
+
+        logger.RetrievedProfileReportsOverview(profileVersionId, listed.Count);
+
+        return Result.Success(new ProfileReportsOverviewDto
+        {
+            ProfileVersionId = header.Id,
+            ProfileId = header.ProfileId,
+            FullTitle = header.FullTitle,
+            VersionLabel = header.VersionLabel,
+            IsPublished = header.IsPublished,
+            IsCurrent = header.IsCurrent,
+            CanCreateReports = CanCreateReports(header),
+            Reports = [.. listed.Select(report => new ProfileReportListItemDto
+            {
+                Id = report.Id,
+                ReportName = report.ReportName,
+                DisplayName = report.DisplayName,
+                HasPdfData = report.HasPdfData,
+                FileSize = report.FileSize
+            })]
         });
     }
 
@@ -183,6 +302,19 @@ public sealed class ProfileReportService(IProfileReportRepository repository, IL
     // No database call and no TallPDF dependency: the PDF payload is produced by the separate
     // Razor + Playwright pipeline once that lands. See PendingReport's remarks for why this is
     // deliberately not a byte-array response.
+    // Legacy CreateProfileReportCommand.CanCreateProfileReport; contributor/reviewer access is not modelled by IUserContext yet.
+    private bool CanCreateReports(ProfileVersionHeader header)
+    {
+        if (userContext.IsUserManagementSystem || !header.IsCurrent)
+        {
+            return false;
+        }
+
+        return header.IsPublished
+            ? userContext.IsProfileEditor
+            : userContext.IsProfileEditor || userContext.IsPolicyProfileUser;
+    }
+
     private static PendingReport CreatePendingReport(string title) => new()
     {
         Title = title,

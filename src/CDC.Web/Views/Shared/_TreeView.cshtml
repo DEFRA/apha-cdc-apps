@@ -7,6 +7,7 @@
     data-app-tree-name="@Model.ItemNameSingular"
     data-app-tree-name-plural="@Model.ItemNamePlural"
     data-app-tree-multiple="@(Model.AllowMultipleSelection ? "true" : "false")"
+    data-app-tree-cascade="@(Model.AllowMultipleSelection && Model.CascadeSelection ? "true" : "false")"
     data-app-tree-hierarchy-exclusive="@(Model.EnforceHierarchyExclusivity ? "true" : "false")"
     data-app-tree-empty-label="@Model.EmptySelectionLabel"
     data-app-tree-scroll-to-selection="@(Model.ScrollToSelectionOnLoad ? "true" : "false")">
@@ -24,7 +25,7 @@
             var inputClass = Model.AllowMultipleSelection ? "govuk-checkboxes__input" : "govuk-radios__input";
             var labelClass = Model.AllowMultipleSelection ? "govuk-checkboxes__label" : "govuk-radios__label";
 
-            <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")">
+            <li class="app-tree__item" data-app-tree-expanded="@(node.Expanded ? "true" : "false")" data-app-tree-kind="@node.Kind">
                 <div class="app-tree__row">
                     @if (node.Selectable)
                     {

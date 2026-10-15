@@ -1,0 +1,110 @@
+@using CDC.Web.Infrastructure
+@using CDC.Web.Infrastructure.Reports
+@model CDC.Web.Models.ProfileReportDocumentViewModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    Layout = "/Views/Pdf/_PdfLayout.cshtml";
+    ViewData["Title"] = Model.ReportTitle;
+    ViewData["DraftWatermark"] = Model.ShowDraftWatermark;
+    var internalReportsUrl = Configuration["ProfileReports:InternalHomePageUrl"];
+    var contentsSections = Model.Sections.Where(body => body.Heading is not null).ToList();
+}
+
+@if (Model.ShowFrontPage)
+{
+    <section class="rpt-front">
+        <h1 class="rpt-title">@Model.ReportTitle for: @ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</h1>
+        <p>Version: @Model.VersionLabel</p>
+        @if (Model.PublishedDate is not null)
+        {
+            <p>Published: @Model.PublishedDate</p>
+        }
+
+        @if (contentsSections.Count > 0)
+        {
+            <h2 class="rpt-contents-heading">Contents</h2>
+            <ol class="rpt-contents">
+                @foreach (var entry in contentsSections)
+                {
+                    <li><a href="#@entry.Anchor">@entry.Heading</a></li>
+                }
+            </ol>
+        }
+
+        <div class="rpt-front-footer">
+            @if (!string.IsNullOrWhiteSpace(internalReportsUrl))
+            {
+                <p>@ProfileReportLayout.InternalReportsLinkText<a href="@internalReportsUrl">@internalReportsUrl</a></p>
+            }
+            <p>@ContributionsReportLayout.QualityStatementText</p>
+        </div>
+    </section>
+}
+
+@foreach (var body in Model.Sections)
+{
+    <section id="@body.Anchor" class="rpt-section @(body.StartsOnNewPage ? "rpt-section--new-page" : string.Empty)">
+        @if (body.Heading is not null)
+        {
+            <h2 class="rpt-section-heading">@body.Heading</h2>
+        }
+
+        @if (body.Note is not null)
+        {
+            <p class="rpt-section-note">@ReportRichText.ToHtml(body.Note)</p>
+        }
+
+        @foreach (var question in body.Questions)
+        {
+            @await Html.PartialAsync("/Views/Pdf/_ReportQuestion.cshtml", question)
+        }
+    </section>
+}
+
+@if (Model.References is { Count: > 0 })
+{
+    <section class="rpt-landscape">
+        <h2 class="rpt-section-heading">@(Model.Sections.Count + 1). Sources of further information and references</h2>
+
+        @foreach (var referenceSection in Model.References)
+        {
+            <h3 class="rpt-references-section">@referenceSection.Heading</h3>
+
+            @foreach (var table in referenceSection.Tables)
+            {
+                <table class="rpt-references">
+                    <thead>
+                        <tr>
+                            <th scope="col">Question</th>
+                            <th scope="col"><h4 class="rpt-references-title">@table.Title</h4></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (table.Rows.Count == 0)
+                        {
+                            <tr>
+                                <td></td>
+                                <td><em>@table.EmptyText</em></td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var row in table.Rows)
+                            {
+                                <tr>
+                                    <td>@row.QuestionReferences</td>
+                                    <td>@ReportRichText.ToHtml(row.NoteHtml)</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </section>
+}
+
+<section class="rpt-warning">
+    <h2 class="rpt-section-heading">@ProfileReportLayout.WarningTitle</h2>
+    <div class="rpt-warning__text">@ProfileReportLayout.WarningText</div>
+</section>

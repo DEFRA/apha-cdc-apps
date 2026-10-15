@@ -27,4 +27,12 @@
             }
         }
     });
+
+    // A dialog the server wants open when the page loads, for example one whose form failed
+    // validation and has to show its error.
+    document.querySelectorAll("dialog.app-modal[data-open-on-load='true']").forEach(function (modal) {
+        if (typeof modal.showModal === "function" && !modal.open) {
+            modal.showModal();
+        }
+    });
 })();

@@ -1,4 +1,5 @@
 using CDC.Web.Infrastructure;
+using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Playwright;
@@ -80,7 +81,7 @@ public class CompareVersionsModel(
         try
         {
             var report = await comparisonService.BuildReportAsync(versions[ordered[0]], versions[ordered[1]], cancellationToken);
-            var html = await viewRenderer.RenderAsync(ReportViewPath, report, cancellationToken);
+            var html = await viewRenderer.RenderAsync(ReportViewPath, report);
             var pdf = await pdfRenderer.RenderLandscapeAsync(html, cancellationToken);
 
             return File(pdf, "application/pdf", ReportFileName);
