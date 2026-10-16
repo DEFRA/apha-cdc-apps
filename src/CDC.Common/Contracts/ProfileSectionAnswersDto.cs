@@ -19,6 +19,22 @@ public sealed record ProfileSectionAnswersDto
 
     /// <summary>Gets the recorded field values. Empty when the section is unanswered.</summary>
     public IReadOnlyList<ProfileFieldValueDto> FieldValues { get; init; } = [];
+
+    /// <summary>Gets the rows recorded for each repeating question, ordered by sequence.</summary>
+    public IReadOnlyList<ProfileQuestionRowDto> QuestionRows { get; init; } = [];
+}
+
+/// <summary>One row of a repeating profile question.</summary>
+public sealed record ProfileQuestionRowDto
+{
+    /// <summary>Gets the row identifier, referenced by <see cref="ProfileFieldValueDto.ProfileVersionQuestionRowId"/>.</summary>
+    public Guid Id { get; init; }
+
+    /// <summary>Gets the repeating question the row belongs to.</summary>
+    public Guid QuestionId { get; init; }
+
+    /// <summary>Gets the row's position within the question, lowest first.</summary>
+    public int SequenceNumber { get; init; }
 }
 
 /// <summary>The display names of one profile question.</summary>
@@ -41,6 +57,12 @@ public sealed record ProfileQuestionNameDto
 /// </summary>
 public sealed record ProfileFieldValueDto : QuestionnaireFieldValueContract
 {
+    /// <summary>Gets the species this value is recorded against, for a per-species answer; otherwise <see langword="null"/>.</summary>
+    public Guid? SpeciesId { get; init; }
+
+    /// <summary>Gets the repeating-question row this value belongs to; <see langword="null"/> for a non-repeating question.</summary>
+    public Guid? ProfileVersionQuestionRowId { get; init; }
+
     /// <summary>Gets the answer for a decimal field.</summary>
     public decimal? DecimalValue { get; init; }
 

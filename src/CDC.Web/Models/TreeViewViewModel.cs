@@ -18,6 +18,10 @@ public sealed record TreeNodeViewModel
     /// Optional marker rendered as data-app-tree-kind, so a page's script can find a kind of node.
     public string? Kind { get; init; }
 
+    /// False renders the label as plain text with no checkbox or radio, for grouping nodes that
+    /// cannot themselves be selected.
+    public bool Selectable { get; init; } = true;
+
     public IReadOnlyList<TreeNodeViewModel> Children { get; init; } = [];
 }
 
