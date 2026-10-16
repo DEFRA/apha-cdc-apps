@@ -22,6 +22,9 @@ public sealed record ProfileNoteDto
     /// <summary>Gets the note's rich-text content.</summary>
     public string NoteText { get; init; } = string.Empty;
 
+    /// <summary>Gets the SQL Server <c>rowversion</c> read with the note, sent back when its links are changed so a concurrent edit is detected.</summary>
+    public byte[] LastUpdated { get; init; } = [];
+
     /// <summary>Gets the questions this note has been raised against.</summary>
     public IReadOnlyList<QuestionReferenceDto> QuestionReferences { get; init; } = [];
 }

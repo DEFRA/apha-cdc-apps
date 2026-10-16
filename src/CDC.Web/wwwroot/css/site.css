@@ -1330,8 +1330,10 @@ body {
     cursor: pointer;
 }
 
-/* Review comments tab: the "Add a review comment:" row, the red "new!" label and the add/view panel. */
-.app-review-comment-add {
+/* Review comments tab: the "Add a review comment:" row, the red "new!" label and the add/view panel.
+   The Further information tab shares the row, panel and read-only box (its "Add a new ...:" and "Select a ...:" rows). */
+.app-review-comment-add,
+.app-note-action {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1344,16 +1346,30 @@ body {
   margin-left: 0.25rem;
 }
 
-.app-review-comment-panel {
+.app-review-comment-panel,
+.app-note-panel {
   margin-top: 1.5rem;
   padding: 1rem 1.5rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
   background: #fff;
 }
 
-.app-review-comment-readonly {
+.app-review-comment-readonly,
+.app-note-readonly {
   padding: 0.5rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
   background: #f3f2f1;
   overflow-wrap: anywhere;
+}
+
+/* Further information panel: "Tick all"/"Untick all" on the left, "OK"/"Cancel" on the right, as in legacy. */
+.app-note-panel__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+
+.app-note-select-form .govuk-select {
+  max-width: 100%;
 }
