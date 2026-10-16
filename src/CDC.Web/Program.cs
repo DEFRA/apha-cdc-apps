@@ -104,6 +104,18 @@ builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributo
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IGlobalUsersApiService, GlobalUsersApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IExternalUsersApiService, ExternalUsersApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;

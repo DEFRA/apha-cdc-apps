@@ -18,7 +18,8 @@ internal sealed class FakeProfileContributorsApiService(
     AddContributorResult? addContributorResult = null,
     Exception? throwOnAddContributor = null,
     DeleteContributorResult? deleteContributorResult = null,
-    Exception? throwOnDeleteContributor = null)
+    Exception? throwOnDeleteContributor = null,
+    Exception? throwOnGetProfileUserRoles = null)
     : IProfileContributorsApiService
 {
     /// <summary>Gets the page size most recently passed to <see cref="GetProfileContributorsAsync"/>.</summary>
@@ -58,7 +59,9 @@ internal sealed class FakeProfileContributorsApiService(
             : Task.FromResult(contributorForEdit);
 
     public Task<IReadOnlyList<ProfileUserRoleDto>> GetProfileUserRolesAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(profileUserRoles ?? []);
+        throwOnGetProfileUserRoles is not null
+            ? Task.FromException<IReadOnlyList<ProfileUserRoleDto>>(throwOnGetProfileUserRoles)
+            : Task.FromResult(profileUserRoles ?? []);
 
     public Task<UpdateContributorResult> UpdateContributorAsync(
         Guid profileId,

@@ -30,6 +30,8 @@ There is no journal table, so track what has been run here:
 | 0068-CreateSpgDiseaseRankingFilters.sql | | | | |
 | 0069-CreateSpgDiseaseRankingFilterDetail.sql | | | | |
 | 0070-SeedD2R2QualityStatement.sql (needs `-v PdfPath="<pdf path>"`) | Y | | | |
+| 0071-FixSpiSpdGlobalUserQuotedIdentifier.sql | | | | |
+| 0072-FixSpiProfileContributorQuotedIdentifier.sql | | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by

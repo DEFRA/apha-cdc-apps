@@ -1,11 +1,337 @@
 @page
 @model CDC.Web.Pages.UserAdmin.ExternalUsersModel
 @{
-    ViewData["Title"] = "External users";
+    var hasError = Model.SaveError is not null || Model.AccessError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage);
+    ViewData["Title"] = (hasError ? "Error: " : string.Empty) + "Maintain external users";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
-<h1 class="govuk-heading-l">External users</h1>
-<p class="govuk-body">This page is for External users. It will allow administrators to maintain external user accounts.</p>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.SaveError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage))
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@(Model.SaveError ?? Model.RemoveErrorMessage)</p>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <h1 class="govuk-heading-l">Maintain external users</h1>
+
+        <p class="govuk-body">
+            Use this function to grant external users access to one or more profiles.
+        </p>
+
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-external-users-success-title" data-module="govuk-notification-banner">
+                <div class="govuk-notification-banner__header">
+                    <h2 class="govuk-notification-banner__title" id="app-external-users-success-title">Success</h2>
+                </div>
+                <div class="govuk-notification-banner__content">
+                    <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                </div>
+            </div>
+        }
+
+        @if (Model.HasLoadError)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">Unable to load external users. Try again later.</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.Users.Count == 0)
+        {
+            <p class="govuk-body">There are no external users.</p>
+        }
+        else
+        {
+            <h2 class="govuk-heading-m">External users</h2>
+
+            <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                    <select class="govuk-select" id="PageSize" name="PageSize" form="external-users-page-size-form" onchange="this.form.requestSubmit()">
+                        @foreach (var option in CDC.Web.Pages.UserAdmin.ExternalUsersModel.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <form method="get" id="external-users-page-size-form">
+                <input type="hidden" name="PageNumber" value="1" />
+                <noscript><button type="submit" class="govuk-button govuk-button--secondary">Apply</button></noscript>
+            </form>
+
+            <table class="govuk-table">
+                <caption class="govuk-table__caption govuk-visually-hidden">External users</caption>
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Username</th>
+                        <th scope="col" class="govuk-table__header">Full name</th>
+                        <th scope="col" class="govuk-table__header">Organisation</th>
+                        <th scope="col" class="govuk-table__header">Edit</th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr class="govuk-table__row">
+                            <td class="govuk-table__cell">@user.UserName</td>
+                            <td class="govuk-table__cell">@user.FullName</td>
+                            <td class="govuk-table__cell">@user.Organisation</td>
+                            <td class="govuk-table__cell">
+                                <a class="govuk-link" href="@Model.BuildEditUrl(user.Id)">Edit<span class="govuk-visually-hidden"> @user.FullName</span></a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="app-pagination-center">
+                    <nav class="govuk-pagination" aria-label="External users pages">
+                        @if (Model.PageNumber > 1)
+                        {
+                            <div class="govuk-pagination__prev">
+                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                                    <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                        <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                                    </svg>
+                                    <span class="govuk-pagination__link-title">Previous</span>
+                                </a>
+                            </div>
+                        }
+
+                        <ul class="govuk-pagination__list">
+                            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                            {
+                                <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                </li>
+                            }
+                        </ul>
+
+                        @if (Model.PageNumber < Model.TotalPages)
+                        {
+                            <div class="govuk-pagination__next">
+                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                                    <span class="govuk-pagination__link-title">Next</span>
+                                    <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                        <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                        }
+                    </nav>
+                </div>
+            }
+        }
+
+        @if (Model.EditUser is not null)
+        {
+            <section id="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PanelId" class="app-contributor-edit app-external-user-panel govuk-!-margin-top-6" aria-labelledby="app-external-user-panel-title">
+                <h2 class="govuk-heading-m" id="app-external-user-panel-title">Profiles for @Model.EditUser.UserName</h2>
+
+                @if (Model.HasAccessLoadError || Model.Access is null)
+                {
+                    <div class="govuk-error-summary" data-module="govuk-error-summary">
+                        <div role="alert">
+                            <h2 class="govuk-error-summary__title">There is a problem</h2>
+                            <div class="govuk-error-summary__body">
+                                <p class="govuk-body">Unable to load this user's profile access. Try again later.</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @if (Model.Access.AvailableProfiles.Count == 0)
+                    {
+                        <p class="govuk-body">This user already has access to every profile.</p>
+                    }
+                    else
+                    {
+                        <form method="get" asp-page="/UserAdmin/ExternalUsers" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" class="app-external-user-add govuk-!-margin-bottom-6">
+                            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                            <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="EditUserId" value="@Model.EditUser.Id" />
+                            <div class="govuk-form-group govuk-!-margin-bottom-0">
+                                <label class="govuk-label" for="AddProfileId">Select a profile to add</label>
+                                <div class="app-external-user-add__row">
+                                    <select class="govuk-select app-external-user-add__select" id="AddProfileId" name="AddProfileId" required>
+                                        <option value="">Please select...</option>
+                                        @foreach (var profile in Model.Access.AvailableProfiles)
+                                        {
+                                            <option value="@profile.Id" selected="@(Model.AddProfileId == profile.Id ? "selected" : null)">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(profile.Title)</option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Add</button>
+                                </div>
+                            </div>
+                        </form>
+                    }
+
+                    @if (Model.Access.Profiles.Count == 0)
+                    {
+                        <p class="govuk-body">This user does not have access to any profiles.</p>
+                    }
+                    else
+                    {
+                        <table class="govuk-table">
+                            <caption class="govuk-table__caption govuk-visually-hidden">Profiles this user can access</caption>
+                            <thead class="govuk-table__head">
+                                <tr class="govuk-table__row">
+                                    <th scope="col" class="govuk-table__header">Title</th>
+                                    <th scope="col" class="govuk-table__header">Role</th>
+                                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
+                                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
+                                </tr>
+                            </thead>
+                            <tbody class="govuk-table__body">
+                                @foreach (var grant in Model.Access.Profiles)
+                                {
+                                    var plainTitle = CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(grant.Title);
+                                    <tr class="govuk-table__row">
+                                        <td class="govuk-table__cell">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(grant.Title)</td>
+                                        <td class="govuk-table__cell">@grant.RoleName</td>
+                                        <td class="govuk-table__cell">
+                                            <a class="govuk-link" href="@Model.BuildAccessUrl(grant.ProfileId)">Edit<span class="govuk-visually-hidden"> access to @plainTitle</span></a>
+                                        </td>
+                                        <td class="govuk-table__cell">
+                                            <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-access-@grant.ProfileId">Delete<span class="govuk-visually-hidden"> access to @plainTitle</span></button>
+                                            <dialog class="app-modal" id="delete-access-@grant.ProfileId" aria-labelledby="delete-access-@(grant.ProfileId)-title">
+                                                <h2 class="govuk-heading-m" id="delete-access-@(grant.ProfileId)-title">Confirm</h2>
+                                                <p class="govuk-body">Are you sure you want to remove this user's access to @plainTitle?</p>
+                                                <form method="post" asp-page-handler="DeleteAccess">
+                                                    <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
+                                                    <input type="hidden" name="ProfileId" value="@grant.ProfileId" />
+                                                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                                </form>
+                                            </dialog>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    @if (Model.IsAccessPanelOpen)
+                    {
+                        var profileTitle = Model.EditingGrant?.Title ?? Model.AddingProfile!.Title;
+                        var roleMissing = Model.AccessError is not null && Model.RoleId == Guid.Empty;
+                        var sectionsError = Model.AccessError is not null && !roleMissing;
+                        var accessErrorTarget = roleMissing ? "#RoleId" : "#app-external-user-sections";
+
+                        <form method="post" asp-page-handler="SaveAccess" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" id="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
+                            <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
+                            <input type="hidden" name="ProfileId" value="@Model.ProfileId" />
+                            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                            <input type="hidden" name="PageSize" value="@Model.PageSize" />
+
+                            @if (Model.AccessError is not null)
+                            {
+                                <div class="govuk-error-summary" data-module="govuk-error-summary">
+                                    <div role="alert">
+                                        <h2 class="govuk-error-summary__title">There is a problem</h2>
+                                        <div class="govuk-error-summary__body">
+                                            <ul class="govuk-list govuk-error-summary__list">
+                                                <li><a href="@accessErrorTarget">@Model.AccessError</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <h3 class="govuk-heading-m">Profile section permissions for @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(profileTitle)</h3>
+
+                            <div class="govuk-form-group @(roleMissing ? "govuk-form-group--error" : string.Empty)">
+                                <label class="govuk-label" for="RoleId">Role</label>
+                                @if (roleMissing)
+                                {
+                                    <p id="RoleId-error" class="govuk-error-message">
+                                        <span class="govuk-visually-hidden">Error:</span> @Model.AccessError
+                                    </p>
+                                }
+                                <select class="govuk-select @(roleMissing ? "govuk-select--error" : string.Empty)" id="RoleId" name="RoleId" aria-describedby="@(roleMissing ? "RoleId-error" : null)" data-module="app-contributor-role" data-permissions-target="app-external-user-sections">
+                                    <option value="" selected="@(Model.RoleId == Guid.Empty ? "selected" : null)">Please select...</option>
+                                    @foreach (var role in Model.ProfileUserRoles)
+                                    {
+                                        <option value="@role.Id" data-is-contributor="@role.IsContributor.ToString().ToLowerInvariant()" selected="@(role.Id == Model.RoleId ? "selected" : null)">@role.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <fieldset class="govuk-fieldset app-contributor-permissions-fieldset @(sectionsError ? "govuk-form-group--error" : string.Empty)" id="app-external-user-sections" tabindex="-1" hidden="@(Model.IsCurrentRoleContributor ? null : "hidden")">
+                                <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">Section permissions</legend>
+                                @if (sectionsError)
+                                {
+                                    <p class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @Model.AccessError</p>
+                                }
+                                <div class="app-contributor-permissions">
+                                    @foreach (var permissionSection in Model.PermissionSections)
+                                    {
+                                        var inputId = "section-permission-" + permissionSection.Id;
+                                        <div class="govuk-checkboxes__item govuk-checkboxes--small app-contributor-permissions__item">
+                                            <input class="govuk-checkboxes__input" id="@inputId" type="checkbox" name="SelectedSectionIds" value="@permissionSection.Id" checked="@(Model.SelectedSectionIds.Contains(permissionSection.Id) ? "checked" : null)" />
+                                            <label class="govuk-label govuk-checkboxes__label" for="@inputId">@permissionSection.ShortName</label>
+                                        </div>
+                                    }
+                                </div>
+                                <p>
+                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-contributor-permissions-action="check-all">Tick all</button>
+                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-contributor-permissions-action="uncheck-all">Untick all</button>
+                                </p>
+                            </fieldset>
+
+                            <div class="app-contributor-edit__actions">
+                                <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
+                                <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseAccessUrl()">Cancel</a>
+                            </div>
+                        </form>
+                    }
+                }
+
+                <form method="post" asp-page-handler="Save" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PanelId" class="app-external-user-subscription" novalidate>
+                    <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
+                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+
+                    <div class="govuk-form-group">
+                        <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                            <div class="govuk-checkboxes__item">
+                                <input class="govuk-checkboxes__input" id="SubscribedToReviewEmails" name="SubscribedToReviewEmails" type="checkbox" value="true" checked="@(Model.SubscribedToReviewEmails ? "checked" : null)" />
+                                <label class="govuk-label govuk-checkboxes__label" for="SubscribedToReviewEmails">Subscribe to review emails</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="app-contributor-edit__actions">
+                        <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
+                        <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseUrl()">Cancel</a>
+                    </div>
+                </form>
+            </section>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/contributor-edit.js" asp-append-version="true"></script>
+}

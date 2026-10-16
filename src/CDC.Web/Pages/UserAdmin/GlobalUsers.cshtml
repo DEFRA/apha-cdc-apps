@@ -1,11 +1,313 @@
 @page
+@using CDC.Common.Contracts
+@using CDC.Web.Models
 @model CDC.Web.Pages.UserAdmin.GlobalUsersModel
 @{
-    ViewData["Title"] = "Global users";
+    ViewData["Title"] = (Model.HasErrors ? "Error: " : string.Empty) + "Maintain global users";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
-<h1 class="govuk-heading-l">Global users</h1>
-<p class="govuk-body">This page is for Global users. It will allow administrators to maintain global user accounts.</p>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.HasErrors)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            @foreach (var error in Model.FieldErrors)
+                            {
+                                <li><a href="#@error.Key">@error.Value</a></li>
+                            }
+                            @foreach (var error in Model.GeneralErrors)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <h1 class="govuk-heading-l">Maintain global users</h1>
+
+        <p class="govuk-body">
+            Use this page to grant either Profile editor or Policy profile user access to a Defra user.
+            Profile editors have the highest level of access to the system and should be regarded as administrators.
+            Policy profile users have read-only access to all draft profiles.
+        </p>
+
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-global-users-success-title" data-module="govuk-notification-banner">
+                <div class="govuk-notification-banner__header">
+                    <h2 class="govuk-notification-banner__title" id="app-global-users-success-title">Success</h2>
+                </div>
+                <div class="govuk-notification-banner__content">
+                    <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.DeleteErrorMessage))
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@Model.DeleteErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.HasLoadError)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">Unable to load global users. Try again later.</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.Users.Count == 0)
+        {
+            <p class="govuk-body">There are no global users.</p>
+        }
+        else
+        {
+            <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                    <select class="govuk-select" id="PageSize" name="PageSize" form="global-users-page-size-form" onchange="this.form.requestSubmit()">
+                        @foreach (var option in CDC.Web.Pages.UserAdmin.GlobalUsersModel.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <form method="get" id="global-users-page-size-form">
+                <input type="hidden" name="PageNumber" value="1" />
+                <noscript><button type="submit" class="govuk-button govuk-button--secondary">Apply</button></noscript>
+            </form>
+
+            <table class="govuk-table">
+                <caption class="govuk-table__caption govuk-visually-hidden">Global users</caption>
+                <thead class="govuk-table__head">
+                    <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Username</th>
+                        <th scope="col" class="govuk-table__header">Full name</th>
+                        <th scope="col" class="govuk-table__header">Organisation</th>
+                        <th scope="col" class="govuk-table__header">Role</th>
+                        <th scope="col" class="govuk-table__header">Edit</th>
+                        <th scope="col" class="govuk-table__header">Delete</th>
+                    </tr>
+                </thead>
+                <tbody class="govuk-table__body">
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr class="govuk-table__row">
+                            <td class="govuk-table__cell">@user.UserName</td>
+                            <td class="govuk-table__cell">@user.FullName</td>
+                            <td class="govuk-table__cell">@user.Organisation</td>
+                            <td class="govuk-table__cell">@user.Role.ToDisplayName()</td>
+                            <td class="govuk-table__cell">
+                                <a class="govuk-link" href="@Model.BuildEditUrl(user.Id)">Edit<span class="govuk-visually-hidden"> @user.FullName</span></a>
+                            </td>
+                            <td class="govuk-table__cell">
+                                @* A profile editor cannot delete themselves, as their session would outlive their access. *@
+                                @if (!Model.IsCurrentUser(user.Id))
+                                {
+                                    <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-global-user-@user.Id">Delete<span class="govuk-visually-hidden"> @user.FullName</span></button>
+                                    <dialog class="app-modal" id="delete-global-user-@user.Id" aria-labelledby="delete-global-user-@(user.Id)-title">
+                                        <h2 class="govuk-heading-m" id="delete-global-user-@(user.Id)-title">Confirm</h2>
+                                        <p class="govuk-body">Are you sure you want to delete this global user?</p>
+                                        <form method="post" asp-page-handler="Delete">
+                                            <input type="hidden" name="UserId" value="@user.Id" />
+                                            <input type="hidden" name="LastUpdated" value="@Convert.ToBase64String(user.LastUpdated)" />
+                                            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                            <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                            <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">OK</button>
+                                            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                        </form>
+                                    </dialog>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="app-pagination-center">
+                    <nav class="govuk-pagination" aria-label="Global users pages">
+                        @if (Model.PageNumber > 1)
+                        {
+                            <div class="govuk-pagination__prev">
+                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
+                                    <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                        <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
+                                    </svg>
+                                    <span class="govuk-pagination__link-title">Previous</span>
+                                </a>
+                            </div>
+                        }
+
+                        <ul class="govuk-pagination__list">
+                            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                            {
+                                <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                </li>
+                            }
+                        </ul>
+
+                        @if (Model.PageNumber < Model.TotalPages)
+                        {
+                            <div class="govuk-pagination__next">
+                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
+                                    <span class="govuk-pagination__link-title">Next</span>
+                                    <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                                        <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                        }
+                    </nav>
+                </div>
+            }
+        }
+
+        <a class="govuk-button" href="@Model.BuildAddUrl()">Add</a>
+
+        @if (Model.ShowLookup)
+        {
+            <form method="post" asp-page-handler="LookupUser" asp-fragment="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" id="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
+                <input type="hidden" asp-for="PageNumber" />
+                <input type="hidden" asp-for="PageSize" />
+
+                <h2 class="govuk-heading-m">Add global user</h2>
+
+                @{
+                    var lookupError = Model.FieldErrors.GetValueOrDefault("UserName");
+                }
+                <div class="govuk-form-group @(lookupError is null ? null : "govuk-form-group--error")">
+                    <label class="govuk-label" for="UserName">Username</label>
+                    <div id="UserName-hint" class="govuk-hint">For example, DEFRA\jsmith</div>
+                    @if (lookupError is not null)
+                    {
+                        <p id="UserName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @lookupError</p>
+                    }
+                    <input class="govuk-input govuk-input--width-20 @(lookupError is null ? null : "govuk-input--error")" id="UserName" name="UserName" type="text" maxlength="50" value="@Model.UserName" spellcheck="false" autocomplete="off" aria-describedby="UserName-hint@(lookupError is null ? null : " UserName-error")" />
+                </div>
+                <button type="submit" class="govuk-button govuk-button--secondary">Look up</button>
+                <a class="govuk-button govuk-button--secondary" href="@Model.BuildCloseUrl()">Cancel</a>
+            </form>
+        }
+
+        @if (Model.ShowForm)
+        {
+            <form method="post" asp-page-handler="Save" asp-fragment="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" id="@CDC.Web.Pages.UserAdmin.GlobalUsersModel.PanelId" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
+                <input type="hidden" asp-for="UserId" />
+                <input type="hidden" asp-for="UserName" />
+                <input type="hidden" asp-for="IsNewUser" />
+                <input type="hidden" asp-for="LastUpdated" />
+                <input type="hidden" asp-for="PageNumber" />
+                <input type="hidden" asp-for="PageSize" />
+
+                <h2 class="govuk-heading-m">@(Model.IsNewUser ? "Add global user" : "Edit global user")</h2>
+
+                @if (!string.IsNullOrEmpty(Model.LookupWarning))
+                {
+                    <div class="govuk-warning-text">
+                        <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+                        <strong class="govuk-warning-text__text">
+                            <span class="govuk-visually-hidden">Warning</span>
+                            @Model.LookupWarning
+                        </strong>
+                    </div>
+                }
+
+                @{
+                    var roleError = Model.FieldErrors.GetValueOrDefault("Role");
+                    var fullNameError = Model.FieldErrors.GetValueOrDefault("FullName");
+                    var organisationError = Model.FieldErrors.GetValueOrDefault("Organisation");
+                }
+
+                <div class="govuk-grid-row">
+                    <div class="govuk-grid-column-one-half">
+                        <div class="govuk-form-group">
+                            <label class="govuk-label" for="app-global-user-username">Username</label>
+                            <input class="govuk-input govuk-input--width-20" id="app-global-user-username" type="text" value="@Model.UserName" readonly disabled aria-readonly="true" />
+                        </div>
+                    </div>
+                    <div class="govuk-grid-column-one-half">
+                        <div class="govuk-form-group @(roleError is null ? null : "govuk-form-group--error")">
+                            <label class="govuk-label" for="Role">Role</label>
+                            @if (roleError is not null)
+                            {
+                                <p id="Role-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @roleError</p>
+                            }
+                            @if (Model.IsEditingSelf)
+                            {
+                                @* Disabled controls are not submitted, so the locked role travels in a hidden field. *@
+                                <input type="hidden" name="Role" value="@((int)Model.Role)" />
+                                <div id="Role-hint" class="govuk-hint">You cannot change your own role.</div>
+                                <select class="govuk-select govuk-input--width-20" id="Role" disabled aria-describedby="Role-hint">
+                                    <option selected>@Model.Role.ToDisplayName()</option>
+                                </select>
+                            }
+                            else
+                            {
+                                <select class="govuk-select govuk-input--width-20 @(roleError is null ? null : "govuk-select--error")" id="Role" name="Role" aria-describedby="@(roleError is null ? null : "Role-error")">
+                                    <option value="@((int)GlobalUserRole.None)" selected="@(Model.Role == GlobalUserRole.None ? "selected" : null)">Please select...</option>
+                                    <option value="@((int)GlobalUserRole.ProfileEditor)" selected="@(Model.Role == GlobalUserRole.ProfileEditor ? "selected" : null)">@GlobalUserRole.ProfileEditor.ToDisplayName()</option>
+                                    <option value="@((int)GlobalUserRole.PolicyProfileUser)" selected="@(Model.Role == GlobalUserRole.PolicyProfileUser ? "selected" : null)">@GlobalUserRole.PolicyProfileUser.ToDisplayName()</option>
+                                </select>
+                            }
+                        </div>
+
+                        <div class="govuk-form-group @(fullNameError is null ? null : "govuk-form-group--error")">
+                            <label class="govuk-label" for="FullName">Full name</label>
+                            @if (fullNameError is not null)
+                            {
+                                <p id="FullName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @fullNameError</p>
+                            }
+                            <input class="govuk-input govuk-input--width-20 @(fullNameError is null ? null : "govuk-input--error")" id="FullName" name="FullName" type="text" maxlength="100" value="@Model.FullName" aria-describedby="@(fullNameError is null ? null : "FullName-error")" />
+                        </div>
+
+                        <div class="govuk-form-group @(organisationError is null ? null : "govuk-form-group--error")">
+                            <label class="govuk-label" for="Organisation">Organisation</label>
+                            @if (organisationError is not null)
+                            {
+                                <p id="Organisation-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @organisationError</p>
+                            }
+                            <input class="govuk-input govuk-input--width-20 @(organisationError is null ? null : "govuk-input--error")" id="Organisation" name="Organisation" type="text" maxlength="100" value="@Model.Organisation" aria-describedby="@(organisationError is null ? null : "Organisation-error")" />
+                        </div>
+
+                        <div class="govuk-form-group">
+                            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                <div class="govuk-checkboxes__item">
+                                    <input class="govuk-checkboxes__input" id="SubscribedToReviewEmails" name="SubscribedToReviewEmails" type="checkbox" value="true" checked="@(Model.SubscribedToReviewEmails ? "checked" : null)" />
+                                    <label class="govuk-label govuk-checkboxes__label" for="SubscribedToReviewEmails">Subscribe to review emails</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="app-contributor-edit__actions">
+                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
+                    <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseUrl()">Cancel</a>
+                </div>
+            </form>
+        }
+    </div>
+</div>
