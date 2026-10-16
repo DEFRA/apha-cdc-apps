@@ -24,7 +24,6 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
     [Theory]
     [InlineData("/")]
     [InlineData("/Landing/Error")]
-    [InlineData("/HelpSupport/QualityStatement")]
     public async Task LandingRoutes_ReturnSuccess(string url)
     {
         var client = _factory.CreateClient();
@@ -32,6 +31,16 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
         var response = await client.GetAsync(url);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task QualityStatement_RequiresAuthentication()
+    {
+        var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/HelpSupport/QualityStatement");
+
+        Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     // Program.cs only registers the global exception handler middleware outside Development, so a

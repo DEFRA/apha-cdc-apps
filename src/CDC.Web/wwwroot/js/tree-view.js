@@ -15,7 +15,10 @@
     const GROUP = ':scope > ul.app-tree__group';
     const ROW = ':scope > .app-tree__row';
     const TOGGLE = '.app-tree__toggle';
-    const INPUT = 'input[type="radio"], input[type="checkbox"]';
+    // :is() keeps the list scoped when this is appended to a ROW selector; a bare comma would let
+    // the second input match anywhere in the item, so a node with no input of its own (a
+    // non-selectable branch) would resolve to its first descendant's checkbox.
+    const INPUT = ':is(input[type="radio"], input[type="checkbox"])';
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 
@@ -137,9 +140,10 @@
         // The category label shown to screen readers on a branch's toggle, and to everyone in
         // the "Selected: ..." status once a node is picked.
         labelFor(item) {
-            const label = item.querySelector(`${ROW} label`);
+            const label = item.querySelector(`${ROW} label, ${ROW} .app-tree__branch-label`);
+            const input = this.radio(item);
 
-            return label ? label.textContent.trim() : this.radio(item).value;
+            return label ? label.textContent.trim() : (input ? input.value : '');
         }
 
         depth(item) {
@@ -237,7 +241,11 @@
 
             if (action === 'clear') {
                 this.items.forEach((item) => {
-                    this.radio(item).checked = false;
+                    const input = this.radio(item);
+
+                    if (input) {
+                        input.checked = false;
+                    }
                 });
 
                 this.updateSelectedStatus();
@@ -369,6 +377,8 @@
                 return;
             }
 
+            const selectedItems = this.items.filter((item) => this.radio(item)?.checked);
+            const labels = selectedItems.map((item) => this.labelFor(item));
             const selectedItems = this.items.filter((item) => this.radio(item).checked);
             const labels = this.cascade ? this.cascadeLabels() : selectedItems.map((item) => this.labelFor(item));
             const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
@@ -434,10 +444,10 @@
         }
 
         focusItem(item) {
-            const radio = item ? this.radio(item) : null;
+            const target = item ? (this.radio(item) ?? this.toggle(item)) : null;
 
-            if (radio) {
-                radio.focus();
+            if (target) {
+                target.focus();
             }
         }
 

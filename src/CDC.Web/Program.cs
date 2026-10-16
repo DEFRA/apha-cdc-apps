@@ -115,6 +115,18 @@ builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributo
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IGlobalUsersApiService, GlobalUsersApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IExternalUsersApiService, ExternalUsersApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -157,6 +169,8 @@ builder.Services.AddHttpClient<IPrioritisationVariablesApiService, Prioritisatio
 })
     .AddStandardResilienceHandler();
 
+builder.Services.AddScoped<IProfileVersionComparisonService, ProfileVersionComparisonService>();
+
 // Disease ranking reports; forwards the correlation ID so the report build is traceable across both services.
 builder.Services.AddHttpClient<IDiseaseRankingApiService, DiseaseRankingApiService>(client =>
 {
@@ -168,7 +182,8 @@ builder.Services.AddHttpClient<IDiseaseRankingApiService, DiseaseRankingApiServi
 // Disease ranking PDFs: report data from CDC.Api -> Razor view -> HTML -> headless Chromium -> PDF.
 // The renderer holds one shared browser, so it is a singleton.
 builder.Services.Configure<PdfRendererOptions>(builder.Configuration.GetSection(PdfRendererOptions.SectionName));
-builder.Services.AddSingleton<IPdfRenderer, PlaywrightPdfRenderer>();
+builder.Services.AddSingleton<CDC.Web.Features.DiseaseRanking.IPdfRenderer, CDC.Web.Features.DiseaseRanking.PlaywrightPdfRenderer>();
+builder.Services.AddSingleton<CDC.Web.Infrastructure.IPdfRenderer, CDC.Web.Infrastructure.PlaywrightPdfRenderer>();
 builder.Services.AddScoped<IRazorViewToStringRenderer, RazorViewToStringRenderer>();
 builder.Services.AddScoped<IDiseaseRankingPdfService, DiseaseRankingPdfService>();
 
