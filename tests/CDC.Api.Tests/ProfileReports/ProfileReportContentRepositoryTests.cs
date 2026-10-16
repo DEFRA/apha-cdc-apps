@@ -36,6 +36,8 @@ public class ProfileReportContentRepositoryTests : IDisposable
     {
         var irrelevanceFieldId = Guid.NewGuid();
         var irrelevanceValueId = Guid.NewGuid();
+        var relevanceFieldId = Guid.NewGuid();
+        var relevanceValueId = Guid.NewGuid();
         connection.Script(ProfileReportStoredProcedures.GetQuestionnaireMetadata, new FakeCommandScript
         {
             ResultSets =
@@ -44,18 +46,18 @@ public class ProfileReportContentRepositoryTests : IDisposable
                 new FakeResultSet(
                     Columns(9),
                     [
-                        [SectionId, QuestionId, "Q2", 2, false, true, irrelevanceFieldId, irrelevanceValueId, true],
+                        [SectionId, QuestionId, "Q 2", 2, false, true, irrelevanceFieldId, irrelevanceValueId, true],
                         [Guid.NewGuid(), Guid.NewGuid(), "Q1", 1, true, false, null, null, false]
                     ]),
                 new FakeResultSet(
-                    Columns(17),
+                    Columns(22),
                     [
-                        [SectionId, QuestionId, ChildFieldId, "S", 2, Guid.NewGuid(), "Text", false, null, false, false, "Second", false, false, false, true, false],
-                        [SectionId, QuestionId, GroupFieldId, "G", 1, Guid.NewGuid(), "Field Group", false, ReferenceTableId, true, false, "Group", false, false, false, true, false]
+                        [SectionId, QuestionId, ChildFieldId, "S", 2, Guid.NewGuid(), "Multi Value List", true, null, false, true, "Second", true, false, false, true, false, null, relevanceFieldId, relevanceValueId, false, false],
+                        [SectionId, QuestionId, GroupFieldId, "G", 1, Guid.NewGuid(), "Field Group", false, ReferenceTableId, true, false, "Group", false, false, false, true, false, null, null, null, false, false]
                     ]),
                 new FakeResultSet(
-                    Columns(18),
-                    [[SectionId, QuestionId, ChildFieldId, "C", 1, Guid.NewGuid(), "Text", false, null, false, false, "Child", false, false, false, true, false, GroupFieldId]]),
+                    Columns(22),
+                    [[SectionId, QuestionId, ChildFieldId, "C", 1, Guid.NewGuid(), "Text", false, null, false, false, "Child", false, true, false, true, false, GroupFieldId, null, null, false, false]]),
                 FakeResultSet.Empty("Id", "Number")
             ]
         });
@@ -69,6 +71,7 @@ public class ProfileReportContentRepositoryTests : IDisposable
         questionnaire.Sections[0].Note.Should().BeEmpty();
         section.Questions.Select(question => question.QuestionNumber).Should().Equal(2);
         var question = section.Questions[0];
+        question.ShortName.Should().Be("Q 2");
         question.IsRepeating.Should().BeTrue();
         question.IsPerSpecies.Should().BeFalse();
         question.IrrelevanceFieldId.Should().Be(irrelevanceFieldId);
@@ -80,7 +83,17 @@ public class ProfileReportContentRepositoryTests : IDisposable
         group.ReferenceTableId.Should().Be(ReferenceTableId);
         group.ReferenceTableIsMaintainable.Should().BeTrue();
         group.Children.Should().ContainSingle().Which.Name.Should().Be("Child");
+        group.Children[0].IsReadOnlyScenario.Should().BeTrue();
         question.Fields[1].Children.Should().BeEmpty();
+        var multiValueField = question.Fields[1];
+        multiValueField.ShortName.Should().Be("S");
+        multiValueField.DataTypeName.Should().Be("MultiValueList");
+        multiValueField.IsMandatory.Should().BeTrue();
+        multiValueField.AffectsRelevance.Should().BeTrue();
+        multiValueField.IsReadOnlyCurrentSituation.Should().BeTrue();
+        multiValueField.IsReadOnlyScenario.Should().BeFalse();
+        multiValueField.RelevanceFieldId.Should().Be(relevanceFieldId);
+        multiValueField.RelevanceValueId.Should().Be(relevanceValueId);
     }
 
     [Fact]
@@ -111,14 +124,23 @@ public class ProfileReportContentRepositoryTests : IDisposable
     {
         var versionId = Guid.NewGuid();
         var speciesId = Guid.NewGuid();
+        var inactiveSpeciesId = Guid.NewGuid();
         var rowId = Guid.NewGuid();
         var listValue = Guid.NewGuid();
+        var vaFrequency = Guid.NewGuid();
+        var policyFrequency = Guid.NewGuid();
+        var authorFrequency = Guid.NewGuid();
+        var policyStatus = Guid.NewGuid();
+        var vaStatus = Guid.NewGuid();
+        var authorStatus = Guid.NewGuid();
         connection.Script(ProfileReportStoredProcedures.GetProfileVersionSection, new FakeCommandScript
         {
             ResultSets =
             [
-                new FakeResultSet(Columns(3), [[speciesId, "Cattle", true]]),
-                FakeResultSet.Empty("SectionId"),
+                new FakeResultSet(Columns(3), [[speciesId, "Cattle", true], [inactiveSpeciesId, "Sheep", false]]),
+                new FakeResultSet(
+                    Columns(12),
+                    [[SectionId, vaFrequency, policyFrequency, authorFrequency, null, null, null, null, Guid.Empty, policyStatus, vaStatus, authorStatus]]),
                 new FakeResultSet(Columns(3), [[QuestionId, "Is it present?", "Is it here?"]]),
                 new FakeResultSet(Columns(3), [[rowId, QuestionId, (byte)2]]),
                 new FakeResultSet(
@@ -132,7 +154,17 @@ public class ProfileReportContentRepositoryTests : IDisposable
 
         var answers = await CreateRepository().GetSectionAnswersAsync(versionId, SectionId, CancellationToken.None);
 
-        answers.ProfiledSpecies.Should().ContainSingle().Which.Should().Be(new CDC.Api.Domain.Entities.ReportSpecies(speciesId, "Cattle"));
+        answers.ProfiledSpecies.Should().Equal(
+            new CDC.Api.Domain.Entities.ReportSpecies(speciesId, "Cattle"),
+            new CDC.Api.Domain.Entities.ReportSpecies(inactiveSpeciesId, "Sheep", false));
+        var revision = answers.Revision;
+        revision.Should().NotBeNull();
+        revision!.VaReviewFrequencyId.Should().Be(vaFrequency);
+        revision.PolicyReviewFrequencyId.Should().Be(policyFrequency);
+        revision.AuthorReviewFrequencyId.Should().Be(authorFrequency);
+        revision.PolicyReviewStatusId.Should().Be(policyStatus);
+        revision.VaReviewStatusId.Should().Be(vaStatus);
+        revision.AuthorReviewStatusId.Should().Be(authorStatus);
         answers.QuestionNames.Should().ContainSingle().Which.NonTechnicalName.Should().Be("Is it here?");
         answers.Rows.Should().ContainSingle().Which.Should().Be(new CDC.Api.Domain.Entities.ReportQuestionRow(rowId, QuestionId, 2));
         answers.Values.Should().HaveCount(2);
@@ -166,9 +198,23 @@ public class ProfileReportContentRepositoryTests : IDisposable
         var answers = await CreateRepository().GetSectionAnswersAsync(Guid.NewGuid(), SectionId, CancellationToken.None);
 
         answers.ProfiledSpecies.Should().BeEmpty();
+        answers.Revision.Should().BeNull();
         answers.QuestionNames.Should().BeEmpty();
         answers.Rows.Should().BeEmpty();
         answers.Values.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetSectionAnswersAsync_LeavesRevisionNull_WhenTheVersionHasNoRecordOfTheSection()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty("Id", "Name", "IsActive"), FakeResultSet.Empty("SectionId")]
+        });
+
+        var answers = await CreateRepository().GetSectionAnswersAsync(Guid.NewGuid(), SectionId, CancellationToken.None);
+
+        answers.Revision.Should().BeNull();
     }
 
     [Fact]
@@ -177,6 +223,89 @@ public class ProfileReportContentRepositoryTests : IDisposable
         connection.Script(ProfileReportStoredProcedures.GetProfileVersionSection, new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetSectionAnswersAsync(Guid.NewGuid(), SectionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetVersionContextAsync_ReadsTheScenarioFlag_AndWhichKindsOfSpeciesAreInactive()
+    {
+        var versionId = Guid.NewGuid();
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Columns(14), [[versionId, Guid.NewGuid(), "Title", 1, 0, "Draft", new DateTime(2026, 1, 1), null, true, "Scenario", Guid.NewGuid(), false, null, null]]),
+                new FakeResultSet(
+                    Columns(4),
+                    [
+                        [Guid.NewGuid(), "Cattle", "Profiled", true],
+                        [Guid.NewGuid(), "Sheep", "Profiled", false],
+                        [Guid.NewGuid(), "Goats", "Other", true]
+                    ])
+            ]
+        });
+
+        var context = await CreateRepository().GetVersionContextAsync(versionId, CancellationToken.None);
+
+        context.IsWhatIfScenario.Should().BeTrue();
+        context.HasInactiveProfiledSpecies.Should().BeTrue();
+        context.HasInactiveOtherAffectedSpecies.Should().BeFalse();
+        connection.Executed.Should().ContainSingle().Subject.Parameters["Id"].Should().Be(versionId);
+    }
+
+    [Fact]
+    public async Task GetVersionContextAsync_FlagsInactiveOtherAffectedSpecies_ForTheCurrentSituation()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Columns(14), [[Guid.NewGuid(), Guid.NewGuid(), "Title", 1, 0, "Draft", new DateTime(2026, 1, 1), null, true, "", null, false, null, null]]),
+                new FakeResultSet(Columns(4), [[Guid.NewGuid(), "Goats", "Other", false]])
+            ]
+        });
+
+        var context = await CreateRepository().GetVersionContextAsync(Guid.NewGuid(), CancellationToken.None);
+
+        context.IsWhatIfScenario.Should().BeFalse();
+        context.HasInactiveProfiledSpecies.Should().BeFalse();
+        context.HasInactiveOtherAffectedSpecies.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetVersionContextAsync_ReturnsTheDefaults_WhenTheVersionDoesNotExist()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty("Id")]
+        });
+
+        var context = await CreateRepository().GetVersionContextAsync(Guid.NewGuid(), CancellationToken.None);
+
+        context.Should().Be(new CDC.Api.Domain.Entities.ReportVersionContext());
+    }
+
+    [Fact]
+    public async Task GetVersionContextAsync_ToleratesAMissingSpeciesResultSet()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(Columns(14), [[Guid.NewGuid(), Guid.NewGuid(), "Title", 1, 0, "Draft", new DateTime(2026, 1, 1), null, true, "", null, false, null, null]])]
+        });
+
+        var context = await CreateRepository().GetVersionContextAsync(Guid.NewGuid(), CancellationToken.None);
+
+        context.HasInactiveProfiledSpecies.Should().BeFalse();
+        context.HasInactiveOtherAffectedSpecies.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetVersionContextAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetVersionContextAsync(Guid.NewGuid(), CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }

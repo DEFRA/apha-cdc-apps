@@ -12,7 +12,7 @@ else
             <div class="govuk-accordion__section">
                 <div class="govuk-accordion__section-header app-question-section-header">
                     <h2 class="govuk-accordion__section-heading">
-                        <span class="govuk-accordion__section-button" id="@(Model.IdPrefix)-heading-@anchor">
+                        <span class="govuk-accordion__section-button" id="@QuestionEditAccordionViewModel.HeadingId(Model.IdPrefix, question.Number)">
                             @question.Number @question.Text
                         </span>
                     </h2>
@@ -21,11 +21,11 @@ else
                         {
                             <img src="~/assets/images/references.png" alt="Edit references for @question.Number" title="Edit references" class="app-question-status-icon" />
                         }
-                        @if (question.IsValid)
+                        @if (question.IsValid == true)
                         {
                             <img src="~/assets/images/green-check.png" alt="This question has no validation errors" title="Validation success" class="app-question-status-icon" />
                         }
-                        else
+                        else if (question.IsValid == false)
                         {
                             <img src="~/assets/images/red-cross.png" alt="This question has validation errors" title="Validation failed" class="app-question-status-icon" />
                         }

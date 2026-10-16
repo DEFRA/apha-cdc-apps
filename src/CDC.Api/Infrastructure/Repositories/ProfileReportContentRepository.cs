@@ -20,6 +20,7 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
 {
     private const int QuestionIdOrdinal = 1;
     private const int FieldGroupIdOrdinal = 17;
+    private const string ProfiledSpeciesType = "Profiled";
 
     /// <inheritdoc />
     public async Task<ReportQuestionnaire> GetQuestionnaireAsync(CancellationToken cancellationToken)
@@ -65,19 +66,76 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
                 cancellationToken: cancellationToken));
 
             var species = await ReadSpeciesAsync(reader, cancellationToken);
-
-            // Result set 2 holds revision dates and a timestamp, which a report does not print.
-            await reader.NextResultAsync(cancellationToken);
+            var revision = await reader.NextResultAsync(cancellationToken) ? await ReadRevisionAsync(reader, cancellationToken) : null;
 
             var names = await reader.NextResultAsync(cancellationToken) ? await ReadQuestionNamesAsync(reader, cancellationToken) : [];
             var rows = await reader.NextResultAsync(cancellationToken) ? await ReadRowsAsync(reader, cancellationToken) : [];
             var values = await reader.NextResultAsync(cancellationToken) ? await ReadValuesAsync(reader, cancellationToken) : [];
 
-            return new ReportSectionAnswers { ProfiledSpecies = species, QuestionNames = names, Rows = rows, Values = values };
+            return new ReportSectionAnswers { ProfiledSpecies = species, Revision = revision, QuestionNames = names, Rows = rows, Values = values };
         }
         catch (DbException exception)
         {
             logger.StoredProcedureFailed(exception, ProfileReportStoredProcedures.GetProfileVersionSection);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ReportVersionContext> GetVersionContextAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+                ProfileReportStoredProcedures.GetProfileVersionInfoById,
+                new { Id = profileVersionId },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            // Result set 1: Id, ProfileId, Title, VersionMajor, VersionMinor, State, EffectiveDateFrom, EffectiveDateTo,
+            // IsLatestVersion, ScenarioTitle, ParentId, ...; a what-if scenario has a parent profile.
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return new ReportVersionContext();
+            }
+
+            var isWhatIfScenario = reader.ReadGuid(10) != Guid.Empty;
+            var hasInactiveProfiledSpecies = false;
+            var hasInactiveOtherAffectedSpecies = false;
+
+            // Result set 2: species Id, Name, AffectedSpeciesType ("Profiled" or "Other"), IsActive.
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    if (reader.ReadBoolean(3))
+                    {
+                        continue;
+                    }
+
+                    if (reader.ReadString(2) == ProfiledSpeciesType)
+                    {
+                        hasInactiveProfiledSpecies = true;
+                    }
+                    else
+                    {
+                        hasInactiveOtherAffectedSpecies = true;
+                    }
+                }
+            }
+
+            return new ReportVersionContext
+            {
+                IsWhatIfScenario = isWhatIfScenario,
+                HasInactiveProfiledSpecies = hasInactiveProfiledSpecies,
+                HasInactiveOtherAffectedSpecies = hasInactiveOtherAffectedSpecies
+            };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileReportStoredProcedures.GetProfileVersionInfoById);
             throw;
         }
     }
@@ -257,6 +315,7 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
                 new ReportQuestion
                 {
                     Id = reader.GetGuid(1),
+                    ShortName = reader.ReadString(2),
                     QuestionNumber = reader.ReadInt32(3),
                     IsPerSpecies = reader.ReadBoolean(4),
                     IsRepeating = reader.ReadBoolean(5),
@@ -270,7 +329,8 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     }
 
     // Result sets 3 and 4: SectionId, QuestionId, Id, ShortName, FieldNumber, DataFieldTypeId, DataTypeName, IsMandatory,
-    // ReferenceTableId, IsMaintainable, AffectsRelevancy, Name, ... (result set 4 adds ProfileFieldGroupId as column 17).
+    // ReferenceTableId, IsMaintainable, AffectsRelevancy, Name, IsReadOnlyCurrentSituation, IsReadOnlyScenario, IsPerSpecies,
+    // IsRepeating, IncludeInSummary, then EditorFieldType (set 3) or ProfileFieldGroupId (set 4) at column 17, RelevanceFieldId, RelevanceValueId, ...
     private static async Task<Dictionary<Guid, List<ReportField>>> ReadFieldsAsync(DbDataReader reader, int keyOrdinal, CancellationToken cancellationToken)
     {
         var fields = new Dictionary<Guid, List<ReportField>>();
@@ -288,11 +348,18 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
             list.Add(new ReportField
             {
                 Id = reader.GetGuid(2),
+                ShortName = reader.ReadString(3),
                 FieldNumber = reader.ReadInt32(4),
-                DataTypeName = reader.ReadString(6),
+                DataTypeName = DataFieldTypeNames.ToContractName(reader.ReadString(6)),
+                IsMandatory = reader.ReadBoolean(7),
                 ReferenceTableId = reader.ReadGuid(8),
                 ReferenceTableIsMaintainable = reader.ReadBoolean(9),
-                Name = reader.ReadString(11)
+                AffectsRelevance = reader.ReadBoolean(10),
+                Name = reader.ReadString(11),
+                IsReadOnlyCurrentSituation = reader.ReadBoolean(12),
+                IsReadOnlyScenario = reader.ReadBoolean(13),
+                RelevanceFieldId = reader.ReadGuid(18),
+                RelevanceValueId = reader.ReadGuid(19)
             });
         }
 
@@ -306,10 +373,30 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            species.Add(new ReportSpecies(reader.GetGuid(0), reader.ReadString(1)));
+            species.Add(new ReportSpecies(reader.GetGuid(0), reader.ReadString(1), reader.ReadBoolean(2)));
         }
 
         return species;
+    }
+
+    // Result set 2: SectionId, TechnicalReviewFrequency, PolicyReviewFrequency, AuthorReviewFrequency, NextTechnicalReview, NextPolicyReview,
+    // NextAuthorReview, LastUpdated, ParentId, PolicyReviewStatusId, TechnicalReviewStatusId, AuthorReviewStatusId. The database's "Technical" review is the "VA" review.
+    private static async Task<ReportSectionRevision?> ReadRevisionAsync(DbDataReader reader, CancellationToken cancellationToken)
+    {
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new ReportSectionRevision
+        {
+            VaReviewFrequencyId = reader.ReadNullableGuid(1),
+            PolicyReviewFrequencyId = reader.ReadNullableGuid(2),
+            AuthorReviewFrequencyId = reader.ReadNullableGuid(3),
+            PolicyReviewStatusId = reader.ReadNullableGuid(9),
+            VaReviewStatusId = reader.ReadNullableGuid(10),
+            AuthorReviewStatusId = reader.ReadNullableGuid(11)
+        };
     }
 
     // Result set 3: Id, Name, NonTechnicalName.

@@ -21,12 +21,16 @@ public class EditProfileQuestionsModel(
     IProfileSectionsApiService profileSectionsApiService,
     ILogger<EditProfileQuestionsModel> logger) : ProfileSectionTabPageModel(apiClient, profileSectionsApiService, logger)
 {
+    /// <summary>The prefix of the questions accordion's element ids, which the validation error links jump to.</summary>
+    public const string AccordionIdPrefix = "profile-questions-accordion";
+
     /// <inheritdoc />
     public override ProfileSectionTab ActiveTab => ProfileSectionTab.Questions;
 
-    /// <summary>Gets the mandatory questions with no recorded answer in the current section, from
-    /// the most recent "Validate" button submission. Empty until Validate has been used.</summary>
-    public IReadOnlyList<string> UnansweredQuestions { get; private set; } = [];
+    /// <summary>Gets every validation error found by the most recent "Validate" button submission, in the order the
+    /// legacy page listed them: the revision-date errors, then each question's errors. Empty until Validate has been
+    /// used, and when the section is valid.</summary>
+    public IReadOnlyList<ProfileSectionInvalidReasonDto> InvalidReasons { get; private set; } = [];
 
     /// <summary>Gets a value indicating whether "Validate" has been run for the current section
     /// during this request.</summary>
@@ -48,6 +52,38 @@ public class EditProfileQuestionsModel(
     /// <summary>Gets the real questions and recorded answers for the selected section, each field either
     /// rendered as a real editable control or, for a per-species/repeating question, as a static read-only value.</summary>
     public IReadOnlyList<ProfileQuestionEditView> Questions { get; private set; } = [];
+
+    /// <inheritdoc />
+    public override bool HasFormErrors => SaveValidationErrors.Count > 0 || InvalidReasons.Count > 0;
+
+    /// <summary>Builds the text of a validation error as the legacy <c>InvalidReasonList</c> printed it: the question
+    /// number, then the description without its HTML markup.</summary>
+    /// <param name="reason">The validation error.</param>
+    /// <returns>The plain text of the error.</returns>
+    public static string BuildValidationReasonText(ProfileSectionInvalidReasonDto reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+
+        return $"{reason.SectionNumber}.{reason.QuestionNumber} {ProfileTitleHtmlFormatter.ToPlainText(reason.Description)}";
+    }
+
+    /// <summary>Builds the link of a validation error: the question's heading on this page, or for a revision-date
+    /// error the All Revision dates tab, where those dates are set.</summary>
+    /// <param name="reason">The validation error.</param>
+    /// <returns>The link target, or <see langword="null"/> when a revision-date error has no tab to open for this user.</returns>
+    public string? BuildValidationReasonUrl(ProfileSectionInvalidReasonDto reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+
+        if (reason.QuestionId != Guid.Empty)
+        {
+            return "#" + QuestionEditAccordionViewModel.HeadingId(AccordionIdPrefix, $"{reason.SectionNumber}.{reason.QuestionNumber}");
+        }
+
+        return CanViewAllRevisionDates && CurrentSection is { } section
+            ? Url.Page(ProfileSectionTabs.PagePath(ProfileSectionTab.AllRevisionDates), new { profileId = ProfileId, section = section.Id })
+            : null;
+    }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -75,18 +111,17 @@ public class EditProfileQuestionsModel(
     }
 
     /// <summary>
-    /// Handles the "Validate" button: checks the current section's mandatory fields, matching the
-    /// legacy <c>ProfileVersionSection.Validate()</c> check, and re-renders the page with the
-    /// result.
+    /// Handles the "Validate" button as the legacy <c>btnValidateSection_Click</c> did: saves the posted answers, then runs
+    /// <c>ProfileVersionSection.Validate()</c> and re-renders the page with the list of validation errors.
     /// </summary>
     /// <param name="profileVersionId">The profile version to validate, posted from a hidden field.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The page, with the validation result populated.</returns>
+    /// <returns>The page, with the validation result populated; without one when the answers could not be saved.</returns>
     public async Task<IActionResult> OnPostValidateSectionAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
         await OnGetAsync(cancellationToken);
 
-        if (!IsReady)
+        if (!IsReady || (CanEditProfileSection && !await TrySaveSectionAsync(profileVersionId, cancellationToken)))
         {
             return Page();
         }
@@ -95,7 +130,7 @@ public class EditProfileQuestionsModel(
         {
             var result = await ProfileSectionsApi.ValidateProfileVersionSectionAsync(
                 profileVersionId, CurrentSection!.Id, cancellationToken);
-            UnansweredQuestions = result.UnansweredQuestions;
+            InvalidReasons = result.InvalidReasons;
             HasValidated = true;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
@@ -130,8 +165,9 @@ public class EditProfileQuestionsModel(
                 profileVersionId, CurrentSection!.Id, cancellationToken);
             FieldsClearedCount = result.FieldsClearedCount;
 
-            // Re-load so the page reflects the now-cleared answers rather than the stale ones
-            // already fetched by OnGetAsync above.
+            // Re-load so the page reflects the now-cleared answers and their validation icons rather
+            // than the stale ones already fetched by OnGetAsync above.
+            await RefreshValidationStatusAsync(cancellationToken);
             await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
@@ -210,8 +246,9 @@ public class EditProfileQuestionsModel(
                 profileVersionId, CurrentSection!.Id, answers, cancellationToken);
             FieldsSavedCount = result.FieldsSavedCount;
 
-            // Re-load so the page reflects the newly-saved answers rather than the stale ones
-            // already fetched by OnGetAsync above.
+            // Re-load so the page reflects the newly-saved answers and their validation icons rather
+            // than the stale ones already fetched by OnGetAsync above.
+            await RefreshValidationStatusAsync(cancellationToken);
             await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
 
             return true;
@@ -257,17 +294,11 @@ public class EditProfileQuestionsModel(
                 var isQuestionEditable = CanEditProfileSection && !question.IsPerSpecies && !question.IsRepeating;
                 var questionValues = valuesByQuestion[question.Id].ToList();
 
-                // Matches the legacy CollapsiblePanel's tick/cross icon: valid once every
-                // mandatory, non-"Field Group" field has a recorded answer.
-                var isQuestionValid = question.Fields
-                    .Where(field => field.IsMandatory && !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-                    .All(field => questionValues.Any(value => value.FieldNumber == field.FieldNumber && HasRecordedValue(value)));
-
                 return new ProfileQuestionEditView
                 {
                     Number = $"{section.SectionNumber}.{question.QuestionNumber}",
                     Text = namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
-                    IsValid = isQuestionValid,
+                    IsValid = GetQuestionValidationStatus(question.Id),
                     CanEditReferences = CanEditProfileSection,
                     Fields =
                     [
@@ -285,15 +316,6 @@ public class EditProfileQuestionsModel(
             })
         ];
     }
-
-    /// <summary>Matches the legacy question-level validity check: a field counts as answered when
-    /// any value property is populated.</summary>
-    private static bool HasRecordedValue(ProfileFieldValueDto value) =>
-        value.BooleanValue is not null
-        || value.ListValue is not null
-        || value.DecimalValue is not null
-        || value.DateValue is not null
-        || !string.IsNullOrWhiteSpace(value.TextValue);
 
     /// <summary>Builds one field's view: a real editable control matching its data type when
     /// <paramref name="isEditable"/>, otherwise the same static read-only rendering as before

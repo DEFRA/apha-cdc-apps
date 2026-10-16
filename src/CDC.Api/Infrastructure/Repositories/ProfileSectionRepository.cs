@@ -56,7 +56,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     r.ReadString(3),
                     r.ReadInt32(4),
                     r.ReadGuid(5),
-                    r.ReadString(6),
+                    DataFieldTypeNames.ToContractName(r.ReadString(6)),
                     r.ReadBoolean(7),
                     r.ReadGuid(8),
                     r.ReadBoolean(9),

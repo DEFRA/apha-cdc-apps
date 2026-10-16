@@ -66,10 +66,10 @@ public sealed record ProfileQuestionEditView
     /// <summary>Gets the question's fields.</summary>
     public required IReadOnlyList<ProfileFieldEditView> Fields { get; init; }
 
-    /// <summary>Gets a value indicating whether every mandatory field in this question has a
-    /// recorded answer, for the tick/cross status icon matching the legacy
-    /// <c>CollapsiblePanel</c>'s <c>IsValid</c> icon.</summary>
-    public bool IsValid { get; init; } = true;
+    /// <summary>Gets whether the question has no validation errors, for the tick/cross status icon matching the legacy
+    /// <c>CollapsiblePanel</c>'s <c>IsValid</c> icon (legacy <c>question.Validate().Count = 0</c>), or
+    /// <see langword="null"/> when the section's validation status could not be loaded, which shows no icon.</summary>
+    public bool? IsValid { get; init; }
 
     /// <summary>Gets a value indicating whether the "Edit references" icon is shown, matching the
     /// legacy <c>CollapsiblePanel.HasNoteLink</c>/<c>NoteList.CanEditNoteList()</c> rule: shown
@@ -81,4 +81,12 @@ public sealed record ProfileQuestionEditView
 /// <param name="IdPrefix">Prefix for the accordion's HTML element ids, unique per page.</param>
 /// <param name="EmptyMessage">Message shown when there are no questions to render.</param>
 /// <param name="Questions">The questions to render.</param>
-public sealed record QuestionEditAccordionViewModel(string IdPrefix, string EmptyMessage, IReadOnlyList<ProfileQuestionEditView> Questions);
+public sealed record QuestionEditAccordionViewModel(string IdPrefix, string EmptyMessage, IReadOnlyList<ProfileQuestionEditView> Questions)
+{
+    /// <summary>Builds the id of one question's heading in the accordion, which a validation error links to.</summary>
+    /// <param name="idPrefix">The accordion's id prefix.</param>
+    /// <param name="questionNumber">The question's display number, for example "2.1".</param>
+    /// <returns>The heading's element id.</returns>
+    public static string HeadingId(string idPrefix, string questionNumber) =>
+        $"{idPrefix}-heading-{questionNumber.Replace('.', '-')}";
+}

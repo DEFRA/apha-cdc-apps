@@ -38,6 +38,9 @@ public sealed record ReportQuestion
     /// <summary>Gets the question's number within its section.</summary>
     public int QuestionNumber { get; init; }
 
+    /// <summary>Gets the question's short name, which the page's question anchors are built from.</summary>
+    public string ShortName { get; init; } = string.Empty;
+
     /// <summary>Gets a value indicating whether the question is answered once per profiled species.</summary>
     public bool IsPerSpecies { get; init; }
 
@@ -72,8 +75,29 @@ public sealed record ReportField
     /// <summary>Gets the field label.</summary>
     public string Name { get; init; } = string.Empty;
 
-    /// <summary>Gets the data type name, for example <c>Boolean</c>, <c>List</c>, <c>MultiValueList</c>, <c>Text</c>, <c>Long Text</c>, <c>Decimal</c>, <c>Date</c> or <c>Field Group</c>.</summary>
+    /// <summary>Gets the field's short name, which a few validation rules single fields out by.</summary>
+    public string ShortName { get; init; } = string.Empty;
+
+    /// <summary>Gets the data type name, for example <c>Boolean</c>, <c>List</c>, <c>MultiValueList</c>, <c>Text</c>, <c>Long Text</c>, <c>Decimal</c>, <c>Date</c>, <c>Profile Version Data</c> or <c>Field Group</c>.</summary>
     public string DataTypeName { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether the field must be answered.</summary>
+    public bool IsMandatory { get; init; }
+
+    /// <summary>Gets a value indicating whether the field's answer decides whether another question is relevant.</summary>
+    public bool AffectsRelevance { get; init; }
+
+    /// <summary>Gets a value indicating whether the field is read-only for the current situation of a profile.</summary>
+    public bool IsReadOnlyCurrentSituation { get; init; }
+
+    /// <summary>Gets a value indicating whether the field is read-only for a "what-if" scenario.</summary>
+    public bool IsReadOnlyScenario { get; init; }
+
+    /// <summary>Gets the list field whose answer decides whether this field is visible, or <see cref="Guid.Empty"/> when it is always visible.</summary>
+    public Guid RelevanceFieldId { get; init; }
+
+    /// <summary>Gets the answer of <see cref="RelevanceFieldId"/> that makes this field visible.</summary>
+    public Guid RelevanceValueId { get; init; }
 
     /// <summary>Gets the reference table backing a list field.</summary>
     public Guid ReferenceTableId { get; init; }
@@ -91,6 +115,9 @@ public sealed record ReportSectionAnswers
     /// <summary>Gets the species the profile version profiles, in the order the database returns them.</summary>
     public IReadOnlyList<ReportSpecies> ProfiledSpecies { get; init; } = [];
 
+    /// <summary>Gets the section's review frequencies and statuses, or <see langword="null"/> when the profile version has no record of the section.</summary>
+    public ReportSectionRevision? Revision { get; init; }
+
     /// <summary>Gets the names of each question in the section.</summary>
     public IReadOnlyList<ProfileQuestionName> QuestionNames { get; init; } = [];
 
@@ -101,10 +128,46 @@ public sealed record ReportSectionAnswers
     public IReadOnlyList<ReportFieldValue> Values { get; init; } = [];
 }
 
+/// <summary>The review frequencies and statuses of one section of a profile version, which the section's validation checks.</summary>
+public sealed record ReportSectionRevision
+{
+    /// <summary>Gets the VA (the database's "technical") review frequency.</summary>
+    public Guid? VaReviewFrequencyId { get; init; }
+
+    /// <summary>Gets the policy review frequency.</summary>
+    public Guid? PolicyReviewFrequencyId { get; init; }
+
+    /// <summary>Gets the author review frequency.</summary>
+    public Guid? AuthorReviewFrequencyId { get; init; }
+
+    /// <summary>Gets the VA review status.</summary>
+    public Guid? VaReviewStatusId { get; init; }
+
+    /// <summary>Gets the policy review status.</summary>
+    public Guid? PolicyReviewStatusId { get; init; }
+
+    /// <summary>Gets the author review status.</summary>
+    public Guid? AuthorReviewStatusId { get; init; }
+}
+
+/// <summary>What the validation needs to know about a profile version as a whole.</summary>
+public sealed record ReportVersionContext
+{
+    /// <summary>Gets a value indicating whether the profile version belongs to a "what-if" scenario rather than the current situation.</summary>
+    public bool IsWhatIfScenario { get; init; }
+
+    /// <summary>Gets a value indicating whether any of the version's profiled species is inactive.</summary>
+    public bool HasInactiveProfiledSpecies { get; init; }
+
+    /// <summary>Gets a value indicating whether any of the version's other affected species is inactive.</summary>
+    public bool HasInactiveOtherAffectedSpecies { get; init; }
+}
+
 /// <summary>A species the profile version profiles.</summary>
 /// <param name="Id">The species identifier.</param>
 /// <param name="Name">The species name; may contain HTML.</param>
-public sealed record ReportSpecies(Guid Id, string Name);
+/// <param name="IsActive">Whether the species is still active (has no end date).</param>
+public sealed record ReportSpecies(Guid Id, string Name, bool IsActive = true);
 
 /// <summary>One answer row of a repeating question.</summary>
 /// <param name="Id">The row identifier.</param>

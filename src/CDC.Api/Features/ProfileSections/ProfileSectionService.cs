@@ -1,4 +1,5 @@
 using CDC.Api.Domain.Entities;
+using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ProfileSections.Mapping;
 using CDC.Api.Infrastructure;
@@ -13,11 +14,13 @@ namespace CDC.Api.Features.ProfileSections;
 /// and maps domain entities onto the DTOs the API returns.
 /// </summary>
 /// <param name="repository">Profile section data access.</param>
+/// <param name="contentRepository">Reads the questionnaire, every section's answers and the reference lists the validation needs.</param>
 /// <param name="auditOptions">The temporary acting user recorded as the contributor until Entra ID supplies the signed-in user.</param>
 /// <param name="logger">Structured logger.</param>
-/// <param name="timeProvider">Supplies the current time for review completed dates; defaults to the system clock.</param>
+/// <param name="timeProvider">Supplies the current time for review completed dates and the future-date rule; defaults to the system clock.</param>
 public sealed class ProfileSectionService(
     IProfileSectionRepository repository,
+    IProfileReportContentRepository contentRepository,
     SpeciesAuditOptions auditOptions,
     ILogger<ProfileSectionService> logger,
     TimeProvider? timeProvider = null)
@@ -53,17 +56,18 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         CancellationToken cancellationToken)
     {
-        var metadata = await repository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
+        var validation = await LoadValidationAsync(profileVersionId, cancellationToken);
         var sections = new List<ProfileSectionValidationStatusDto>();
 
-        foreach (var section in metadata.Sections)
+        foreach (var section in validation.Questionnaire.Sections)
         {
-            var answers = await repository.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
+            var reasons = await validation.Validator.ValidateSectionAsync(section, validation.Answers[section.Id], cancellationToken);
 
             sections.Add(new ProfileSectionValidationStatusDto
             {
                 ProfileSectionId = section.Id,
-                IsValid = IsSectionValid(section, answers)
+                IsValid = reasons.Count == 0,
+                InvalidQuestionIds = [.. reasons.Where(reason => reason.QuestionId != Guid.Empty).Select(reason => reason.QuestionId).Distinct()]
             });
         }
 
@@ -71,30 +75,6 @@ public sealed class ProfileSectionService(
 
         return new ProfileVersionValidationStatusDto { ProfileVersionId = profileVersionId, Sections = sections };
     }
-
-    /// <summary>
-    /// A section passes once every mandatory, answerable field (excluding "Field Group"
-    /// container fields, which hold no answer of their own) across its questions has at least
-    /// one recorded value.
-    /// </summary>
-    private static bool IsSectionValid(ProfileSectionMetadata section, ProfileSectionAnswers answers)
-    {
-        var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
-
-        return section.Questions
-            .SelectMany(question => question.Fields
-                .Where(field => field.IsMandatory && !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-                .Select(field => (question.Id, field.FieldNumber)))
-            .All(mandatoryField => valuesByQuestion[mandatoryField.Id]
-                .Any(value => value.FieldNumber == mandatoryField.FieldNumber && HasRecordedValue(value)));
-    }
-
-    private static bool HasRecordedValue(ProfileFieldValue value) =>
-        value.BooleanValue is not null
-        || value.ListValue is not null
-        || value.DecimalValue is not null
-        || value.DateValue is not null
-        || !string.IsNullOrWhiteSpace(value.TextValue);
 
     /// <inheritdoc />
     public async Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
@@ -145,32 +125,19 @@ public sealed class ProfileSectionService(
         Guid profileSectionId,
         CancellationToken cancellationToken)
     {
-        var section = await GetSectionMetadataAsync(profileSectionId, cancellationToken);
+        var validation = await LoadValidationAsync(profileVersionId, cancellationToken);
+        var section = validation.Questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
         if (section is null)
         {
-            return new ProfileSectionValidationResultDto { IsValid = true, UnansweredQuestions = [] };
+            return new ProfileSectionValidationResultDto { IsValid = true };
         }
 
-        var answers = await repository.GetProfileSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
-        var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
-        var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
+        var reasons = await validation.Validator.ValidateSectionAsync(section, validation.Answers[section.Id], cancellationToken);
 
-        var unansweredQuestions = section.Questions
-            .Where(question => question.Fields
-                .Where(field => field.IsMandatory && !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-                .Any(field => !valuesByQuestion[question.Id].Any(value => value.FieldNumber == field.FieldNumber && HasRecordedValue(value))))
-            .Select(question => $"{section.SectionNumber}.{question.QuestionNumber} " +
-                (namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName))
-            .ToList();
+        logger.ValidatedProfileVersionSection(profileVersionId, profileSectionId, reasons.Count);
 
-        logger.ValidatedProfileVersionSection(profileVersionId, profileSectionId, unansweredQuestions.Count);
-
-        return new ProfileSectionValidationResultDto
-        {
-            IsValid = unansweredQuestions.Count == 0,
-            UnansweredQuestions = unansweredQuestions
-        };
+        return new ProfileSectionValidationResultDto { IsValid = reasons.Count == 0, InvalidReasons = reasons };
     }
 
     /// <inheritdoc />
@@ -421,4 +388,36 @@ public sealed class ProfileSectionService(
         section.Questions
             .SelectMany(question => question.Fields.Select(field => (question.Id, field)))
             .ToDictionary(entry => (entry.Id, entry.field.FieldNumber), entry => entry.field);
+
+    /// <summary>Loads everything the legacy <c>Validate()</c> consulted: every section's answers, not only the one being
+    /// validated, because an answer in one section can decide the relevance of a question in another.</summary>
+    private async Task<VersionValidation> LoadValidationAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
+        var answers = new Dictionary<Guid, ReportSectionAnswers>();
+
+        foreach (var section in questionnaire.Sections)
+        {
+            answers[section.Id] = await contentRepository.GetSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
+        }
+
+        var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
+        var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
+        var completeStatusId = statuses
+            .FirstOrDefault(status => string.Equals(status.Name, CompleteStatusName, StringComparison.OrdinalIgnoreCase))?.Id ?? Guid.Empty;
+
+        var validator = new ProfileVersionValidator(
+            contentRepository,
+            [.. answers.Values.SelectMany(sectionAnswers => sectionAnswers.Values)],
+            version,
+            completeStatusId,
+            clock.GetLocalNow().DateTime);
+
+        return new VersionValidation(questionnaire, answers, validator);
+    }
+
+    private sealed record VersionValidation(
+        ReportQuestionnaire Questionnaire,
+        Dictionary<Guid, ReportSectionAnswers> Answers,
+        ProfileVersionValidator Validator);
 }

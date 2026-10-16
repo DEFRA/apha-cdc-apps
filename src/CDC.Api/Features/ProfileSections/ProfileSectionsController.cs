@@ -90,9 +90,9 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     /// Gets one profile version's per-section validation status.
     /// </summary>
     /// <remarks>
-    /// A section is valid once every mandatory field across its questions has a recorded answer,
-    /// matching the left-hand navigation's tick/cross indicator on the legacy
-    /// <c>EditProfileQuestions.aspx</c> page.
+    /// A section is valid when the legacy <c>ProfileVersionSection.Validate()</c> finds no errors in it, which
+    /// is what the left-hand navigation's tick/cross indicator on the legacy <c>EditProfileQuestions.aspx</c>
+    /// page showed. Each section also lists its questions that have errors, for the tick/cross beside each question.
     /// </remarks>
     /// <param name="profileVersionId">The profile version to check.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
@@ -112,16 +112,17 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Validates one profile version's section against its mandatory fields.
+    /// Validates one profile version's section.
     /// </summary>
     /// <remarks>
     /// Matches the legacy <c>ProfileVersionSection.Validate()</c> check shown by the "Validate"
-    /// button on <c>EditProfileQuestions.aspx</c>.
+    /// button on <c>EditProfileQuestions.aspx</c>: the section's revision-date rules, then every
+    /// question's mandatory, inactive reference data, relevance, species and range rules.
     /// </remarks>
     /// <param name="profileVersionId">The profile version to validate.</param>
     /// <param name="profileSectionId">The section to validate.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <returns>Whether the section is valid, and every validation error found.</returns>
     /// <response code="200">The section was validated.</response>
     /// <response code="400">The request failed validation.</response>
     [HttpGet("validate")]
