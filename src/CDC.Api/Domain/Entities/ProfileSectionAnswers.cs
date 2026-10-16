@@ -17,4 +17,7 @@ public sealed record ProfileSectionAnswers
 
     /// <summary>Gets the recorded field values. Empty when the section is unanswered.</summary>
     public required IReadOnlyList<ProfileFieldValue> FieldValues { get; init; }
+
+    /// <summary>Gets the rows recorded for each repeating question, ordered by sequence.</summary>
+    public IReadOnlyList<ProfileQuestionRow> QuestionRows { get; init; } = [];
 }

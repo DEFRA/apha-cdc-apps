@@ -254,8 +254,8 @@ public class DiseaseRankingIntegrationTests
             {
                 services.RemoveAll<IDiseaseRankingApiService>();
                 services.AddSingleton<IDiseaseRankingApiService>(api);
-                services.RemoveAll<IPdfRenderer>();
-                services.AddSingleton<IPdfRenderer>(pdf ?? new FakePdfRenderer());
+                services.RemoveAll<CDC.Web.Features.DiseaseRanking.IPdfRenderer>();
+                services.AddSingleton<CDC.Web.Features.DiseaseRanking.IPdfRenderer>(pdf ?? new FakePdfRenderer());
             }));
 
     private sealed class FakeApi : IDiseaseRankingApiService
@@ -277,7 +277,7 @@ public class DiseaseRankingIntegrationTests
         }
     }
 
-    private sealed class FakePdfRenderer : IPdfRenderer
+    private sealed class FakePdfRenderer : CDC.Web.Features.DiseaseRanking.IPdfRenderer
     {
         public Exception? Exception { get; init; }
 
