@@ -27,11 +27,16 @@ public static class SpeciesTreeBuilder
     /// returned them in - already <c>SequenceNumber</c> order - so "Maintain species data" shows
     /// a "Reorder list" move take visible effect instead of being masked by an alphabetical sort.
     /// </param>
+    /// <param name="expandAll">
+    /// When <see langword="true"/>, every branch starts expanded rather than just the roots, so every
+    /// species is visible without interaction - as the legacy affected species selector showed them.
+    /// </param>
     /// <returns>Root nodes, each with its descendants attached.</returns>
     public static IReadOnlyList<TreeNodeViewModel> Build(
         IReadOnlyList<SpeciesDto> species,
         bool includeInactive = false,
-        bool preserveApiOrder = false)
+        bool preserveApiOrder = false,
+        bool expandAll = false)
     {
         ArgumentNullException.ThrowIfNull(species);
 
@@ -48,7 +53,7 @@ public static class SpeciesTreeBuilder
         return
         [
             .. Order(roots, preserveApiOrder)
-                .Select(item => BuildNode(item, childrenByParentId, expanded: true, preserveApiOrder, ancestorIds: []))
+                .Select(item => BuildNode(item, childrenByParentId, expanded: true, expandAll, preserveApiOrder, ancestorIds: []))
         ];
     }
 
@@ -59,6 +64,7 @@ public static class SpeciesTreeBuilder
         SpeciesDto species,
         ILookup<Guid, SpeciesDto> childrenByParentId,
         bool expanded,
+        bool expandAll,
         bool preserveApiOrder,
         HashSet<Guid> ancestorIds)
     {
@@ -71,7 +77,7 @@ public static class SpeciesTreeBuilder
         HashSet<Guid> ownAncestorIds = [.. ancestorIds, species.Id];
 
         var children = Order(childrenByParentId[species.Id], preserveApiOrder)
-            .Select(child => BuildNode(child, childrenByParentId, expanded: false, preserveApiOrder, ownAncestorIds))
+            .Select(child => BuildNode(child, childrenByParentId, expanded: expandAll, expandAll, preserveApiOrder, ownAncestorIds))
             .ToList();
 
         return new TreeNodeViewModel

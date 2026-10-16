@@ -219,7 +219,9 @@ public class ProfileManagementServiceTests
             ParentId = Guid.Empty,
             ParentTitle = string.Empty,
             ProfileStatusId = ProfileManagementTestData.ProfileStatusId,
-            AffectedSpecies = [ProfileManagementTestData.AffectedSpecies()]
+            AffectedSpecies = [ProfileManagementTestData.AffectedSpecies()],
+            ClonedVersionDescription = "Bovine tuberculosis - v1.0 (Published) Valid from 01/01/2020",
+            ClonedVersionIsWhatIfScenario = true
         };
 
         repository
@@ -231,6 +233,8 @@ public class ProfileManagementServiceTests
         result.Should().NotBeNull();
         result!.Title.Should().Be("Bovine tuberculosis");
         result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
+        result.ClonedVersionDescription.Should().Be("Bovine tuberculosis - v1.0 (Published) Valid from 01/01/2020");
+        result.ClonedVersionIsWhatIfScenario.Should().BeTrue();
         result.AffectedSpecies.Should().ContainSingle();
         result.AffectedSpecies[0].SpeciesId.Should().Be(ProfileManagementTestData.SpeciesId);
     }

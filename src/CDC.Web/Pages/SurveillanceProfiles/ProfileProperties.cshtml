@@ -1,0 +1,227 @@
+@page "{profileId:guid?}"
+@model CDC.Web.Pages.SurveillanceProfiles.ProfilePropertiesModel
+@using CDC.Web.Infrastructure
+@using CDC.Web.Pages.SurveillanceProfiles
+@using Microsoft.AspNetCore.Mvc.ModelBinding
+@{
+    var titleErrors = ViewData.ModelState[nameof(Model.ProfileTitle)]?.Errors ?? new ModelErrorCollection();
+    var speciesErrors = ViewData.ModelState[ProfilePropertiesModel.ProfiledSpeciesFieldName]?.Errors ?? new ModelErrorCollection();
+    var hasErrors = !ViewData.ModelState.IsValid;
+    var plainHeading = ProfileTitleHtmlFormatter.ToPlainText(Model.Heading);
+
+    ViewData["Title"] = hasErrors ? $"Error: {plainHeading}" : plainHeading;
+}
+
+@section Breadcrumbs {
+    <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+            <li class="govuk-breadcrumbs__list-item">
+                <a class="govuk-breadcrumbs__link" asp-area="" asp-controller="Landing" asp-action="Internal">D2R2 Home</a>
+            </li>
+            @if (Model.Mode != ProfilePropertiesMode.Create)
+            {
+                <li class="govuk-breadcrumbs__list-item">
+                    <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+                </li>
+            }
+            @if (Model.ManageProfileId is { } manageProfileId)
+            {
+                <li class="govuk-breadcrumbs__list-item">
+                    <a class="govuk-breadcrumbs__link" asp-page="./ManageProfile" asp-route-profileId="@manageProfileId">Manage</a>
+                </li>
+            }
+            <li class="govuk-breadcrumbs__list-item" aria-current="page">
+                @Model.BreadcrumbCurrent
+            </li>
+        </ol>
+    </div>
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        @if (Model.ManageProfileId is { } manageLinkProfileId)
+        {
+            <p class="govuk-body govuk-!-text-align-right">
+                <a class="govuk-link" asp-page="./ManageProfile" asp-route-profileId="@manageLinkProfileId">Manage profile</a>
+            </p>
+        }
+
+        <h1 class="govuk-heading-l">@ProfileTitleHtmlFormatter.Format(Model.Heading)</h1>
+
+        @if (hasErrors)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            @foreach (var entry in ViewData.ModelState.Where(state => state.Value?.Errors.Count > 0))
+                            {
+                                var target = entry.Key switch
+                                {
+                                    nameof(Model.ProfileTitle) => "#ProfileTitleEditor",
+                                    ProfilePropertiesModel.ProfiledSpeciesFieldName => "#profiled-species-group",
+                                    _ => null
+                                };
+
+                                foreach (var error in entry.Value!.Errors)
+                                {
+                                    <li>
+                                        @if (target is not null)
+                                        {
+                                            <a href="@target">@error.ErrorMessage</a>
+                                        }
+                                        else
+                                        {
+                                            @error.ErrorMessage
+                                        }
+                                    </li>
+                                }
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-profile-properties-success-title" data-module="govuk-notification-banner">
+                <div class="govuk-notification-banner__header">
+                    <h2 class="govuk-notification-banner__title" id="app-profile-properties-success-title">Success</h2>
+                </div>
+                <div class="govuk-notification-banner__content">
+                    <p class="govuk-notification-banner__heading">@Model.StatusMessage</p>
+                </div>
+            </div>
+        }
+
+        @if (Model.ShowForm)
+        {
+            @if (Model.ShowInfoPanel)
+            {
+                <div class="govuk-inset-text">
+                    <p class="govuk-body">Use this function to create a brand new Surveillance Profile. Provide a title for the profile and then select at least one species or species-group that is affected by the disease, condition or issue being profiled.</p>
+                    <p class="govuk-body">Please carefully consider the species or species-groups affected, as the selection made here will dictate what information can be captured for the profile. Only select species-groups when you are confident that the disease, condition or issue being profiled impacts all the species in that group in the same manner.</p>
+                </div>
+            }
+
+            @if (Model.ClonedFromDescription is not null)
+            {
+                <p class="govuk-body">
+                    <strong>The new @(Model.Mode == ProfilePropertiesMode.CloneScenario ? "scenario" : "profile") will be cloned from: @ProfileTitleHtmlFormatter.Format(Model.ClonedFromDescription)</strong>
+                </p>
+            }
+
+            <form method="post" data-module="app-profile-properties">
+                <input type="hidden" name="LastUpdated" value="@Model.LastUpdated" />
+
+                <div class="govuk-form-group@(titleErrors.Count > 0 ? " govuk-form-group--error" : string.Empty)">
+                    <label class="govuk-label govuk-label--s" id="ProfileTitleLabel" for="ProfileTitleEditor">@Model.TitleLabel</label>
+                    @foreach (var error in titleErrors)
+                    {
+                        <p id="ProfileTitle-error" class="govuk-error-message">
+                            <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
+                        </p>
+                    }
+                    <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor" role="toolbar" aria-label="@Model.TitleLabel formatting">
+                        <button type="button" class="app-title-toolbar__button" data-app-title-action="undo" aria-label="Undo" title="Undo">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                <path d="M6 8H3V5" />
+                                <path d="M3 8a7 7 0 1 1 2 5" />
+                            </svg>
+                        </button>
+                        <button type="button" class="app-title-toolbar__button" data-app-title-action="redo" aria-label="Redo" title="Redo">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                <path d="M14 8h3V5" />
+                                <path d="M17 8a7 7 0 1 0-2 5" />
+                            </svg>
+                        </button>
+                        <button type="button" class="app-title-toolbar__button app-title-toolbar__button--italic" data-app-title-action="italic" aria-label="Italic" title="Italic">
+                            <em>I</em>
+                        </button>
+                    </div>
+                    <div id="ProfileTitleEditor"
+                         class="govuk-input app-title-editor@(titleErrors.Count > 0 ? " govuk-input--error" : string.Empty)"
+                         contenteditable="true"
+                         role="textbox"
+                         aria-multiline="false"
+                         aria-labelledby="ProfileTitleLabel"
+                         aria-describedby="@(titleErrors.Count > 0 ? "ProfileTitle-error" : null)"
+                         data-app-title-hidden-input="ProfileTitle">@ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</div>
+                    <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="@Model.ProfileTitle" />
+                </div>
+
+                @if (Model.ShowSpeciesSelector)
+                {
+                    <div data-module="app-species-selector" data-species-warning-enabled="@(Model.ShowRemovalWarning ? "true" : "false")">
+                        <div class="app-tree__controls">
+                            <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+                                <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                        <path d="M1 1l5 5 5-5" />
+                                    </svg>
+                                </span>
+                                <span class="app-tree__toggle-all-text">Close all</span>
+                            </button>
+                        </div>
+
+                        <div class="app-species-selector">
+                            <div class="govuk-form-group app-species-selector__column@(speciesErrors.Count > 0 ? " govuk-form-group--error" : string.Empty)">
+                                <fieldset class="govuk-fieldset" id="profiled-species-group" aria-describedby="@(speciesErrors.Count > 0 ? "profiled-species-error " : string.Empty)profiled-species-status">
+                                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Profiled species</legend>
+                                    @foreach (var error in speciesErrors)
+                                    {
+                                        <p id="profiled-species-error" class="govuk-error-message">
+                                            <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
+                                        </p>
+                                    }
+                                    <div class="app-tree__panel app-species-selector__panel" data-species-tree="profiled">
+                                        <partial name="_TreeView" model="Model.ProfiledSpeciesTree" />
+                                    </div>
+                                    <output class="govuk-body app-species-selector__status" id="profiled-species-status" data-species-status="profiled" hidden></output>
+                                </fieldset>
+                            </div>
+
+                            <div class="govuk-form-group app-species-selector__column">
+                                <fieldset class="govuk-fieldset" id="other-species-group" aria-describedby="other-species-status">
+                                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Other affected species</legend>
+                                    <div class="app-tree__panel app-species-selector__panel" data-species-tree="other">
+                                        <partial name="_TreeView" model="Model.OtherSpeciesTree" />
+                                    </div>
+                                    <output class="govuk-body app-species-selector__status" id="other-species-status" data-species-status="other" hidden></output>
+                                </fieldset>
+                            </div>
+                        </div>
+
+                        @if (Model.ShowRemovalWarning)
+                        {
+                            <div aria-live="assertive">
+                                <div class="govuk-warning-text" data-species-warning hidden>
+                                    <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+                                    <strong class="govuk-warning-text__text">
+                                        <span class="govuk-visually-hidden">Warning</span>
+                                        Removing profiled species from a profile will remove all of the data associated with that species from the profile.
+                                    </strong>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="govuk-visually-hidden" role="status" aria-live="assertive" data-species-announcement></div>
+                    </div>
+                }
+
+                <div class="govuk-button-group">
+                    <button type="submit" class="govuk-button" data-module="govuk-button">@Model.SubmitButtonText</button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-profile-properties-reset>Reset selections</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script src="~/js/edit-profile-title.js" asp-append-version="true"></script>
+    <script src="~/js/profile-properties.js" asp-append-version="true"></script>
+}

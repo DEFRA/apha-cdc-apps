@@ -91,6 +91,40 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_ReportsTheDatabasesMultiValueListTypeUnderTheContractsName()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "ShortName", "SectionNumber"], [[ProfileSectionTestData.SectionId, "Epidemiology", "Epi", 3]]),
+                new FakeResultSet(
+                    ["ProfileSectionId", "Id", "ShortName", "QuestionNumber", "IsPerSpecies", "IsRepeating"],
+                    [[ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, "Q1", 1, false, false]]),
+                new FakeResultSet(
+                    [
+                        "ProfileSectionId", "QuestionId", "Id", "ShortName", "FieldNumber", "DataFieldTypeId",
+                        "DataTypeName", "IsMandatory", "ReferenceTableId", "ReferenceTableIsMaintainable",
+                        "AffectsRelevancy", "Name", "IsReadOnlyCurrentSituation", "IsReadOnlyScenario",
+                        "IsPerSpecies", "IsRepeating", "IncludeInSummary"
+                    ],
+                    [
+                        [
+                            ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, ProfileSectionTestData.FieldId,
+                            "F1", 1, ProfileSectionTestData.DataFieldTypeId, "Multi Value List", true,
+                            ProfileSectionTestData.ReferenceTableId, false, false, "Areas",
+                            false, false, false, false, false
+                        ]
+                    ])
+            ]
+        });
+
+        var metadata = await CreateRepository().GetProfileQuestionnaireMetadataAsync(CancellationToken.None);
+
+        metadata.Sections.Single().Questions.Single().Fields.Single().DataTypeName.Should().Be("MultiValueList");
+    }
+
+    [Fact]
     public async Task GetProfileQuestionnaireMetadataAsync_ReturnsEmptySections_WhenNoneExist()
     {
         connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript

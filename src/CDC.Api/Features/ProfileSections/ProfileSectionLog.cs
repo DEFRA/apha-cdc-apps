@@ -18,8 +18,8 @@ internal static partial class ProfileSectionLog
     [LoggerMessage(EventId = 9004, Level = LogLevel.Information, Message = "Cleared {FieldsClearedCount} field values for profile version {ProfileVersionId} section {ProfileSectionId}")]
     public static partial void ClearedProfileVersionSection(this ILogger logger, Guid profileVersionId, Guid profileSectionId, int fieldsClearedCount);
 
-    [LoggerMessage(EventId = 9005, Level = LogLevel.Information, Message = "Validated profile version {ProfileVersionId} section {ProfileSectionId}: {UnansweredQuestionCount} unanswered mandatory questions")]
-    public static partial void ValidatedProfileVersionSection(this ILogger logger, Guid profileVersionId, Guid profileSectionId, int unansweredQuestionCount);
+    [LoggerMessage(EventId = 9005, Level = LogLevel.Information, Message = "Validated profile version {ProfileVersionId} section {ProfileSectionId}: {ValidationErrorCount} validation errors")]
+    public static partial void ValidatedProfileVersionSection(this ILogger logger, Guid profileVersionId, Guid profileSectionId, int validationErrorCount);
 
     [LoggerMessage(EventId = 9006, Level = LogLevel.Information, Message = "Saved {FieldsSavedCount} field values for profile version {ProfileVersionId} section {ProfileSectionId}")]
     public static partial void SavedProfileVersionSection(this ILogger logger, Guid profileVersionId, Guid profileSectionId, int fieldsSavedCount);

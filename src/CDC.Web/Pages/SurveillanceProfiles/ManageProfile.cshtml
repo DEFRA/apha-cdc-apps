@@ -115,7 +115,7 @@
                 @if (Model.Profile.LinkVisibility.CanEditProperties)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./EditProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
+                        <a class="govuk-link" asp-page="./ProfileProperties" asp-route-profileId="@Model.ProfileId">Edit properties</a>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanMaintainContributorsAndReviewers)
@@ -145,13 +145,13 @@
                 @if (Model.Profile.LinkVisibility.CanCloneNewProfile)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./CloneNewProfile" asp-route-profileId="@Model.ProfileId">Clone new profile</a>
+                        <a class="govuk-link" asp-page="./ProfileProperties" asp-route-cloneProfileVersionId="@Model.Profile.LatestVersionId">Clone new profile</a>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanCloneNewScenario)
                 {
                     <li>
-                        <a class="govuk-link" asp-page="./CloneNewScenario" asp-route-profileId="@Model.ProfileId">Clone new scenario</a>
+                        <a class="govuk-link" asp-page="./ProfileProperties" asp-route-cloneProfileVersionId="@Model.Profile.LatestVersionId" asp-route-scenario="true">Clone new scenario</a>
                     </li>
                 }
                 @if (Model.Profile.LinkVisibility.CanPublishPublic)

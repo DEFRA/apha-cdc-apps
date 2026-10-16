@@ -94,7 +94,7 @@ public interface IProfileSectionsApiService
     /// <param name="profileVersionId">The profile version to validate.</param>
     /// <param name="profileSectionId">The section to validate.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <returns>Whether the section is valid, and every validation error found.</returns>
     Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,

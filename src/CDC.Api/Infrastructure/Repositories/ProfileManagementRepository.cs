@@ -321,6 +321,23 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
 
             var scenarioTitle = ReadString(reader, 9);
             var profileStatusId = ReadGuid(reader, 12);
+            var clonedVersionIsWhatIfScenario = ReadGuid(reader, 10) != Guid.Empty;
+
+            // Describes the cloned version exactly as the legacy ProfileVersionInfo.ToString() did, for the
+            // "The new profile will be cloned from: ..." text on the Profile properties page.
+            var clonedVersion = new ProfileVersionHeader
+            {
+                Id = cloneProfileVersionId,
+                ProfileId = ReadGuid(reader, 1),
+                Title = ReadString(reader, 2),
+                ScenarioTitle = scenarioTitle,
+                VersionMajor = ReadByte(reader, 3),
+                VersionMinor = ReadByte(reader, 4),
+                IsPublished = !string.Equals(ReadString(reader, 5), DraftState, StringComparison.Ordinal),
+                EffectiveDateFrom = reader.ReadNullableDateTime(6) ?? default,
+                EffectiveDateTo = reader.ReadNullableDateTime(7),
+                ProfileStatusName = ReadString(reader, 13)
+            };
 
             var title = string.Empty;
             var parentId = Guid.Empty;
@@ -351,6 +368,8 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
                 ParentId = parentId,
                 ParentTitle = parentTitle,
                 ProfileStatusId = profileStatusId,
+                ClonedVersionDescription = clonedVersion.ToDescription(),
+                ClonedVersionIsWhatIfScenario = clonedVersionIsWhatIfScenario,
                 AffectedSpecies = await reader.NextResultAsync(cancellationToken)
                     ? await ReadAffectedSpeciesAsync(reader, cancellationToken)
                     : []

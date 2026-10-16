@@ -23,8 +23,9 @@ public interface IProfileSectionService
         Guid profileSectionId,
         CancellationToken cancellationToken);
 
-    /// <summary>Gets one profile version's per-section validation status: whether every
-    /// mandatory field in each section has a recorded answer.</summary>
+    /// <summary>Gets one profile version's per-section validation status: whether the legacy
+    /// <c>ProfileVersionSection.Validate()</c> finds no errors in each section, and which of its
+    /// questions have errors.</summary>
     /// <param name="profileVersionId">The profile version to check.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The profile version's per-section validation status.</returns>
@@ -47,12 +48,13 @@ public interface IProfileSectionService
 
     /// <summary>
     /// Validates one section's recorded answers, matching the legacy
-    /// <c>ProfileVersionSection.Validate()</c> mandatory-field check.
+    /// <c>ProfileVersionSection.Validate()</c>: the revision-date rules, then every question's
+    /// mandatory, inactive reference data, relevance, species and range rules.
     /// </summary>
     /// <param name="profileVersionId">The profile version to validate.</param>
     /// <param name="profileSectionId">The section to validate.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <returns>Whether the section is valid, and every validation error found.</returns>
     Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,

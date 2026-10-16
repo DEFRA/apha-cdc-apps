@@ -1,3 +1,4 @@
+using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Common.Contracts;
@@ -22,6 +23,7 @@ internal sealed class ProfileReportSectionBuilder(IProfileReportContentRepositor
     private const string InactiveSuffix = " (inactive)";
 
     private readonly Dictionary<Guid, IReadOnlyList<ReportReferenceItem>> referenceItems = [];
+    private readonly ILookup<Guid, ReportFieldValue> valuesByField = allValues.ToLookup(value => value.FieldId);
 
     /// <summary>Builds one section's report content.</summary>
     /// <param name="section">The section's questionnaire definition.</param>
@@ -244,34 +246,5 @@ internal sealed class ProfileReportSectionBuilder(IProfileReportContentRepositor
         return items;
     }
 
-    /// <summary>The legacy <c>SectionBase.CalculateRelevance</c>: the answer to the controlling field decides, and an unanswered controlling field makes the question irrelevant.</summary>
-    private bool IsRelevant(ReportQuestion question, Guid? speciesId)
-    {
-        if (question.IrrelevanceFieldId == Guid.Empty)
-        {
-            return true;
-        }
-
-        var controlling = allValues.Where(value => value.FieldId == question.IrrelevanceFieldId).ToList();
-        var answer = speciesId is { } id
-            ? controlling.FirstOrDefault(value => value.SpeciesId == id) ?? controlling.FirstOrDefault(value => value.SpeciesId is null)
-            : controlling.FirstOrDefault(value => value.SpeciesId is null) ?? controlling.FirstOrDefault();
-
-        if (answer is null)
-        {
-            return false;
-        }
-
-        if (question.IrrelevanceValueId != Guid.Empty)
-        {
-            if (answer.ListValue is not { } selected)
-            {
-                return false;
-            }
-
-            return question.IrrelevanceFlag ? selected == question.IrrelevanceValueId : selected != question.IrrelevanceValueId;
-        }
-
-        return answer.BooleanValue is { } flag && flag != question.IrrelevanceFlag;
-    }
+    private bool IsRelevant(ReportQuestion question, Guid? speciesId) => QuestionRelevance.IsRelevant(question, speciesId, valuesByField);
 }
