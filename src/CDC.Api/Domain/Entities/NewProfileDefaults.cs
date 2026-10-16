@@ -26,4 +26,13 @@ public sealed record NewProfileDefaults
 
     /// <summary>Gets the species affected by the cloned profile version.</summary>
     public required IReadOnlyList<AffectedSpeciesInfo> AffectedSpecies { get; init; }
+
+    /// <summary>
+    /// Gets a description of the cloned profile version, matching the legacy
+    /// <c>ProfileVersionInfo.ToString()</c>: "Anthrax - v1.0 (Published) Valid from 01/01/2020".
+    /// </summary>
+    public string ClonedVersionDescription { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether the cloned profile version belongs to a "what-if" scenario.</summary>
+    public bool ClonedVersionIsWhatIfScenario { get; init; }
 }

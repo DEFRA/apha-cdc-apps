@@ -798,6 +798,33 @@ body {
   display: none;
 }
 
+/* Profile properties: the profiled species and other affected species trees sit side by side,
+   wrapping to one above the other on a narrow screen. Each shows its own "Selected: ..." summary. */
+.app-species-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0 20px;
+}
+
+.app-species-selector__column {
+  min-width: 0;
+}
+
+.app-species-selector__panel {
+  max-height: 400px;
+}
+
+.app-species-selector__status {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-weight: bold;
+}
+
+.app-species-selector__status[hidden] {
+  display: none;
+}
+
 /* Species filter toggle: same button-as-link reset as .app-filters__toggle, plus a circular
    chevron icon that rotates and inverts to black/white on hover, matching app-tree__toggle-all. */
 .app-species-filter__toggle {

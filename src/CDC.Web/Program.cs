@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http.Resilience;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -80,6 +81,16 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
     client.BaseAddress = apiBaseUri;
 })
     .AddStandardResilienceHandler();
+
+// Creates and updates profiles from the Profile properties page. Writes are not retried: an
+// attempt can succeed and still time out, and replaying a create would fail on the profile id the
+// first attempt already inserted.
+builder.Services.AddHttpClient<IProfilePropertiesApiService, ProfilePropertiesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
 
 // Reference data is served from an in-process store until the reference data endpoints exist on
 // CDC.Api; swap this registration for a typed HttpClient when they do.

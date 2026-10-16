@@ -44,4 +44,23 @@ public sealed record ProfileVersionHeader
 
     /// <summary>Gets the title with the scenario title in brackets, matching the legacy <c>FullTitle</c>.</summary>
     public string FullTitle => ScenarioTitle.Length > 0 ? $"{Title} ({ScenarioTitle})" : Title;
+
+    /// <summary>
+    /// Describes the version exactly as the legacy <c>ProfileVersionInfo.ToString()</c> did, for example
+    /// "Anthrax - v1.0 (Published) Valid from 01/01/2020". The profile status name is appended in
+    /// brackets only for a current draft that has one.
+    /// </summary>
+    /// <returns>The description. The title may contain HTML.</returns>
+    public string ToDescription()
+    {
+        var state = IsPublished ? "Published" : "Draft";
+        var effectiveDates = IsCurrent
+            ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Valid from {EffectiveDateFrom:dd/MM/yyyy}")
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Valid from {EffectiveDateFrom:dd/MM/yyyy} to {EffectiveDateTo:dd/MM/yyyy}");
+        var description = $"{FullTitle} - v{VersionLabel} ({state}) {effectiveDates}";
+
+        return IsCurrent && !IsPublished && ProfileStatusName.Length > 0
+            ? $"{description} ({ProfileStatusName})"
+            : description;
+    }
 }
