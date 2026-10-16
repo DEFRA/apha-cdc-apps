@@ -58,12 +58,27 @@ public sealed class StaticReportsControllerTests
             .ReturnsAsync(document);
 
         var controller = CreateController();
-        var response = await controller.GetStaticReportDocument(VersionId, CancellationToken.None);
+        var response = await controller.GetStaticReportDocument(VersionId, cancellationToken: CancellationToken.None);
 
         var fileResult = response.Should().BeOfType<FileContentResult>().Subject;
         fileResult.FileContents.Should().BeSameAs(document.PdfData);
         fileResult.ContentType.Should().Be("application/pdf");
         controller.Response.Headers.ContentDisposition.ToString().Should().Be("inline; filename=\"Help using D2R2.pdf\"");
+    }
+
+    [Fact]
+    public async Task GetStaticReportDocument_SendsAnAttachment_WhenDownloadRequested()
+    {
+        var document = new StaticReportDataDto { Title = "D2R2 Quality Statement", PdfData = [1, 2, 3] };
+
+        service
+            .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(document);
+
+        var controller = CreateController();
+        await controller.GetStaticReportDocument(VersionId, download: true, CancellationToken.None);
+
+        controller.Response.Headers.ContentDisposition.ToString().Should().Be("attachment; filename=\"D2R2 Quality Statement.pdf\"");
     }
 
     [Fact]
@@ -73,7 +88,7 @@ public sealed class StaticReportsControllerTests
             .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((StaticReportDataDto?)null);
 
-        var response = await CreateController().GetStaticReportDocument(VersionId, CancellationToken.None);
+        var response = await CreateController().GetStaticReportDocument(VersionId, cancellationToken: CancellationToken.None);
 
         response.Should().BeOfType<NotFoundResult>();
     }
