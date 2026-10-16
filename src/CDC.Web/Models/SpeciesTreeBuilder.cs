@@ -53,7 +53,7 @@ public static class SpeciesTreeBuilder
     }
 
     private static IEnumerable<SpeciesDto> Order(IEnumerable<SpeciesDto> siblings, bool preserveApiOrder) =>
-        preserveApiOrder ? siblings : siblings.OrderBy(item => item.Description, StringComparer.OrdinalIgnoreCase);
+        preserveApiOrder ? siblings : siblings.OrderBy(item => CDC.Web.Infrastructure.SpeciesNameHtml.ToPlainText(item.Description), StringComparer.OrdinalIgnoreCase);
 
     private static TreeNodeViewModel BuildNode(
         SpeciesDto species,

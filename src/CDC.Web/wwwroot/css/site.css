@@ -675,6 +675,38 @@ body {
   gap: 10px;
 }
 
+/* Audit trail: fixed column widths so the table keeps the same layout whatever "Items per
+   page" is chosen - with an auto layout, "All" lets long names widen one column and squeeze
+   "View details" onto two lines. Long text wraps inside its column instead. */
+.app-audit-trail-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.app-audit-trail-table th:nth-child(1),
+.app-audit-trail-table th:nth-child(2) {
+  width: 24%;
+}
+
+.app-audit-trail-table th:nth-child(3) {
+  width: 17%;
+}
+
+.app-audit-trail-table th:nth-child(4) {
+  width: 19%;
+}
+
+.app-audit-trail-table th:nth-child(5) {
+  width: 16%;
+}
+
+.app-audit-trail-table td {
+  overflow-wrap: anywhere;
+}
+
+.app-audit-trail-table .govuk-details__summary-text {
+  white-space: nowrap;
+}
 /* Sits directly above .app-audit-trail-page-size, per Maintain.cshtml. */
 .app-audit-trail-back-link {
   text-align: right;
@@ -1372,4 +1404,123 @@ body {
 
 .app-note-select-form .govuk-select {
   max-width: 100%;
+}
+
+/* Add / Edit name/parent: label and field pairs in a four-column grid, matching the legacy
+   MaintainSpeciesData page (old name | new name, then old parent | new parent, then a
+   full-width reason for change and the buttons). */
+.app-legacy-form {
+  display: grid;
+  grid-template-columns: 15% 35% 15% 35%;
+  gap: 15px 10px;
+  align-items: start;
+}
+
+.app-legacy-form__label {
+  padding-top: 7px;
+  font-weight: bold;
+}
+
+/* The name row has a toolbar above its editor, so its cells sit level with the editor, not the toolbar. */
+.app-legacy-form__cell--bottom {
+  align-self: end;
+}
+
+.app-legacy-form__label.app-legacy-form__cell--bottom {
+  padding-top: 0;
+  padding-bottom: 7px;
+}
+
+.app-legacy-form__value {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Read-only, not disabled, so the value stays focusable and announced by screen readers. */
+.app-legacy-form__value {
+  background-color: #f3f2f1;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Single-line editable box beneath its formatting toolbar; scrolls sideways when the name is long. */
+.app-richtext-editor--single-line {
+  min-height: 0;
+  height: 40px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  white-space: normal;
+  word-break: break-all;
+  box-sizing: border-box;
+}
+
+.app-legacy-form__field .app-richtext-toolbar {
+  margin-top: 0;
+}
+
+.app-richtext-toolbar__button--icon:disabled {
+  color: #505a5f;
+  background-color: #f3f2f1;
+  cursor: default;
+}
+
+/* Pressed state: darker fill and a bottom bar, so it does not rely on colour alone. */
+.app-richtext-toolbar__button--active {
+  background-color: #b1b4b6;
+  border-color: #0b0c0c;
+  box-shadow: inset 0 -3px 0 #0b0c0c;
+}
+
+.app-legacy-form__field {
+  min-width: 0;
+}
+
+/* An empty error message still has a bottom margin, which pushed the control below its label. */
+.app-legacy-form__field .govuk-error-message:empty {
+  display: none;
+}
+
+.app-legacy-form__field .app-richtext-toolbar {
+  gap: 0.5rem;
+  padding: 0.375rem;
+}
+
+.app-legacy-form__field .app-richtext-toolbar__divider {
+  flex: 0 0 2px;
+  width: 2px;
+  margin: 0 0.5rem;
+  background-color: #505a5f;
+}
+
+.app-legacy-form__field--wide {
+  grid-column: 2 / -1;
+}
+
+.app-legacy-form__field .govuk-input,
+.app-legacy-form__field .govuk-select,
+.app-legacy-form__field .govuk-textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-legacy-form__actions {
+  grid-column: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.app-legacy-form__actions .govuk-button {
+  margin-bottom: 0;
+}
+
+@media (max-width: 40.0525em) {
+  .app-legacy-form {
+    grid-template-columns: 1fr;
+  }
+
+  .app-legacy-form__field--wide,
+  .app-legacy-form__actions {
+    grid-column: auto;
+  }
 }

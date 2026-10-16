@@ -1,4 +1,5 @@
 @page
+@using CDC.Web.Infrastructure
 @model CDC.Web.Pages.SpeciesData.MaintainModel
 @{
     ViewData["Title"] = Model.ShowAuditTrail ? "Species data audit trail" : "Maintain species data";
@@ -63,7 +64,7 @@ else if (Model.ShowAuditTrail)
             <input type="hidden" name="AuditTrailPage" value="1" />
         </form>
 
-        <table class="govuk-table">
+        <table class="govuk-table app-audit-trail-table">
             <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Species name/parent audit trail</caption>
             <thead class="govuk-table__head">
                 <tr class="govuk-table__row">
@@ -78,14 +79,14 @@ else if (Model.ShowAuditTrail)
                 @foreach (var entry in Model.PagedAuditTrail)
                 {
                     <tr class="govuk-table__row">
-                        <td class="govuk-table__cell">@entry.OldName</td>
-                        <td class="govuk-table__cell">@entry.NewName</td>
+                        <td class="govuk-table__cell">@ProfileTitleHtmlFormatter.Format(entry.OldName)</td>
+                        <td class="govuk-table__cell">@ProfileTitleHtmlFormatter.Format(entry.NewName)</td>
                         <td class="govuk-table__cell">@entry.ChangedBy</td>
                         <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm")</td>
                         <td class="govuk-table__cell">
                             <a class="govuk-link govuk-link--no-visited-state"
                                href="@Model.BuildAuditTrailDetailsUrl(entry.Id)">
-                                View details<span class="govuk-visually-hidden"> of the change from @entry.OldName to @entry.NewName</span>
+                                View details<span class="govuk-visually-hidden"> of the change from @SpeciesNameHtml.ToPlainText(entry.OldName) to @SpeciesNameHtml.ToPlainText(entry.NewName)</span>
                             </a>
                         </td>
                     </tr>
@@ -128,7 +129,7 @@ else if (Model.ShowAuditTrail)
         {
             var detailsEntry = Model.AuditTrailDetailsEntry;
 
-            <h2 class="govuk-heading-m">Details of change to @detailsEntry.NewName</h2>
+            <h2 class="govuk-heading-m">Details of change to @ProfileTitleHtmlFormatter.Format(detailsEntry.NewName)</h2>
 
             <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l">
 
@@ -137,11 +138,11 @@ else if (Model.ShowAuditTrail)
                     <dl class="govuk-summary-list">
                         <div class="govuk-summary-list__row">
                             <dt class="govuk-summary-list__key">Old name</dt>
-                            <dd class="govuk-summary-list__value">@detailsEntry.OldName</dd>
+                            <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.OldName)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
                             <dt class="govuk-summary-list__key">Old parent</dt>
-                            <dd class="govuk-summary-list__value">@detailsEntry.OldParent</dd>
+                            <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.OldParent)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
                             <dt class="govuk-summary-list__key">Changed by</dt>
@@ -157,11 +158,11 @@ else if (Model.ShowAuditTrail)
                     <dl class="govuk-summary-list">
                         <div class="govuk-summary-list__row">
                             <dt class="govuk-summary-list__key">New name</dt>
-                            <dd class="govuk-summary-list__value">@detailsEntry.NewName</dd>
+                            <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.NewName)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
                             <dt class="govuk-summary-list__key">New parent</dt>
-                            <dd class="govuk-summary-list__value">@detailsEntry.NewParent</dd>
+                            <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.NewParent)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
                             <dt class="govuk-summary-list__key">Date of change</dt>
@@ -238,6 +239,28 @@ else
                             </button>
                         </div>
                     }
+                    else
+                    {
+                        <div class="app-species-actions" data-app-reorder-controls>
+                            <button type="submit" id="reorder-move-up" asp-page-handler="MoveUp" formnovalidate
+                                disabled="@(!Model.CanMoveSelectedUp ? "disabled" : null)"
+                                title="Move the selected species up"
+                                class="govuk-button govuk-button--secondary app-reorder-arrow" data-module="govuk-button">
+                                <span aria-hidden="true">&uarr;</span>
+                                <span class="govuk-visually-hidden">Move up</span>
+                            </button>
+                            <button type="submit" id="reorder-move-down" asp-page-handler="MoveDown" formnovalidate
+                                disabled="@(!Model.CanMoveSelectedDown ? "disabled" : null)"
+                                title="Move the selected species down"
+                                class="govuk-button govuk-button--secondary app-reorder-arrow" data-module="govuk-button">
+                                <span aria-hidden="true">&darr;</span>
+                                <span class="govuk-visually-hidden">Move down</span>
+                            </button>
+                            <button type="submit" asp-page-handler="ReorderDone" formnovalidate class="govuk-button" data-module="govuk-button">
+                                Done
+                            </button>
+                        </div>
+                    }
                 </div>
 
                 <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
@@ -251,22 +274,6 @@ else
             </p>
         }
 
-        @if (Model.ReorderMode)
-        {
-            <div class="govuk-button-group">
-                <button type="submit" asp-page-handler="MoveUp" formnovalidate disabled="@(!Model.CanMoveSelectedUp ? "disabled" : null)"
-                    class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                    Move up
-                </button>
-                <button type="submit" asp-page-handler="MoveDown" formnovalidate disabled="@(!Model.CanMoveSelectedDown ? "disabled" : null)"
-                    class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                    Move down
-                </button>
-                <button type="submit" asp-page-handler="ReorderDone" formnovalidate class="govuk-button" data-module="govuk-button">
-                    Done
-                </button>
-            </div>
-        }
     </form>
 }
 
@@ -304,45 +311,42 @@ else
         }
 
         <form method="post">
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
-                <p class="govuk-body" id="add-old-name">@newEntry</p>
-            </div>
+            <div class="app-legacy-form">
+                <span class="app-legacy-form__label app-legacy-form__cell--bottom">Old name:</span>
+                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="add-old-name" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old name">@newEntry</div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["AddInput.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="AddInput.Name">New name</label>
-                <span class="govuk-error-message" asp-validation-for="AddInput.Name"></span>
-                <input class="govuk-input" asp-for="AddInput.Name" maxlength="50" autocomplete="off" />
-            </div>
+                <label class="app-legacy-form__label app-legacy-form__cell--bottom" asp-for="AddInput.Name">New name:</label>
+                <div class="app-legacy-form__field@(ViewData.ModelState["AddInput.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="AddInput.Name"></span>
+                    <input class="govuk-input" asp-for="AddInput.Name" maxlength="50" autocomplete="off" data-single-line-richtext />
+                </div>
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
-                <p class="govuk-body" id="add-old-parent">@newEntry</p>
-            </div>
+                <span class="app-legacy-form__label">Old parent:</span>
+                <div class="govuk-input app-legacy-form__value" id="add-old-parent" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old parent">@newEntry</div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["AddInput.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="AddInput.ParentId">New parent</label>
-                <span class="govuk-error-message" asp-validation-for="AddInput.ParentId"></span>
-                <select class="govuk-select" asp-for="AddInput.ParentId">
-                    <option value="">Please select</option>
-                    <option value="@Guid.Empty">@rootSpeciesLabel</option>
-                    @foreach (var parentChoice in Model.ParentChoices)
-                    {
-                        <option value="@parentChoice.Id">@parentChoice.Name</option>
-                    }
-                </select>
-            </div>
+                <label class="app-legacy-form__label" asp-for="AddInput.ParentId">New parent:</label>
+                <div class="app-legacy-form__field@(ViewData.ModelState["AddInput.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="AddInput.ParentId"></span>
+                    <select class="govuk-select" asp-for="AddInput.ParentId">
+                        <option value="">Please select</option>
+                        <option value="@Guid.Empty">@rootSpeciesLabel</option>
+                        @foreach (var parentChoice in Model.ParentChoices)
+                        {
+                            <option value="@parentChoice.Id">@SpeciesNameHtml.ToPlainText(parentChoice.Name)</option>
+                        }
+                    </select>
+                </div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["AddInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="AddInput.Reason">Reason for change</label>
-                <div class="govuk-hint">Explain why this species is being added. Required.</div>
-                <span class="govuk-error-message" asp-validation-for="AddInput.Reason"></span>
-                <textarea class="govuk-textarea" asp-for="AddInput.Reason" rows="4" maxlength="255"></textarea>
-            </div>
+                <label class="app-legacy-form__label" asp-for="AddInput.Reason">Reason for change:</label>
+                <div class="app-legacy-form__field app-legacy-form__field--wide@(ViewData.ModelState["AddInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="AddInput.Reason"></span>
+                    <textarea class="govuk-textarea" asp-for="AddInput.Reason" rows="1" maxlength="255"></textarea>
+                </div>
 
-            <div class="govuk-button-group">
-                <button type="submit" asp-page-handler="SaveNew" class="govuk-button" data-module="govuk-button">Save</button>
-                <button type="submit" asp-page-handler="CancelAdd" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                <div class="app-legacy-form__actions">
+                    <button type="submit" asp-page-handler="SaveNew" class="govuk-button" data-module="govuk-button">Save</button>
+                    <button type="submit" asp-page-handler="CancelAdd" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                </div>
             </div>
         </form>
     </div>
@@ -351,7 +355,7 @@ else
 @if (Model.ShowEditPanel && Model.SpeciesDetail is not null)
 {
     <div class="govuk-!-margin-top-6" id="edit-name-parent-panel">
-        <h2 class="govuk-heading-m">Edit name/parent: @Model.SpeciesDetail.Name</h2>
+        <h2 class="govuk-heading-m">Edit name/parent: @ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</h2>
 
         @if (!ViewData.ModelState.IsValid)
         {
@@ -381,46 +385,41 @@ else
             <input type="hidden" asp-for="Input.SpeciesId" />
             <input type="hidden" asp-for="Input.LastUpdatedBase64" />
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
-                <p class="govuk-body" id="old-name">@Model.SpeciesDetail.Name</p>
-            </div>
+            <div class="app-legacy-form">
+                <span class="app-legacy-form__label app-legacy-form__cell--bottom">Old name:</span>
+                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="old-name" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["Input.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="Input.Name">New name</label>
-                <span class="govuk-error-message" asp-validation-for="Input.Name"></span>
-                <input class="govuk-input" asp-for="Input.Name" maxlength="50" autocomplete="off" />
-            </div>
+                <label class="app-legacy-form__label app-legacy-form__cell--bottom" asp-for="Input.Name">New name:</label>
+                <div class="app-legacy-form__field@(ViewData.ModelState["Input.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="Input.Name"></span>
+                    <input class="govuk-input" asp-for="Input.Name" maxlength="50" autocomplete="off" data-single-line-richtext />
+                </div>
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
-                <p class="govuk-body" id="old-parent">
-                    @(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
-                </p>
-            </div>
+                <span class="app-legacy-form__label">Old parent:</span>
+                <div class="govuk-input app-legacy-form__value" id="old-parent" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["Input.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="Input.ParentId">New parent</label>
-                <span class="govuk-error-message" asp-validation-for="Input.ParentId"></span>
-                <select class="govuk-select" asp-for="Input.ParentId">
-                    <option value="">- root species -</option>
-                    @foreach (var validParent in Model.ValidParents)
-                    {
-                        <option value="@validParent.Id">@validParent.Name</option>
-                    }
-                </select>
-            </div>
+                <label class="app-legacy-form__label" asp-for="Input.ParentId">New parent:</label>
+                <div class="app-legacy-form__field@(ViewData.ModelState["Input.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="Input.ParentId"></span>
+                    <select class="govuk-select" asp-for="Input.ParentId">
+                        <option value="">- root species -</option>
+                        @foreach (var validParent in Model.ValidParents)
+                        {
+                            <option value="@validParent.Id">@SpeciesNameHtml.ToPlainText(validParent.Name)</option>
+                        }
+                    </select>
+                </div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["Input.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="Input.Reason">Reason for change</label>
-                <div class="govuk-hint">Explain why the name or parent is changing. Required.</div>
-                <span class="govuk-error-message" asp-validation-for="Input.Reason"></span>
-                <textarea class="govuk-textarea" asp-for="Input.Reason" rows="4" maxlength="255"></textarea>
-            </div>
+                <label class="app-legacy-form__label" asp-for="Input.Reason">Reason for change:</label>
+                <div class="app-legacy-form__field app-legacy-form__field--wide@(ViewData.ModelState["Input.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="Input.Reason"></span>
+                    <textarea class="govuk-textarea" asp-for="Input.Reason" rows="1" maxlength="255"></textarea>
+                </div>
 
-            <div class="govuk-button-group">
-                <button type="submit" asp-page-handler="Save" class="govuk-button" data-module="govuk-button">Save</button>
-                <button type="submit" asp-page-handler="Cancel" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                <div class="app-legacy-form__actions">
+                    <button type="submit" asp-page-handler="Save" class="govuk-button" data-module="govuk-button">Save</button>
+                    <button type="submit" asp-page-handler="Cancel" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                </div>
             </div>
         </form>
     </div>
@@ -429,7 +428,7 @@ else
 @if (Model.ShowInactivatePanel && Model.SpeciesDetail is not null)
 {
     <div class="govuk-!-margin-top-6" id="inactivate-panel">
-        <h2 class="govuk-heading-m">Inactivate: @Model.SpeciesDetail.Name</h2>
+        <h2 class="govuk-heading-m">Inactivate: @ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</h2>
 
         @if (!ViewData.ModelState.IsValid)
         {
@@ -461,13 +460,13 @@ else
 
             <div class="govuk-form-group">
                 <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
-                <p class="govuk-body" id="inactivate-old-name">@Model.SpeciesDetail.Name</p>
+                <p class="govuk-body" id="inactivate-old-name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</p>
             </div>
 
             <div class="govuk-form-group">
                 <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
                 <p class="govuk-body" id="inactivate-old-parent">
-                    @(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
+                    @ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
                 </p>
             </div>
 
@@ -489,7 +488,7 @@ else
 @if (Model.ShowDeletePanel && Model.SpeciesDetail is not null)
 {
     <div class="govuk-!-margin-top-6" id="delete-panel">
-        <h2 class="govuk-heading-m">Delete: @Model.SpeciesDetail.Name</h2>
+        <h2 class="govuk-heading-m">Delete: @ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</h2>
 
         @if (!ViewData.ModelState.IsValid)
         {
@@ -521,13 +520,13 @@ else
 
             <div class="govuk-form-group">
                 <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
-                <p class="govuk-body" id="delete-old-name">@Model.SpeciesDetail.Name</p>
+                <p class="govuk-body" id="delete-old-name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</p>
             </div>
 
             <div class="govuk-form-group">
                 <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
                 <p class="govuk-body" id="delete-old-parent">
-                    @(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
+                    @ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
                 </p>
             </div>
 
@@ -548,4 +547,6 @@ else
 
 @section Scripts {
     <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script src="~/js/reorder-controls.js" asp-append-version="true"></script>
+    <script src="~/js/single-line-richtext.js" asp-append-version="true"></script>
 }
