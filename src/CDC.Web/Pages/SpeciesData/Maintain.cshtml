@@ -57,7 +57,9 @@ else if (Model.ShowAuditTrail)
                 }
             </select>
         </div>
-        <form method="get" asp-page-handler="AuditTrail" id="audit-trail-page-size-form">
+        <form method="get" asp-page="./Maintain" id="audit-trail-page-size-form">
+            @* A GET submit discards the action's querystring, so the handler must travel as a field. *@
+            <input type="hidden" name="handler" value="AuditTrail" />
             <input type="hidden" name="AuditTrailPage" value="1" />
         </form>
 

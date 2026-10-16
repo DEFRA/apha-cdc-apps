@@ -378,8 +378,6 @@
             }
 
             const selectedItems = this.items.filter((item) => this.radio(item)?.checked);
-            const labels = selectedItems.map((item) => this.labelFor(item));
-            const selectedItems = this.items.filter((item) => this.radio(item).checked);
             const labels = this.cascade ? this.cascadeLabels() : selectedItems.map((item) => this.labelFor(item));
             const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
 
@@ -415,7 +413,7 @@
 
         collectCascadeLabels(item, labels) {
             const children = this.children(item);
-            const checked = this.radio(item).checked;
+            const checked = this.radio(item)?.checked ?? false;
 
             if (children.length === 0) {
                 if (checked) {
