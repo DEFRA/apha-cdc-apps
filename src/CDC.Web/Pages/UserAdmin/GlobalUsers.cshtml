@@ -81,18 +81,20 @@
         }
         else
         {
-            <form method="get" class="app-contributors-toolbar govuk-!-margin-bottom-3">
-                <input type="hidden" name="PageNumber" value="1" />
+            <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
                 <div class="govuk-form-group govuk-!-margin-bottom-0">
-                    <label class="govuk-label" for="PageSize">Items per page</label>
-                    <select class="govuk-select" id="PageSize" name="PageSize">
+                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                    <select class="govuk-select" id="PageSize" name="PageSize" form="global-users-page-size-form" onchange="this.form.requestSubmit()">
                         @foreach (var option in CDC.Web.Pages.UserAdmin.GlobalUsersModel.PageSizeOptions)
                         {
                             <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
                         }
                     </select>
-                    <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 govuk-!-margin-left-2">Apply</button>
                 </div>
+            </div>
+            <form method="get" id="global-users-page-size-form">
+                <input type="hidden" name="PageNumber" value="1" />
+                <noscript><button type="submit" class="govuk-button govuk-button--secondary">Apply</button></noscript>
             </form>
 
             <table class="govuk-table">
