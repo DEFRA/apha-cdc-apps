@@ -1,0 +1,83 @@
+@model CDC.Web.Models.ProfileVersionComparisonReport
+@using CDC.Web.Infrastructure
+@* Rendered to HTML and converted to PDF by Playwright, so styles are inline and nothing is fetched. *@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Profile version comparison</title>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0b0c0c; margin: 0; }
+        h1 { font-size: 16px; margin: 0 0 10px; }
+        h2 { font-size: 13px; margin: 14px 0 4px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 6px; }
+        thead { display: table-header-group; }
+        th, td { border: 1px solid #b1b4b6; padding: 4px 6px; vertical-align: top; text-align: left; word-wrap: break-word; white-space: pre-wrap; }
+        th { background: #f3f2f1; white-space: normal; }
+        tr { page-break-inside: avoid; }
+        .question td, .group td { background: #e8e8e8; font-weight: bold; white-space: normal; }
+        .group td { background: #f3f2f1; font-weight: normal; font-style: italic; }
+        .removed { color: #d4351c; text-decoration: line-through; }
+        .added { color: #005a30; font-weight: bold; text-decoration: underline; }
+        .key { margin: 0 0 8px; }
+        .identical { text-align: center; font-style: italic; margin: 4px 0 10px; }
+        .none { text-align: center; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>Profile version comparison</h1>
+    <p class="key"><span class="removed">Struck-through text</span> was removed. <span class="added">Bold underlined text</span> was added.</p>
+
+    @if (Model.Sections.All(item => item.IsIdentical))
+    {
+        <p class="none">The two profile versions are identical.</p>
+    }
+
+    @foreach (var part in Model.Sections)
+    {
+        <h2>@part.Heading</h2>
+
+        @if (part.IsIdentical)
+        {
+            <p class="identical">- Sections are identical -</p>
+        }
+        else
+        {
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col" style="width:20%">Question</th>
+                    <th scope="col" style="width:40%">@Model.LeftTitle</th>
+                    <th scope="col" style="width:40%">@Model.RightTitle</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var question in part.Questions)
+                {
+                    <tr class="question">
+                        <td colspan="3">@question.Number @question.Text</td>
+                    </tr>
+                    @foreach (var group in question.Groups)
+                    {
+                        @if (group.Heading is not null)
+                        {
+                            <tr class="group">
+                                <td colspan="3">@group.Heading</td>
+                            </tr>
+                        }
+                        @foreach (var field in group.Fields)
+                        {
+                            <tr>
+                                <td>@field.Label</td>
+                                <td>@ComparisonHtml.Render(field.Left)</td>
+                                <td>@ComparisonHtml.Render(field.Right)</td>
+                            </tr>
+                        }
+                    }
+                }
+            </tbody>
+        </table>
+        }
+    }
+</body>
+</html>

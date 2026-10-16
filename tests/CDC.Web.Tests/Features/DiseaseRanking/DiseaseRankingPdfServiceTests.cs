@@ -75,7 +75,7 @@ public class DiseaseRankingPdfServiceTests
         }
     }
 
-    private sealed class FakePdf : IPdfRenderer
+    private sealed class FakePdf : CDC.Web.Features.DiseaseRanking.IPdfRenderer
     {
         public string? LastHtml { get; private set; }
 

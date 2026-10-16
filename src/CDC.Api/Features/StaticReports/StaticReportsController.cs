@@ -66,6 +66,7 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     /// Gets the stored document for one version as a PDF file.
     /// </summary>
     /// <param name="staticReportVersionId">The version to read.</param>
+    /// <param name="download">Send as an attachment so browsers download the file instead of rendering it.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="200">The document was retrieved.</response>
     /// <response code="404">No document is stored for the supplied version.</response>
@@ -74,7 +75,8 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetStaticReportDocument(
         Guid staticReportVersionId,
-        CancellationToken cancellationToken)
+        [FromQuery] bool download = false,
+        CancellationToken cancellationToken = default)
     {
         var document = await staticReportService.GetStaticReportDataAsync(staticReportVersionId, cancellationToken);
 
@@ -83,11 +85,10 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
             return NotFound();
         }
 
-        // "inline", not "attachment" - and set via the header directly, not File()'s
-        // fileDownloadName parameter (which always forces "attachment") - so browsers render the
-        // PDF rather than downloading it.
+        // Set via the header directly, not File()'s fileDownloadName parameter, which always forces "attachment".
         var fileName = document.Title.Replace("\"", string.Empty, StringComparison.Ordinal);
-        Response.Headers.ContentDisposition = $"inline; filename=\"{fileName}.pdf\"";
+        var disposition = download ? "attachment" : "inline";
+        Response.Headers.ContentDisposition = $"{disposition}; filename=\"{fileName}.pdf\"";
 
         return File(document.PdfData, "application/pdf", enableRangeProcessing: true);
     }

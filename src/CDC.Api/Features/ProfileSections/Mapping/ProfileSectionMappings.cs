@@ -67,7 +67,13 @@ public static class ProfileSectionMappings
         ProfileVersionId = answers.ProfileVersionId,
         ProfileSectionId = answers.ProfileSectionId,
         QuestionNames = [.. answers.QuestionNames.Select(ToDto)],
-        FieldValues = [.. answers.FieldValues.Select(ToDto)]
+        FieldValues = [.. answers.FieldValues.Select(ToDto)],
+        QuestionRows = [.. answers.QuestionRows.Select(row => new ProfileQuestionRowDto
+        {
+            Id = row.Id,
+            QuestionId = row.QuestionId,
+            SequenceNumber = row.SequenceNumber
+        })]
     };
 
     /// <summary>Projects a question's display names.</summary>
@@ -88,6 +94,8 @@ public static class ProfileSectionMappings
         Id = fieldValue.Id,
         QuestionId = fieldValue.QuestionId,
         FieldNumber = fieldValue.FieldNumber,
+        SpeciesId = fieldValue.SpeciesId,
+        ProfileVersionQuestionRowId = fieldValue.ProfileVersionQuestionRowId,
         BooleanValue = fieldValue.BooleanValue,
         ListValue = fieldValue.ListValue,
         DecimalValue = fieldValue.DecimalValue,

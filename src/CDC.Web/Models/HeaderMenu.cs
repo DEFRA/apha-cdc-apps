@@ -32,6 +32,17 @@ public static class HeaderMenu
             new("View species data", "/ViewSpeciesData", AuthorizationPolicies.CanViewSpeciesData),
             new("Maintain species data", "/SpeciesData/Maintain", AuthorizationPolicies.CanManageSpeciesData),
         ]),
+        new("User admin",
+        [
+            new("Global users", "/UserAdmin/GlobalUsers", AuthorizationPolicies.CanManageGlobalUsers),
+            new("External users", "/UserAdmin/ExternalUsers", AuthorizationPolicies.CanManageExternalUsers),
+        ]),
+        new("Cross profile admin",
+        [
+            new("Maintain reference data", "/CrossProfileAdmin/ReferenceData", AuthorizationPolicies.CanManageReferenceData),
+            new("Maintain prioritisation variables", "/CrossProfileAdmin/PrioritisationVariables", AuthorizationPolicies.CanManagePrioritisationVariables),
+            new("Maintain cross-cutting issue scores", "/CrossProfileAdmin/CrossCuttingIssueScores", AuthorizationPolicies.CanManageCrossCuttingScores),
+        ]),
     ];
 }
 
