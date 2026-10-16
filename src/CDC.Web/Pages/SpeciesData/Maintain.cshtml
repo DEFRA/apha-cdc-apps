@@ -355,7 +355,7 @@ else
 @if (Model.ShowEditPanel && Model.SpeciesDetail is not null)
 {
     <div class="govuk-!-margin-top-6" id="edit-name-parent-panel">
-        <h2 class="govuk-heading-m">Edit name/parent: @ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</h2>
+        <h2 class="govuk-heading-m">Edit species data value</h2>
 
         @if (!ViewData.ModelState.IsValid)
         {
@@ -428,7 +428,7 @@ else
 @if (Model.ShowInactivatePanel && Model.SpeciesDetail is not null)
 {
     <div class="govuk-!-margin-top-6" id="inactivate-panel">
-        <h2 class="govuk-heading-m">Inactivate: @ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</h2>
+        <h2 class="govuk-heading-m">Inactivate species data value</h2>
 
         @if (!ViewData.ModelState.IsValid)
         {
@@ -488,7 +488,7 @@ else
 @if (Model.ShowDeletePanel && Model.SpeciesDetail is not null)
 {
     <div class="govuk-!-margin-top-6" id="delete-panel">
-        <h2 class="govuk-heading-m">Delete: @ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</h2>
+        <h2 class="govuk-heading-m">Delete species data value</h2>
 
         @if (!ViewData.ModelState.IsValid)
         {
@@ -518,28 +518,35 @@ else
             <input type="hidden" asp-for="DeleteInput.SpeciesId" />
             <input type="hidden" asp-for="DeleteInput.LastUpdatedBase64" />
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
-                <p class="govuk-body" id="delete-old-name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</p>
-            </div>
+            <div class="app-legacy-form">
+                <span class="app-legacy-form__label">Old name:</span>
+                <div class="govuk-input app-legacy-form__value" id="delete-old-name" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
-                <p class="govuk-body" id="delete-old-parent">
-                    @ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
-                </p>
-            </div>
+                <label class="app-legacy-form__label" for="delete-new-name">New name:</label>
+                <div class="app-legacy-form__field">
+                    <input class="govuk-input" id="delete-new-name" type="text" value="- to be deleted -" disabled />
+                </div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["DeleteInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="DeleteInput.Reason">Reason for change</label>
-                <div class="govuk-hint">Explain why this species is being deleted. Required.</div>
-                <span class="govuk-error-message" asp-validation-for="DeleteInput.Reason"></span>
-                <textarea class="govuk-textarea" asp-for="DeleteInput.Reason" rows="4" maxlength="255"></textarea>
-            </div>
+                <span class="app-legacy-form__label">Old parent:</span>
+                <div class="govuk-input app-legacy-form__value" id="delete-old-parent" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
 
-            <div class="govuk-button-group">
-                <button type="submit" asp-page-handler="ConfirmDelete" class="govuk-button govuk-button--warning" data-module="govuk-button">Delete</button>
-                <button type="submit" asp-page-handler="CancelDelete" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                <label class="app-legacy-form__label" for="delete-new-parent">New parent:</label>
+                <div class="app-legacy-form__field">
+                    <select class="govuk-select" id="delete-new-parent" disabled>
+                        <option>Please select</option>
+                    </select>
+                </div>
+
+                <label class="app-legacy-form__label" asp-for="DeleteInput.Reason">Reason for change:</label>
+                <div class="app-legacy-form__field app-legacy-form__field--wide@(ViewData.ModelState["DeleteInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="DeleteInput.Reason"></span>
+                    <textarea class="govuk-textarea" asp-for="DeleteInput.Reason" rows="1" maxlength="255"></textarea>
+                </div>
+
+                <div class="app-legacy-form__actions">
+                    <button type="submit" asp-page-handler="ConfirmDelete" class="govuk-button" data-module="govuk-button">Delete</button>
+                    <button type="submit" asp-page-handler="CancelDelete" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                </div>
             </div>
         </form>
     </div>

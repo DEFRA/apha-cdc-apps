@@ -268,7 +268,7 @@ public partial class SpeciesDataIntegrationTests
             ["species"] = DairyId.ToString()
         });
 
-        Assert.Contains("Edit name/parent: Dairy cattle", body);
+        Assert.Contains("Edit species data value", body);
         Assert.Contains("Reason for change", body);
     }
 
