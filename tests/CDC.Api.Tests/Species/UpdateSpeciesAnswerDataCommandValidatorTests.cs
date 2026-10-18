@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CDC.Api.Features.Species.Commands;
 using FluentAssertions;
 
@@ -136,5 +137,21 @@ public class UpdateSpeciesAnswerDataCommandValidatorTests
         var result = validator.Validate(command);
 
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void JsonDeserialization_RequiresFieldIdForEachChange()
+    {
+        const string json = """
+            {
+              "kind": 1,
+              "booleanValue": true
+            }
+            """;
+
+        Action act = () => JsonSerializer.Deserialize<SpeciesFieldValueChange>(json);
+
+        act.Should().Throw<JsonException>()
+            .WithMessage("*FieldId*");
     }
 }

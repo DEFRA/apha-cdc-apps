@@ -15,7 +15,10 @@
     const GROUP = ':scope > ul.app-tree__group';
     const ROW = ':scope > .app-tree__row';
     const TOGGLE = '.app-tree__toggle';
-    const INPUT = 'input[type="radio"], input[type="checkbox"]';
+    // :is() keeps the list scoped when this is appended to a ROW selector; a bare comma would let
+    // the second input match anywhere in the item, so a node with no input of its own (a
+    // non-selectable branch) would resolve to its first descendant's checkbox.
+    const INPUT = ':is(input[type="radio"], input[type="checkbox"])';
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 
@@ -36,10 +39,13 @@
             this.$root = $root;
             this.idPrefix = $root.id || 'item';
             this.multiple = $root.dataset.appTreeMultiple === TRUE;
+            this.cascade = this.multiple && $root.dataset.appTreeCascade === TRUE;
+            this.hierarchyExclusive = $root.dataset.appTreeHierarchyExclusive !== 'false';
 
             const $form = $root.closest('form');
             this.$status = $form ? $form.querySelector('.app-tree__status') : null;
             this.$toggleAll = $form ? $form.querySelector('.app-tree__toggle-all') : null;
+            this.$announcement = $form ? $form.querySelector('[data-app-tree-announcement]') : null;
 
             this.items = Array.from($root.querySelectorAll(ITEM));
             this.items.forEach((item, index) => this.setupItem(item, index));
@@ -55,6 +61,27 @@
             }
 
             this.refreshAll();
+            this.scrollToSelection();
+        }
+
+        // Keeps the view scrolled to whichever node is already selected on load - only while
+        // reordering (Maintain species data's Move up/down round trip), not on an ordinary page
+        // load, per data-app-tree-scroll-to-selection. Expands every ancestor branch first,
+        // since a hidden branch can't be scrolled into view.
+        scrollToSelection() {
+            if (this.$root.dataset.appTreeScrollToSelection !== TRUE) {
+                return;
+            }
+
+            const $checked = this.$root.querySelector(`${INPUT}:checked`);
+            const item = $checked && $checked.closest(ITEM);
+
+            if (!item) {
+                return;
+            }
+
+            this.ancestors(item).forEach((ancestor) => this.setExpanded(ancestor, true));
+            item.scrollIntoView({ block: 'center' });
         }
 
         /* ---------- structure helpers ---------- */
@@ -113,9 +140,10 @@
         // The category label shown to screen readers on a branch's toggle, and to everyone in
         // the "Selected: ..." status once a node is picked.
         labelFor(item) {
-            const label = item.querySelector(`${ROW} label`);
+            const label = item.querySelector(`${ROW} label, ${ROW} .app-tree__branch-label`);
+            const input = this.radio(item);
 
-            return label ? label.textContent.trim() : this.radio(item).value;
+            return label ? label.textContent.trim() : (input ? input.value : '');
         }
 
         depth(item) {
@@ -213,10 +241,46 @@
 
             if (action === 'clear') {
                 this.items.forEach((item) => {
-                    this.radio(item).checked = false;
+                    const input = this.radio(item);
+
+                    if (input) {
+                        input.checked = false;
+                    }
                 });
 
                 this.updateSelectedStatus();
+
+                return;
+            }
+
+            if (action === 'include-guidance' || action === 'exclude-guidance') {
+                this.setGuidance(action === 'include-guidance');
+            }
+        }
+
+        // Cascading trees only. Guidance nodes are marked data-app-tree-kind="guidance"; including or
+        // excluding guidance only changes the ones under a ticked parent, so guidance of a section
+        // that is not part of the selection is never ticked by it. An ancestor stays ticked only
+        // while one of its children is, as when a node is ticked or unticked by hand.
+        setGuidance(checked) {
+            this.items
+                .filter((item) => item.dataset.appTreeKind === 'guidance')
+                .forEach((item) => {
+                    const parent = this.parent(item);
+
+                    if (parent && this.radio(parent).checked) {
+                        this.radio(item).checked = checked;
+                        this.syncAncestors(item, checked);
+                    }
+                });
+
+            this.announce(checked ? 'Included all guidance questions' : 'Excluded all guidance questions');
+            this.updateSelectedStatus();
+        }
+
+        announce(message) {
+            if (this.$announcement) {
+                this.$announcement.textContent = message;
             }
         }
 
@@ -251,11 +315,38 @@
                 return;
             }
 
-            if (this.multiple && input.checked) {
+            if (this.multiple && this.cascade) {
+                this.cascadeSelection(input.closest(ITEM), input.checked);
+            } else if (this.multiple && input.checked) {
                 this.enforceHierarchyExclusivity(input.closest(ITEM));
             }
 
             this.updateSelectedStatus();
+        }
+
+        // Cascading multi-select trees (Model.CascadeSelection): ticking a node ticks everything
+        // under it, unticking it clears everything under it, and an ancestor is ticked whenever one
+        // of its children is - so ticking a single question ticks its section, and unticking the
+        // last ticked question of a section unticks the section.
+        cascadeSelection(item, checked) {
+            if (!item) {
+                return;
+            }
+
+            this.descendants(item).forEach((descendant) => {
+                this.radio(descendant).checked = checked;
+            });
+
+            this.syncAncestors(item, checked);
+        }
+
+        // Walks up from the nearest ancestor, so each one sees its children's final state.
+        syncAncestors(item, checked) {
+            this.ancestors(item).forEach((ancestor) => {
+                const anyChildChecked = this.children(ancestor).some((child) => this.radio(child).checked);
+
+                this.radio(ancestor).checked = checked || anyChildChecked;
+            });
         }
 
         // Multi-select trees only (Model.AllowMultipleSelection): checking a node means "this
@@ -286,8 +377,8 @@
                 return;
             }
 
-            const selectedItems = this.items.filter((item) => this.radio(item).checked);
-            const labels = selectedItems.map((item) => this.labelFor(item));
+            const selectedItems = this.items.filter((item) => this.radio(item)?.checked);
+            const labels = this.cascade ? this.cascadeLabels() : selectedItems.map((item) => this.labelFor(item));
             const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
 
             if (emptyLabel) {
@@ -306,17 +397,55 @@
             this.refreshToggleAllControl();
         }
 
+        // Cascading trees tick every descendant of a ticked node, so listing every ticked node would
+        // repeat the whole tree. A branch whose children are all ticked stands for them, the root
+        // (depth 0) never stands for itself, and a branch is only descended into when some of its
+        // children are ticked - as the legacy page's "Selected:" text did.
+        cascadeLabels() {
+            const labels = [];
+
+            this.items
+                .filter((item) => !this.parent(item))
+                .forEach((root) => this.collectCascadeLabels(root, labels));
+
+            return labels;
+        }
+
+        collectCascadeLabels(item, labels) {
+            const children = this.children(item);
+            const checked = this.radio(item).checked;
+
+            if (children.length === 0) {
+                if (checked) {
+                    labels.push(this.labelFor(item));
+                }
+
+                return;
+            }
+
+            const anyChecked = children.some((child) => this.radio(child).checked);
+            const allChecked = children.every((child) => this.radio(child).checked);
+            const isRoot = !this.parent(item);
+
+            if (!isRoot && (allChecked || (!anyChecked && checked))) {
+                labels.push(this.labelFor(item));
+            } else if (anyChecked) {
+                children.forEach((child) => this.collectCascadeLabels(child, labels));
+            }
+        }
+
         /* ---------- keyboard ---------- */
 
+        // Disabled inputs cannot take focus, so the arrow keys skip them rather than stopping on one.
         visibleItems() {
-            return this.items.filter((item) => !item.parentElement.closest('[hidden]'));
+            return this.items.filter((item) => !item.parentElement.closest('[hidden]') && !this.radio(item).disabled);
         }
 
         focusItem(item) {
-            const radio = item ? this.radio(item) : null;
+            const target = item ? (this.radio(item) ?? this.toggle(item)) : null;
 
-            if (radio) {
-                radio.focus();
+            if (target) {
+                target.focus();
             }
         }
 

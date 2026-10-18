@@ -1,11 +1,114 @@
-@page
+﻿@page
 @model CDC.Web.Pages.Reports.DiseaseRankingModel
 @{
-    ViewData["Title"] = "Disease ranking report";
+    ViewData["Title"] = (ViewData.ModelState.IsValid ? string.Empty : "Error: ") + "Disease ranking report";
+
+    var scoredError = ViewData.ModelState[nameof(Model.ScoredReportKey)]?.Errors.FirstOrDefault()?.ErrorMessage;
+    var rankedError = ViewData.ModelState[nameof(Model.RankedReportKey)]?.Errors.FirstOrDefault()?.ErrorMessage;
+
+    static string? AnchorFor(string key, string scoredKey, string rankedKey)
+    {
+        if (key == scoredKey)
+        {
+            return "#scored-report";
+        }
+
+        return key == rankedKey ? "#ranked-report" : null;
+    }
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <ul class="govuk-list govuk-error-summary__list">
+                    @foreach (var entry in ViewData.ModelState)
+                    {
+                        var anchor = AnchorFor(entry.Key, nameof(Model.ScoredReportKey), nameof(Model.RankedReportKey));
+
+                        @foreach (var error in entry.Value!.Errors.Select(e => e.ErrorMessage))
+                        {
+                            <li>
+                                @if (anchor is not null)
+                                {
+                                    <a href="@anchor">@error</a>
+                                }
+                                else
+                                {
+                                    @error
+                                }
+                            </li>
+                        }
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
 <h1 class="govuk-heading-l">Disease ranking report</h1>
-<p class="govuk-body">This page is for Disease ranking report.</p>
+
+<form method="post" asp-page-handler="Scored" novalidate>
+    <div class="govuk-form-group @(scoredError is null ? null : "govuk-form-group--error")">
+        <h2 class="govuk-label-wrapper">
+            <label class="govuk-label govuk-label--m" for="scored-report">Scored RFI graphs</label>
+        </h2>
+        <div id="scored-report-hint" class="govuk-hint">
+            Select the disease ranking report to view as scored reason for intervention (RFI) graphs. The report downloads as a PDF.
+        </div>
+        @if (scoredError is not null)
+        {
+            <p id="scored-report-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> @scoredError
+            </p>
+        }
+        <div class="app-select-with-actions">
+            <select class="govuk-select @(scoredError is null ? null : "govuk-select--error")" id="scored-report" name="ScoredReportKey"
+                    aria-describedby="scored-report-hint@(scoredError is null ? null : " scored-report-error")">
+                <option value="">Select a report</option>
+                @foreach (var option in Model.Options)
+                {
+                    <option value="@option.Key" selected="@(option.Key == Model.ScoredReportKey)">@option.Label</option>
+                }
+            </select>
+            <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button">Download PDF</button>
+            <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
+               asp-page="/Reports/EditDiseaseRankingFilters">Edit filters<span class="govuk-visually-hidden"> for scored RFI graphs</span></a>
+        </div>
+    </div>
+</form>
+
+<form method="post" asp-page-handler="Ranked" novalidate>
+    <div class="govuk-form-group @(rankedError is null ? null : "govuk-form-group--error")">
+        <h2 class="govuk-label-wrapper">
+            <label class="govuk-label govuk-label--m" for="ranked-report">Ranked RFI graphs</label>
+        </h2>
+        <div id="ranked-report-hint" class="govuk-hint">
+            Select the disease ranking report to view as ranked reason for intervention (RFI) graphs. The report downloads as a PDF.
+        </div>
+        @if (rankedError is not null)
+        {
+            <p id="ranked-report-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> @rankedError
+            </p>
+        }
+        <div class="app-select-with-actions">
+            <select class="govuk-select @(rankedError is null ? null : "govuk-select--error")" id="ranked-report" name="RankedReportKey"
+                    aria-describedby="ranked-report-hint@(rankedError is null ? null : " ranked-report-error")">
+                <option value="">Select a report</option>
+                @foreach (var option in Model.Options)
+                {
+                    <option value="@option.Key" selected="@(option.Key == Model.RankedReportKey)">@option.Label</option>
+                }
+            </select>
+            <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button">Download PDF</button>
+            <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
+               asp-page="/Reports/EditDiseaseRankingFilters">Edit filters<span class="govuk-visually-hidden"> for ranked RFI graphs</span></a>
+        </div>
+    </div>
+</form>

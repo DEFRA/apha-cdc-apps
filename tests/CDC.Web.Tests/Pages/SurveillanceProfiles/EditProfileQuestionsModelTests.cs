@@ -36,7 +36,7 @@ public class EditProfileQuestionsModelTests
         IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
         ProfileVersionValidationStatusDto? validationStatus = null,
         ProfileSectionValidationResultDto? sectionValidationResult = null,
-        ClearProfileSectionResultDto? clearResult = null,
+        ProfileSectionWriteResult? clearResult = null,
         Exception? throwOnClearProfileVersionSection = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
@@ -167,7 +167,7 @@ public class EditProfileQuestionsModelTests
 
     private static EditProfileQuestionsModel CreatePageModelWithForm(
         IDictionary<string, string> formValues,
-        SaveProfileSectionResultDto? saveResult = null,
+        ProfileSectionWriteResult? saveResult = null,
         Exception? throwOnSaveProfileVersionSection = null)
     {
         var pageModel = new EditProfileQuestionsModel(
@@ -436,7 +436,7 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnPostSaveSectionAsync_SendsParsedAnswers_AndPopulatesFieldsSavedCount()
+    public async Task OnPostSaveSectionAsync_SendsParsedAnswers_AndReportsTheLegacySuccessMessage()
     {
         var pageModel = CreatePageModelWithForm(
             new Dictionary<string, string>
@@ -448,14 +448,156 @@ public class EditProfileQuestionsModelTests
                 [$"field_{DateFieldId}_year"] = "2026",
                 [$"field_{TextFieldId}"] = "  Some notes  "
             },
-            saveResult: new SaveProfileSectionResultDto { FieldsSavedCount = 4 });
+            saveResult: new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success, FieldsChangedCount = 4 });
 
-        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, CancellationToken.None);
+        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(4, pageModel.FieldsSavedCount);
+        Assert.Equal("Profile section save succeeded", pageModel.ActionMessage);
+        Assert.False(pageModel.ActionMessageIsError);
         Assert.Empty(pageModel.SaveValidationErrors);
         Assert.False(pageModel.HasError);
+        Assert.False(pageModel.HasFormErrors);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_SendsTheTrimmedAnswersAndTheSectionsRowVersionItWasShownWith()
+    {
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string>
+            {
+                [$"field_{BooleanFieldId}"] = "true",
+                [$"field_{TextFieldId}"] = "  Some notes  "
+            });
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, Convert.ToBase64String(rowVersion), CancellationToken.None);
+
+        Assert.Equal(rowVersion, service.SavedLastUpdated);
+        Assert.NotNull(service.SavedAnswers);
+        Assert.True(service.SavedAnswers.Single(answer => answer.ProfileFieldId == BooleanFieldId).BooleanValue);
+        Assert.Equal("Some notes", service.SavedAnswers.Single(answer => answer.ProfileFieldId == TextFieldId).TextValue);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not base 64")]
+    [InlineData("AQID")]
+    public async Task OnPostSaveSectionAsync_SendsNoRowVersion_WhenThePostedOneIsMissingOrNotARowVersion(string? lastUpdated)
+    {
+        var (pageModel, service) = CreateValidatingPageModel(EditableProfile());
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, lastUpdated, CancellationToken.None);
+
+        Assert.Equal(1, service.SaveProfileVersionSectionCallCount);
+        Assert.Null(service.SavedLastUpdated);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_ReportsTheReasonInTheLegacyWording_AndKeepsThePageUsable_WhenTheSectionWasEditedByAnotherUser()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            saveResult: new ProfileSectionWriteResult
+            {
+                Outcome = ProfileSectionWriteOutcome.Conflict,
+                ErrorMessage = "The profile version section has been edited by another user"
+            });
+
+        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Profile section save failed: The profile version section has been edited by another user", pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.True(pageModel.HasFormErrors);
+        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.Questions);
+        Assert.Equal(0, service.ValidateProfileVersionSectionCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_ReportsTheFailure_AndKeepsThePageUsable_WhenCdcApiThrows()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile(), throwOnSave: new HttpRequestException("boom"));
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.StartsWith("Profile section save failed: ", pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.Questions);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_DoesNotSave_WhenTheUserCannotEditTheSection()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(Profile());
+
+        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
+        Assert.Null(pageModel.ActionMessage);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_RefreshesTheValidationIcons_AfterSaving()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            validationStatus: StandardSectionStatus(isValid: false, StandardQuestionId),
+            validationStatusAfterWrite: StandardSectionStatus(isValid: true));
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.True(pageModel.GetSectionValidationStatus(StandardSectionId));
+        Assert.True(Assert.Single(pageModel.Questions).IsValid);
+        Assert.Equal(2, service.GetValidationStatusCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_DoesNotReadAFieldThatIsReadOnlyForTheKindOfProfile()
+    {
+        var metadata = StandardQuestionMetadata();
+        var readOnlyField = metadata.Sections[0].Questions[0].Fields.Single(field => field.Id == TextFieldId) with { IsReadOnlyCurrentSituation = true };
+        metadata = metadata with
+        {
+            Sections = [metadata.Sections[0] with { Questions = [metadata.Sections[0].Questions[0] with { Fields = [.. metadata.Sections[0].Questions[0].Fields.Where(field => field.Id != TextFieldId), readOnlyField] }] }]
+        };
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string> { [$"field_{BooleanFieldId}"] = "true", [$"field_{TextFieldId}"] = "tampered" },
+            metadata: metadata);
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.NotNull(service.SavedAnswers);
+        Assert.DoesNotContain(service.SavedAnswers, answer => answer.ProfileFieldId == TextFieldId);
+        Assert.Contains(service.SavedAnswers, answer => answer.ProfileFieldId == BooleanFieldId);
+        Assert.False(Assert.Single(pageModel.Questions).Fields.Single(field => field.FieldId == TextFieldId).IsEditable);
+        Assert.True(Assert.Single(pageModel.Questions).Fields.Single(field => field.FieldId == BooleanFieldId).IsEditable);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_ReadsTheFieldsThatAreReadOnlyOnlyForTheOtherKindOfProfile()
+    {
+        var metadata = StandardQuestionMetadata();
+        var scenarioOnlyField = metadata.Sections[0].Questions[0].Fields.Single(field => field.Id == TextFieldId) with { IsReadOnlyScenario = true };
+        metadata = metadata with
+        {
+            Sections = [metadata.Sections[0] with { Questions = [metadata.Sections[0].Questions[0] with { Fields = [.. metadata.Sections[0].Questions[0].Fields.Where(field => field.Id != TextFieldId), scenarioOnlyField] }] }]
+        };
+        var form = new Dictionary<string, string> { [$"field_{TextFieldId}"] = "Some notes" };
+        var (currentSituation, currentService) = CreateValidatingPageModel(EditableProfile(), form, metadata: metadata);
+        var (scenario, scenarioService) = CreateValidatingPageModel(EditableProfile() with { IsWhatIfScenario = true }, form, metadata: metadata);
+
+        await currentSituation.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+        await scenario.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Contains(currentService.SavedAnswers!, answer => answer.ProfileFieldId == TextFieldId);
+        Assert.DoesNotContain(scenarioService.SavedAnswers!, answer => answer.ProfileFieldId == TextFieldId);
     }
 
     [Fact]
@@ -465,11 +607,11 @@ public class EditProfileQuestionsModelTests
             new Dictionary<string, string> { [$"field_{DecimalFieldId}"] = "not-a-number" },
             throwOnSaveProfileVersionSection: new InvalidOperationException("Save should not have been called"));
 
-        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, CancellationToken.None);
+        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.Contains(pageModel.SaveValidationErrors, error => error.Contains("decimal", StringComparison.OrdinalIgnoreCase));
-        Assert.Null(pageModel.FieldsSavedCount);
+        Assert.Null(pageModel.ActionMessage);
     }
 
     [Fact]
@@ -484,102 +626,489 @@ public class EditProfileQuestionsModelTests
             },
             throwOnSaveProfileVersionSection: new InvalidOperationException("Save should not have been called"));
 
-        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, CancellationToken.None);
+        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.Contains(pageModel.SaveValidationErrors, error => error.Contains("date", StringComparison.OrdinalIgnoreCase));
-        Assert.Null(pageModel.FieldsSavedCount);
+        Assert.Null(pageModel.ActionMessage);
     }
 
     [Fact]
     public async Task OnPostSaveSectionAsync_TreatsABlankDecimalAndDate_AsClearingTheField()
     {
-        var pageModel = CreatePageModelWithForm(
-            new Dictionary<string, string>(),
-            saveResult: new SaveProfileSectionResultDto { FieldsSavedCount = 4 });
+        var pageModel = CreatePageModelWithForm(new Dictionary<string, string>());
 
-        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, CancellationToken.None);
+        var result = await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.Empty(pageModel.SaveValidationErrors);
-        Assert.Equal(4, pageModel.FieldsSavedCount);
+        Assert.Equal(EditProfileQuestionsModel.SaveSucceededMessage, pageModel.ActionMessage);
+    }
+
+    private static ProfileVersionValidationStatusDto StandardSectionStatus(bool isValid, params Guid[] invalidQuestionIds) => new()
+    {
+        ProfileVersionId = ProfileVersionId,
+        Sections = [new ProfileSectionValidationStatusDto { ProfileSectionId = StandardSectionId, IsValid = isValid, InvalidQuestionIds = invalidQuestionIds }]
+    };
+
+    private static ProfileSectionInvalidReasonDto QuestionReason(string description = "\"Is it endemic? - Endemic\" is required") => new()
+    {
+        QuestionId = StandardQuestionId,
+        SectionNumber = 3,
+        QuestionNumber = 1,
+        QuestionShortName = "Q1",
+        Description = description
+    };
+
+    private static (EditProfileQuestionsModel PageModel, FakeProfileSectionsApiService Service) CreateValidatingPageModel(
+        ManageProfileViewModel profile,
+        IDictionary<string, string>? formValues = null,
+        ProfileVersionValidationStatusDto? validationStatus = null,
+        ProfileVersionValidationStatusDto? validationStatusAfterWrite = null,
+        ProfileSectionValidationResultDto? sectionValidationResult = null,
+        Exception? throwOnSave = null,
+        Exception? throwOnValidate = null,
+        Exception? throwOnGetValidationStatus = null,
+        ProfileSectionWriteResult? saveResult = null,
+        ProfileSectionWriteResult? clearResult = null,
+        ProfileQuestionnaireMetadataDto? metadata = null,
+        ProfileSectionAnswersDto? answers = null)
+    {
+        var service = new FakeProfileSectionsApiService(
+            metadata: metadata ?? StandardQuestionMetadata(),
+            answers: answers,
+            validationStatus: validationStatus,
+            validationStatusAfterWrite: validationStatusAfterWrite,
+            sectionValidationResult: sectionValidationResult,
+            saveResult: saveResult,
+            clearResult: clearResult,
+            throwOnSaveProfileVersionSection: throwOnSave,
+            throwOnValidateProfileVersionSection: throwOnValidate,
+            throwOnGetProfileVersionValidationStatus: throwOnGetValidationStatus);
+
+        var pageModel = ProfileTabTestData.Configure(
+            new EditProfileQuestionsModel(new FakeApiClient(manageProfile: profile), service, new AlwaysEnabledLogger<EditProfileQuestionsModel>()),
+            formValues ?? new Dictionary<string, string>(),
+            StandardSectionId);
+
+        return (pageModel, service);
     }
 
     [Fact]
-    public async Task OnPostSaveSectionAsync_SetsHasError_WhenCdcApiThrows()
+    public async Task OnPostValidateSectionAsync_SavesTheAnswers_ThenListsTheInvalidReasons()
     {
-        var pageModel = CreatePageModelWithForm(
-            new Dictionary<string, string> { [$"field_{TextFieldId}"] = "Some notes" },
-            throwOnSaveProfileVersionSection: new HttpRequestException("boom"));
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            saveResult: new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success, FieldsChangedCount = 4 },
+            sectionValidationResult: new ProfileSectionValidationResultDto { IsValid = false, InvalidReasons = [QuestionReason(), QuestionReason("\"Notes\" is required")] });
 
-        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, CancellationToken.None);
-
-        Assert.True(pageModel.HasError);
-        Assert.Null(pageModel.FieldsSavedCount);
-    }
-
-    [Fact]
-    public async Task OnPostValidateSectionAsync_PopulatesUnansweredQuestions_WhenTheSectionIsInvalid()
-    {
-        var sectionValidationResult = new ProfileSectionValidationResultDto
-        {
-            IsValid = false,
-            UnansweredQuestions = ["1.1 Is the disease endemic in GB?"]
-        };
-
-        var pageModel = CreatePageModel(
-            Profile(),
-            metadata: TwoSectionMetadata(),
-            sectionValidationResult: sectionValidationResult);
-
-        var result = await pageModel.OnPostValidateSectionAsync(ProfileVersionId, CancellationToken.None);
+        var result = await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
+        Assert.Equal(1, service.SaveProfileVersionSectionCallCount);
+        Assert.Equal(1, service.ValidateProfileVersionSectionCallCount);
+        Assert.Equal(EditProfileQuestionsModel.SaveSucceededMessage, pageModel.ActionMessage);
         Assert.True(pageModel.HasValidated);
-        Assert.Equal(["1.1 Is the disease endemic in GB?"], pageModel.UnansweredQuestions);
+        Assert.Equal(2, pageModel.InvalidReasons.Count);
+        Assert.True(pageModel.HasFormErrors);
     }
 
     [Fact]
-    public async Task OnPostValidateSectionAsync_ReportsNoUnansweredQuestions_WhenTheSectionIsValid()
+    public async Task OnPostValidateSectionAsync_SendsTheSectionsRowVersionWithTheSave()
     {
-        var pageModel = CreatePageModel(
-            Profile(),
-            metadata: TwoSectionMetadata(),
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+        var (pageModel, service) = CreateValidatingPageModel(EditableProfile());
+
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, Convert.ToBase64String(rowVersion), CancellationToken.None);
+
+        Assert.Equal(rowVersion, service.SavedLastUpdated);
+    }
+
+    [Fact]
+    public async Task OnPostValidateSectionAsync_ReportsNoErrors_WhenTheSectionIsValid()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(
+            EditableProfile(),
             sectionValidationResult: new ProfileSectionValidationResultDto { IsValid = true });
 
-        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, CancellationToken.None);
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.True(pageModel.HasValidated);
-        Assert.Empty(pageModel.UnansweredQuestions);
+        Assert.Empty(pageModel.InvalidReasons);
+        Assert.False(pageModel.HasFormErrors);
     }
 
     [Fact]
-    public async Task OnPostClearSectionAsync_PopulatesFieldsClearedCount_AndReloadsTheClearedAnswers()
+    public async Task OnPostValidateSectionAsync_DoesNotSave_WhenTheUserCannotEditTheSection()
     {
-        var pageModel = CreatePageModel(
+        var (pageModel, service) = CreateValidatingPageModel(
             Profile(),
-            metadata: TwoSectionMetadata(),
-            clearResult: new ClearProfileSectionResultDto { FieldsClearedCount = 3 });
+            sectionValidationResult: new ProfileSectionValidationResultDto { IsValid = false, InvalidReasons = [QuestionReason()] });
 
-        var result = await pageModel.OnPostClearSectionAsync(ProfileVersionId, CancellationToken.None);
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
+        Assert.Equal(1, service.ValidateProfileVersionSectionCallCount);
+        Assert.True(pageModel.HasValidated);
+    }
+
+    [Fact]
+    public async Task OnPostValidateSectionAsync_DoesNotValidate_WhenTheAnswersAreInvalid()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string> { [$"field_{DecimalFieldId}"] = "not a number" });
+
+        var result = await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(3, pageModel.FieldsClearedCount);
-        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.SaveValidationErrors);
+        Assert.False(pageModel.HasValidated);
+        Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
+        Assert.Equal(0, service.ValidateProfileVersionSectionCallCount);
+        Assert.True(pageModel.HasFormErrors);
     }
 
     [Fact]
-    public async Task OnPostClearSectionAsync_SetsHasError_WhenCdcApiThrows()
+    public async Task OnPostValidateSectionAsync_DoesNotValidate_WhenSavingFails()
     {
-        var pageModel = CreatePageModel(
-            Profile(),
-            metadata: TwoSectionMetadata(),
-            throwOnClearProfileVersionSection: new HttpRequestException("boom"));
+        var (pageModel, service) = CreateValidatingPageModel(EditableProfile(), throwOnSave: new HttpRequestException("boom"));
 
-        await pageModel.OnPostClearSectionAsync(ProfileVersionId, CancellationToken.None);
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.False(pageModel.HasValidated);
+        Assert.Equal(0, service.ValidateProfileVersionSectionCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostValidateSectionAsync_DoesNotValidate_WhenTheSectionWasEditedByAnotherUser()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            saveResult: new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Conflict, ErrorMessage = "The profile version section has been edited by another user" });
+
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal("Profile section save failed: The profile version section has been edited by another user", pageModel.ActionMessage);
+        Assert.False(pageModel.HasValidated);
+        Assert.Equal(0, service.ValidateProfileVersionSectionCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostValidateSectionAsync_SetsHasError_WhenValidatingFails()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile(), throwOnValidate: new HttpRequestException("boom"));
+
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
 
         Assert.True(pageModel.HasError);
-        Assert.Null(pageModel.FieldsClearedCount);
+        Assert.False(pageModel.HasValidated);
+    }
+
+    [Fact]
+    public async Task OnPostValidateSectionAsync_RefreshesTheValidationIcons_AfterSaving()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            validationStatus: StandardSectionStatus(isValid: false, StandardQuestionId),
+            validationStatusAfterWrite: StandardSectionStatus(isValid: true));
+
+        await pageModel.OnPostValidateSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.True(pageModel.GetSectionValidationStatus(StandardSectionId));
+        Assert.True(Assert.Single(pageModel.Questions).IsValid);
+        Assert.Equal(2, service.GetValidationStatusCallCount);
+    }
+
+    [Fact]
+    public void BuildValidationReasonText_NumbersTheQuestion_AndStripsMarkupFromTheDescription()
+    {
+        var reason = QuestionReason("Cattle, \"<p>Is it <i>endemic</i>?</p> - Endemic\" is required");
+
+        var text = EditProfileQuestionsModel.BuildValidationReasonText(reason);
+
+        Assert.Equal("3.1 Cattle, \"Is it endemic? - Endemic\" is required", text);
+    }
+
+    [Fact]
+    public void BuildValidationReasonUrl_LinksAQuestionError_ToTheQuestionsHeading()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile());
+
+        var url = pageModel.BuildValidationReasonUrl(QuestionReason());
+
+        Assert.Equal("#profile-questions-accordion-heading-3-1", url);
+    }
+
+    [Fact]
+    public async Task BuildValidationReasonUrl_LinksARevisionDateError_ToTheAllRevisionDatesTab_WhenTheUserCanSeeIt()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile() with { CanViewAllRevisionDates = true });
+        await pageModel.OnGetAsync(CancellationToken.None);
+        var revisionReason = new ProfileSectionInvalidReasonDto { SectionNumber = 3, Description = "\"Revision dates, Policy review frequency\" is required" };
+
+        var url = pageModel.BuildValidationReasonUrl(revisionReason);
+
+        Assert.Equal($"/SurveillanceProfiles/EditProfileAllRevisionDates?profileId={ProfileTabTestData.ProfileId}&section={StandardSectionId}", url);
+    }
+
+    [Fact]
+    public async Task BuildValidationReasonUrl_HasNoLinkForARevisionDateError_WhenTheUserCannotSeeTheTab()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile());
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var url = pageModel.BuildValidationReasonUrl(new ProfileSectionInvalidReasonDto { SectionNumber = 3, Description = "\"Revision dates, VA review status\" is required" });
+
+        Assert.Null(url);
+    }
+
+    private static readonly Guid ScientificPaperTypeId = Guid.NewGuid();
+    private static readonly Guid LegislativeTypeId = Guid.NewGuid();
+    private static readonly Guid FurtherInformationTypeId = Guid.NewGuid();
+    private static readonly byte[] NoteRowVersion = [8, 7, 6, 5, 4, 3, 2, 1];
+
+    private static ManageProfileViewModel ClearableProfile() => Profile() with { CanClearProfileSection = true };
+
+    private static IReadOnlyList<ProfileNoteTypeDto> AllNoteTypes() =>
+    [
+        new ProfileNoteTypeDto { Id = ScientificPaperTypeId, Name = "Scientific paper reference" },
+        new ProfileNoteTypeDto { Id = LegislativeTypeId, Name = "Legislative reference" },
+        new ProfileNoteTypeDto { Id = FurtherInformationTypeId, Name = "Source of further information" }
+    ];
+
+    private static ProfileNoteDto NoteLinkedToTheSection() => new()
+    {
+        Id = Guid.NewGuid(),
+        NoteText = "A note",
+        LastUpdated = NoteRowVersion,
+        QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = StandardSectionId, ProfileQuestionId = StandardQuestionId }]
+    };
+
+    private static Dictionary<Guid, IReadOnlyList<ProfileNoteDto>> OneLinkedNoteOfEachType() => new()
+    {
+        [ScientificPaperTypeId] = [NoteLinkedToTheSection()],
+        [LegislativeTypeId] = [NoteLinkedToTheSection()],
+        [FurtherInformationTypeId] = [NoteLinkedToTheSection()]
+    };
+
+    private static (EditProfileQuestionsModel PageModel, FakeProfileSectionsApiService Service) CreateClearingPageModel(
+        ManageProfileViewModel profile,
+        ProfileSectionWriteResult? clearResult = null,
+        Exception? throwOnClear = null,
+        IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notes = null,
+        ProfileNoteChangeResult? noteChangeResult = null,
+        Exception? throwOnGetNotes = null,
+        ProfileSectionWriteResult? deleteCommentsResult = null,
+        Exception? throwOnDeleteComments = null,
+        IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
+        ProfileVersionValidationStatusDto? validationStatus = null,
+        ProfileVersionValidationStatusDto? validationStatusAfterWrite = null)
+    {
+        var service = new FakeProfileSectionsApiService(
+            metadata: StandardQuestionMetadata(),
+            validationStatus: validationStatus,
+            validationStatusAfterWrite: validationStatusAfterWrite,
+            clearResult: clearResult,
+            throwOnClearProfileVersionSection: throwOnClear,
+            noteTypes: noteTypes ?? AllNoteTypes(),
+            notesByNoteType: notes,
+            throwOnGetProfileNotesBySection: throwOnGetNotes,
+            noteChangeResult: noteChangeResult,
+            deleteAllReviewCommentsResult: deleteCommentsResult,
+            throwOnDeleteAllReviewComments: throwOnDeleteComments);
+
+        var pageModel = ProfileTabTestData.Configure(
+            new EditProfileQuestionsModel(new FakeApiClient(manageProfile: profile), service, new AlwaysEnabledLogger<EditProfileQuestionsModel>()),
+            new Dictionary<string, string>(),
+            StandardSectionId);
+
+        return (pageModel, service);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_ClearsTheSection_ThenUnlinksEachKindOfReferenceFromItsQuestions_ThenDeletesTheReviewComments()
+    {
+        var (pageModel, service) = CreateClearingPageModel(ClearableProfile(), notes: OneLinkedNoteOfEachType());
+
+        var result = await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Clear section succeeded", pageModel.ActionMessage);
+        Assert.False(pageModel.ActionMessageIsError);
+        Assert.False(pageModel.HasError);
+        Assert.Equal(1, service.ClearProfileVersionSectionCallCount);
+        Assert.Equal([ScientificPaperTypeId, LegislativeTypeId, FurtherInformationTypeId], service.NoteTypesChanged);
+        Assert.Equal(1, service.DeleteAllReviewCommentsCallCount);
+
+        var removal = Assert.Single(service.SavedNoteUpdates!);
+        Assert.Equal(NoteRowVersion, removal.LastUpdated);
+        Assert.Empty(removal.QuestionReferenceAdds);
+        var removed = Assert.Single(removal.QuestionReferenceRemoves);
+        Assert.Equal(StandardSectionId, removed.ProfileSectionId);
+        Assert.Equal(StandardQuestionId, removed.ProfileQuestionId);
+        Assert.Empty(service.SavedNoteInserts!);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_SendsTheRowVersionTheSectionWasShownWith()
+    {
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+        var (pageModel, service) = CreateClearingPageModel(ClearableProfile());
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, Convert.ToBase64String(rowVersion), CancellationToken.None);
+
+        Assert.Equal(rowVersion, service.ClearedLastUpdated);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_LeavesNotesThatAreNotLinkedToTheSectionAlone_ButStillDeletesTheReviewComments()
+    {
+        var elsewhere = new ProfileNoteDto
+        {
+            Id = Guid.NewGuid(),
+            LastUpdated = NoteRowVersion,
+            QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = Guid.NewGuid(), ProfileQuestionId = Guid.NewGuid() }]
+        };
+        var (pageModel, service) = CreateClearingPageModel(
+            ClearableProfile(),
+            notes: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>> { [ScientificPaperTypeId] = [elsewhere], [LegislativeTypeId] = [] });
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal(0, service.UpdateProfileNotesCallCount);
+        Assert.Equal(1, service.DeleteAllReviewCommentsCallCount);
+        Assert.Equal("Clear section succeeded", pageModel.ActionMessage);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_SkipsANoteTypeThatDoesNotExist()
+    {
+        var (pageModel, service) = CreateClearingPageModel(
+            ClearableProfile(),
+            notes: OneLinkedNoteOfEachType(),
+            noteTypes: [new ProfileNoteTypeDto { Id = LegislativeTypeId, Name = "Legislative reference" }]);
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal([LegislativeTypeId], service.NoteTypesChanged);
+        Assert.Equal("Clear section succeeded", pageModel.ActionMessage);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_RefreshesTheAnswersAndTheValidationIcons_AfterClearing()
+    {
+        var (pageModel, service) = CreateClearingPageModel(
+            ClearableProfile(),
+            validationStatus: StandardSectionStatus(isValid: true),
+            validationStatusAfterWrite: StandardSectionStatus(isValid: false, StandardQuestionId));
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.False(pageModel.GetSectionValidationStatus(StandardSectionId));
+        Assert.False(Assert.Single(pageModel.Questions).IsValid);
+        Assert.Equal(2, service.GetValidationStatusCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_DoesNothing_WhenTheUserCannotClearTheSection()
+    {
+        var (pageModel, service) = CreateClearingPageModel(EditableProfile());
+
+        var result = await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(0, service.ClearProfileVersionSectionCallCount);
+        Assert.Null(pageModel.ActionMessage);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_ReportsTheReasonInTheLegacyWording_AndStops_WhenTheSectionWasEditedByAnotherUser()
+    {
+        var (pageModel, service) = CreateClearingPageModel(
+            ClearableProfile(),
+            clearResult: new ProfileSectionWriteResult
+            {
+                Outcome = ProfileSectionWriteOutcome.Conflict,
+                ErrorMessage = "The profile version section has been edited by another user"
+            },
+            notes: OneLinkedNoteOfEachType());
+
+        var result = await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Clear section failed: The profile version section has been edited by another user", pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.True(pageModel.HasFormErrors);
+        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.Questions);
+        Assert.Equal(0, service.UpdateProfileNotesCallCount);
+        Assert.Equal(0, service.DeleteAllReviewCommentsCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_ReportsTheFailure_AndKeepsThePageUsable_WhenCdcApiThrows()
+    {
+        var (pageModel, service) = CreateClearingPageModel(ClearableProfile(), throwOnClear: new HttpRequestException("boom"));
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.StartsWith("Clear section failed: ", pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.Questions);
+        Assert.Equal(0, service.DeleteAllReviewCommentsCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_StopsAtTheFirstReferenceThatCannotBeUnlinked_LeavingTheSectionCleared()
+    {
+        var (pageModel, service) = CreateClearingPageModel(
+            ClearableProfile(),
+            notes: OneLinkedNoteOfEachType(),
+            noteChangeResult: new ProfileNoteChangeResult { Outcome = ProfileNoteChangeOutcome.Conflict, ErrorMessage = "The note has been edited by another user" });
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal(
+            "Clear section failed while trying to clear the scientific paper references: The note has been edited by another user",
+            pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.Equal(1, service.ClearProfileVersionSectionCallCount);
+        Assert.Equal(1, service.UpdateProfileNotesCallCount);
+        Assert.Equal(0, service.DeleteAllReviewCommentsCallCount);
+    }
+
+    [Fact]
+    public async Task OnPostClearSectionAsync_ReportsTheReviewCommentsThatCouldNotBeDeleted()
+    {
+        var (pageModel, service) = CreateClearingPageModel(
+            ClearableProfile(),
+            deleteCommentsResult: new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Error, ErrorMessage = "Not permitted" });
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal("Clear section failed while trying to clear the review comments: Not permitted", pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.Equal(1, service.DeleteAllReviewCommentsCallCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OnPostClearSectionAsync_ReportsAFailure_WhenTheReferencesOrReviewCommentsCannotBeReached(bool failOnReviewComments)
+    {
+        var (pageModel, _) = CreateClearingPageModel(
+            ClearableProfile(),
+            throwOnGetNotes: failOnReviewComments ? null : new HttpRequestException("boom"),
+            throwOnDeleteComments: failOnReviewComments ? new HttpRequestException("boom") : null);
+
+        await pageModel.OnPostClearSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.StartsWith("Clear section failed: ", pageModel.ActionMessage);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.False(pageModel.HasError);
     }
 
     [Fact]
@@ -595,16 +1124,9 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_MarksQuestionValid_WhenItsMandatoryFieldsAreAnswered()
+    public async Task OnGetAsync_MarksQuestionValid_WhenTheSectionsValidationStatusDoesNotListIt()
     {
-        var answers = new ProfileSectionAnswersDto
-        {
-            ProfileVersionId = ProfileVersionId,
-            ProfileSectionId = StandardSectionId,
-            FieldValues = [new ProfileFieldValueDto { QuestionId = StandardQuestionId, FieldNumber = 1, BooleanValue = true }]
-        };
-
-        var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), answers: answers, section: StandardSectionId);
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile(), validationStatus: StandardSectionStatus(isValid: true));
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
@@ -612,13 +1134,27 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_MarksQuestionInvalid_WhenAMandatoryFieldIsUnanswered()
+    public async Task OnGetAsync_MarksQuestionInvalid_WhenTheSectionsValidationStatusListsIt()
     {
-        var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), section: StandardSectionId);
+        var (pageModel, _) = CreateValidatingPageModel(
+            EditableProfile(),
+            validationStatus: StandardSectionStatus(isValid: false, StandardQuestionId));
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.False(Assert.Single(pageModel.Questions).IsValid);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_LeavesQuestionValidityUnknown_WhenTheValidationStatusCannotBeLoaded()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile(), throwOnGetValidationStatus: new HttpRequestException("boom"));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasError);
+        Assert.Null(Assert.Single(pageModel.Questions).IsValid);
+        Assert.Null(pageModel.GetSectionValidationStatus(StandardSectionId));
     }
 
     [Fact]
@@ -632,6 +1168,91 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(Assert.Single(editablePageModel.Questions).CanEditReferences);
         Assert.False(Assert.Single(readOnlyPageModel.Questions).CanEditReferences);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ExposesTheSectionsRowVersion_ForTheFormToPostBack()
+    {
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile(), answers: new ProfileSectionAnswersDto { LastUpdated = rowVersion });
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(Convert.ToBase64String(rowVersion), pageModel.SectionLastUpdated);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ExposesNoRowVersion_WhenTheVersionHasNoRecordOfTheSection()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(string.Empty, pageModel.SectionLastUpdated);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_HidesTheQuestionsTheAnswersMakeIrrelevant()
+    {
+        var status = new ProfileVersionValidationStatusDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            Sections = [new ProfileSectionValidationStatusDto { ProfileSectionId = StandardSectionId, IsValid = true, IrrelevantQuestionIds = [StandardQuestionId] }]
+        };
+        var (hidden, _) = CreateValidatingPageModel(EditableProfile(), validationStatus: status);
+        var (shown, _) = CreateValidatingPageModel(EditableProfile(), validationStatus: StandardSectionStatus(isValid: true));
+
+        await hidden.OnGetAsync(CancellationToken.None);
+        await shown.OnGetAsync(CancellationToken.None);
+
+        Assert.True(Assert.Single(hidden.Questions).IsHidden);
+        Assert.False(Assert.Single(shown.Questions).IsHidden);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsEveryQuestion_WhenTheValidationStatusCannotBeLoaded()
+    {
+        var (pageModel, _) = CreateValidatingPageModel(EditableProfile(), throwOnGetValidationStatus: new HttpRequestException("boom"));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(Assert.Single(pageModel.Questions).IsHidden);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_RendersAFieldThatIsReadOnlyForTheKindOfProfileAsAStaticValue()
+    {
+        var metadata = StandardQuestionMetadata();
+        var question = metadata.Sections[0].Questions[0];
+        metadata = metadata with
+        {
+            Sections =
+            [
+                metadata.Sections[0] with
+                {
+                    Questions =
+                    [
+                        question with
+                        {
+                            Fields =
+                            [
+                                question.Fields.Single(field => field.Id == BooleanFieldId),
+                                question.Fields.Single(field => field.Id == TextFieldId) with { IsReadOnlyCurrentSituation = true }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var (currentSituation, _) = CreateValidatingPageModel(EditableProfile(), metadata: metadata);
+        var (scenario, _) = CreateValidatingPageModel(EditableProfile() with { IsWhatIfScenario = true }, metadata: metadata);
+
+        await currentSituation.OnGetAsync(CancellationToken.None);
+        await scenario.OnGetAsync(CancellationToken.None);
+
+        Assert.False(Assert.Single(currentSituation.Questions).Fields.Single(field => field.FieldId == TextFieldId).IsEditable);
+        Assert.True(Assert.Single(scenario.Questions).Fields.Single(field => field.FieldId == TextFieldId).IsEditable);
+        Assert.True(Assert.Single(currentSituation.Questions).Fields.Single(field => field.FieldId == BooleanFieldId).IsEditable);
     }
 
     private static (EditProfileQuestionsModel PageModel, FakeProfileSectionsApiService Service) CreateNavigatingPageModel(
@@ -667,7 +1288,7 @@ public class EditProfileQuestionsModelTests
             CanViewContributions = true
         });
 
-        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, CancellationToken.None);
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, null, CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal(expectedPage, redirect.PageName);
@@ -681,7 +1302,7 @@ public class EditProfileQuestionsModelTests
     {
         var (pageModel, service) = CreateNavigatingPageModel(Profile());
 
-        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", CancellationToken.None);
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", null, CancellationToken.None);
 
         Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
@@ -694,7 +1315,7 @@ public class EditProfileQuestionsModelTests
             EditableProfile(),
             new Dictionary<string, string> { [$"field_{DecimalFieldId}"] = "not a number" });
 
-        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", CancellationToken.None);
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.Single(pageModel.SaveValidationErrors);
@@ -706,10 +1327,39 @@ public class EditProfileQuestionsModelTests
     {
         var (pageModel, _) = CreateNavigatingPageModel(EditableProfile(), throwOnSave: new HttpRequestException("boom"));
 
-        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", CancellationToken.None);
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.True(pageModel.HasError);
+        Assert.True(pageModel.ActionMessageIsError);
+        Assert.False(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnPostNavigateTabAsync_StaysOnThePage_WhenTheSectionWasEditedByAnotherUser()
+    {
+        var service = new FakeProfileSectionsApiService(
+            metadata: StandardQuestionMetadata(),
+            saveResult: new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Conflict, ErrorMessage = "The profile version section has been edited by another user" });
+        var pageModel = ProfileTabTestData.Configure(
+            new EditProfileQuestionsModel(new FakeApiClient(manageProfile: EditableProfile()), service, new AlwaysEnabledLogger<EditProfileQuestionsModel>()),
+            new Dictionary<string, string>(),
+            StandardSectionId);
+
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", null, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Profile section save failed: The profile version section has been edited by another user", pageModel.ActionMessage);
+    }
+
+    [Fact]
+    public async Task OnPostNavigateTabAsync_SendsTheSectionsRowVersionWithTheSave()
+    {
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+        var (pageModel, service) = CreateNavigatingPageModel(EditableProfile());
+
+        await pageModel.OnPostNavigateTabAsync(ProfileVersionId, "References", Convert.ToBase64String(rowVersion), CancellationToken.None);
+
+        Assert.Equal(rowVersion, service.SavedLastUpdated);
     }
 
     [Theory]
@@ -720,7 +1370,7 @@ public class EditProfileQuestionsModelTests
     {
         var (pageModel, service) = CreateNavigatingPageModel(EditableProfile());
 
-        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, CancellationToken.None);
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
@@ -735,7 +1385,7 @@ public class EditProfileQuestionsModelTests
     {
         var (pageModel, service) = CreateNavigatingPageModel(EditableProfile());
 
-        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, CancellationToken.None);
+        var result = await pageModel.OnPostNavigateTabAsync(ProfileVersionId, tab, null, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
         Assert.Equal(0, service.SaveProfileVersionSectionCallCount);

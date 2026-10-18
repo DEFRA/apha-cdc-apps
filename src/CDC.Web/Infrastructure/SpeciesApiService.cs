@@ -14,6 +14,8 @@ namespace CDC.Web.Infrastructure;
 /// <param name="httpClient">Typed client pointing at CDC.Api.</param>
 public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiService
 {
+    private const string ConflictErrorMessage = "Another user has changed this species since it was opened. Reload and try again.";
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<SpeciesDto>> GetAllSpeciesAsync(CancellationToken cancellationToken = default)
     {
@@ -65,7 +67,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             HttpStatusCode.Conflict => new UpdateSpeciesNameParentResult
             {
                 Outcome = SpeciesUpdateOutcome.Conflict,
-                ErrorMessage = "Another user has changed this species since it was opened. Reload and try again."
+                ErrorMessage = ConflictErrorMessage
             },
             HttpStatusCode.BadRequest => new UpdateSpeciesNameParentResult
             {
@@ -157,5 +159,168 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             $"/api/reference-data/{referenceTableId}/values", cancellationToken);
 
         return values ?? [];
+    }
+
+    /// <inheritdoc />
+    public async Task<ChangeSpeciesPositionResult> ChangeSpeciesPositionAsync(
+        Guid speciesId,
+        bool isMovingUp,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync(
+            $"/api/species/{speciesId}/position",
+            new ChangeSpeciesPositionRequestDto { IsMovingUp = isMovingUp },
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new ChangeSpeciesPositionResult { Outcome = SpeciesUpdateOutcome.Success };
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            return new ChangeSpeciesPositionResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = await ReadProblemDetailAsync(response, cancellationToken, "This species cannot be moved in that direction.")
+            };
+        }
+
+        return new ChangeSpeciesPositionResult
+        {
+            Outcome = SpeciesUpdateOutcome.Error,
+            ErrorMessage = "We could not move this species. Try again later."
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<InactivateSpeciesResult> InactivateSpeciesAsync(
+        Guid speciesId,
+        InactivateSpeciesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync($"/api/species/{speciesId}/inactivate", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new InactivateSpeciesResult { Outcome = SpeciesUpdateOutcome.Success };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new InactivateSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = ConflictErrorMessage
+            },
+            HttpStatusCode.BadRequest => new InactivateSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "Enter a reason for change."
+            },
+            _ => new InactivateSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "We could not inactivate this species. Try again later."
+            }
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<DeleteSpeciesResult> DeleteSpeciesAsync(
+        Guid speciesId,
+        DeleteSpeciesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/species/{speciesId}")
+        {
+            Content = JsonContent.Create(request)
+        };
+        using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new DeleteSpeciesResult { Outcome = SpeciesUpdateOutcome.Success };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new DeleteSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = ConflictErrorMessage
+            },
+            HttpStatusCode.NotFound => new DeleteSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "The selected species could not be found. It may have been removed."
+            },
+            HttpStatusCode.BadRequest => new DeleteSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = await ReadProblemDetailAsync(response, cancellationToken, "We could not delete this species. Try again later.")
+            },
+            _ => new DeleteSpeciesResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "We could not delete this species. Try again later."
+            }
+        };
+    }
+
+    /// <summary>Reads the business-rule message from a 400 response's RFC 7807 body (for example,
+    /// "You cannot delete a species that is used within a current profile."), falling back to
+    /// <paramref name="fallback"/> if the body is missing or malformed.</summary>
+    private static async Task<string> ReadProblemDetailAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken,
+        string fallback = "We could not save this change. Try again later.")
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
+
+            return problem?.Detail ?? fallback;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return fallback;
+        }
+    }
+
+    private sealed record ProblemDetailsBody(string? Detail);
+
+    /// <inheritdoc />
+    public async Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
+        UpdateSpeciesAnswerDataRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync("/api/species/answers", request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var updated = await response.Content.ReadFromJsonAsync<UpdateSpeciesAnswerDataResultDto>(cancellationToken);
+
+            return new UpdateSpeciesAnswerDataResult { Outcome = SpeciesUpdateOutcome.Success, LastUpdated = updated?.LastUpdated };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new UpdateSpeciesAnswerDataResult
+            {
+                Outcome = SpeciesUpdateOutcome.Conflict,
+                ErrorMessage = ConflictErrorMessage
+            },
+            HttpStatusCode.BadRequest => new UpdateSpeciesAnswerDataResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "The submitted answers were not valid."
+            },
+            _ => new UpdateSpeciesAnswerDataResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "We could not save this change. Try again later."
+            }
+        };
     }
 }

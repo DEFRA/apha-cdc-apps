@@ -272,7 +272,7 @@ public class ManageProfileModelTests
     }
 
     [Fact]
-    public async Task OnPostPublishPublicAsync_ShowsSuccessMessage_WhenSuccessful()
+    public async Task OnPostPublishPublicAsync_RedirectsToTheNewVersionsProfileReports_WhenSuccessful()
     {
         var newVersionId = Guid.NewGuid();
         var pageModel = CreatePageModel(
@@ -282,8 +282,11 @@ public class ManageProfileModelTests
 
         var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
 
-        Assert.IsType<PageResult>(result);
-        Assert.Equal("Successfully published this profile and made it public.", pageModel.StatusMessage);
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/SurveillanceProfiles/ProfileReports", redirect.PageName);
+        Assert.Equal(newVersionId, Assert.Single(redirect.RouteValues!).Value);
+        Assert.Equal("Successfully published this profile and made it public.", pageModel.SuccessMessage);
+        Assert.Null(pageModel.StatusMessage);
         Assert.Null(pageModel.StatusErrorMessage);
     }
 
@@ -300,6 +303,7 @@ public class ManageProfileModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.Null(pageModel.StatusMessage);
+        Assert.Null(pageModel.SuccessMessage);
         Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
     }
 
@@ -314,7 +318,7 @@ public class ManageProfileModelTests
     }
 
     [Fact]
-    public async Task OnPostPublishDefranetOnlyAsync_ShowsSuccessMessage_WhenSuccessful()
+    public async Task OnPostPublishDefranetOnlyAsync_RedirectsToTheNewVersionsProfileReports_WhenSuccessful()
     {
         var newVersionId = Guid.NewGuid();
         var pageModel = CreatePageModel(
@@ -324,8 +328,11 @@ public class ManageProfileModelTests
 
         var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
 
-        Assert.IsType<PageResult>(result);
-        Assert.Equal("Successfully published this profile but did not make it public.", pageModel.StatusMessage);
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/SurveillanceProfiles/ProfileReports", redirect.PageName);
+        Assert.Equal(newVersionId, Assert.Single(redirect.RouteValues!).Value);
+        Assert.Equal("Successfully published this profile but did not make it public.", pageModel.SuccessMessage);
+        Assert.Null(pageModel.StatusMessage);
         Assert.Null(pageModel.StatusErrorMessage);
     }
 
@@ -342,6 +349,7 @@ public class ManageProfileModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.Null(pageModel.StatusMessage);
+        Assert.Null(pageModel.SuccessMessage);
         Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
     }
 

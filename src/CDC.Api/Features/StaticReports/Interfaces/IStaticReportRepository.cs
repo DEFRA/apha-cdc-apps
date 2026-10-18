@@ -30,6 +30,18 @@ public interface IStaticReportRepository
     /// <returns>The document, or <see langword="null"/> when no such version exists.</returns>
     Task<StaticReportDataDto?> GetStaticReportDataAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
 
+    /// <summary>Marks one general report version as public.</summary>
+    Task SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
+
     /// <summary>Deletes one version.</summary>
     Task DeleteStaticReportVersionAsync(Guid staticReportVersionId, CancellationToken cancellationToken);
+
+    /// <summary>Inserts a new version of a static report or user manual. An existing report with
+    /// the same title gains a new version; otherwise a new logical report is created.</summary>
+    Task UploadStaticReportAsync(
+        string title,
+        byte[] pdfData,
+        bool isUserManual,
+        bool isPublic,
+        CancellationToken cancellationToken);
 }

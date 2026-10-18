@@ -7,8 +7,8 @@ using MediatR;
 namespace CDC.Api.Features.ProfileSections.Queries;
 
 /// <summary>
-/// Retrieves one profile version's per-section validation status: whether every mandatory field
-/// in each section has a recorded answer.
+/// Retrieves one profile version's per-section validation status: whether the legacy section validation finds
+/// no errors in each section, and which of its questions have errors.
 /// </summary>
 /// <param name="ProfileVersionId">The profile version to check.</param>
 public sealed record GetProfileVersionValidationStatusQuery(Guid ProfileVersionId)

@@ -16,7 +16,11 @@ internal sealed class FakeSpeciesApiService(
     SpeciesAnswerDataDto? speciesAnswerData = null,
     Exception? throwOnGetSpeciesAnswerData = null,
     IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
-    AddSpeciesResult? addResult = null)
+    AddSpeciesResult? addResult = null,
+    UpdateSpeciesAnswerDataResult? updateAnswerDataResult = null,
+    InactivateSpeciesResult? inactivateResult = null,
+    DeleteSpeciesResult? deleteResult = null,
+    ChangeSpeciesPositionResult? changePositionResult = null)
     : ISpeciesApiService
 {
     private readonly IReadOnlyList<SpeciesDto> _species = species ?? [];
@@ -66,4 +70,48 @@ internal sealed class FakeSpeciesApiService(
             referenceValuesByTable is not null && referenceValuesByTable.TryGetValue(referenceTableId, out var values)
                 ? values
                 : []);
+
+    public List<(Guid SpeciesId, bool IsMovingUp)> ChangePositionCalls { get; } = [];
+
+    public Task<ChangeSpeciesPositionResult> ChangeSpeciesPositionAsync(Guid speciesId, bool isMovingUp, CancellationToken cancellationToken = default)
+    {
+        ChangePositionCalls.Add((speciesId, isMovingUp));
+
+        return Task.FromResult(changePositionResult ?? new ChangeSpeciesPositionResult { Outcome = SpeciesUpdateOutcome.Success });
+    }
+
+    public UpdateSpeciesAnswerDataRequestDto? LastUpdateAnswerDataRequest { get; private set; }
+
+    public Task<UpdateSpeciesAnswerDataResult> UpdateSpeciesAnswerDataAsync(
+        UpdateSpeciesAnswerDataRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        LastUpdateAnswerDataRequest = request;
+
+        return Task.FromResult(updateAnswerDataResult ?? new UpdateSpeciesAnswerDataResult { Outcome = SpeciesUpdateOutcome.Success });
+    }
+
+    public (Guid SpeciesId, InactivateSpeciesRequestDto Request)? LastInactivateRequest { get; private set; }
+
+    public Task<InactivateSpeciesResult> InactivateSpeciesAsync(
+        Guid speciesId,
+        InactivateSpeciesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        LastInactivateRequest = (speciesId, request);
+
+        return Task.FromResult(inactivateResult ?? new InactivateSpeciesResult { Outcome = SpeciesUpdateOutcome.Success });
+    }
+
+    public (Guid SpeciesId, DeleteSpeciesRequestDto Request)? LastDeleteRequest { get; private set; }
+
+    public Task<DeleteSpeciesResult> DeleteSpeciesAsync(
+        Guid speciesId,
+        DeleteSpeciesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        LastDeleteRequest = (speciesId, request);
+
+        return Task.FromResult(deleteResult ?? new DeleteSpeciesResult { Outcome = SpeciesUpdateOutcome.Success });
+    }
 }

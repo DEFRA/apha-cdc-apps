@@ -14,12 +14,10 @@ public sealed class CreateProfileReportCommandHandler(IProfileReportService prof
     /// <param name="request">The report to persist.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The persisted report's identifier.</returns>
-    public async Task<Result<CreateProfileReportResultDto>> Handle(CreateProfileReportCommand request, CancellationToken cancellationToken)
+    public Task<Result<CreateProfileReportResultDto>> Handle(CreateProfileReportCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var result = await profileReportService.CreateProfileReportAsync(request, cancellationToken);
-
-        return Result.Success(result);
+        return profileReportService.CreateProfileReportAsync(request, cancellationToken);
     }
 }

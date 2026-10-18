@@ -59,7 +59,7 @@ public class QualityStatementModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal($"https://api.example.test/api/static-reports/versions/{VersionId}/document", redirect.Url);
+        Assert.Equal($"https://api.example.test/api/static-reports/versions/{VersionId}/document?download=true", redirect.Url);
         Assert.False(pageModel.HasError);
     }
 

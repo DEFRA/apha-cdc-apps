@@ -1,4 +1,12 @@
 using CDC.Api.Application.Behaviours;
+using CDC.Api.Features.BespokeReportTemplates;
+using CDC.Api.Features.BespokeReportTemplates.Interfaces;
+using CDC.Api.Features.DiseaseRanking;
+using CDC.Api.Features.DiseaseRanking.Interfaces;
+using CDC.Api.Features.ExternalUsers;
+using CDC.Api.Features.ExternalUsers.Interfaces;
+using CDC.Api.Features.GlobalUsers;
+using CDC.Api.Features.GlobalUsers.Interfaces;
 using CDC.Api.Features.ProfileContributors;
 using CDC.Api.Features.ProfileContributors.Interfaces;
 using CDC.Api.Features.ProfileManagement;
@@ -55,9 +63,14 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileSectionService, ProfileSectionService>();
         services.AddScoped<IProfileReviewCommentService, ProfileReviewCommentService>();
         services.AddScoped<IProfileReportService, ProfileReportService>();
+        services.AddScoped<IProfileReportContentService, ProfileReportContentService>();
+        services.AddScoped<IBespokeReportTemplateService, BespokeReportTemplateService>();
         services.AddScoped<IStaticReportService, StaticReportService>();
+        services.AddScoped<IDiseaseRankingService, DiseaseRankingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IGlobalUsersService, GlobalUsersService>();
+        services.AddScoped<IExternalUsersService, ExternalUsersService>();
 
         return services;
     }

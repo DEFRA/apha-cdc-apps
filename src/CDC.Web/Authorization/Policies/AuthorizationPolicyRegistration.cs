@@ -31,6 +31,9 @@ public static class AuthorizationPolicyRegistration
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
             AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
 
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageReports,
+            AuthorizationRoles.ProfileEditor);
+
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageSpeciesData,
             AuthorizationRoles.ProfileEditor);
 
@@ -42,6 +45,15 @@ public static class AuthorizationPolicyRegistration
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReviewTiming,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
+
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewContributionsReport,
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewBespokeReport,
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.IsProfileEditor,
+            AuthorizationRoles.ProfileEditor);
 
         // Scaffolded for the footer/admin-pages phase - not yet wired to any page or nav item.
         // Role lists are a provisional ProfileEditor-only default; confirm against the relevant

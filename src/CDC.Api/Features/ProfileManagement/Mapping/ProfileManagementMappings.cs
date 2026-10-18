@@ -48,7 +48,9 @@ public static class ProfileManagementMappings
         ParentId = defaults.ParentId,
         ParentTitle = defaults.ParentTitle,
         ProfileStatusId = defaults.ProfileStatusId,
-        AffectedSpecies = [.. defaults.AffectedSpecies.Select(ToDto)]
+        AffectedSpecies = [.. defaults.AffectedSpecies.Select(ToDto)],
+        ClonedVersionDescription = defaults.ClonedVersionDescription,
+        ClonedVersionIsWhatIfScenario = defaults.ClonedVersionIsWhatIfScenario
     };
 
     /// <summary>Projects a profile status type entity.</summary>

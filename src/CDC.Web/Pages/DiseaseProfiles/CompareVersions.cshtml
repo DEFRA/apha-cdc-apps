@@ -1,11 +1,110 @@
 @page
 @model CDC.Web.Pages.DiseaseProfiles.CompareVersionsModel
 @{
-    ViewData["Title"] = "Compare profile versions";
+    ViewData["Title"] = Model.ErrorMessage is null ? "Compare profile versions" : "Error: Compare profile versions";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
+@if (Model.ErrorMessage is not null)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="compare-error-summary-title">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title" id="compare-error-summary-title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                @if (Model.IsSelectionError)
+                {
+                    <ul class="govuk-list govuk-error-summary__list">
+                        <li><a href="#compare-versions-tree">@Model.ErrorMessage</a></li>
+                    </ul>
+                }
+                else
+                {
+                    <p class="govuk-body">@Model.ErrorMessage</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
 <h1 class="govuk-heading-l">Compare profile versions</h1>
-<p class="govuk-body">This page is for Compare profile versions.</p>
+
+<p class="govuk-body">
+    Use this page to compare the content of profiles. Select the profile versions to compare from the
+    hierarchical list below. Only two versions can be compared. The comparison report only details the
+    differences between the two selected versions.
+</p>
+<p class="govuk-body">
+    To see the most recent changes to a profile, select the earlier version first and then select the
+    most recent version.
+</p>
+
+@if (Model.Tree.Nodes.Count > 0)
+{
+    <form method="post" data-module="app-compare-versions" class="app-compare-tree">
+        <input type="hidden" name="FirstVersionId" value="@Model.FirstVersionId" data-compare-first />
+        <input type="hidden" name="SecondVersionId" value="@Model.SecondVersionId" data-compare-second />
+
+        <div class="app-compare-selected govuk-!-margin-bottom-6">
+            <h2 class="govuk-heading-m">Selected versions</h2>
+            <output class="govuk-!-display-block">
+                <p class="govuk-body" data-compare-empty hidden="@(Model.SelectedLabels.Count > 0)">No profile versions are selected</p>
+                <ol class="govuk-list govuk-list--number app-compare-selected__list" data-compare-list>
+                    @foreach (var label in Model.SelectedLabels)
+                    {
+                        <li>@label</li>
+                    }
+                </ol>
+                <p class="govuk-hint" data-compare-notice hidden></p>
+            </output>
+            <button type="submit" asp-page-handler="RemoveSelection" formnovalidate class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
+                    data-module="govuk-button" data-compare-remove>
+                Remove selection
+            </button>
+        </div>
+
+        <div class="govuk-form-group@(Model.IsSelectionError ? " govuk-form-group--error" : "")">
+            <fieldset class="govuk-fieldset" aria-describedby="compare-versions-hint@(Model.IsSelectionError ? " compare-versions-error" : "")">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+                    <h2 class="govuk-fieldset__heading">Profile versions</h2>
+                </legend>
+                <div id="compare-versions-hint" class="govuk-hint">
+                    Select two versions. Each shows the version number, status and effective dates.
+                </div>
+                @if (Model.IsSelectionError)
+                {
+                    <p id="compare-versions-error" class="govuk-error-message">
+                        <span class="govuk-visually-hidden">Error:</span> @Model.ErrorMessage
+                    </p>
+                }
+
+                <div class="app-tree__panel" id="compare-versions-tree" tabindex="-1">
+                    <div class="app-tree__controls">
+                        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                            <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                    <path d="M1 1l5 5 5-5" />
+                                </svg>
+                            </span>
+                            <span class="app-tree__toggle-all-text">Open all</span>
+                        </button>
+                    </div>
+                    <partial name="_TreeView" model="Model.Tree" />
+                </div>
+            </fieldset>
+        </div>
+
+        <button type="submit" class="govuk-button" data-module="govuk-button">Compare</button>
+    </form>
+}
+else if (Model.ErrorMessage is null)
+{
+    <p class="govuk-body">There are no profile versions to compare.</p>
+}
+
+@section Scripts {
+    <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script src="~/js/compare-versions.js" asp-append-version="true"></script>
+}

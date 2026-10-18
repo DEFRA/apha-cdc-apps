@@ -1,11 +1,18 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.EditProfileFurtherInformationModel
+@using CDC.Web.Infrastructure
+@using CDC.Web.Models
+@using CDC.Web.Pages.SurveillanceProfiles
 @{
     Layout = "_ProfileSectionTabLayout";
 }
 @if (Model.CurrentSection is not null)
 {
     var tabsModel = Model.BuildTabs();
+    var lowerName = Model.NoteTypeName.ToLowerInvariant();
+    var noteTextError = Model.FormErrors.FirstOrDefault(error => error.FieldId == EditProfileFurtherInformationModel.NoteTextFieldId);
+    var noteSelectError = Model.FormErrors.FirstOrDefault(error => error.FieldId == EditProfileFurtherInformationModel.NoteSelectFieldId);
+    var questionError = Model.FormErrors.FirstOrDefault(error => error.FieldId == EditProfileFurtherInformationModel.FirstQuestionFieldId);
 
     <div class="govuk-tabs app-tab-carousel">
         <partial name="_ProfileSectionTabs" model="tabsModel" />
@@ -16,8 +23,285 @@
             }
             else
             {
-                <partial name="_ProfileNoteList" model="Model.FurtherInformation" />
+                @if (Model.HasFormErrors)
+                {
+                    <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="note-errors-title">
+                        <div role="alert">
+                            <h2 class="govuk-error-summary__title" id="note-errors-title">There is a problem</h2>
+                            <div class="govuk-error-summary__body">
+                                <ul class="govuk-list govuk-error-summary__list">
+                                    @if (Model.ActionMessageIsError)
+                                    {
+                                        <li>@Model.ActionMessage</li>
+                                    }
+                                    @foreach (var error in Model.FormErrors)
+                                    {
+                                        <li><a href="#@error.FieldId">@error.Message</a></li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (Model.ActionMessage is not null)
+                {
+                    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="note-message-title" data-module="govuk-notification-banner">
+                        <div class="govuk-notification-banner__header">
+                            <h2 class="govuk-notification-banner__title" id="note-message-title">Success</h2>
+                        </div>
+                        <div class="govuk-notification-banner__content">
+                            <p class="govuk-notification-banner__heading">@Model.ActionMessage</p>
+                        </div>
+                    </div>
+                }
+
+                @if (Model.CanEdit)
+                {
+                    <div class="app-note-action">
+                        <span class="govuk-body govuk-!-margin-bottom-0">@Model.AddLabel</span>
+                        <a href="@Model.BuildAddUrl()" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Add<span class="govuk-visually-hidden"> a new @lowerName</span></a>
+                    </div>
+
+                    @if (Model.CanSelect)
+                    {
+                        <div class="app-note-action">
+                            <span class="govuk-body govuk-!-margin-bottom-0">@Model.SelectLabel</span>
+                            <a href="@Model.BuildSelectUrl()" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Select<span class="govuk-visually-hidden"> a @lowerName from the master list</span></a>
+                        </div>
+                    }
+                }
+
+                @if (Model.TotalRecords > 0)
+                {
+                    <form method="get" class="govuk-!-margin-top-3">
+                        <input type="hidden" name="section" value="@Model.CurrentSection.Id" />
+                        <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                        <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+                        <input type="hidden" id="PageNumber" name="pageNumber" value="1" />
+                        <div class="govuk-form-group govuk-!-margin-bottom-3 app-label-select-inline">
+                            <label class="govuk-label" for="PageSize">Items per page:</label>
+                            <select class="govuk-select" id="PageSize" name="pageSize" onchange="document.getElementById('PageNumber').value = '1'; this.form.requestSubmit()">
+                                @foreach (var option in CDC.Web.Pages.SurveillanceProfiles.NotesModel.PageSizeOptions)
+                                {
+                                    <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                                }
+                            </select>
+                        </div>
+                    </form>
+                }
+
+                @if (Model.Rows.Count == 0)
+                {
+                    <p class="govuk-body govuk-!-margin-top-3">@Model.NoNotesMessage</p>
+                }
+                else
+                {
+                    <table class="govuk-table app-profile-note-table">
+                        <caption class="govuk-visually-hidden">@Model.NoteTypePluralName</caption>
+                        <thead class="govuk-table__head">
+                            <tr class="govuk-table__row">
+                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(EditProfileFurtherInformationModel.ReferenceSortColumn)">
+                                    <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl(EditProfileFurtherInformationModel.ReferenceSortColumn)">@Model.NoteTypeName</a>
+                                </th>
+                                <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(EditProfileFurtherInformationModel.QuestionReferenceSortColumn)">
+                                    <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl(EditProfileFurtherInformationModel.QuestionReferenceSortColumn)">Question reference</a>
+                                </th>
+                                @if (Model.CanEdit)
+                                {
+                                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">View</span></th>
+                                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody class="govuk-table__body">
+                            @foreach (var row in Model.Rows)
+                            {
+                                <tr class="govuk-table__row">
+                                    <td class="govuk-table__cell app-profile-note-table__text">@Html.Raw(row.TextHtml)</td>
+                                    <td class="govuk-table__cell">@row.QuestionReferenceDisplay</td>
+                                    @if (Model.CanEdit)
+                                    {
+                                        <td class="govuk-table__cell">
+                                            <a class="govuk-link" href="@Model.BuildViewUrl(row.Id)">View<span class="govuk-visually-hidden"> @lowerName @row.SlimText</span></a>
+                                        </td>
+                                        <td class="govuk-table__cell">
+                                            <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-note-@row.Id">Delete<span class="govuk-visually-hidden"> @lowerName @row.SlimText</span></button>
+                                            <dialog class="app-modal" id="delete-note-@row.Id" aria-labelledby="delete-note-@(row.Id)-title">
+                                                <h2 class="govuk-heading-m" id="delete-note-@(row.Id)-title">Confirm</h2>
+                                                <p class="govuk-body">@Model.DeleteConfirmation</p>
+                                                <form method="post" asp-page-handler="Delete">
+                                                    <input type="hidden" name="noteId" value="@row.Id" />
+                                                    <input type="hidden" name="lastUpdated" value="@row.LastUpdated" />
+                                                    <input type="hidden" name="Section" value="@Model.CurrentSection.Id" />
+                                                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                                    <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                                                    <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
+                                                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
+                                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+                                                </form>
+                                            </dialog>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (Model.TotalPages > 1)
+                    {
+                        <div class="app-pagination-center">
+                            <nav class="govuk-pagination" aria-label="@Model.NoteTypePluralName pages">
+                                @if (Model.PageNumber > 1)
+                                {
+                                    <div class="govuk-pagination__prev">
+                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildListUrl(Model.PageNumber - 1)" rel="prev">
+                                            <span class="govuk-pagination__link-title">Previous</span>
+                                        </a>
+                                    </div>
+                                }
+
+                                <ul class="govuk-pagination__list">
+                                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                                    {
+                                        <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildListUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
+                                        </li>
+                                    }
+                                </ul>
+
+                                @if (Model.PageNumber < Model.TotalPages)
+                                {
+                                    <div class="govuk-pagination__next">
+                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildListUrl(Model.PageNumber + 1)" rel="next">
+                                            <span class="govuk-pagination__link-title">Next</span>
+                                        </a>
+                                    </div>
+                                }
+                            </nav>
+                        </div>
+                    }
+                }
+
+                @if (Model.Panel != ProfileNotePanel.None)
+                {
+                    <section class="app-note-panel" aria-labelledby="note-panel-heading">
+                        <h2 class="govuk-heading-m" id="note-panel-heading">@Model.PanelHeading</h2>
+
+                        @if (Model.Panel == ProfileNotePanel.Select)
+                        {
+                            <form method="get" class="app-note-select-form">
+                                <input type="hidden" name="section" value="@Model.CurrentSection.Id" />
+                                <input type="hidden" name="mode" value="@EditProfileFurtherInformationModel.SelectMode" />
+                                <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+                                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                                <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                                <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+                                <div class="govuk-form-group @(noteSelectError is null ? string.Empty : "govuk-form-group--error")">
+                                    <label class="govuk-label govuk-label--s" for="@EditProfileFurtherInformationModel.NoteSelectFieldId">@Model.NoteTypeName</label>
+                                    @if (noteSelectError is not null)
+                                    {
+                                        <p id="@(EditProfileFurtherInformationModel.NoteSelectFieldId)-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @noteSelectError.Message</p>
+                                    }
+                                    <select class="govuk-select @(noteSelectError is null ? string.Empty : "govuk-select--error")" id="@EditProfileFurtherInformationModel.NoteSelectFieldId" name="noteId" aria-describedby="@(noteSelectError is null ? null : EditProfileFurtherInformationModel.NoteSelectFieldId + "-error")" onchange="this.form.requestSubmit()">
+                                        <option value="">Please select...</option>
+                                        @foreach (var choice in Model.AvailableNoteChoices)
+                                        {
+                                            <option value="@choice.Id" selected="@(choice.IsSelected ? "selected" : null)">@choice.Text</option>
+                                        }
+                                    </select>
+                                    <noscript>
+                                        <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-top-2 govuk-!-margin-bottom-0">Show</button>
+                                    </noscript>
+                                </div>
+                            </form>
+                        }
+
+                        @if (Model.PanelNoteHtml is not null)
+                        {
+                            <div class="govuk-form-group">
+                                @if (Model.Panel == ProfileNotePanel.View)
+                                {
+                                    <span class="govuk-label govuk-label--s">@Model.NoteTypeName</span>
+                                }
+                                <div class="app-note-readonly">@Html.Raw(Model.PanelNoteHtml)</div>
+                            </div>
+                        }
+
+                        <form method="post" asp-page-handler="Save" novalidate>
+                            <input type="hidden" name="Section" value="@Model.CurrentSection.Id" />
+                            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                            <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                            <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
+                            <input type="hidden" name="Input.Mode" value="@Model.Input.Mode" />
+                            <input type="hidden" name="Input.NoteId" value="@Model.Input.NoteId" />
+                            <input type="hidden" name="Input.LastUpdated" value="@Model.Input.LastUpdated" />
+                            @* The form's first submit button is its default, so this hidden OK makes Enter in a field save rather than press Tick all. *@
+                            <button type="submit" hidden>OK</button>
+
+                            @if (Model.Panel == ProfileNotePanel.Add)
+                            {
+                                <div class="govuk-form-group @(noteTextError is null ? string.Empty : "govuk-form-group--error")">
+                                    <label class="govuk-label govuk-label--s" for="@EditProfileFurtherInformationModel.NoteTextFieldId">@Model.NoteTypeName</label>
+                                    @if (noteTextError is not null)
+                                    {
+                                        <p id="@(EditProfileFurtherInformationModel.NoteTextFieldId)-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @noteTextError.Message</p>
+                                    }
+                                    <div class="app-richtext-toolbar" role="toolbar" aria-label="@Model.NoteTypeName formatting">
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="@EditProfileFurtherInformationModel.NoteTextFieldId" aria-label="Undo" title="Undo">&#8630;</button>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="@EditProfileFurtherInformationModel.NoteTextFieldId" aria-label="Redo" title="Redo">&#8631;</button>
+                                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon app-richtext-toolbar__button--italic" data-richtext-command="italic" data-richtext-target="@EditProfileFurtherInformationModel.NoteTextFieldId" aria-label="Italic" title="Italic">I</button>
+                                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="bullist" data-richtext-target="@EditProfileFurtherInformationModel.NoteTextFieldId" aria-label="Bulleted list" title="Bulleted list">&#9776;</button>
+                                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="@EditProfileFurtherInformationModel.NoteTextFieldId" aria-label="Insert link" title="Insert link">&#128279;</button>
+                                    </div>
+                                    <textarea class="govuk-textarea app-richtext-editor @(noteTextError is null ? string.Empty : "govuk-textarea--error")" id="@EditProfileFurtherInformationModel.NoteTextFieldId" name="Input.NoteText" rows="6" spellcheck="true" aria-describedby="@(noteTextError is null ? null : EditProfileFurtherInformationModel.NoteTextFieldId + "-error")">@Model.Input.NoteText</textarea>
+                                    <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="@EditProfileFurtherInformationModel.NoteTextFieldId" data-module="govuk-button">Spell check</button>
+                                </div>
+                            }
+
+                            <div class="govuk-form-group @(questionError is null ? string.Empty : "govuk-form-group--error")">
+                                <fieldset class="govuk-fieldset" aria-describedby="@(questionError is null ? null : "Input_QuestionIds-error")">
+                                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Question references</legend>
+                                    @if (questionError is not null)
+                                    {
+                                        <p id="Input_QuestionIds-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @questionError.Message</p>
+                                    }
+                                    <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                        @for (var index = 0; index < Model.QuestionChoices.Count; index++)
+                                        {
+                                            var choice = Model.QuestionChoices[index];
+                                            <div class="govuk-checkboxes__item">
+                                                <input class="govuk-checkboxes__input" id="Input_QuestionIds_@index" name="Input.QuestionIds" type="checkbox" value="@choice.Id" checked="@choice.IsTicked" />
+                                                <label class="govuk-label govuk-checkboxes__label" for="Input_QuestionIds_@index">@choice.Number: @ProfileTitleHtmlFormatter.Format(choice.Name)</label>
+                                            </div>
+                                        }
+                                    </div>
+                                </fieldset>
+                            </div>
+
+                            <div class="app-note-panel__buttons">
+                                <div class="govuk-button-group">
+                                    <button type="submit" asp-page-handler="TickAll" class="govuk-button govuk-button--secondary" data-module="govuk-button">Tick all</button>
+                                    <button type="submit" asp-page-handler="UntickAll" class="govuk-button govuk-button--secondary" data-module="govuk-button">Untick all</button>
+                                </div>
+                                <div class="govuk-button-group">
+                                    <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+                                    <a class="govuk-button govuk-button--secondary" href="@Model.BuildListUrl()">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+                }
             }
         </div>
     </div>
+}
+
+@section Scripts {
+    <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
+    <script src="~/js/spell-check.js" asp-append-version="true"></script>
 }

@@ -59,6 +59,29 @@ public interface IProfileSectionsApiService
         Guid noteTypeId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>PUT /api/profile-notes</c>, adding notes and changing which questions existing notes are linked to
+    /// in one transaction.</summary>
+    /// <param name="profileVersionId">The profile version the notes belong to.</param>
+    /// <param name="noteTypeId">The note type being changed.</param>
+    /// <param name="inserts">The notes to add.</param>
+    /// <param name="updates">The notes whose question links change.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome, distinguishing a concurrent-edit conflict and a rejected submission from success.</returns>
+    Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        IReadOnlyList<ProfileNoteInsert> inserts,
+        IReadOnlyList<ProfileNoteUpdate> updates,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/profile-questions</c>, used to list the questions a note can be linked to.</summary>
+    /// <param name="profileSectionId">The section whose questions are wanted.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The section's questions; an empty list when it has none.</returns>
+    Task<IReadOnlyList<ProfileQuestionInfoDto>> GetProfileQuestionInfoListAsync(
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/profile-sections/validation-status</c>.</summary>
     /// <param name="profileVersionId">The profile version to check.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
@@ -71,7 +94,7 @@ public interface IProfileSectionsApiService
     /// <param name="profileVersionId">The profile version to validate.</param>
     /// <param name="profileSectionId">The section to validate.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <returns>Whether the section is valid, and every validation error found.</returns>
     Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
@@ -80,23 +103,29 @@ public interface IProfileSectionsApiService
     /// <summary>Calls <c>POST /api/profile-sections/clear</c>.</summary>
     /// <param name="profileVersionId">The profile version to clear.</param>
     /// <param name="profileSectionId">The section to clear.</param>
+    /// <param name="lastUpdated">The section's row version as last read, so a concurrent save is detected, or
+    /// <see langword="null"/> to clear whatever the section holds now.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The number of fields cleared.</returns>
-    Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
+    /// <returns>The outcome, distinguishing a concurrent-edit conflict from success.</returns>
+    Task<ProfileSectionWriteResult> ClearProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>POST /api/profile-sections/save</c>.</summary>
     /// <param name="profileVersionId">The profile version being answered.</param>
     /// <param name="profileSectionId">The section being answered.</param>
     /// <param name="answers">The submitted field answers.</param>
+    /// <param name="lastUpdated">The section's row version as last read, so a concurrent save is detected, or
+    /// <see langword="null"/> to save over whatever the section holds now.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The number of fields saved.</returns>
-    Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
+    /// <returns>The outcome, distinguishing a concurrent-edit conflict from success.</returns>
+    Task<ProfileSectionWriteResult> SaveProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>GET /api/profile-sections/contributions</c>.</summary>
@@ -163,6 +192,16 @@ public interface IProfileSectionsApiService
         Guid profileVersionId,
         Guid profileSectionId,
         Guid commentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>DELETE /api/profile-sections/review-comments</c>, deleting every review comment of the section.</summary>
+    /// <param name="profileVersionId">The profile version the comments belong to.</param>
+    /// <param name="profileSectionId">The section the comments belong to.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The outcome of the delete.</returns>
+    Task<ProfileSectionWriteResult> DeleteAllProfileReviewCommentsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
         CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>GET /api/profile-sections/all-revision-dates</c>.</summary>

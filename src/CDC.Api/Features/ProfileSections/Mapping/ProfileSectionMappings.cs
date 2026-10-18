@@ -56,7 +56,9 @@ public static class ProfileSectionMappings
         DataTypeName = field.DataTypeName,
         IsMandatory = field.IsMandatory,
         ReferenceTableId = field.ReferenceTableId,
-        ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable
+        ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
+        IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
+        IsReadOnlyScenario = field.IsReadOnlyScenario
     };
 
     /// <summary>Projects one profile version section's recorded answers.</summary>
@@ -67,7 +69,14 @@ public static class ProfileSectionMappings
         ProfileVersionId = answers.ProfileVersionId,
         ProfileSectionId = answers.ProfileSectionId,
         QuestionNames = [.. answers.QuestionNames.Select(ToDto)],
-        FieldValues = [.. answers.FieldValues.Select(ToDto)]
+        FieldValues = [.. answers.FieldValues.Select(ToDto)],
+        QuestionRows = [.. answers.QuestionRows.Select(row => new ProfileQuestionRowDto
+        {
+            Id = row.Id,
+            QuestionId = row.QuestionId,
+            SequenceNumber = row.SequenceNumber
+        })],
+        LastUpdated = answers.LastUpdated
     };
 
     /// <summary>Projects a question's display names.</summary>
@@ -88,6 +97,8 @@ public static class ProfileSectionMappings
         Id = fieldValue.Id,
         QuestionId = fieldValue.QuestionId,
         FieldNumber = fieldValue.FieldNumber,
+        SpeciesId = fieldValue.SpeciesId,
+        ProfileVersionQuestionRowId = fieldValue.ProfileVersionQuestionRowId,
         BooleanValue = fieldValue.BooleanValue,
         ListValue = fieldValue.ListValue,
         DecimalValue = fieldValue.DecimalValue,

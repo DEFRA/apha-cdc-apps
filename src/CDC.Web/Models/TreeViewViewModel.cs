@@ -8,8 +8,19 @@ public sealed record TreeNodeViewModel
 
     public required string Label { get; init; }
 
-    /// Branches only: whether the node starts expanded.
+    /// <summary>Whether the species/species group is inactive. Renders greyed out with an
+    /// "(inactive)" label; selectable but visually distinct from active nodes.</summary>
+    public bool IsInactive { get; init; }
+
+    /// <summary>Branches only: whether the node starts expanded.</summary>
     public bool Expanded { get; init; }
+
+    /// Optional marker rendered as data-app-tree-kind, so a page's script can find a kind of node.
+    public string? Kind { get; init; }
+
+    /// False renders the label as plain text with no checkbox or radio, for grouping nodes that
+    /// cannot themselves be selected.
+    public bool Selectable { get; init; } = true;
 
     public IReadOnlyList<TreeNodeViewModel> Children { get; init; } = [];
 }
@@ -39,9 +50,24 @@ public sealed record TreeViewViewModel
     /// (radios, the default).
     public bool AllowMultipleSelection { get; init; }
 
+    /// Multi-select trees only: checking a node checks everything under it, and checking a node
+    /// checks its ancestors, instead of the default "a node excludes its ancestors and descendants".
+    public bool CascadeSelection { get; init; }
+
     /// Values that should render pre-checked when <see cref="AllowMultipleSelection"/> is true.
     public IReadOnlySet<string> SelectedValues { get; init; } = new HashSet<string>();
 
     /// Label describing the empty/no-selection state, for example "Any species".
     public string? EmptySelectionLabel { get; init; }
+
+    /// Whether checking a node auto-unchecks its ancestors and descendants, so a branch and a
+    /// part of that branch can never both be selected at once. Only applies when
+    /// <see cref="AllowMultipleSelection"/> is true. Correct for "pick a scope" trees (checking
+    /// a group stands in for everything under it); wrong for trees where unrelated nodes -
+    /// including a group and one of its own descendants - must each be selectable independently.
+    public bool EnforceHierarchyExclusivity { get; init; } = true;
+
+    /// Whether the tree should auto-scroll to the selected node on load - only while actively
+    /// reordering (Maintain species data), not on an ordinary page load.
+    public bool ScrollToSelectionOnLoad { get; init; }
 }

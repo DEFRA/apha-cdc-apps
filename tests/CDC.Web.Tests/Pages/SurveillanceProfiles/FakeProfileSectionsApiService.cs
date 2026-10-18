@@ -17,9 +17,9 @@ internal sealed class FakeProfileSectionsApiService(
     Exception? throwOnGetProfileNotesByVersion = null,
     ProfileVersionValidationStatusDto? validationStatus = null,
     ProfileSectionValidationResultDto? sectionValidationResult = null,
-    ClearProfileSectionResultDto? clearResult = null,
+    ProfileSectionWriteResult? clearResult = null,
     Exception? throwOnClearProfileVersionSection = null,
-    SaveProfileSectionResultDto? saveResult = null,
+    ProfileSectionWriteResult? saveResult = null,
     Exception? throwOnSaveProfileVersionSection = null,
     IReadOnlyList<ProfileSectionContributionDto>? contributions = null,
     IReadOnlyList<ProfileReviewCommentDto>? reviewComments = null,
@@ -30,9 +30,43 @@ internal sealed class FakeProfileSectionsApiService(
     SaveRevisionDatesResult? saveRevisionDatesResult = null,
     Exception? throwOnSaveProfileVersionRevisionDates = null,
     ReviewCommentResult? reviewCommentResult = null,
-    Exception? throwOnChangeReviewComment = null)
+    Exception? throwOnChangeReviewComment = null,
+    IReadOnlyDictionary<Guid, ProfileSectionAnswersDto>? answersByVersion = null,
+    IReadOnlyList<ProfileQuestionInfoDto>? questionInfos = null,
+    Exception? throwOnGetProfileQuestionInfoList = null,
+    ProfileNoteChangeResult? noteChangeResult = null,
+    Exception? throwOnUpdateProfileNotes = null,
+    Exception? throwOnGetProfileNotesBySection = null,
+    ProfileVersionValidationStatusDto? validationStatusAfterWrite = null,
+    Exception? throwOnGetProfileVersionValidationStatus = null,
+    Exception? throwOnValidateProfileVersionSection = null,
+    ProfileSectionWriteResult? deleteAllReviewCommentsResult = null,
+    Exception? throwOnDeleteAllReviewComments = null)
     : IProfileSectionsApiService
 {
+    private bool sectionWritten;
+
+    /// <summary>Gets the row version most recently passed to <c>SaveProfileVersionSectionAsync</c>.</summary>
+    public byte[]? SavedLastUpdated { get; private set; }
+
+    /// <summary>Gets the answers most recently passed to <c>SaveProfileVersionSectionAsync</c>.</summary>
+    public IReadOnlyList<ProfileFieldAnswerInputDto>? SavedAnswers { get; private set; }
+
+    /// <summary>Gets the row version most recently passed to <c>ClearProfileVersionSectionAsync</c>.</summary>
+    public byte[]? ClearedLastUpdated { get; private set; }
+
+    /// <summary>Gets the number of times <c>DeleteAllProfileReviewCommentsAsync</c> was called.</summary>
+    public int DeleteAllReviewCommentsCallCount { get; private set; }
+
+    /// <summary>Gets the number of times <c>GetProfileVersionValidationStatusAsync</c> was called.</summary>
+    public int GetValidationStatusCallCount { get; private set; }
+
+    /// <summary>Gets the number of times <c>ValidateProfileVersionSectionAsync</c> was called.</summary>
+    public int ValidateProfileVersionSectionCallCount { get; private set; }
+
+    /// <summary>Gets the number of times <c>ClearProfileVersionSectionAsync</c> was called.</summary>
+    public int ClearProfileVersionSectionCallCount { get; private set; }
+
     /// <summary>Gets the add request most recently passed to <c>AddProfileReviewCommentAsync</c>.</summary>
     public (Guid? ParentId, string Subject, string Reference, string Text)? AddedReviewComment { get; private set; }
 
@@ -51,6 +85,27 @@ internal sealed class FakeProfileSectionsApiService(
     /// <summary>Gets the number of times <c>SaveProfileVersionSectionAsync</c> was called.</summary>
     public int SaveProfileVersionSectionCallCount { get; private set; }
 
+    /// <summary>Gets the number of times <c>UpdateProfileNotesAsync</c> was called.</summary>
+    public int UpdateProfileNotesCallCount { get; private set; }
+
+    /// <summary>Gets the profile version most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public Guid? ChangedNotesProfileVersionId { get; private set; }
+
+    /// <summary>Gets the note type most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public Guid? ChangedNotesNoteTypeId { get; private set; }
+
+    /// <summary>Gets the inserts most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public IReadOnlyList<ProfileNoteInsert>? SavedNoteInserts { get; private set; }
+
+    /// <summary>Gets the updates most recently passed to <c>UpdateProfileNotesAsync</c>.</summary>
+    public IReadOnlyList<ProfileNoteUpdate>? SavedNoteUpdates { get; private set; }
+
+    /// <summary>Gets the note type of every <c>UpdateProfileNotesAsync</c> call, in call order.</summary>
+    public List<Guid> NoteTypesChanged { get; } = [];
+
+    /// <summary>Gets the section most recently passed to <c>GetProfileQuestionInfoListAsync</c>.</summary>
+    public Guid? RequestedQuestionInfoSectionId { get; private set; }
+
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(metadata ?? new ProfileQuestionnaireMetadataDto());
 
@@ -60,7 +115,10 @@ internal sealed class FakeProfileSectionsApiService(
         CancellationToken cancellationToken = default) =>
         throwOnGetProfileSectionAnswers is not null
             ? Task.FromException<ProfileSectionAnswersDto>(throwOnGetProfileSectionAnswers)
-            : Task.FromResult(answers ?? new ProfileSectionAnswersDto());
+            : Task.FromResult(
+                answersByVersion is not null && answersByVersion.TryGetValue(profileVersionId, out var versionAnswers)
+                    ? versionAnswers
+                    : answers ?? new ProfileSectionAnswersDto());
 
     public Task<IReadOnlyList<ReferenceValueDto>> GetReferenceValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default) =>
         Task.FromResult(
@@ -78,10 +136,12 @@ internal sealed class FakeProfileSectionsApiService(
         Guid profileSectionId,
         Guid noteTypeId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(
-            notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
-                ? notes
-                : []);
+        throwOnGetProfileNotesBySection is not null
+            ? Task.FromException<IReadOnlyList<ProfileNoteDto>>(throwOnGetProfileNotesBySection)
+            : Task.FromResult(
+                notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
+                    ? notes
+                    : []);
 
     public Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAsync(
         Guid profileVersionId,
@@ -94,36 +154,104 @@ internal sealed class FakeProfileSectionsApiService(
                     ? versionNotes
                     : []);
 
+    public Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        IReadOnlyList<ProfileNoteInsert> inserts,
+        IReadOnlyList<ProfileNoteUpdate> updates,
+        CancellationToken cancellationToken = default)
+    {
+        UpdateProfileNotesCallCount++;
+        ChangedNotesProfileVersionId = profileVersionId;
+        ChangedNotesNoteTypeId = noteTypeId;
+        NoteTypesChanged.Add(noteTypeId);
+        SavedNoteInserts = inserts;
+        SavedNoteUpdates = updates;
+
+        return throwOnUpdateProfileNotes is not null
+            ? Task.FromException<ProfileNoteChangeResult>(throwOnUpdateProfileNotes)
+            : Task.FromResult(noteChangeResult ?? new ProfileNoteChangeResult { Outcome = ProfileNoteChangeOutcome.Success });
+    }
+
+    public Task<IReadOnlyList<ProfileQuestionInfoDto>> GetProfileQuestionInfoListAsync(
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default)
+    {
+        RequestedQuestionInfoSectionId = profileSectionId;
+
+        return throwOnGetProfileQuestionInfoList is not null
+            ? Task.FromException<IReadOnlyList<ProfileQuestionInfoDto>>(throwOnGetProfileQuestionInfoList)
+            : Task.FromResult(questionInfos ?? []);
+    }
+
     public Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
         Guid profileVersionId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(validationStatus ?? new ProfileVersionValidationStatusDto { ProfileVersionId = profileVersionId });
+        CancellationToken cancellationToken = default)
+    {
+        GetValidationStatusCallCount++;
+
+        if (throwOnGetProfileVersionValidationStatus is not null)
+        {
+            return Task.FromException<ProfileVersionValidationStatusDto>(throwOnGetProfileVersionValidationStatus);
+        }
+
+        var status = sectionWritten && validationStatusAfterWrite is not null ? validationStatusAfterWrite : validationStatus;
+
+        return Task.FromResult(status ?? new ProfileVersionValidationStatusDto { ProfileVersionId = profileVersionId });
+    }
 
     public Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(sectionValidationResult ?? new ProfileSectionValidationResultDto { IsValid = true });
+        CancellationToken cancellationToken = default)
+    {
+        ValidateProfileVersionSectionCallCount++;
 
-    public Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
+        return throwOnValidateProfileVersionSection is not null
+            ? Task.FromException<ProfileSectionValidationResultDto>(throwOnValidateProfileVersionSection)
+            : Task.FromResult(sectionValidationResult ?? new ProfileSectionValidationResultDto { IsValid = true });
+    }
+
+    public Task<ProfileSectionWriteResult> ClearProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
-        CancellationToken cancellationToken = default) =>
-        throwOnClearProfileVersionSection is not null
-            ? Task.FromException<ClearProfileSectionResultDto>(throwOnClearProfileVersionSection)
-            : Task.FromResult(clearResult ?? new ClearProfileSectionResultDto());
+        byte[]? lastUpdated,
+        CancellationToken cancellationToken = default)
+    {
+        ClearProfileVersionSectionCallCount++;
+        ClearedLastUpdated = lastUpdated;
 
-    public Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
+        if (throwOnClearProfileVersionSection is not null)
+        {
+            return Task.FromException<ProfileSectionWriteResult>(throwOnClearProfileVersionSection);
+        }
+
+        var result = clearResult ?? new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success };
+        sectionWritten |= result.Outcome == ProfileSectionWriteOutcome.Success;
+
+        return Task.FromResult(result);
+    }
+
+    public Task<ProfileSectionWriteResult> SaveProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken = default)
     {
         SaveProfileVersionSectionCallCount++;
+        SavedAnswers = answers;
+        SavedLastUpdated = lastUpdated;
 
-        return throwOnSaveProfileVersionSection is not null
-            ? Task.FromException<SaveProfileSectionResultDto>(throwOnSaveProfileVersionSection)
-            : Task.FromResult(saveResult ?? new SaveProfileSectionResultDto());
+        if (throwOnSaveProfileVersionSection is not null)
+        {
+            return Task.FromException<ProfileSectionWriteResult>(throwOnSaveProfileVersionSection);
+        }
+
+        var result = saveResult ?? new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success };
+        sectionWritten |= result.Outcome == ProfileSectionWriteOutcome.Success;
+
+        return Task.FromResult(result);
     }
 
     public Task<IReadOnlyList<ProfileSectionContributionDto>> GetProfileVersionSectionContributionsAsync(
@@ -184,6 +312,18 @@ internal sealed class FakeProfileSectionsApiService(
         throwOnChangeReviewComment is not null
             ? Task.FromException<ReviewCommentResult>(throwOnChangeReviewComment)
             : Task.FromResult(reviewCommentResult ?? new ReviewCommentResult { Outcome = ReviewCommentOutcome.Success });
+
+    public Task<ProfileSectionWriteResult> DeleteAllProfileReviewCommentsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default)
+    {
+        DeleteAllReviewCommentsCallCount++;
+
+        return throwOnDeleteAllReviewComments is not null
+            ? Task.FromException<ProfileSectionWriteResult>(throwOnDeleteAllReviewComments)
+            : Task.FromResult(deleteAllReviewCommentsResult ?? new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success });
+    }
 
     public Task<ProfileVersionAllRevisionDatesDto> GetProfileVersionAllRevisionDatesAsync(
         Guid profileVersionId,

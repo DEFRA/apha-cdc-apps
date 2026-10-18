@@ -8,7 +8,7 @@ namespace CDC.Api.Features.ProfileSections.Queries;
 
 /// <summary>
 /// Validates one profile version's section, matching the legacy
-/// <c>ProfileVersionSection.Validate()</c> mandatory-field check.
+/// <c>ProfileVersionSection.Validate()</c>.
 /// </summary>
 /// <param name="ProfileVersionId">The profile version to validate.</param>
 /// <param name="ProfileSectionId">The section to validate.</param>
@@ -39,7 +39,7 @@ public sealed class ValidateProfileVersionSectionQueryHandler(IProfileSectionSer
     /// <summary>Executes the query.</summary>
     /// <param name="request">The query.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <returns>Whether the section is valid, and every validation error found.</returns>
     public async Task<Result<ProfileSectionValidationResultDto>> Handle(
         ValidateProfileVersionSectionQuery request,
         CancellationToken cancellationToken)

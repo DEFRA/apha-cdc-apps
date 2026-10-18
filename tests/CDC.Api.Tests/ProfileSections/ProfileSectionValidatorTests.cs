@@ -87,6 +87,35 @@ public class ProfileSectionValidatorTests
     }
 
     [Fact]
+    public void ClearProfileVersionSectionCommandValidator_AcceptsAnEightByteRowVersion_ButNotAnyOtherLength()
+    {
+        var validator = new ClearProfileVersionSectionCommandValidator();
+        var command = new ClearProfileVersionSectionCommand
+        {
+            ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionId = ProfileSectionTestData.SectionId
+        };
+
+        validator.Validate(command with { LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8] }).IsValid.Should().BeTrue();
+        validator.Validate(command with { LastUpdated = [1, 2, 3] }).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SaveProfileVersionSectionCommandValidator_AcceptsAnEightByteRowVersion_ButNotAnyOtherLength()
+    {
+        var validator = new SaveProfileVersionSectionCommandValidator();
+        var command = new SaveProfileVersionSectionCommand
+        {
+            ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionId = ProfileSectionTestData.SectionId,
+            Answers = []
+        };
+
+        validator.Validate(command with { LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8] }).IsValid.Should().BeTrue();
+        validator.Validate(command with { LastUpdated = [1, 2, 3] }).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
     public void GetProfileVersionSectionContributionsQueryValidator_EmptyIds_ShouldFail()
     {
         var result = new GetProfileVersionSectionContributionsQueryValidator().Validate(

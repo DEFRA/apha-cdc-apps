@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10pt;
+            color: #000;
+            line-height: 1.4;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        h1.pdf-version-heading {
+            margin: 0 0 10px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #000;
+            font-size: 12pt;
+        }
+
+        .pdf-version + .pdf-version { break-before: page; }
+
+        h2.pdf-section-heading {
+            margin: 14px 0 6px 0;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #000;
+            font-size: 11pt;
+            break-after: avoid;
+        }
+
+        table.pdf-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        .pdf-table th,
+        .pdf-table td {
+            border: 1px solid #000;
+            padding: 3px 6px;
+            text-align: left;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+
+        .pdf-table th {
+            background-color: #00a33b;
+            color: #fff;
+        }
+
+        .pdf-table tr { break-inside: avoid; }
+
+        .pdf-empty {
+            padding: 4px 0;
+            text-align: center;
+            font-style: italic;
+        }
+
+        @@page { size: A4 portrait; }
+        @@page landscape { size: A4 landscape; }
+
+        .rpt-landscape { page: landscape; break-before: page; }
+
+        .rpt-watermark {
+            position: fixed;
+            top: 40%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            transform: rotate(-45deg);
+            font-size: 72pt;
+            font-weight: bold;
+            color: rgba(255, 166, 166, 0.5);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .rpt-front { break-after: page; }
+        .rpt-title { margin: 0 0 8px 0; font-size: 16px; text-align: center; }
+        .rpt-front p { margin: 4px 0; font-size: 12px; }
+        .rpt-contents-heading { margin: 18px 0 6px 0; font-size: 12px; text-decoration: underline; text-align: center; }
+        .rpt-contents { width: 400px; margin: 0 auto; padding: 0; list-style: none; font-size: 11px; }
+        .rpt-contents li { padding: 3px 0; }
+        .rpt-contents a { color: #000; text-decoration: none; }
+        .rpt-front-footer { margin-top: 24px; text-align: center; font-size: 9px; }
+        .rpt-front-footer a { color: #0000ff; }
+
+        .rpt-section--new-page { break-before: page; }
+        .rpt-section + .rpt-section:not(.rpt-section--new-page) { margin-top: 20px; }
+        h2.rpt-section-heading { margin: 0 0 6px 0; padding-bottom: 2px; border-bottom: 1px solid #000; font-size: 13pt; break-after: avoid; }
+        .rpt-section-note { margin: 0 0 10px 0; font-weight: bold; font-style: italic; }
+
+        table.rpt-question { width: 100%; margin-top: 8px; border-collapse: collapse; }
+        .rpt-question th { padding: 4px 6px; background-color: #00a33b; color: #fff; text-align: left; }
+        .rpt-question h3 { margin: 0; font-size: 10pt; }
+        .rpt-question--level-0 h3 { font-size: 11pt; }
+        .rpt-question td { padding: 0 6px 6px 6px; vertical-align: top; }
+        .rpt-question__info { padding-top: 5px; font-style: italic; }
+        table.rpt-guidance { width: 100%; margin-top: 10px; border-collapse: collapse; border: 1px solid #d2d2d2; }
+        .rpt-guidance th { padding: 5px; background-color: #e0e0e0; text-align: left; border-bottom: 1px solid #d2d2d2; }
+        .rpt-guidance h3 { margin: 0; font-size: 10pt; }
+        .rpt-guidance td { padding: 5px; background-color: #e0e0e0; vertical-align: top; }
+
+        .rpt-subheading { margin-top: 8px; padding: 3px 6px; background-color: #dcdcdc; font-weight: bold; break-after: avoid; }
+        .rpt-nested { margin-left: 8px; }
+        .rpt-label { margin: 6px 0 3px 0; break-after: avoid; }
+        .rpt-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; margin: 4px 0; padding: 0; list-style: none; break-inside: avoid; }
+        .rpt-options li { display: flex; align-items: center; }
+        .rpt-checkbox { position: relative; display: inline-block; flex: none; width: 11px; height: 11px; margin-right: 4px; border: 1px solid #000; }
+        .rpt-checkbox--selected::after { content: ''; position: absolute; left: 3px; top: -1px; width: 3px; height: 8px; border: solid #000; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+        .rpt-text { margin: 4px 0; padding: 5px; border: 1px solid #d2d2d2; overflow-wrap: anywhere; }
+        .rpt-text table { border-collapse: collapse; }
+        .rpt-text td, .rpt-text th { border: 1px solid #d2d2d2; padding: 2px 4px; }
+        .rpt-no-data { margin: 4px 0; padding: 5px; border: 1px solid #d2d2d2; color: #c8c8c8; font-style: italic; }
+        .rpt-not-relevant { margin: 4px 0; font-style: italic; }
+
+        .rpt-references { width: 100%; margin-top: 10px; border-collapse: collapse; }
+        .rpt-references th { padding: 4px 6px; background-color: #00a33b; color: #fff; text-align: left; }
+        .rpt-references th:first-child { width: 70px; }
+        .rpt-references td { padding: 4px 6px; vertical-align: top; overflow-wrap: anywhere; }
+        h3.rpt-references-section { margin: 14px 0 4px 0; padding-bottom: 2px; border-bottom: 1px solid #000; font-size: 11pt; break-after: avoid; }
+        h4.rpt-references-title { margin: 0; font-size: 10pt; }
+
+        .rpt-warning { break-before: page; }
+        .rpt-warning__text { padding: 6px; }
+
+        table.rpt-category { width: 500px; margin: 5px auto 0 auto; border-collapse: collapse; }
+        .rpt-category th, .rpt-category td { padding: 5px; border: 1px solid #d2d2d2; }
+        .rpt-category th { font-weight: normal; text-align: left; }
+        .rpt-category__rank { width: 150px; }
+        .rpt-placeholder { color: #c8c8c8; font-style: italic; }
+        .rpt-note-italic { margin: 20px 0; font-style: italic; }
+        table.rpt-criteria { width: 100%; margin-top: 10px; border-collapse: collapse; }
+        .rpt-criteria th { padding: 4px 6px; text-align: left; }
+        .rpt-criteria td { padding: 5px; vertical-align: top; border: 1px solid #323232; border-width: 1px 1px 0 1px; }
+        .rpt-criteria td:not(:first-child), .rpt-criteria th:not(:first-child) { width: 150px; }
+        .rpt-criteria tbody:last-child tr:last-child td { border-bottom-width: 1px; }
+        .rpt-criteria__category td { font-weight: bold; }
+        .rpt-criteria__category .rpt-placeholder { color: inherit; opacity: 0.75; }
+    </style>
+</head>
+<body>
+    @if (ViewData["DraftWatermark"] is true)
+    {
+        <div class="rpt-watermark">DRAFT CONTENT</div>
+    }
+    @RenderBody()
+</body>
+</html>

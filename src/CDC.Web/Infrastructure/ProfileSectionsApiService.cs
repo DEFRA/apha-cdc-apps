@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Infrastructure;
 
@@ -82,6 +84,50 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
     }
 
     /// <inheritdoc />
+    public async Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
+        Guid profileVersionId,
+        Guid noteTypeId,
+        IReadOnlyList<ProfileNoteInsert> inserts,
+        IReadOnlyList<ProfileNoteUpdate> updates,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new { ProfileVersionId = profileVersionId, NoteTypeId = noteTypeId, Inserts = inserts, Updates = updates };
+        using var response = await httpClient.PutAsJsonAsync("/api/profile-notes", request, cancellationToken);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.OK or HttpStatusCode.NoContent => new ProfileNoteChangeResult { Outcome = ProfileNoteChangeOutcome.Success },
+            HttpStatusCode.BadRequest => new ProfileNoteChangeResult
+            {
+                Outcome = ProfileNoteChangeOutcome.ValidationFailed,
+                ErrorMessage = "The change was not accepted."
+            },
+            HttpStatusCode.Conflict => new ProfileNoteChangeResult
+            {
+                Outcome = ProfileNoteChangeOutcome.Conflict,
+                ErrorMessage = "Another user has changed this note. Your change has not been saved; reopen the note and try again."
+            },
+            _ => new ProfileNoteChangeResult
+            {
+                Outcome = ProfileNoteChangeOutcome.Error,
+                ErrorMessage = "We could not save the change. Try again later."
+            }
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileQuestionInfoDto>> GetProfileQuestionInfoListAsync(
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default)
+    {
+        var questions = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileQuestionInfoDto>>(
+            $"/api/profile-questions?profileSectionId={profileSectionId}",
+            cancellationToken);
+
+        return questions ?? [];
+    }
+
+    /// <inheritdoc />
     public async Task<ProfileVersionValidationStatusDto> GetProfileVersionValidationStatusAsync(
         Guid profileVersionId,
         CancellationToken cancellationToken = default)
@@ -107,34 +153,52 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
     }
 
     /// <inheritdoc />
-    public async Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
+    public async Task<ProfileSectionWriteResult> ClearProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken = default)
     {
-        var request = new { ProfileVersionId = profileVersionId, ProfileSectionId = profileSectionId };
-        var response = await httpClient.PostAsJsonAsync("/api/profile-sections/clear", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var request = new { ProfileVersionId = profileVersionId, ProfileSectionId = profileSectionId, LastUpdated = lastUpdated };
+        using var response = await httpClient.PostAsJsonAsync("/api/profile-sections/clear", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return await ToFailureAsync(response, cancellationToken);
+        }
 
         var result = await response.Content.ReadFromJsonAsync<ClearProfileSectionResultDto>(cancellationToken);
 
-        return result ?? new ClearProfileSectionResultDto();
+        return new ProfileSectionWriteResult
+        {
+            Outcome = ProfileSectionWriteOutcome.Success,
+            FieldsChangedCount = result?.FieldsClearedCount ?? 0
+        };
     }
 
     /// <inheritdoc />
-    public async Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
+    public async Task<ProfileSectionWriteResult> SaveProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken = default)
     {
-        var request = new { ProfileVersionId = profileVersionId, ProfileSectionId = profileSectionId, Answers = answers };
-        var response = await httpClient.PostAsJsonAsync("/api/profile-sections/save", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var request = new { ProfileVersionId = profileVersionId, ProfileSectionId = profileSectionId, Answers = answers, LastUpdated = lastUpdated };
+        using var response = await httpClient.PostAsJsonAsync("/api/profile-sections/save", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return await ToFailureAsync(response, cancellationToken);
+        }
 
         var result = await response.Content.ReadFromJsonAsync<SaveProfileSectionResultDto>(cancellationToken);
 
-        return result ?? new SaveProfileSectionResultDto();
+        return new ProfileSectionWriteResult
+        {
+            Outcome = ProfileSectionWriteOutcome.Success,
+            FieldsChangedCount = result?.FieldsSavedCount ?? 0
+        };
     }
 
     /// <inheritdoc />
@@ -223,6 +287,44 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
             cancellationToken);
 
         return ToReviewCommentResult(response.StatusCode);
+    }
+
+    /// <inheritdoc />
+    public async Task<ProfileSectionWriteResult> DeleteAllProfileReviewCommentsAsync(
+        Guid profileVersionId,
+        Guid profileSectionId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync(
+            $"/api/profile-sections/review-comments?profileVersionId={profileVersionId}&profileSectionId={profileSectionId}",
+            cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success }
+            : await ToFailureAsync(response, cancellationToken);
+    }
+
+    /// <summary>Classifies a failed save, clear or delete, keeping the reason CDC.Api gave (the problem details' detail, for
+    /// example "The profile version section has been edited by another user") so the page can show it as the legacy page did.</summary>
+    private static async Task<ProfileSectionWriteResult> ToFailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        string? detail = null;
+
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+            detail = problem?.Detail;
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            // The body is not problem details, so the generic reason below is used.
+        }
+
+        return new ProfileSectionWriteResult
+        {
+            Outcome = response.StatusCode == HttpStatusCode.Conflict ? ProfileSectionWriteOutcome.Conflict : ProfileSectionWriteOutcome.Error,
+            ErrorMessage = string.IsNullOrWhiteSpace(detail) ? "We could not complete the request. Try again later." : detail
+        };
     }
 
     private static ReviewCommentResult ToReviewCommentResult(HttpStatusCode statusCode) => statusCode switch

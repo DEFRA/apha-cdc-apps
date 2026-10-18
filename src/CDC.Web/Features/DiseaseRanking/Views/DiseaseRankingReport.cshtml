@@ -1,0 +1,150 @@
+@using System.Globalization
+@using CDC.Common.Contracts
+@using CDC.Web.Features.DiseaseRanking
+@model DiseaseRankingReportDto
+@functions {
+    static string N(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+}
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@Model.FooterTitle</title>
+    <style>
+        @@page front { size: A4 landscape; margin: 12mm 10mm 16mm 10mm; }
+        @@page graph { size: A4 portrait; margin: 12mm 10mm 16mm 10mm; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #0b0c0c; margin: 0; }
+        h1 { font-size: 13pt; margin: 0 0 6px; }
+        h2 { font-size: 10pt; margin: 0 0 4px; }
+        p { margin: 0 0 6px; }
+        .front { page: front; }
+        .graph { page: graph; break-before: page; }
+        .notice { text-align: center; }
+        .intro { display: flex; justify-content: space-between; gap: 16px; margin: 12px 0 6px; }
+        .key th, .key td { border: 1px solid #0b0c0c; padding: 2px 6px; font-size: 8pt; text-align: center; }
+        .exotic { background: #cccccc; }
+        .tables { display: flex; gap: 8px; align-items: flex-start; }
+        .tables table { flex: 1; border-collapse: collapse; font-size: 7pt; }
+        .tables th, .tables td { border: 1px solid #0b0c0c; padding: 1px 3px; }
+        .tables td.number { text-align: center; }
+        .tables td.rank { text-align: center; font-weight: bold; }
+        .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 8px; font-size: 7pt; }
+        .legend .swatch { display: inline-block; width: 8px; height: 8px; border: 1px solid #0b0c0c; margin-right: 3px; }
+        .chart { position: relative; font-size: 8px; }
+        .chart-body { position: relative; }
+        .gridline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 0.5px solid #b1b4b6; }
+        .bar-row { position: absolute; left: 0; height: 13px; }
+        .bar-label { position: absolute; left: 0; width: 355px; text-align: right; line-height: 13px; white-space: nowrap; overflow: hidden; }
+        .segment { position: absolute; top: 2.5px; height: 8px; box-sizing: border-box; border: 0.5px solid #0b0c0c; }
+        .axis { position: relative; height: 14px; }
+        .tick { position: absolute; top: 2px; width: 40px; margin-left: -20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <section class="front">
+        <h1>@Model.Title</h1>
+        <p>@Model.Subtitle</p>
+
+        <div class="intro">
+            <p>
+                <strong><u>Top 25 Disease Ranking:</u></strong>
+                Summary table of the top scoring diseases for exotics and endemics, combined to show their overall ranking for each RFI.
+                Post mitigation risk (score shown in &lsquo;PMR&rsquo; columns on this page) is not ranked separately as diseases are only
+                important to Defra if they have a significant impact. Note: *=Disease profiles awaiting validation.
+            </p>
+            <table class="key">
+                <tr><th scope="col">Key</th></tr>
+                <tr><td class="exotic">EXOTIC DISEASE</td></tr>
+                <tr><td>Endemic disease</td></tr>
+            </table>
+        </div>
+
+        <p class="notice">PLEASE NOTE: SCORES ARE <u>NOT</u> COMPARABLE ACROSS TABLES (BETWEEN RFI's) WHICH IS WHY RANKINGS ARE IN BOLD</p>
+
+        <div class="tables">
+            @foreach (var table in Model.TopTables)
+            {
+                <table>
+                    <thead>
+                        <tr style="background:@table.Colour">
+                            <th scope="col">@table.Name</th>
+                            <th scope="col">RANK</th>
+                            <th scope="col">SCORE</th>
+                            <th scope="col">PMR</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in table.Rows)
+                        {
+                            <tr class="@(row.IsExotic ? "exotic" : null)">
+                                <td>@row.Disease</td>
+                                <td class="rank" style="background:@table.Colour">@row.Rank</td>
+                                <td class="number">@row.Score.ToString(CultureInfo.InvariantCulture)</td>
+                                <td class="number">@row.Pmr.ToString(CultureInfo.InvariantCulture)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+
+    @foreach (var chart in Model.Charts)
+    {
+        var layout = new ChartLayout(chart);
+
+        <section class="graph">
+            <h2>@chart.Title</h2>
+            @foreach (var paragraph in chart.Paragraphs)
+            {
+                <p>@paragraph</p>
+            }
+
+            <div class="legend">
+                @foreach (var entry in chart.Legend)
+                {
+                    <div><span class="swatch" style="background:@entry.Colour"></span>@entry.Name</div>
+                }
+            </div>
+
+            @if (layout.HasBars)
+            {
+                <div class="chart" style="width:@(N(ChartLayout.Width))px">
+                    <div class="chart-body" style="height:@(N(layout.BodyHeight))px">
+                        @foreach (var tick in layout.Ticks)
+                        {
+                            <span class="gridline" style="left:@(N(layout.X(tick)))px"></span>
+                        }
+
+                        @for (var index = 0; index < chart.Bars.Count; index++)
+                        {
+                            var bar = chart.Bars[index];
+
+                            <div class="bar-row" style="top:@(N(ChartLayout.RowTop(index)))px">
+                                <span class="bar-label">@bar.Label</span>
+                                @foreach (var segment in bar.Segments)
+                                {
+                                    <span class="segment" style="left:@(N(layout.X(segment.Start)))px;width:@(N(layout.X(segment.End) - layout.X(segment.Start)))px;background:@segment.Colour"></span>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="axis">
+                        @foreach (var tick in layout.Ticks)
+                        {
+                            <span class="tick" style="left:@(N(layout.X(tick)))px">@tick.ToString("0", CultureInfo.InvariantCulture)</span>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p>There are no diseases to show on this graph.</p>
+            }
+        </section>
+    }
+</body>
+</html>
