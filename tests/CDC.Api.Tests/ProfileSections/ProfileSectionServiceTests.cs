@@ -1,9 +1,9 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
-using CDC.Api.Infrastructure;
 using CDC.Common.Contracts;
 using FluentAssertions;
 using FluentValidation;
@@ -25,9 +25,13 @@ public class ProfileSectionServiceTests
 
     private readonly Mock<IProfileSectionRepository> repository = new(MockBehavior.Strict);
     private readonly Mock<IProfileReportContentRepository> contentRepository = new(MockBehavior.Strict);
+    private readonly Mock<IUserContext> userContext = new();
+
+    public ProfileSectionServiceTests() =>
+        userContext.SetupGet(context => context.UserId).Returns(AuditUserId);
 
     private ProfileSectionService CreateService() =>
-        new(repository.Object, contentRepository.Object, new SpeciesAuditOptions(AuditUserId), NullLogger<ProfileSectionService>.Instance, new FixedTimeProvider(FixedNow));
+        new(repository.Object, contentRepository.Object, userContext.Object, NullLogger<ProfileSectionService>.Instance, new FixedTimeProvider(FixedNow));
 
     [Fact]
     public async Task GetProfileQuestionnaireMetadataAsync_MapsSectionsQuestionsAndFields()
@@ -686,6 +690,39 @@ public class ProfileSectionServiceTests
             ProfileSectionTestData.ProfileVersionId, [Input(ProfileSectionTestData.SectionId)], CancellationToken.None);
 
         result.SectionsSavedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_Throws_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+
+        var act = () => CreateService().ClearProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_Throws_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+
+        var act = () => CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionRevisionDatesAsync_Throws_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+
+        var act = () => CreateService().SaveProfileVersionRevisionDatesAsync(
+            ProfileSectionTestData.ProfileVersionId, [Input(ProfileSectionTestData.SectionId)], CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
 
     private void SetupLookups()

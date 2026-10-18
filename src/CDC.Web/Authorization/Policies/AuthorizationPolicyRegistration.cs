@@ -7,10 +7,10 @@ namespace CDC.Web.Authorization.Policies;
 /// <summary>
 /// Registers every named policy from <see cref="AuthorizationPolicies"/> against an
 /// <see cref="AllowedRolesRequirement"/>, with the allowed roles for each policy centralized
-/// here - the single place to change a role mapping. See the Header implementation summary for
-/// how each policy's role list maps back to its legacy <c>CanXxx()</c> equivalent, including
-/// three policies where the allowed roles were deliberately widened/narrowed from the legacy
-/// behaviour at the requester's explicit instruction.
+/// here - the single place to change a role mapping. Each list follows the legacy <c>CanXxx()</c>
+/// method it replaces, except where the requester explicitly chose otherwise: Compare profile versions
+/// and Review Timings also allow Reviewer, and View species data and Disease ranking report are open
+/// to every role, as the legacy menu showed them to everybody.
 /// </summary>
 public static class AuthorizationPolicyRegistration
 {
@@ -27,6 +27,10 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewProfileComparison,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
 
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewDiseaseRankingReport,
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
+            AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
+
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReports,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
             AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
@@ -41,7 +45,8 @@ public static class AuthorizationPolicyRegistration
             AuthorizationRoles.ProfileEditor);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewSpeciesData,
-            AuthorizationRoles.ProfileEditor);
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
+            AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReviewTiming,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
@@ -55,9 +60,8 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.IsProfileEditor,
             AuthorizationRoles.ProfileEditor);
 
-        // Scaffolded for the footer/admin-pages phase - not yet wired to any page or nav item.
-        // Role lists are a provisional ProfileEditor-only default; confirm against the relevant
-        // legacy CanXxx() method when each of these is actually implemented.
+        // Footer admin links (User Admin and Cross Profile Admin), which the header Menu does not carry. Role
+        // lists are a ProfileEditor-only default; confirm against each legacy CanXxx() method named on the policy.
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageGlobalUsers,
             AuthorizationRoles.ProfileEditor);
 

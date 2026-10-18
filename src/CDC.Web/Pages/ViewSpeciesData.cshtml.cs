@@ -1,5 +1,7 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Pages;
@@ -9,6 +11,7 @@ namespace CDC.Web.Pages;
 /// </summary>
 /// <param name="speciesApiService">Typed client for the species endpoints on CDC.Api.</param>
 /// <param name="logger">Structured logger.</param>
+[Authorize(Policy = AuthorizationPolicies.CanViewSpeciesData)]
 public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<ViewSpeciesDataModel> logger)
     : BreadcrumbPageModelBase("View species data")
 {

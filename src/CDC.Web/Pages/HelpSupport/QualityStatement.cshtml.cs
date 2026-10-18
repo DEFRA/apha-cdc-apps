@@ -1,4 +1,6 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -8,6 +10,7 @@ namespace CDC.Web.Pages.HelpSupport;
 /// Redirects to the current "D2R2 Quality Statement" document, served directly by CDC.Api -
 /// matches the pattern <see cref="StaticReportsModel.GetDocumentUrl"/> uses for its links.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanViewReports)]
 public class QualityStatementModel : BreadcrumbPageModelBase
 {
     /// <summary>Matches the title legacy uploads this report under - see <c>Footer.ascx.vb</c>.</summary>

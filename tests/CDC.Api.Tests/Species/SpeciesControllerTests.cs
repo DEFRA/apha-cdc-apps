@@ -1,9 +1,9 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Commands;
 using CDC.Api.Features.Species.Dtos;
 using CDC.Api.Features.Species.Queries;
-using CDC.Api.Infrastructure;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -18,8 +18,12 @@ public class SpeciesControllerTests
     private static readonly Guid AuditUserId = Guid.Parse("66666666-6666-6666-6666-666666666666");
 
     private readonly Mock<ISender> mediator = new(MockBehavior.Strict);
+    private readonly Mock<IUserContext> userContext = new();
 
-    private SpeciesController CreateController() => new(mediator.Object, new SpeciesAuditOptions(AuditUserId))
+    public SpeciesControllerTests() =>
+        userContext.SetupGet(context => context.UserId).Returns(AuditUserId);
+
+    private SpeciesController CreateController() => new(mediator.Object, userContext.Object)
     {
         // ControllerBase.Problem() resolves this from the request services at runtime.
         ProblemDetailsFactory = new TestProblemDetailsFactory(),
@@ -235,7 +239,7 @@ public class SpeciesControllerTests
     }
 
     [Fact]
-    public async Task UpdateSpeciesNameParent_SetsUserIdFromConfiguredAuditOptions_NotFromTheRequestBody()
+    public async Task UpdateSpeciesNameParent_SetsUserIdFromTheSignedInUser_NotFromTheRequestBody()
     {
         UpdateSpeciesNameParentCommand? capturedCommand = null;
 
@@ -256,6 +260,40 @@ public class SpeciesControllerTests
 
         capturedCommand.Should().NotBeNull();
         capturedCommand!.UserId.Should().Be(AuditUserId);
+    }
+
+    [Fact]
+    public async Task EverySpeciesWrite_IsRefused_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+        var controller = CreateController();
+
+        Func<Task>[] writes =
+        [
+            () => controller.UpdateSpeciesNameParent(
+                new UpdateSpeciesNameParentRequestDto { SpeciesId = SpeciesTestData.SpeciesId, Name = "Dairy", Reason = "Simplifying the name", LastUpdated = SpeciesTestData.RowVersion },
+                CancellationToken.None),
+            () => controller.AddSpecies(
+                new AddSpeciesRequestDto { Name = "Jersey", ParentId = Guid.Empty, Reason = "New breed" },
+                CancellationToken.None),
+            () => controller.ChangeSpeciesPosition(
+                SpeciesTestData.SpeciesId, new ChangeSpeciesPositionRequestDto { IsMovingUp = true }, CancellationToken.None),
+            () => controller.InactivateSpecies(
+                SpeciesTestData.SpeciesId,
+                new InactivateSpeciesRequestDto { Reason = "No longer surveyed", LastUpdated = SpeciesTestData.RowVersion },
+                CancellationToken.None),
+            () => controller.DeleteSpecies(
+                SpeciesTestData.SpeciesId,
+                new DeleteSpeciesRequestDto { Reason = "Duplicate of an existing entry", LastUpdated = SpeciesTestData.RowVersion },
+                CancellationToken.None)
+        ];
+
+        foreach (var write in writes)
+        {
+            await write.Should().ThrowAsync<UnauthorizedAccessException>();
+        }
+
+        mediator.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -319,7 +357,7 @@ public class SpeciesControllerTests
     }
 
     [Fact]
-    public async Task AddSpecies_SetsUserIdFromConfiguredAuditOptions_NotFromTheRequestBody()
+    public async Task AddSpecies_SetsUserIdFromTheSignedInUser_NotFromTheRequestBody()
     {
         AddSpeciesCommand? capturedCommand = null;
 

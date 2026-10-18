@@ -49,4 +49,10 @@ public interface IUserRepository
     /// <param name="ssoUserIdInt">The Entra ID 'oid' claim to record.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     Task UpdateSsoUserIdIntAsync(Guid id, Guid ssoUserIdInt, CancellationToken cancellationToken);
+
+    /// <summary>Reads the signed-in user an API request is made for, with their role flags, via <c>spgUser</c>.</summary>
+    /// <param name="userId">The <c>[User].Id</c> CDC.Web forwarded for the request.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The matching user, or <see langword="null"/> when none exists.</returns>
+    Task<Domain.Entities.ActingUser?> GetActingUserAsync(Guid userId, CancellationToken cancellationToken);
 }

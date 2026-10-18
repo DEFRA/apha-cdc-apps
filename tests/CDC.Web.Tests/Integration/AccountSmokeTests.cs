@@ -55,6 +55,18 @@ public class AccountSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // The page the cookie schemes redirect a signed-in user to when a policy refuses them a page.
+    [Fact]
+    public async Task AccessDenied_ReturnsForbiddenWithAnExplanation()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/Account/AccessDenied");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("You do not have permission to view this page", await response.Content.ReadAsStringAsync());
+    }
+
     // CIDM's B2C policy doesn't always echo back the protected state on its post-logout redirect,
     // so the callback must still land somewhere real rather than rendering an empty response.
     [Fact]

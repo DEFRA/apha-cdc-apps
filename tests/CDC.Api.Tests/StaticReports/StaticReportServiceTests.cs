@@ -20,6 +20,7 @@ public sealed class StaticReportServiceTests
 
     private sealed class FakeUserContext(bool isProfileEditor, bool isUserManagementSystem) : IUserContext
     {
+        public Guid? UserId => null;
         public bool IsProfileEditor => isProfileEditor;
         public bool IsUserManagementSystem => isUserManagementSystem;
         public bool IsPolicyProfileUser => false;

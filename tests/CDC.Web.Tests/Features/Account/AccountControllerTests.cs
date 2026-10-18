@@ -114,6 +114,20 @@ public class AccountControllerTests
     }
 
     [Fact]
+    public void AccessDenied_ReturnsViewWithForbiddenStatus()
+    {
+        var controller = new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+
+        var result = controller.AccessDenied();
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, controller.HttpContext.Response.StatusCode);
+    }
+
+    [Fact]
     public void LoginInternal_WhenAnonymous_ChallengesEntraSchemeWithRedirectToLandingInternal()
     {
         var controller = new AccountController
