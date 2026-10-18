@@ -322,6 +322,44 @@ public class ProfileReviewCommentServiceTests
         result.Status.Should().Be(ResultStatus.Forbidden);
     }
 
+    [Fact]
+    public async Task DeleteAllAsync_DeletesEveryCommentOfTheSection_WhenTheVersionIsAnEditableCurrentDraft()
+    {
+        GivenVersion();
+        repository
+            .Setup(repo => repo.DeleteAllReviewCommentsAsync(VersionId, SectionId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.DeleteAllReviewCommentsAsync(VersionId, SectionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task DeleteAllAsync_ReturnsForbidden_WhenTheVersionIsPublishedOrNoLongerCurrent(bool isPublished, bool isSuperseded)
+    {
+        GivenVersion(isPublished, isSuperseded ? FixedNow.AddDays(-1) : null);
+
+        var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.DeleteAllReviewCommentsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAllAsync_ReturnsForbidden_WhenTheUserIsNotAProfileEditor()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        GivenVersion();
+
+        var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
     private sealed class FixedTimeProvider(DateTime localNow) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => new(localNow, TimeSpan.Zero);

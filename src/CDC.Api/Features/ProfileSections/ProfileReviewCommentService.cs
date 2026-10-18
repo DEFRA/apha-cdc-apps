@@ -160,6 +160,24 @@ public sealed class ProfileReviewCommentService(
         return Result.Success(Unit.Value);
     }
 
+    /// <inheritdoc />
+    public async Task<Result<Unit>> DeleteAllAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken)
+    {
+        var summary = await managementRepository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
+
+        if (!ProfileManagementService.ComputeCanEditProfileSection(summary, userContext))
+        {
+            logger.ReviewCommentChangeRefused(profileVersionId, "not an editable current draft");
+
+            return Result.Forbidden<Unit>("Review comments can only be deleted from the current draft version.");
+        }
+
+        await repository.DeleteAllReviewCommentsAsync(profileVersionId, profileSectionId, cancellationToken);
+        logger.DeletedAllReviewComments(profileVersionId, profileSectionId);
+
+        return Result.Success(Unit.Value);
+    }
+
     private static bool CanModify(ProfileReviewComment comment, ReviewCommentUser actingUser) =>
         comment.ChildCount == 0 && string.Equals(comment.UserName, actingUser.UserName, StringComparison.OrdinalIgnoreCase);
 

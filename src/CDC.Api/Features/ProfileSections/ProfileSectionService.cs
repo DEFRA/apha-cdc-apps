@@ -67,7 +67,8 @@ public sealed class ProfileSectionService(
             {
                 ProfileSectionId = section.Id,
                 IsValid = reasons.Count == 0,
-                InvalidQuestionIds = [.. reasons.Where(reason => reason.QuestionId != Guid.Empty).Select(reason => reason.QuestionId).Distinct()]
+                InvalidQuestionIds = [.. reasons.Where(reason => reason.QuestionId != Guid.Empty).Select(reason => reason.QuestionId).Distinct()],
+                IrrelevantQuestionIds = ProfileSectionChangePlanner.FindIrrelevantQuestionIds(section, validation.Answers[section.Id], validation.ValuesByField)
             });
         }
 
@@ -80,39 +81,25 @@ public sealed class ProfileSectionService(
     public async Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken)
     {
-        var section = await GetSectionMetadataAsync(profileSectionId, cancellationToken);
+        var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
+        var section = questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
         if (section is null)
         {
             return new ClearProfileSectionResultDto { FieldsClearedCount = 0 };
         }
 
-        var answers = await repository.GetProfileSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
-        var fieldsByQuestionAndNumber = BuildFieldLookup(section);
-
-        var instructions = answers.FieldValues
-            .Where(value => fieldsByQuestionAndNumber.ContainsKey((value.QuestionId, value.FieldNumber)))
-            .Select(value =>
-            {
-                var field = fieldsByQuestionAndNumber[(value.QuestionId, value.FieldNumber)];
-
-                return new ProfileFieldClearInstruction
-                {
-                    ProfileFieldId = field.Id,
-                    SpeciesId = value.SpeciesId,
-                    ProfileVersionQuestionRowId = value.ProfileVersionQuestionRowId,
-                    IsMultiValueList = string.Equals(field.DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase)
-                };
-            })
-            .Distinct()
-            .ToList();
+        var answers = await contentRepository.GetSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
+        var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
+        var change = ProfileSectionChangePlanner.PlanClear(section, answers, version.IsWhatIfScenario, lastUpdated);
 
         // No authenticated user yet: the contribution is logged against the configured acting user
         // (a real [User] row, as spiProfileVersionSectionUser has a foreign key) until Entra ID lands.
-        var clearedCount = await repository.ClearProfileVersionSectionAnswersAsync(
-            profileVersionId, profileSectionId, instructions, auditOptions.AuditUserId, cancellationToken);
+        var clearedCount = await repository.ApplyProfileVersionSectionChangeAsync(
+            profileVersionId, profileSectionId, change, auditOptions.AuditUserId, cancellationToken);
 
         logger.ClearedProfileVersionSection(profileVersionId, profileSectionId, clearedCount);
 
@@ -145,46 +132,28 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken)
     {
-        var section = await GetSectionMetadataAsync(profileSectionId, cancellationToken);
+        var version = await LoadVersionAnswersAsync(profileVersionId, cancellationToken);
+        var section = version.Questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
-        if (section is null || answers.Count == 0)
+        if (section is null)
         {
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
-        // Only standard (non-per-species, non-repeating) questions are editable; "Field Group"
-        // entries are containers for a repeating question's nested fields, not answerable fields.
-        var editableFieldsById = section.Questions
-            .Where(question => !question.IsPerSpecies && !question.IsRepeating)
-            .SelectMany(question => question.Fields)
-            .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(field => field.Id);
+        var change = ProfileSectionChangePlanner.PlanSave(section, version.Answers, version.Context.IsWhatIfScenario, answers, lastUpdated);
 
-        var instructions = answers
-            .Where(answer => editableFieldsById.ContainsKey(answer.ProfileFieldId))
-            .Select(answer => new ProfileFieldSaveInstruction
-            {
-                ProfileFieldId = answer.ProfileFieldId,
-                BooleanValue = answer.BooleanValue,
-                ListValue = answer.ListValue,
-                MultiListValues = answer.MultiListValues,
-                DecimalValue = answer.DecimalValue,
-                DateValue = answer.DateValue,
-                TextValue = answer.TextValue,
-                IsMultiValueList = string.Equals(editableFieldsById[answer.ProfileFieldId].DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase)
-            })
-            .ToList();
-
-        if (instructions.Count == 0)
+        // The legacy page saved nothing, and so did not touch the section, when no answer had changed.
+        if (change.ValueChangeCount == 0)
         {
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
         // Acting user placeholder: see ClearProfileVersionSectionAsync.
-        var savedCount = await repository.SaveProfileVersionSectionAnswersAsync(
-            profileVersionId, profileSectionId, instructions, auditOptions.AuditUserId, cancellationToken);
+        var savedCount = await repository.ApplyProfileVersionSectionChangeAsync(
+            profileVersionId, profileSectionId, change, auditOptions.AuditUserId, cancellationToken);
 
         logger.SavedProfileVersionSection(profileVersionId, profileSectionId, savedCount);
 
@@ -377,21 +346,9 @@ public sealed class ProfileSectionService(
     private static DateTime? CompletedDate(Guid? newStatusId, Guid? existingStatusId, Guid? completeStatusId, DateTime now) =>
         completeStatusId is not null && newStatusId == completeStatusId && newStatusId != existingStatusId ? now : null;
 
-    private async Task<ProfileSectionMetadata?> GetSectionMetadataAsync(Guid profileSectionId, CancellationToken cancellationToken)
-    {
-        var metadata = await repository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
-
-        return metadata.Sections.FirstOrDefault(section => section.Id == profileSectionId);
-    }
-
-    private static Dictionary<(Guid QuestionId, int FieldNumber), ProfileFieldMetadata> BuildFieldLookup(ProfileSectionMetadata section) =>
-        section.Questions
-            .SelectMany(question => question.Fields.Select(field => (question.Id, field)))
-            .ToDictionary(entry => (entry.Id, entry.field.FieldNumber), entry => entry.field);
-
-    /// <summary>Loads everything the legacy <c>Validate()</c> consulted: every section's answers, not only the one being
-    /// validated, because an answer in one section can decide the relevance of a question in another.</summary>
-    private async Task<VersionValidation> LoadValidationAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    /// <summary>Loads every section's answers, not only the one being changed or validated, because an answer in one section
+    /// can decide the relevance of a question in another.</summary>
+    private async Task<VersionAnswers> LoadVersionAnswersAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
         var answers = new Dictionary<Guid, ReportSectionAnswers>();
@@ -401,23 +358,39 @@ public sealed class ProfileSectionService(
             answers[section.Id] = await contentRepository.GetSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
         }
 
-        var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
+        var context = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
+
+        return new VersionAnswers(questionnaire, answers, context);
+    }
+
+    /// <summary>Loads everything the legacy <c>Validate()</c> consulted.</summary>
+    private async Task<VersionValidation> LoadValidationAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var version = await LoadVersionAnswersAsync(profileVersionId, cancellationToken);
         var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
         var completeStatusId = statuses
             .FirstOrDefault(status => string.Equals(status.Name, CompleteStatusName, StringComparison.OrdinalIgnoreCase))?.Id ?? Guid.Empty;
 
+        var allValues = version.Answers.Values.SelectMany(sectionAnswers => sectionAnswers.Values).ToList();
+
         var validator = new ProfileVersionValidator(
             contentRepository,
-            [.. answers.Values.SelectMany(sectionAnswers => sectionAnswers.Values)],
-            version,
+            allValues,
+            version.Context,
             completeStatusId,
             clock.GetLocalNow().DateTime);
 
-        return new VersionValidation(questionnaire, answers, validator);
+        return new VersionValidation(version.Questionnaire, version.Answers, validator, allValues.ToLookup(value => value.FieldId));
     }
+
+    private sealed record VersionAnswers(
+        ReportQuestionnaire Questionnaire,
+        Dictionary<Guid, ReportSectionAnswers> Answers,
+        ReportVersionContext Context);
 
     private sealed record VersionValidation(
         ReportQuestionnaire Questionnaire,
         Dictionary<Guid, ReportSectionAnswers> Answers,
-        ProfileVersionValidator Validator);
+        ProfileVersionValidator Validator,
+        ILookup<Guid, ReportFieldValue> ValuesByField);
 }

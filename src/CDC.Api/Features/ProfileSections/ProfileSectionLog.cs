@@ -44,4 +44,10 @@ internal static partial class ProfileSectionLog
 
     [LoggerMessage(EventId = 9013, Level = LogLevel.Warning, Message = "Review comment change refused for profile version {ProfileVersionId}: {Reason}")]
     public static partial void ReviewCommentChangeRefused(this ILogger logger, Guid profileVersionId, string reason);
+
+    [LoggerMessage(EventId = 9014, Level = LogLevel.Warning, Message = "Profile version {ProfileVersionId} section {ProfileSectionId} was not changed: it was saved by another user, or the version is not a current draft")]
+    public static partial void ProfileSectionConcurrencyConflict(this ILogger logger, Guid profileVersionId, Guid profileSectionId);
+
+    [LoggerMessage(EventId = 9015, Level = LogLevel.Information, Message = "Deleted every review comment of profile version {ProfileVersionId} section {ProfileSectionId}")]
+    public static partial void DeletedAllReviewComments(this ILogger logger, Guid profileVersionId, Guid profileSectionId);
 }

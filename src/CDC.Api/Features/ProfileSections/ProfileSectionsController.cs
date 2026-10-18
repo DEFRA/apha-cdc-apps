@@ -142,17 +142,22 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     /// Clears every recorded answer in one profile version's section.
     /// </summary>
     /// <remarks>
-    /// Matches the legacy <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway invoked by
-    /// the "Clear" button on <c>EditProfileQuestions.aspx</c>.
+    /// Matches the legacy <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway invoked by the "Clear" button on
+    /// <c>EditProfileQuestions.aspx</c>: every answer that is not read-only is cleared, the repeating rows are deleted and
+    /// the section's review frequencies, next review dates and review statuses are blanked, in one transaction.
+    /// Send the <c>lastUpdated</c> read with the section's answers to be refused, rather than overwrite, when someone
+    /// else has saved the section since. The section's notes and review comments are cleared by separate calls.
     /// </remarks>
     /// <param name="command">The profile version and section to clear.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The number of fields cleared.</returns>
+    /// <returns>The number of values cleared.</returns>
     /// <response code="200">The section was cleared.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="409">The section was saved by another user, or the version is not a current draft.</response>
     [HttpPost("clear")]
     [ProducesResponseType(typeof(ClearProfileSectionResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ClearProfileSectionResultDto>> ClearProfileVersionSection(
         [FromBody] ClearProfileVersionSectionCommand command,
         CancellationToken cancellationToken)
@@ -163,22 +168,26 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Saves every submitted field answer in one profile version's section.
+    /// Saves the answers submitted for one profile version's section.
     /// </summary>
     /// <remarks>
-    /// Matches the legacy <c>IProfileField.Save()</c> pathway invoked by the "Save" button on
-    /// <c>EditProfileQuestions.aspx</c>, for standard (non-per-species, non-repeating) questions
-    /// only. Answers for a per-species question, a repeating question, or an unrecognised field
-    /// are silently ignored.
+    /// Matches the legacy save of <c>EditProfileQuestions.aspx</c>, for standard (non-per-species, non-repeating) questions
+    /// only: answers for a per-species question, a repeating question, a read-only field or an unrecognised field are
+    /// ignored. Only the answers that differ from what is recorded are written, after the questions they have made
+    /// irrelevant have been cleared, and nothing is written, and the section is not touched, when nothing changed.
+    /// Send the <c>lastUpdated</c> read with the section's answers to be refused, rather than overwrite, when someone
+    /// else has saved the section since.
     /// </remarks>
     /// <param name="command">The profile version, section and submitted field answers.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The number of fields saved.</returns>
+    /// <returns>The number of values saved or cleared.</returns>
     /// <response code="200">The section was saved.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="409">The section was saved by another user, or the version is not a current draft.</response>
     [HttpPost("save")]
     [ProducesResponseType(typeof(SaveProfileSectionResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SaveProfileSectionResultDto>> SaveProfileVersionSection(
         [FromBody] SaveProfileVersionSectionCommand command,
         CancellationToken cancellationToken)
@@ -350,6 +359,35 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new DeleteProfileReviewCommentCommand(id, profileVersionId, profileSectionId), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
+    /// <summary>
+    /// Deletes every review comment, and reply, of one profile version's section.
+    /// </summary>
+    /// <remarks>
+    /// Matches the last step of the legacy "Clear section" button, which deleted all the review comments of the section
+    /// once its answers had been cleared. Allowed only while the profile version is a current draft the acting user
+    /// can edit.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version the comments belong to.</param>
+    /// <param name="profileSectionId">The section the comments belong to.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>No content on success.</returns>
+    /// <response code="204">The comments were deleted.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The profile version is not a current draft the acting user can edit.</response>
+    [HttpDelete("review-comments")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult> DeleteAllProfileReviewComments(
+        [FromQuery] Guid profileVersionId,
+        [FromQuery] Guid profileSectionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new DeleteAllProfileReviewCommentsCommand(profileVersionId, profileSectionId), cancellationToken);
 
         return result.ToNoContentActionResult(this);
     }

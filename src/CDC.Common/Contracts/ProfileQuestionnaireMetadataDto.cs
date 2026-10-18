@@ -23,4 +23,16 @@ public sealed record ProfileQuestionMetadataDto : QuestionnaireQuestionMetadataC
 }
 
 /// <summary>A single answerable field within a profile question.</summary>
-public sealed record ProfileFieldMetadataDto : QuestionnaireFieldMetadataContract;
+public sealed record ProfileFieldMetadataDto : QuestionnaireFieldMetadataContract
+{
+    /// <summary>Gets a value indicating whether the field is read-only for the current situation of a profile.</summary>
+    public bool IsReadOnlyCurrentSituation { get; init; }
+
+    /// <summary>Gets a value indicating whether the field is read-only for a "what-if" scenario.</summary>
+    public bool IsReadOnlyScenario { get; init; }
+
+    /// <summary>Tells whether the field is read-only for one kind of profile: it is neither editable, saved nor cleared.</summary>
+    /// <param name="isWhatIfScenario">Whether the profile is a "what-if" scenario rather than the current situation.</param>
+    /// <returns><see langword="true"/> when the field cannot be changed.</returns>
+    public bool IsReadOnlyFor(bool isWhatIfScenario) => isWhatIfScenario ? IsReadOnlyScenario : IsReadOnlyCurrentSituation;
+}

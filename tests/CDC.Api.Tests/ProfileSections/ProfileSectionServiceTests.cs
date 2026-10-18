@@ -1,4 +1,5 @@
 using CDC.Api.Domain.Entities;
+using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
@@ -19,6 +20,7 @@ public class ProfileSectionServiceTests
     private static readonly Guid CompleteStatusId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly byte[] RowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
     private static readonly Guid AuditUserId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    private static readonly Guid RowId = Guid.Parse("66666666-6666-6666-6666-666666666666");
     private static readonly DateTime FixedNow = new(2026, 10, 12, 9, 30, 0);
 
     private readonly Mock<IProfileSectionRepository> repository = new(MockBehavior.Strict);
@@ -273,78 +275,83 @@ public class ProfileSectionServiceTests
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAsync_ClearsEveryAnsweredField_AndReturnsTheClearedCount()
+    public async Task ClearProfileVersionSectionAsync_AppliesAChangeThatClearsEveryAnswerRowAndTheRevisionData_AndReturnsTheClearedCount()
     {
+        GivenClearInputs(isWhatIfScenario: false);
+        ProfileSectionChange? applied = null;
         repository
-            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(MetadataWithOneMandatoryField());
-        repository
-            .Setup(repo => repo.GetProfileSectionAnswersAsync(
-                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ProfileSectionAnswers
-            {
-                ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
-                ProfileSectionId = ProfileSectionTestData.SectionId,
-                QuestionNames = [],
-                FieldValues =
-                [
-                    new ProfileFieldValue
-                    {
-                        Id = ProfileSectionTestData.FieldValueId,
-                        QuestionId = ProfileSectionTestData.QuestionId,
-                        FieldNumber = 1,
-                        BooleanValue = true
-                    }
-                ]
-            });
-        repository
-            .Setup(repo => repo.ClearProfileVersionSectionAnswersAsync(
-                ProfileSectionTestData.ProfileVersionId,
-                ProfileSectionTestData.SectionId,
-                It.Is<IReadOnlyList<ProfileFieldClearInstruction>>(instructions =>
-                    instructions.Count == 1
-                    && instructions[0].ProfileFieldId == ProfileSectionTestData.FieldId
-                    && !instructions[0].IsMultiValueList),
-                AuditUserId,
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
+            .Setup(repo => repo.ApplyProfileVersionSectionChangeAsync(
+                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<ProfileSectionChange>(), AuditUserId, It.IsAny<CancellationToken>()))
+            .Callback<Guid, Guid, ProfileSectionChange, Guid, CancellationToken>((_, _, change, _, _) => applied = change)
+            .ReturnsAsync(2);
 
         var result = await CreateService().ClearProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, RowVersion, CancellationToken.None);
 
-        result.FieldsClearedCount.Should().Be(1);
+        result.FieldsClearedCount.Should().Be(2);
+        applied.Should().NotBeNull();
+        applied.Clears.Should().ContainSingle().Which.ProfileFieldId.Should().Be(ProfileSectionTestData.FieldId);
+        applied.QuestionRowIdsToDelete.Should().Equal(RowId);
+        applied.ClearRevision.Should().BeTrue();
+        applied.ExpectedLastUpdated.Should().Equal(RowVersion);
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_LeavesAFieldThatIsReadOnlyForAScenario_WhenTheProfileIsAScenario()
+    {
+        GivenClearInputs(isWhatIfScenario: true);
+        ProfileSectionChange? applied = null;
+        repository
+            .Setup(repo => repo.ApplyProfileVersionSectionChangeAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<ProfileSectionChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, Guid, ProfileSectionChange, Guid, CancellationToken>((_, _, change, _, _) => applied = change)
+            .ReturnsAsync(1);
+
+        await CreateService().ClearProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, null, CancellationToken.None);
+
+        applied.Should().NotBeNull();
+        applied.Clears.Should().BeEmpty();
+        applied.ExpectedLastUpdated.Should().BeNull();
     }
 
     [Fact]
     public async Task ClearProfileVersionSectionAsync_ReturnsZero_WhenTheSectionDoesNotExist()
     {
-        repository
-            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ProfileQuestionnaireMetadata { Sections = [] });
+        contentRepository
+            .Setup(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportQuestionnaire { Sections = [] });
 
         var result = await CreateService().ClearProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, null, CancellationToken.None);
 
         result.FieldsClearedCount.Should().Be(0);
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionAsync_SavesAnsweredFields_AndReturnsTheSavedCount()
+    public async Task ClearProfileVersionSectionAsync_PropagatesAConcurrencyException()
     {
+        GivenClearInputs(isWhatIfScenario: false);
         repository
-            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(MetadataWithOneMandatoryField());
+            .Setup(repo => repo.ApplyProfileVersionSectionChangeAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<ProfileSectionChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("The profile version section has been edited by another user"));
+
+        var act = () => CreateService().ClearProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, RowVersion, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_AppliesTheAnswersThatChanged_AndReturnsTheSavedCount()
+    {
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: false);
+        ProfileSectionChange? applied = null;
         repository
-            .Setup(repo => repo.SaveProfileVersionSectionAnswersAsync(
-                ProfileSectionTestData.ProfileVersionId,
-                ProfileSectionTestData.SectionId,
-                It.Is<IReadOnlyList<ProfileFieldSaveInstruction>>(instructions =>
-                    instructions.Count == 1
-                    && instructions[0].ProfileFieldId == ProfileSectionTestData.FieldId
-                    && instructions[0].BooleanValue == true
-                    && !instructions[0].IsMultiValueList),
-                AuditUserId,
-                It.IsAny<CancellationToken>()))
+            .Setup(repo => repo.ApplyProfileVersionSectionChangeAsync(
+                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<ProfileSectionChange>(), AuditUserId, It.IsAny<CancellationToken>()))
+            .Callback<Guid, Guid, ProfileSectionChange, Guid, CancellationToken>((_, _, change, _, _) => applied = change)
             .ReturnsAsync(1);
 
         var answers = new List<ProfileFieldAnswerInputDto>
@@ -353,89 +360,122 @@ public class ProfileSectionServiceTests
         };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(1);
+        applied.Should().NotBeNull();
+        var save = applied.Saves.Should().ContainSingle().Subject;
+        save.ProfileFieldId.Should().Be(ProfileSectionTestData.FieldId);
+        save.BooleanValue.Should().BeTrue();
+        save.IsMultiValueList.Should().BeFalse();
+        applied.ExpectedLastUpdated.Should().Equal(RowVersion);
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionAsync_IgnoresAnswers_ForFieldsBelongingToAPerSpeciesOrRepeatingQuestion()
+    public async Task SaveProfileVersionSectionAsync_WritesNothing_WhenNoAnswerChanged()
     {
-        var perSpeciesFieldId = Guid.NewGuid();
-        var metadata = new ProfileQuestionnaireMetadata
-        {
-            Sections =
-            [
-                new ProfileSectionMetadata
-                {
-                    Id = ProfileSectionTestData.SectionId,
-                    Name = "Epidemiology",
-                    ShortName = "Epi",
-                    SectionNumber = 3,
-                    Questions =
-                    [
-                        new ProfileQuestionMetadata
-                        {
-                            Id = ProfileSectionTestData.QuestionId,
-                            SectionId = ProfileSectionTestData.SectionId,
-                            ShortName = "Q1",
-                            QuestionNumber = 1,
-                            IsPerSpecies = true,
-                            IsRepeating = false,
-                            Fields =
-                            [
-                                new ProfileFieldMetadata
-                                {
-                                    Id = perSpeciesFieldId,
-                                    QuestionId = ProfileSectionTestData.QuestionId,
-                                    Name = "Is it endemic?",
-                                    ShortName = "F1",
-                                    FieldNumber = 1,
-                                    DataFieldTypeId = ProfileSectionTestData.DataFieldTypeId,
-                                    DataTypeName = "Boolean",
-                                    IsMandatory = false,
-                                    ReferenceTableId = Guid.Empty,
-                                    ReferenceTableIsMaintainable = false
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        };
-
-        repository
-            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(metadata);
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: true);
 
         var answers = new List<ProfileFieldAnswerInputDto>
         {
-            new() { ProfileFieldId = perSpeciesFieldId, BooleanValue = true }
+            new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true }
         };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(0);
         repository.Verify(
-            repo => repo.SaveProfileVersionSectionAnswersAsync(
-                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ProfileFieldSaveInstruction>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            repo => repo.ApplyProfileVersionSectionChangeAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<ProfileSectionChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_ReadsEverySectionsAnswers_BecauseAnAnswerInOneCanDecideTheRelevanceOfAQuestionInAnother()
+    {
+        var otherSectionId = Guid.NewGuid();
+        var questionnaire = QuestionnaireWithOneMandatoryField();
+        questionnaire = questionnaire with { Sections = [.. questionnaire.Sections, new ReportSection { Id = otherSectionId, SectionNumber = 4, Name = "Other" }] };
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: true, questionnaire: questionnaire);
+        contentRepository
+            .Setup(repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, otherSectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportSectionAnswers());
+
+        await CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+
+        contentRepository.Verify(
+            repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, otherSectionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_PropagatesAConcurrencyException()
+    {
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: false);
+        repository
+            .Setup(repo => repo.ApplyProfileVersionSectionChangeAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<ProfileSectionChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("The profile version section has been edited by another user"));
+
+        var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true } };
+
+        var act = () => CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
     }
 
     [Fact]
     public async Task SaveProfileVersionSectionAsync_ReturnsZero_WhenTheSectionDoesNotExist()
     {
-        repository
-            .Setup(repo => repo.GetProfileQuestionnaireMetadataAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ProfileQuestionnaireMetadata { Sections = [] });
+        contentRepository
+            .Setup(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportQuestionnaire { Sections = [] });
+        contentRepository
+            .Setup(repo => repo.GetVersionContextAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportVersionContext());
 
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId } };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, null, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_ListsTheQuestionsTheAnswersMakeIrrelevant()
+    {
+        var followUpQuestionId = Guid.NewGuid();
+        var section = QuestionnaireWithOneMandatoryField().Sections[0];
+        var questionnaire = new ReportQuestionnaire
+        {
+            Sections =
+            [
+                section with
+                {
+                    Questions =
+                    [
+                        .. section.Questions,
+                        new ReportQuestion
+                        {
+                            Id = followUpQuestionId,
+                            QuestionNumber = 2,
+                            ShortName = "Q2",
+                            IrrelevanceFieldId = ProfileSectionTestData.FieldId,
+                            IrrelevanceFlag = false,
+                            Fields = [new ReportField { Id = Guid.NewGuid(), Name = "Follow-up", ShortName = "Follow-up", DataTypeName = "Text" }]
+                        }
+                    ]
+                }
+            ]
+        };
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: false, questionnaire: questionnaire);
+
+        var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Sections.Should().ContainSingle().Which.IrrelevantQuestionIds.Should().Equal(followUpQuestionId);
     }
 
     [Fact]
@@ -780,45 +820,28 @@ public class ProfileSectionServiceTests
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 
-    private static ProfileQuestionnaireMetadata MetadataWithOneMandatoryField() => new()
+    /// <summary>A section whose one Boolean field, answered Yes, is read-only for a scenario, with one repeating row, for the clear tests.</summary>
+    private void GivenClearInputs(bool isWhatIfScenario)
     {
-        Sections =
-        [
-            new ProfileSectionMetadata
+        var section = QuestionnaireWithOneMandatoryField().Sections[0];
+        var question = section.Questions[0];
+        var questionnaire = new ReportQuestionnaire
+        {
+            Sections = [section with { Questions = [question with { Fields = [question.Fields[0] with { IsReadOnlyScenario = true }] }] }]
+        };
+
+        contentRepository
+            .Setup(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(questionnaire);
+        contentRepository
+            .Setup(repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportSectionAnswers
             {
-                Id = ProfileSectionTestData.SectionId,
-                Name = "Epidemiology",
-                ShortName = "Epi",
-                SectionNumber = 3,
-                Questions =
-                [
-                    new ProfileQuestionMetadata
-                    {
-                        Id = ProfileSectionTestData.QuestionId,
-                        SectionId = ProfileSectionTestData.SectionId,
-                        ShortName = "Q1",
-                        QuestionNumber = 1,
-                        IsPerSpecies = false,
-                        IsRepeating = false,
-                        Fields =
-                        [
-                            new ProfileFieldMetadata
-                            {
-                                Id = ProfileSectionTestData.FieldId,
-                                QuestionId = ProfileSectionTestData.QuestionId,
-                                Name = "Is it endemic?",
-                                ShortName = "F1",
-                                FieldNumber = 1,
-                                DataFieldTypeId = ProfileSectionTestData.DataFieldTypeId,
-                                DataTypeName = "Boolean",
-                                IsMandatory = true,
-                                ReferenceTableId = Guid.Empty,
-                                ReferenceTableIsMaintainable = false
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
-    };
+                Rows = [new ReportQuestionRow(RowId, ProfileSectionTestData.QuestionId, 0)],
+                Values = [new ReportFieldValue { QuestionId = ProfileSectionTestData.QuestionId, FieldId = ProfileSectionTestData.FieldId, BooleanValue = true }]
+            });
+        contentRepository
+            .Setup(repo => repo.GetVersionContextAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportVersionContext { IsWhatIfScenario = isWhatIfScenario });
+    }
 }

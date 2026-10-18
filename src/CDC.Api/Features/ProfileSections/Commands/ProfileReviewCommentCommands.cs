@@ -225,3 +225,41 @@ public sealed class DeleteProfileReviewCommentCommandHandler(IProfileReviewComme
             request.ProfileVersionId, request.ProfileSectionId, request.Id, cancellationToken);
     }
 }
+
+/// <summary>
+/// Deletes every review comment, and reply, of one profile version's section: the last step of the legacy "Clear section".
+/// </summary>
+/// <param name="ProfileVersionId">The profile version the comments belong to.</param>
+/// <param name="ProfileSectionId">The section the comments belong to.</param>
+public sealed record DeleteAllProfileReviewCommentsCommand(Guid ProfileVersionId, Guid ProfileSectionId)
+    : IRequest<Result<Unit>>;
+
+/// <summary>Validates <see cref="DeleteAllProfileReviewCommentsCommand"/>.</summary>
+public sealed class DeleteAllProfileReviewCommentsCommandValidator : AbstractValidator<DeleteAllProfileReviewCommentsCommand>
+{
+    /// <summary>Initialises a new instance of the <see cref="DeleteAllProfileReviewCommentsCommandValidator"/> class.</summary>
+    public DeleteAllProfileReviewCommentsCommandValidator()
+    {
+        RuleFor(command => command.ProfileVersionId).NotEmpty().WithMessage("A profile version id is required.");
+        RuleFor(command => command.ProfileSectionId).NotEmpty().WithMessage("A profile section id is required.");
+    }
+}
+
+/// <summary>
+/// Handles <see cref="DeleteAllProfileReviewCommentsCommand"/>.
+/// </summary>
+/// <param name="reviewCommentService">Review comment application service.</param>
+public sealed class DeleteAllProfileReviewCommentsCommandHandler(IProfileReviewCommentService reviewCommentService)
+    : IRequestHandler<DeleteAllProfileReviewCommentsCommand, Result<Unit>>
+{
+    /// <summary>Executes the command.</summary>
+    /// <param name="request">The command.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>Success, or a forbidden result.</returns>
+    public async Task<Result<Unit>> Handle(DeleteAllProfileReviewCommentsCommand request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return await reviewCommentService.DeleteAllAsync(request.ProfileVersionId, request.ProfileSectionId, cancellationToken);
+    }
+}

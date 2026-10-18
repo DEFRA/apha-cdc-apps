@@ -1,8 +1,11 @@
+using CDC.Api.Domain.Common;
+using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileSections.Commands;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ProfileSections.Queries;
 using CDC.Common.Contracts;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace CDC.Api.Tests.ProfileSections;
@@ -88,20 +91,22 @@ public class ProfileSectionHandlerTests
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionCommandHandler_ReturnsSuccess_AndForwardsBothIdentifiers()
+    public async Task ClearProfileVersionSectionCommandHandler_ReturnsSuccess_AndForwardsTheIdentifiersAndTheRowVersion()
     {
         var dto = new ClearProfileSectionResultDto { FieldsClearedCount = 4 };
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
         service
             .Setup(svc => svc.ClearProfileVersionSectionAsync(
                 ProfileSectionTestData.ProfileVersionId,
                 ProfileSectionTestData.SectionId,
+                rowVersion,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
-        var result = await new ClearProfileVersionSectionCommandHandler(service.Object)
+        var result = await new ClearProfileVersionSectionCommandHandler(service.Object, NullLogger<ClearProfileVersionSectionCommandHandler>.Instance)
             .Handle(
-                new ClearProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId },
+                new ClearProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = rowVersion },
                 CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -109,26 +114,61 @@ public class ProfileSectionHandlerTests
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionCommandHandler_ReturnsSuccess_AndForwardsTheAnswers()
+    public async Task ClearProfileVersionSectionCommandHandler_MapsAConcurrencyExceptionToAConflict_WithTheReason()
+    {
+        service
+            .Setup(svc => svc.ClearProfileVersionSectionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("The profile version section has been edited by another user"));
+
+        var result = await new ClearProfileVersionSectionCommandHandler(service.Object, NullLogger<ClearProfileVersionSectionCommandHandler>.Instance)
+            .Handle(
+                new ClearProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId },
+                CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("The profile version section has been edited by another user");
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionCommandHandler_ReturnsSuccess_AndForwardsTheAnswersAndTheRowVersion()
     {
         var dto = new SaveProfileSectionResultDto { FieldsSavedCount = 3 };
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes" } };
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
         service
             .Setup(svc => svc.SaveProfileVersionSectionAsync(
                 ProfileSectionTestData.ProfileVersionId,
                 ProfileSectionTestData.SectionId,
                 answers,
+                rowVersion,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
-        var result = await new SaveProfileVersionSectionCommandHandler(service.Object)
+        var result = await new SaveProfileVersionSectionCommandHandler(service.Object, NullLogger<SaveProfileVersionSectionCommandHandler>.Instance)
             .Handle(
-                new SaveProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, Answers = answers },
+                new SaveProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, Answers = answers, LastUpdated = rowVersion },
                 CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionCommandHandler_MapsAConcurrencyExceptionToAConflict_WithTheReason()
+    {
+        service
+            .Setup(svc => svc.SaveProfileVersionSectionAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ProfileFieldAnswerInputDto>>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("The profile version section has been edited by another user"));
+
+        var result = await new SaveProfileVersionSectionCommandHandler(service.Object, NullLogger<SaveProfileVersionSectionCommandHandler>.Instance)
+            .Handle(
+                new SaveProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, Answers = [] },
+                CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("The profile version section has been edited by another user");
     }
 
     [Fact]

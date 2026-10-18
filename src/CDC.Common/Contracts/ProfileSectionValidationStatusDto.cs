@@ -29,4 +29,9 @@ public sealed record ProfileSectionValidationStatusDto
     /// <summary>Gets the questions of the section that have validation errors, which the questions page
     /// marks with a red cross (the legacy <c>question.Validate().Count = 0</c> tick/cross icon).</summary>
     public IReadOnlyList<Guid> InvalidQuestionIds { get; init; } = [];
+
+    /// <summary>Gets the questions of the section that the answers make irrelevant, which the questions page hides (the
+    /// legacy <c>HideAndClearIrrelevantQuestion</c>). A per-species question is listed when it is irrelevant for every
+    /// profiled species.</summary>
+    public IReadOnlyList<Guid> IrrelevantQuestionIds { get; init; } = [];
 }

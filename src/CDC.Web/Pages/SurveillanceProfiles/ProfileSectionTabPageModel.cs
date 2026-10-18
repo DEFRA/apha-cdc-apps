@@ -52,6 +52,10 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets a value indicating whether the "Clear" button is shown (legacy <c>CanClearProfileVersionSection()</c>).</summary>
     public bool CanClearProfileSection { get; private set; }
 
+    /// <summary>Gets a value indicating whether the profile is a "what-if" scenario rather than the current situation, which
+    /// decides which fields are read-only.</summary>
+    public bool IsWhatIfScenario { get; private set; }
+
     /// <summary>Gets a value indicating whether the "Review comments" tab is shown (legacy <c>CanGetReviewCommentList()</c>).</summary>
     public bool CanViewReviewComments { get; private set; }
 
@@ -89,6 +93,8 @@ public abstract class ProfileSectionTabPageModel(
 
     private HashSet<Guid> invalidQuestionIds = [];
 
+    private HashSet<Guid> irrelevantQuestionIds = [];
+
     /// <summary>Gets the tab this page implements, used to highlight the active tab and to build pagination links.</summary>
     public abstract ProfileSectionTab ActiveTab { get; }
 
@@ -118,6 +124,12 @@ public abstract class ProfileSectionTabPageModel(
     /// <returns>Whether the question has no validation errors, or <see langword="null"/> when unknown.</returns>
     public bool? GetQuestionValidationStatus(Guid questionId) =>
         CurrentSection is { } section && GetSectionValidationStatus(section.Id) is not null ? !invalidQuestionIds.Contains(questionId) : null;
+
+    /// <summary>Gets whether the answers make one question of the selected section irrelevant, so the page hides it as the
+    /// legacy <c>HideAndClearIrrelevantQuestion</c> did. A question is shown when this is not known.</summary>
+    /// <param name="questionId">The question.</param>
+    /// <returns><see langword="true"/> when the question is irrelevant.</returns>
+    public bool IsQuestionIrrelevant(Guid questionId) => irrelevantQuestionIds.Contains(questionId);
 
     /// <summary>Builds the URL a left-nav section link opens. Legacy <c>ProfileSectionLinks</c> always opens the
     /// section's Questions tab, whichever tab is showing.</summary>
@@ -224,6 +236,7 @@ public abstract class ProfileSectionTabPageModel(
         CanViewProfileReports = profile.CanViewProfileReports;
         CanEditProfileSection = profile.CanEditProfileSection;
         CanClearProfileSection = profile.CanClearProfileSection;
+        IsWhatIfScenario = profile.IsWhatIfScenario;
         CanViewReviewComments = profile.CanViewReviewComments;
         CanViewContributions = profile.CanViewContributions;
         CanViewAllRevisionDates = profile.CanViewAllRevisionDates;
@@ -244,12 +257,19 @@ public abstract class ProfileSectionTabPageModel(
                     .Where(section => section.ProfileSectionId == CurrentSection?.Id)
                     .SelectMany(section => section.InvalidQuestionIds)
             ];
+            irrelevantQuestionIds =
+            [
+                .. validationStatus.Sections
+                    .Where(section => section.ProfileSectionId == CurrentSection?.Id)
+                    .SelectMany(section => section.IrrelevantQuestionIds)
+            ];
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
             logger.ProfileSectionValidationStatusLoadFailed(exception, ProfileId);
             SectionValidationStatus = new Dictionary<Guid, bool>();
             invalidQuestionIds = [];
+            irrelevantQuestionIds = [];
         }
     }
 }

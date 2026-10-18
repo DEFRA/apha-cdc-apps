@@ -58,4 +58,7 @@ internal static partial class ProfileSectionTabLog
 
     [LoggerMessage(EventId = 2317, Level = LogLevel.Warning, Message = "A source of further information change on profile '{ProfileId}' was refused by CDC.Api with outcome {Outcome}")]
     public static partial void ProfileNoteChangeRefused(this ILogger logger, Guid profileId, ProfileNoteChangeOutcome outcome);
+
+    [LoggerMessage(EventId = 2318, Level = LogLevel.Warning, Message = "A {Action} of profile '{ProfileId}' section '{ProfileSectionId}' was refused by CDC.Api with outcome {Outcome}")]
+    public static partial void ProfileSectionWriteRefused(this ILogger logger, string action, Guid profileId, Guid profileSectionId, ProfileSectionWriteOutcome outcome);
 }

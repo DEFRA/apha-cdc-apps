@@ -24,38 +24,24 @@ public interface IProfileSectionRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Clears every recorded field value matched by <paramref name="instructions"/>, then logs
-    /// the contribution, matching the legacy <c>ProfileVersionSection.Clear()</c> + <c>Save()</c>
-    /// pathway.
+    /// Applies one save or clear to a profile version section in a single transaction, matching the legacy
+    /// <c>ProfileVersionSection.Save()</c>: the section row is rewritten via <c>spuProfileVersionSection</c> (which checks
+    /// the row version and that the version is a current draft), then the repeating rows are deleted, then the recorded
+    /// values are cleared and saved. The user's contribution is logged only when a value changed.
     /// </summary>
-    /// <param name="profileVersionId">The profile version to clear.</param>
-    /// <param name="profileSectionId">The section being cleared, for the contribution log.</param>
-    /// <param name="instructions">The exact rows to clear.</param>
+    /// <param name="profileVersionId">The profile version being changed.</param>
+    /// <param name="profileSectionId">The section being changed.</param>
+    /// <param name="change">What to write.</param>
     /// <param name="userId">The acting user, for the contribution log.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
-    /// <returns>The number of fields cleared.</returns>
-    Task<int> ClearProfileVersionSectionAnswersAsync(
+    /// <returns>The number of recorded values added, replaced or removed.</returns>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when the section was saved by another user since it was read, or the version is not a current draft.
+    /// </exception>
+    Task<int> ApplyProfileVersionSectionChangeAsync(
         Guid profileVersionId,
         Guid profileSectionId,
-        IReadOnlyList<ProfileFieldClearInstruction> instructions,
-        Guid userId,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Writes every recorded field value in <paramref name="instructions"/>, then logs the
-    /// contribution, matching the legacy <c>IProfileField.Save()</c> pathway for standard
-    /// (non-per-species, non-repeating) questions.
-    /// </summary>
-    /// <param name="profileVersionId">The profile version being answered.</param>
-    /// <param name="profileSectionId">The section being answered, for the contribution log.</param>
-    /// <param name="instructions">The exact field values to write.</param>
-    /// <param name="userId">The acting user, for the contribution log.</param>
-    /// <param name="cancellationToken">Cancels the database call.</param>
-    /// <returns>The number of fields saved.</returns>
-    Task<int> SaveProfileVersionSectionAnswersAsync(
-        Guid profileVersionId,
-        Guid profileSectionId,
-        IReadOnlyList<ProfileFieldSaveInstruction> instructions,
+        ProfileSectionChange change,
         Guid userId,
         CancellationToken cancellationToken);
 
@@ -115,6 +101,14 @@ public interface IProfileSectionRepository
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>A task that completes when the comment has been deleted.</returns>
     Task DeleteReviewCommentAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Deletes every review comment, and reply, of one profile version's section via
+    /// <c>spdReviewCommentsByProfileSection</c>.</summary>
+    /// <param name="profileVersionId">The profile version the comments belong to.</param>
+    /// <param name="profileSectionId">The section the comments belong to.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>A task that completes when the comments have been deleted.</returns>
+    Task DeleteAllReviewCommentsAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken);
 
     /// <summary>Reads one section's author/VA/policy review data via <c>spgProfileVersionSection</c>,
     /// for the "All Revision dates" tab.</summary>

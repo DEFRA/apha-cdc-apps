@@ -234,7 +234,8 @@ public class ProfileVersionValidatorTests
     {
         var section = Section(
             Question(QuestionId, 2, Field(FieldId, "Detail", "Text", mandatory: false))
-                with { IrrelevanceFieldId = ControllingFieldId, IrrelevanceValueId = YesId, IrrelevanceFlag = irrelevanceFlag });
+                with
+            { IrrelevanceFieldId = ControllingFieldId, IrrelevanceValueId = YesId, IrrelevanceFlag = irrelevanceFlag });
         var selected = selectedTheNamedValue ? YesId : NoId;
 
         var reasons = await ValidateAsync(
@@ -398,7 +399,8 @@ public class ProfileVersionValidatorTests
             Field(lowerId, "Lower", "Decimal", mandatory: false) with { ShortName = "Incubation Period Typical Lower" },
             Field(upperId, "Upper", "Decimal", mandatory: false) with { ShortName = "Incubation Period Typical Upper" },
             Field(minimumId, "Minimum", "Decimal", mandatory: false) with { ShortName = "Incubation Period Minimum" },
-            Field(maximumId, "Maximum", "Decimal", mandatory: false) with { ShortName = "Incubation Period Maximum" }) with { IsPerSpecies = true });
+            Field(maximumId, "Maximum", "Decimal", mandatory: false) with { ShortName = "Incubation Period Maximum" }) with
+        { IsPerSpecies = true });
         var values = new List<ReportFieldValue>();
         AddDecimal(values, minimumId, minimum);
         AddDecimal(values, lowerId, typicalLower);
@@ -554,13 +556,13 @@ public class ProfileVersionValidatorTests
         IReadOnlyList<ReportQuestionRow>? rows = null,
         IReadOnlyList<ReportFieldValue>? values = null,
         IReadOnlyList<ProfileQuestionName>? names = null) => new()
-    {
-        Revision = withoutRevision ? null : revision ?? CompleteRevision(),
-        ProfiledSpecies = species ?? [],
-        Rows = rows ?? [],
-        Values = values ?? [],
-        QuestionNames = names ?? []
-    };
+        {
+            Revision = withoutRevision ? null : revision ?? CompleteRevision(),
+            ProfiledSpecies = species ?? [],
+            Rows = rows ?? [],
+            Values = values ?? [],
+            QuestionNames = names ?? []
+        };
 
     private static ReportFieldValue Value(
         Guid fieldId,
@@ -573,18 +575,18 @@ public class ProfileVersionValidatorTests
         Guid? rowId = null,
         Guid? groupId = null,
         Guid? questionId = null) => new()
-    {
-        QuestionId = questionId ?? QuestionId,
-        FieldId = fieldId,
-        FieldGroupId = groupId ?? Guid.Empty,
-        SpeciesId = speciesId,
-        RowId = rowId,
-        BooleanValue = boolean,
-        ListValue = list,
-        DecimalValue = decimalValue,
-        DateValue = date,
-        TextValue = text
-    };
+        {
+            QuestionId = questionId ?? QuestionId,
+            FieldId = fieldId,
+            FieldGroupId = groupId ?? Guid.Empty,
+            SpeciesId = speciesId,
+            RowId = rowId,
+            BooleanValue = boolean,
+            ListValue = list,
+            DecimalValue = decimalValue,
+            DateValue = date,
+            TextValue = text
+        };
 
     private static void AddDecimal(List<ReportFieldValue> values, Guid fieldId, int? number)
     {

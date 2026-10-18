@@ -28,7 +28,8 @@ public sealed record ProfileFieldEditView
 
     /// <summary>Gets a value indicating whether this field is rendered as a real input control.
     /// <see langword="false"/> for a per-species/repeating question's fields, rendered read-only
-    /// instead because editing those is not yet supported.</summary>
+    /// instead because editing those is not yet supported, and for a field that is read-only for the
+    /// kind of profile (its value comes from elsewhere, so it is never saved or cleared).</summary>
     public bool IsEditable { get; init; }
 
     /// <summary>Gets the read-only plain-text or rich/HTML display value, used when not <see cref="IsEditable"/>.</summary>
@@ -75,6 +76,11 @@ public sealed record ProfileQuestionEditView
     /// legacy <c>CollapsiblePanel.HasNoteLink</c>/<c>NoteList.CanEditNoteList()</c> rule: shown
     /// only when the caller may edit the section.</summary>
     public bool CanEditReferences { get; init; }
+
+    /// <summary>Gets a value indicating whether the answers make the question irrelevant, so it is not shown (the legacy page
+    /// hid such a question and cleared its answers when the section was saved). Its fields stay on the page so the
+    /// form still posts them.</summary>
+    public bool IsHidden { get; init; }
 }
 
 /// <summary>Data needed to render the <c>_ProfileQuestionEditAccordion</c> partial.</summary>

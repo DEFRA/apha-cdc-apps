@@ -9,7 +9,7 @@ else
         @foreach (var question in Model.Questions)
         {
             var anchor = question.Number.Replace(".", "-");
-            <div class="govuk-accordion__section">
+            <div class="govuk-accordion__section" hidden="@(question.IsHidden ? "hidden" : null)">
                 <div class="govuk-accordion__section-header app-question-section-header">
                     <h2 class="govuk-accordion__section-heading">
                         <span class="govuk-accordion__section-button" id="@QuestionEditAccordionViewModel.HeadingId(Model.IdPrefix, question.Number)">

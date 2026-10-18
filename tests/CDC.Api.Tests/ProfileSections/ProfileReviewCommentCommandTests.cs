@@ -175,6 +175,40 @@ public class ProfileReviewCommentCommandTests
 
         result.IsSuccess.Should().BeTrue();
     }
+    [Fact]
+    public void DeleteAllValidator_RejectsEmptyIdentifiers()
+    {
+        var validator = new DeleteAllProfileReviewCommentsCommandValidator();
+
+        validator.Validate(new DeleteAllProfileReviewCommentsCommand(VersionId, SectionId)).IsValid.Should().BeTrue();
+        validator.Validate(new DeleteAllProfileReviewCommentsCommand(Guid.Empty, Guid.Empty)).Errors.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task DeleteAllHandler_ForwardsTheIdentifiersToTheService()
+    {
+        service
+            .Setup(svc => svc.DeleteAllAsync(VersionId, SectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var result = await new DeleteAllProfileReviewCommentsCommandHandler(service.Object)
+            .Handle(new DeleteAllProfileReviewCommentsCommand(VersionId, SectionId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteAllHandler_ReturnsTheServicesRefusal()
+    {
+        service
+            .Setup(svc => svc.DeleteAllAsync(VersionId, SectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<Unit>("not a draft"));
+
+        var result = await new DeleteAllProfileReviewCommentsCommandHandler(service.Object)
+            .Handle(new DeleteAllProfileReviewCommentsCommand(VersionId, SectionId), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
 }
 
 public class ProfileReviewCommentControllerTests
@@ -255,6 +289,36 @@ public class ProfileReviewCommentControllerTests
 
         var response = await CreateController().DeleteProfileReviewComment(
             Guid.NewGuid(), ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
+
+        response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteAllProfileReviewComments_ReturnsNoContent_OnSuccess()
+    {
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<DeleteAllProfileReviewCommentsCommand>(command =>
+                    command.ProfileVersionId == ProfileSectionTestData.ProfileVersionId
+                    && command.ProfileSectionId == ProfileSectionTestData.SectionId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().DeleteAllProfileReviewComments(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task DeleteAllProfileReviewComments_ReturnsForbidden_WhenTheVersionIsNotAnEditableDraft()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<DeleteAllProfileReviewCommentsCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<Unit>("not a draft"));
+
+        var response = await CreateController().DeleteAllProfileReviewComments(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
 
         response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
     }
