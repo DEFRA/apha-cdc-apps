@@ -64,16 +64,16 @@
                                     _ => null
                                 };
 
-                                foreach (var error in entry.Value!.Errors)
+                                foreach (var message in entry.Value!.Errors.Select(error => error.ErrorMessage))
                                 {
                                     <li>
                                         @if (target is not null)
                                         {
-                                            <a href="@target">@error.ErrorMessage</a>
+                                            <a href="@target">@message</a>
                                         }
                                         else
                                         {
-                                            @error.ErrorMessage
+                                            @message
                                         }
                                     </li>
                                 }
@@ -143,8 +143,6 @@
                     <div id="ProfileTitleEditor"
                          class="govuk-input app-title-editor@(titleErrors.Count > 0 ? " govuk-input--error" : string.Empty)"
                          contenteditable="true"
-                         role="textbox"
-                         aria-multiline="false"
                          aria-labelledby="ProfileTitleLabel"
                          aria-describedby="@(titleErrors.Count > 0 ? "ProfileTitle-error" : null)"
                          data-app-title-hidden-input="ProfileTitle">@ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</div>
@@ -207,7 +205,7 @@
                             </div>
                         }
 
-                        <div class="govuk-visually-hidden" role="status" aria-live="assertive" data-species-announcement></div>
+                        <output class="govuk-visually-hidden" aria-live="assertive" data-species-announcement></output>
                     </div>
                 }
 

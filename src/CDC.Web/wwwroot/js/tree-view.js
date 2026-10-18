@@ -378,8 +378,6 @@
             }
 
             const selectedItems = this.items.filter((item) => this.radio(item)?.checked);
-            const labels = selectedItems.map((item) => this.labelFor(item));
-            const selectedItems = this.items.filter((item) => this.radio(item).checked);
             const labels = this.cascade ? this.cascadeLabels() : selectedItems.map((item) => this.labelFor(item));
             const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
 

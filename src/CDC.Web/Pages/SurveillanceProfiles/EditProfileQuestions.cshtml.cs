@@ -312,7 +312,7 @@ public class EditProfileQuestionsModel(
 
         if (saved.Outcome != ProfileSectionWriteOutcome.Success)
         {
-            Logger.ProfileSectionWriteRefused("save", ProfileId, CurrentSection!.Id, saved.Outcome);
+            Logger.ProfileSectionWriteRefused("save", ProfileId, CurrentSection.Id, saved.Outcome);
             SetAction(SaveFailedMessage + saved.ErrorMessage, isError: true);
 
             return false;

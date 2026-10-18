@@ -317,4 +317,11 @@ describe('profile-properties reset', () => {
 
     expect(enter.defaultPrevented).toBe(true);
   });
+
+  it('exposes the title editor as a single-line textbox', () => {
+    const { editor } = build();
+
+    expect(editor.getAttribute('role')).toBe('textbox');
+    expect(editor.getAttribute('aria-multiline')).toBe('false');
+  });
 });

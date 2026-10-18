@@ -353,9 +353,9 @@ public sealed class ProfileSectionService(
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
         var answers = new Dictionary<Guid, ReportSectionAnswers>();
 
-        foreach (var section in questionnaire.Sections)
+        foreach (var sectionId in questionnaire.Sections.Select(section => section.Id))
         {
-            answers[section.Id] = await contentRepository.GetSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
+            answers[sectionId] = await contentRepository.GetSectionAnswersAsync(profileVersionId, sectionId, cancellationToken);
         }
 
         var context = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
