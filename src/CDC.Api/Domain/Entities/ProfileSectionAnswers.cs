@@ -20,4 +20,9 @@ public sealed record ProfileSectionAnswers
 
     /// <summary>Gets the rows recorded for each repeating question, ordered by sequence.</summary>
     public IReadOnlyList<ProfileQuestionRow> QuestionRows { get; init; } = [];
+
+    /// <summary>Gets the SQL Server <c>rowversion</c> of the profile version section when the answers were read, which
+    /// a save is checked against so it fails when someone else has saved the section since. Empty when the version has
+    /// no record of the section.</summary>
+    public byte[] LastUpdated { get; init; } = [];
 }

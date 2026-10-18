@@ -68,4 +68,11 @@ public interface IProfileReviewCommentService
         Guid profileSectionId,
         Guid commentId,
         CancellationToken cancellationToken);
+
+    /// <summary>Deletes every comment, and reply, of one section, as the legacy "Clear section" did after clearing the answers.</summary>
+    /// <param name="profileVersionId">The profile version the comments belong to.</param>
+    /// <param name="profileSectionId">The section the comments belong to.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>Success; forbidden when the version is not an editable current draft for the acting user.</returns>
+    Task<Result<Unit>> DeleteAllAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken);
 }

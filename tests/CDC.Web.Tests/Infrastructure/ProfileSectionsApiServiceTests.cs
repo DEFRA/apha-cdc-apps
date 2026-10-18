@@ -208,7 +208,11 @@ public class ProfileSectionsApiServiceTests
         const string json = """
             {
               "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
-              "sections": [{ "profileSectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b", "isValid": true }]
+              "sections": [{
+                "profileSectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
+                "isValid": false,
+                "invalidQuestionIds": ["2a3b4c5d-6e7f-4809-91a2-b3c4d5e6f708"]
+              }]
             }
             """;
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
@@ -216,7 +220,8 @@ public class ProfileSectionsApiServiceTests
         var status = await service.GetProfileVersionValidationStatusAsync(Guid.NewGuid());
 
         var section = Assert.Single(status.Sections);
-        Assert.True(section.IsValid);
+        Assert.False(section.IsValid);
+        Assert.Equal(Guid.Parse("2a3b4c5d-6e7f-4809-91a2-b3c4d5e6f708"), Assert.Single(section.InvalidQuestionIds));
     }
 
     [Fact]
@@ -234,13 +239,29 @@ public class ProfileSectionsApiServiceTests
     [Fact]
     public async Task ValidateProfileVersionSectionAsync_DeserialisesTheResponseBody()
     {
-        const string json = """{ "isValid": false, "unansweredQuestions": ["3.1 Is it endemic?"] }""";
+        const string json = """
+            {
+              "isValid": false,
+              "invalidReasons": [{
+                "questionId": "2a3b4c5d-6e7f-4809-91a2-b3c4d5e6f708",
+                "sectionNumber": 3,
+                "questionNumber": 1,
+                "questionShortName": "Endemic",
+                "description": "\"Is it endemic? - Endemic\" is required"
+              }]
+            }
+            """;
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
 
         var result = await service.ValidateProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
 
         Assert.False(result.IsValid);
-        Assert.Equal("3.1 Is it endemic?", Assert.Single(result.UnansweredQuestions));
+        var reason = Assert.Single(result.InvalidReasons);
+        Assert.Equal(Guid.Parse("2a3b4c5d-6e7f-4809-91a2-b3c4d5e6f708"), reason.QuestionId);
+        Assert.Equal(3, reason.SectionNumber);
+        Assert.Equal(1, reason.QuestionNumber);
+        Assert.Equal("Endemic", reason.QuestionShortName);
+        Assert.Equal("\"Is it endemic? - Endemic\" is required", reason.Description);
     }
 
     [Fact]
@@ -254,61 +275,176 @@ public class ProfileSectionsApiServiceTests
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAsync_DeserialisesTheResponseBody()
+    public async Task GetProfileVersionValidationStatusAsync_DeserialisesTheIrrelevantQuestions()
     {
-        const string json = """{ "fieldsClearedCount": 4 }""";
+        const string json = """
+            {
+              "profileVersionId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "sections": [{
+                "profileSectionId": "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b",
+                "isValid": true,
+                "irrelevantQuestionIds": ["3b4c5d6e-7f80-4910-a2b3-c4d5e6f70819"]
+              }]
+            }
+            """;
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
 
-        var result = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
+        var status = await service.GetProfileVersionValidationStatusAsync(Guid.NewGuid());
 
-        Assert.Equal(4, result.FieldsClearedCount);
+        Assert.Equal(Guid.Parse("3b4c5d6e-7f80-4910-a2b3-c4d5e6f70819"), Assert.Single(Assert.Single(status.Sections).IrrelevantQuestionIds));
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAsync_ReturnsDefault_WhenTheResponseBodyIsNull()
+    public async Task GetProfileSectionAnswersAsync_DeserialisesTheSectionsRowVersion()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, """{ "lastUpdated": "AQIDBAUGBwg=" }"""));
+
+        var answers = await service.GetProfileSectionAnswersAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, answers.LastUpdated);
+    }
+
+    [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_DeserialisesTheReadOnlyFlags()
+    {
+        const string json = """
+            { "sections": [{ "questions": [{ "fields": [
+              { "name": "Profiled species", "isReadOnlyCurrentSituation": true, "isReadOnlyScenario": false },
+              { "name": "Other", "isReadOnlyCurrentSituation": false, "isReadOnlyScenario": true }
+            ] }] }] }
+            """;
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+
+        var metadata = await service.GetProfileQuestionnaireMetadataAsync();
+
+        var fields = metadata.Sections.Single().Questions.Single().Fields;
+        Assert.True(fields[0].IsReadOnlyFor(isWhatIfScenario: false));
+        Assert.False(fields[0].IsReadOnlyFor(isWhatIfScenario: true));
+        Assert.False(fields[1].IsReadOnlyFor(isWhatIfScenario: false));
+        Assert.True(fields[1].IsReadOnlyFor(isWhatIfScenario: true));
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_ReturnsSuccessWithTheClearedCount_AndSendsTheRowVersion()
+    {
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, """{ "fieldsClearedCount": 4 }""");
+        var service = CreateService(handler);
+
+        var result = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
+        Assert.Equal(4, result.FieldsChangedCount);
+        Assert.Equal(HttpMethod.Post, handler.LastMethod);
+        Assert.Equal("/api/profile-sections/clear", handler.LastUri!.AbsolutePath);
+        Assert.Contains("\"lastUpdated\":\"AQIDBAUGBwg=\"", handler.LastRequestBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ClearProfileVersionSectionAsync_SendsNoRowVersion_WhenThereIsNone()
+    {
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, "null");
+        var service = CreateService(handler);
+
+        var result = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), null);
+
+        Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
+        Assert.Equal(0, result.FieldsChangedCount);
+        Assert.Contains("\"lastUpdated\":null", handler.LastRequestBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_ReturnsSuccessWithTheSavedCount_AndSendsTheAnswersAndTheRowVersion()
+    {
+        var fieldId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, """{ "fieldsSavedCount": 2 }""");
+        var service = CreateService(handler);
+
+        var result = await service.SaveProfileVersionSectionAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            [new CDC.Common.Contracts.ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, TextValue = "Some notes" }],
+            [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
+        Assert.Equal(2, result.FieldsChangedCount);
+        Assert.Equal(HttpMethod.Post, handler.LastMethod);
+        Assert.Equal("/api/profile-sections/save", handler.LastUri!.AbsolutePath);
+        Assert.Contains("\"lastUpdated\":\"AQIDBAUGBwg=\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("Some notes", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains(fieldId.ToString(), handler.LastRequestBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_ReturnsSuccessWithNoChanges_WhenTheResponseBodyIsNull()
     {
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var result = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid());
+        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], null);
 
-        Assert.Equal(0, result.FieldsClearedCount);
+        Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
+        Assert.Equal(0, result.FieldsChangedCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SaveAndClear_ClassifyAConflict_KeepingTheReasonCdcApiGave(bool clear)
+    {
+        const string problem = """{ "title": "Conflicting change", "status": 409, "detail": "The profile version section has been edited by another user" }""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Conflict, problem));
+
+        var result = clear
+            ? await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), null)
+            : await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], null);
+
+        Assert.Equal(ProfileSectionWriteOutcome.Conflict, result.Outcome);
+        Assert.Equal("The profile version section has been edited by another user", result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError, "")]
+    [InlineData(HttpStatusCode.BadRequest, "<html>Bad request</html>")]
+    [InlineData(HttpStatusCode.InternalServerError, """{ "title": "Server error", "status": 500 }""")]
+    public async Task SaveAndClear_FallBackToAGenericReason_WhenTheFailureHasNoDetail(HttpStatusCode statusCode, string body)
+    {
+        var service = CreateService(new FakeHttpMessageHandler(statusCode, body));
+
+        var saved = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], null);
+        var cleared = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), null);
+
+        Assert.Equal(ProfileSectionWriteOutcome.Error, saved.Outcome);
+        Assert.Equal("We could not complete the request. Try again later.", saved.ErrorMessage);
+        Assert.Equal(ProfileSectionWriteOutcome.Error, cleared.Outcome);
+        Assert.Equal("We could not complete the request. Try again later.", cleared.ErrorMessage);
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAsync_Throws_OnANonSuccessStatusCode()
+    public async Task DeleteAllProfileReviewCommentsAsync_DeletesTheSectionsCommentsAndReportsSuccess()
     {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+        var profileVersionId = Guid.NewGuid();
+        var profileSectionId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var service = CreateService(handler);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid()));
+        var result = await service.DeleteAllProfileReviewCommentsAsync(profileVersionId, profileSectionId);
+
+        Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
+        Assert.Equal(HttpMethod.Delete, handler.LastMethod);
+        Assert.Equal("/api/profile-sections/review-comments", handler.LastUri!.AbsolutePath);
+        Assert.Contains($"profileVersionId={profileVersionId}", handler.LastUri.Query, StringComparison.Ordinal);
+        Assert.Contains($"profileSectionId={profileSectionId}", handler.LastUri.Query, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionAsync_DeserialisesTheResponseBody()
+    public async Task DeleteAllProfileReviewCommentsAsync_KeepsTheReasonCdcApiGave_WhenItIsRefused()
     {
-        const string json = """{ "fieldsSavedCount": 2 }""";
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, json));
+        const string problem = """{ "title": "Not permitted", "status": 403, "detail": "Review comments can only be deleted from the current draft version." }""";
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Forbidden, problem));
 
-        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), []);
+        var result = await service.DeleteAllProfileReviewCommentsAsync(Guid.NewGuid(), Guid.NewGuid());
 
-        Assert.Equal(2, result.FieldsSavedCount);
-    }
-
-    [Fact]
-    public async Task SaveProfileVersionSectionAsync_ReturnsDefault_WhenTheResponseBodyIsNull()
-    {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
-
-        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), []);
-
-        Assert.Equal(0, result.FieldsSavedCount);
-    }
-
-    [Fact]
-    public async Task SaveProfileVersionSectionAsync_Throws_OnANonSuccessStatusCode()
-    {
-        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.BadRequest, string.Empty));
-
-        await Assert.ThrowsAsync<HttpRequestException>(() => service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), []));
+        Assert.Equal(ProfileSectionWriteOutcome.Error, result.Outcome);
+        Assert.Equal("Review comments can only be deleted from the current draft version.", result.ErrorMessage);
     }
 
     [Fact]

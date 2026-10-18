@@ -23,6 +23,15 @@ public interface IProfileReportContentRepository
     Task<ReportSectionAnswers> GetSectionAnswersAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads what the validation needs to know about a profile version as a whole via <c>spgProfileVersionInfoById</c>:
+    /// whether it belongs to a "what-if" scenario and whether any of its species is inactive.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version to read.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The version's context; the defaults when the version does not exist.</returns>
+    Task<ReportVersionContext> GetVersionContextAsync(Guid profileVersionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads a list field's options: a maintainable reference table via <c>spgReferenceValueByTable</c>
     /// (which knows which values are inactive), any other via <c>spgLookupValueByTable</c>.
     /// </summary>

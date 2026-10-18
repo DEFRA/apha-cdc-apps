@@ -378,8 +378,6 @@
             }
 
             const selectedItems = this.items.filter((item) => this.radio(item)?.checked);
-            const labels = selectedItems.map((item) => this.labelFor(item));
-            const selectedItems = this.items.filter((item) => this.radio(item).checked);
             const labels = this.cascade ? this.cascadeLabels() : selectedItems.map((item) => this.labelFor(item));
             const emptyLabel = this.$root.dataset.appTreeEmptyLabel;
 
@@ -438,8 +436,9 @@
 
         /* ---------- keyboard ---------- */
 
+        // Disabled inputs cannot take focus, so the arrow keys skip them rather than stopping on one.
         visibleItems() {
-            return this.items.filter((item) => !item.parentElement.closest('[hidden]'));
+            return this.items.filter((item) => !item.parentElement.closest('[hidden]') && !this.radio(item).disabled);
         }
 
         focusItem(item) {

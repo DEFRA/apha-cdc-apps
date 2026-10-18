@@ -52,6 +52,10 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets a value indicating whether the "Clear" button is shown (legacy <c>CanClearProfileVersionSection()</c>).</summary>
     public bool CanClearProfileSection { get; private set; }
 
+    /// <summary>Gets a value indicating whether the profile is a "what-if" scenario rather than the current situation, which
+    /// decides which fields are read-only.</summary>
+    public bool IsWhatIfScenario { get; private set; }
+
     /// <summary>Gets a value indicating whether the "Review comments" tab is shown (legacy <c>CanGetReviewCommentList()</c>).</summary>
     public bool CanViewReviewComments { get; private set; }
 
@@ -87,6 +91,10 @@ public abstract class ProfileSectionTabPageModel(
     /// the green tick/red cross against each left-nav entry. Sections absent from it show no icon.</summary>
     public IReadOnlyDictionary<Guid, bool> SectionValidationStatus { get; private set; } = new Dictionary<Guid, bool>();
 
+    private HashSet<Guid> invalidQuestionIds = [];
+
+    private HashSet<Guid> irrelevantQuestionIds = [];
+
     /// <summary>Gets the tab this page implements, used to highlight the active tab and to build pagination links.</summary>
     public abstract ProfileSectionTab ActiveTab { get; }
 
@@ -109,6 +117,19 @@ public abstract class ProfileSectionTabPageModel(
     /// <returns>Whether the section is valid, or <see langword="null"/> when unknown.</returns>
     public bool? GetSectionValidationStatus(Guid sectionId) =>
         SectionValidationStatus.TryGetValue(sectionId, out var isValid) ? isValid : null;
+
+    /// <summary>Gets whether one question of the selected section passed validation, for the green tick/red cross beside
+    /// the question, or <see langword="null"/> when the section's validation status is not known.</summary>
+    /// <param name="questionId">The question.</param>
+    /// <returns>Whether the question has no validation errors, or <see langword="null"/> when unknown.</returns>
+    public bool? GetQuestionValidationStatus(Guid questionId) =>
+        CurrentSection is { } section && GetSectionValidationStatus(section.Id) is not null ? !invalidQuestionIds.Contains(questionId) : null;
+
+    /// <summary>Gets whether the answers make one question of the selected section irrelevant, so the page hides it as the
+    /// legacy <c>HideAndClearIrrelevantQuestion</c> did. A question is shown when this is not known.</summary>
+    /// <param name="questionId">The question.</param>
+    /// <returns><see langword="true"/> when the question is irrelevant.</returns>
+    public bool IsQuestionIrrelevant(Guid questionId) => irrelevantQuestionIds.Contains(questionId);
 
     /// <summary>Builds the URL a left-nav section link opens. Legacy <c>ProfileSectionLinks</c> always opens the
     /// section's Questions tab, whichever tab is showing.</summary>
@@ -202,7 +223,7 @@ public abstract class ProfileSectionTabPageModel(
             return null;
         }
 
-        await LoadValidationStatusAsync(cancellationToken);
+        await RefreshValidationStatusAsync(cancellationToken);
 
         return null;
     }
@@ -215,23 +236,40 @@ public abstract class ProfileSectionTabPageModel(
         CanViewProfileReports = profile.CanViewProfileReports;
         CanEditProfileSection = profile.CanEditProfileSection;
         CanClearProfileSection = profile.CanClearProfileSection;
+        IsWhatIfScenario = profile.IsWhatIfScenario;
         CanViewReviewComments = profile.CanViewReviewComments;
         CanViewContributions = profile.CanViewContributions;
         CanViewAllRevisionDates = profile.CanViewAllRevisionDates;
     }
 
     /// <summary>Loads every section's validation status, resiliently: a failure degrades to no icons rather than
-    /// failing the page.</summary>
-    private async Task LoadValidationStatusAsync(CancellationToken cancellationToken)
+    /// failing the page. Pages call it again after saving or clearing, so the icons never show a stale result.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    protected async Task RefreshValidationStatusAsync(CancellationToken cancellationToken)
     {
         try
         {
             var validationStatus = await profileSectionsApiService.GetProfileVersionValidationStatusAsync(CurrentProfileVersionId, cancellationToken);
             SectionValidationStatus = validationStatus.Sections.ToDictionary(section => section.ProfileSectionId, section => section.IsValid);
+            invalidQuestionIds =
+            [
+                .. validationStatus.Sections
+                    .Where(section => section.ProfileSectionId == CurrentSection?.Id)
+                    .SelectMany(section => section.InvalidQuestionIds)
+            ];
+            irrelevantQuestionIds =
+            [
+                .. validationStatus.Sections
+                    .Where(section => section.ProfileSectionId == CurrentSection?.Id)
+                    .SelectMany(section => section.IrrelevantQuestionIds)
+            ];
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
             logger.ProfileSectionValidationStatusLoadFailed(exception, ProfileId);
+            SectionValidationStatus = new Dictionary<Guid, bool>();
+            invalidQuestionIds = [];
+            irrelevantQuestionIds = [];
         }
     }
 }

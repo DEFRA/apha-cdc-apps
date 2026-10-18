@@ -65,6 +65,26 @@ public class SpeciesTreeBuilderTests
     }
 
     [Fact]
+    public void Build_StartsOnlyTheRootsExpanded_ByDefault_AndEveryBranchWhenAskedTo()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true },
+            new SpeciesDto { Id = DairyId, ParentId = CattleId, Description = "Dairy cattle", IsActive = true },
+            new SpeciesDto { Id = JerseyId, ParentId = DairyId, Description = "Jersey", IsActive = true }
+        ];
+
+        var collapsed = SpeciesTreeBuilder.Build(species).Single();
+        var expanded = SpeciesTreeBuilder.Build(species, expandAll: true).Single();
+
+        Assert.True(collapsed.Expanded);
+        Assert.False(collapsed.Children.Single().Expanded);
+        Assert.True(expanded.Expanded);
+        Assert.True(expanded.Children.Single().Expanded);
+        Assert.True(expanded.Children.Single().Children.Single().Expanded);
+    }
+
+    [Fact]
     public void Build_SortsSiblingsAlphabetically_ByDefault()
     {
         IReadOnlyList<SpeciesDto> species =

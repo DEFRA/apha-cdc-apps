@@ -93,6 +93,10 @@ public class ManageProfileModel : PageModel
     /// <summary>Gets the error message to display after a failed status save, if any.</summary>
     public string? StatusErrorMessage { get; private set; }
 
+    /// <summary>Gets or sets the message the Profile reports page shows after a publish, which reads the same TempData key.</summary>
+    [TempData]
+    public string? SuccessMessage { get; set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         var loaded = await LoadProfileAsync(cancellationToken);
@@ -188,10 +192,9 @@ public class ManageProfileModel : PageModel
     /// <summary>
     /// Publishes the profile's current draft version (<c>LatestVersionId</c>) as a new published
     /// version, matching the legacy <c>lnkPublish_Click</c> handler shared by <c>lnkPublishPublic</c>
-    /// and <c>lnkPublish</c> (<c>profileData.Publish(makePublic)</c>). Redisplays Manage profile
-    /// with a success banner afterwards - the legacy redirect target, <c>ProfileReports.aspx</c>,
-    /// has no modern equivalent yet. On failure, redisplays Manage profile with an inline error,
-    /// matching the legacy page.
+    /// and <c>lnkPublish</c> (<c>profileData.Publish(makePublic)</c>). Redirects to the new version's
+    /// Profile reports page afterwards, as the legacy page did with <c>ProfileReports.aspx</c>. On
+    /// failure, redisplays Manage profile with an inline error, matching the legacy page.
     /// </summary>
     private async Task<IActionResult> PublishAsync(bool isPublic, string successMessage, CancellationToken cancellationToken)
     {
@@ -208,14 +211,13 @@ public class ManageProfileModel : PageModel
         if (result.Outcome == CreateNewProfileVersionOutcome.Success)
         {
             LogPublishedProfileMessage(logger, ProfileId, isPublic, null);
-            StatusMessage = successMessage;
-        }
-        else
-        {
-            LogFailedToPublishProfileMessage(logger, ProfileId, isPublic, result.ErrorMessage ?? string.Empty, null);
-            StatusErrorMessage = result.ErrorMessage;
+            SuccessMessage = successMessage;
+
+            return RedirectToPage("/SurveillanceProfiles/ProfileReports", new { profileVersionId = result.NewProfileVersionId });
         }
 
+        LogFailedToPublishProfileMessage(logger, ProfileId, isPublic, result.ErrorMessage ?? string.Empty, null);
+        StatusErrorMessage = result.ErrorMessage;
         loaded = await LoadProfileAsync(cancellationToken);
 
         return loaded || HasError ? Page() : NotFound();

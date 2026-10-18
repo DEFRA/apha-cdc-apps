@@ -21,24 +21,56 @@ public class EditProfileQuestionsModel(
     IProfileSectionsApiService profileSectionsApiService,
     ILogger<EditProfileQuestionsModel> logger) : ProfileSectionTabPageModel(apiClient, profileSectionsApiService, logger)
 {
+    /// <summary>The prefix of the questions accordion's element ids, which the validation error links jump to.</summary>
+    public const string AccordionIdPrefix = "profile-questions-accordion";
+
+    /// <summary>The message shown when the answers were saved, as the legacy <c>lblErrorDesc</c> worded it.</summary>
+    public const string SaveSucceededMessage = "Profile section save succeeded";
+
+    /// <summary>The start of the message shown when the answers could not be saved; the reason follows it.</summary>
+    public const string SaveFailedMessage = "Profile section save failed: ";
+
+    /// <summary>The message shown when the section was cleared.</summary>
+    public const string ClearSucceededMessage = "Clear section succeeded";
+
+    /// <summary>The start of the message shown when the section could not be cleared; the reason follows it.</summary>
+    public const string ClearFailedMessage = "Clear section failed: ";
+
+    private const string RequestFailedReason = "We could not complete the request. Try again later.";
+
+    // The start of the message shown when the answers were cleared but a later step could not be; what failed and the reason follow it.
+    private const string ClearFailedWhileClearingMessage = "Clear section failed while trying to clear the ";
+
+    // The notes a cleared section is unlinked from, in the order the legacy Clear button did it, with how its failure names them.
+    private static readonly (string NoteType, string Description)[] ClearedNoteTypes =
+    [
+        (ProfileNoteDisplayHelper.ScientificPaperReferenceType, "scientific paper references"),
+        (ProfileNoteDisplayHelper.LegislativeReferenceType, "legislative references"),
+        (ProfileNoteDisplayHelper.SourceOfFurtherInformationType, "sources of further information")
+    ];
+
     /// <inheritdoc />
     public override ProfileSectionTab ActiveTab => ProfileSectionTab.Questions;
 
-    /// <summary>Gets the mandatory questions with no recorded answer in the current section, from
-    /// the most recent "Validate" button submission. Empty until Validate has been used.</summary>
-    public IReadOnlyList<string> UnansweredQuestions { get; private set; } = [];
+    /// <summary>Gets every validation error found by the most recent "Validate" button submission, in the order the
+    /// legacy page listed them: the revision-date errors, then each question's errors. Empty until Validate has been
+    /// used, and when the section is valid.</summary>
+    public IReadOnlyList<ProfileSectionInvalidReasonDto> InvalidReasons { get; private set; } = [];
 
     /// <summary>Gets a value indicating whether "Validate" has been run for the current section
     /// during this request.</summary>
     public bool HasValidated { get; private set; }
 
-    /// <summary>Gets the number of fields cleared by the most recent "Clear" button submission,
-    /// or <see langword="null"/> until Clear has been used.</summary>
-    public int? FieldsClearedCount { get; private set; }
+    /// <summary>Gets the outcome of the most recent "Save" or "Clear" button submission in the legacy wording (for example
+    /// "Profile section save succeeded" or "Clear section failed: ..."), or <see langword="null"/> until one has been used.</summary>
+    public string? ActionMessage { get; private set; }
 
-    /// <summary>Gets the number of fields saved by the most recent "Save" button submission, or
-    /// <see langword="null"/> until Save has been used.</summary>
-    public int? FieldsSavedCount { get; private set; }
+    /// <summary>Gets a value indicating whether <see cref="ActionMessage"/> reports a failure.</summary>
+    public bool ActionMessageIsError { get; private set; }
+
+    /// <summary>Gets the section's row version, Base64 encoded, as it was when the answers were loaded. The form posts it
+    /// back so a save or clear is refused, rather than overwriting, when someone else has saved the section since.</summary>
+    public string SectionLastUpdated { get; private set; } = string.Empty;
 
     /// <summary>Gets the field-level validation errors (for example, an invalid date or decimal)
     /// from the most recent "Save" button submission. Empty when Save succeeded or has not been
@@ -48,6 +80,38 @@ public class EditProfileQuestionsModel(
     /// <summary>Gets the real questions and recorded answers for the selected section, each field either
     /// rendered as a real editable control or, for a per-species/repeating question, as a static read-only value.</summary>
     public IReadOnlyList<ProfileQuestionEditView> Questions { get; private set; } = [];
+
+    /// <inheritdoc />
+    public override bool HasFormErrors => SaveValidationErrors.Count > 0 || InvalidReasons.Count > 0 || ActionMessageIsError;
+
+    /// <summary>Builds the text of a validation error as the legacy <c>InvalidReasonList</c> printed it: the question
+    /// number, then the description without its HTML markup.</summary>
+    /// <param name="reason">The validation error.</param>
+    /// <returns>The plain text of the error.</returns>
+    public static string BuildValidationReasonText(ProfileSectionInvalidReasonDto reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+
+        return $"{reason.SectionNumber}.{reason.QuestionNumber} {ProfileTitleHtmlFormatter.ToPlainText(reason.Description)}";
+    }
+
+    /// <summary>Builds the link of a validation error: the question's heading on this page, or for a revision-date
+    /// error the All Revision dates tab, where those dates are set.</summary>
+    /// <param name="reason">The validation error.</param>
+    /// <returns>The link target, or <see langword="null"/> when a revision-date error has no tab to open for this user.</returns>
+    public string? BuildValidationReasonUrl(ProfileSectionInvalidReasonDto reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+
+        if (reason.QuestionId != Guid.Empty)
+        {
+            return "#" + QuestionEditAccordionViewModel.HeadingId(AccordionIdPrefix, $"{reason.SectionNumber}.{reason.QuestionNumber}");
+        }
+
+        return CanViewAllRevisionDates && CurrentSection is { } section
+            ? Url.Page(ProfileSectionTabs.PagePath(ProfileSectionTab.AllRevisionDates), new { profileId = ProfileId, section = section.Id })
+            : null;
+    }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -75,18 +139,18 @@ public class EditProfileQuestionsModel(
     }
 
     /// <summary>
-    /// Handles the "Validate" button: checks the current section's mandatory fields, matching the
-    /// legacy <c>ProfileVersionSection.Validate()</c> check, and re-renders the page with the
-    /// result.
+    /// Handles the "Validate" button as the legacy <c>btnValidateSection_Click</c> did: saves the posted answers, then runs
+    /// <c>ProfileVersionSection.Validate()</c> and re-renders the page with the list of validation errors.
     /// </summary>
     /// <param name="profileVersionId">The profile version to validate, posted from a hidden field.</param>
+    /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The page, with the validation result populated.</returns>
-    public async Task<IActionResult> OnPostValidateSectionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    /// <returns>The page, with the validation result populated; without one when the answers could not be saved.</returns>
+    public async Task<IActionResult> OnPostValidateSectionAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken)
     {
         await OnGetAsync(cancellationToken);
 
-        if (!IsReady)
+        if (!IsReady || (CanEditProfileSection && !await TrySaveSectionAsync(profileVersionId, lastUpdated, cancellationToken)))
         {
             return Page();
         }
@@ -95,7 +159,7 @@ public class EditProfileQuestionsModel(
         {
             var result = await ProfileSectionsApi.ValidateProfileVersionSectionAsync(
                 profileVersionId, CurrentSection!.Id, cancellationToken);
-            UnansweredQuestions = result.UnansweredQuestions;
+            InvalidReasons = result.InvalidReasons;
             HasValidated = true;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
@@ -108,57 +172,83 @@ public class EditProfileQuestionsModel(
     }
 
     /// <summary>
-    /// Handles the "Clear" button: clears every recorded answer in the current section, matching
-    /// the legacy <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway, then re-renders
-    /// the page with the refreshed (now empty) answers.
+    /// Handles the "Clear" button as the legacy <c>btnClearSection_Click</c> did: clears the section's answers and revision
+    /// data, then unlinks the section's scientific paper references, legislative references and sources of further
+    /// information from its questions, then deletes its review comments, stopping at the first step that fails. The page is
+    /// then shown with the section's refreshed (now empty) answers.
     /// </summary>
     /// <param name="profileVersionId">The profile version to clear, posted from a hidden field.</param>
+    /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The page, with the section's answers cleared.</returns>
-    public async Task<IActionResult> OnPostClearSectionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    /// <returns>The page, with the outcome in <see cref="ActionMessage"/>.</returns>
+    public async Task<IActionResult> OnPostClearSectionAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken)
     {
         await OnGetAsync(cancellationToken);
 
-        if (!IsReady)
+        if (!IsReady || !CanClearProfileSection)
         {
             return Page();
         }
 
+        var sectionId = CurrentSection!.Id;
+        ProfileSectionWriteResult cleared;
+
         try
         {
-            var result = await ProfileSectionsApi.ClearProfileVersionSectionAsync(
-                profileVersionId, CurrentSection!.Id, cancellationToken);
-            FieldsClearedCount = result.FieldsClearedCount;
-
-            // Re-load so the page reflects the now-cleared answers rather than the stale ones
-            // already fetched by OnGetAsync above.
-            await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
+            cleared = await ProfileSectionsApi.ClearProfileVersionSectionAsync(
+                profileVersionId, sectionId, ProfileNoteChangeBuilder.DecodeRowVersion(lastUpdated), cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            Logger.ProfileSectionClearFailed(exception, ProfileId, CurrentSection!.Id);
-            HasError = true;
+            Logger.ProfileSectionClearFailed(exception, ProfileId, sectionId);
+            SetAction(ClearFailedMessage + RequestFailedReason, isError: true);
+
+            return Page();
+        }
+
+        if (cleared.Outcome != ProfileSectionWriteOutcome.Success)
+        {
+            Logger.ProfileSectionWriteRefused("clear", ProfileId, sectionId, cleared.Outcome);
+            SetAction(ClearFailedMessage + cleared.ErrorMessage, isError: true);
+
+            return Page();
+        }
+
+        SetAction(ClearSucceededMessage, isError: false);
+
+        // Re-load so the page reflects the now-cleared answers and their validation icons rather
+        // than the stale ones already fetched by OnGetAsync above.
+        if (!await TryReloadQuestionsAsync(profileVersionId, cancellationToken))
+        {
+            return Page();
+        }
+
+        var failure = await ClearReferencesAndReviewCommentsAsync(profileVersionId, sectionId, cancellationToken);
+
+        if (failure is not null)
+        {
+            SetAction(failure, isError: true);
         }
 
         return Page();
     }
 
     /// <summary>
-    /// Handles the "Save" button: writes every submitted field answer for a standard
-    /// (non-per-species, non-repeating) question in the current section, matching the legacy
-    /// <c>IProfileField.Save()</c> pathway, then re-renders the page with the saved answers.
-    /// Fields with an invalid decimal or date are reported back without calling CDC.Api.
+    /// Handles the "Save" button: writes the answers submitted for the current section's standard
+    /// (non-per-species, non-repeating) questions that changed, matching the legacy save, then re-renders the page with the
+    /// saved answers. Fields with an invalid decimal or date are reported back without calling CDC.Api.
     /// </summary>
     /// <param name="profileVersionId">The profile version being answered, posted from a hidden field.</param>
+    /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The page, with the section's answers saved or the submission's validation errors.</returns>
-    public async Task<IActionResult> OnPostSaveSectionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    /// <returns>The page, with the outcome in <see cref="ActionMessage"/> or the submission's validation errors.</returns>
+    public async Task<IActionResult> OnPostSaveSectionAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken)
     {
         await OnGetAsync(cancellationToken);
 
-        if (IsReady)
+        if (IsReady && CanEditProfileSection)
         {
-            await TrySaveSectionAsync(profileVersionId, cancellationToken);
+            await TrySaveSectionAsync(profileVersionId, lastUpdated, cancellationToken);
         }
 
         return Page();
@@ -170,9 +260,10 @@ public class EditProfileQuestionsModel(
     /// </summary>
     /// <param name="profileVersionId">The profile version being answered, posted from a hidden field.</param>
     /// <param name="tab">The name of the tab clicked.</param>
+    /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>A redirect to the tab's page, or this page again when the answers could not be saved.</returns>
-    public async Task<IActionResult> OnPostNavigateTabAsync(Guid profileVersionId, string? tab, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostNavigateTabAsync(Guid profileVersionId, string? tab, string? lastUpdated, CancellationToken cancellationToken)
     {
         await OnGetAsync(cancellationToken);
 
@@ -183,7 +274,7 @@ public class EditProfileQuestionsModel(
             return Page();
         }
 
-        if (CanEditProfileSection && !await TrySaveSectionAsync(profileVersionId, cancellationToken))
+        if (CanEditProfileSection && !await TrySaveSectionAsync(profileVersionId, lastUpdated, cancellationToken))
         {
             return Page();
         }
@@ -191,10 +282,10 @@ public class EditProfileQuestionsModel(
         return RedirectToPage(ProfileSectionTabs.PagePath(target), new { profileId = ProfileId, section = CurrentSection!.Id });
     }
 
-    /// <summary>Saves the submitted answers and reloads the page's answers; reports a rejected value or a CDC.Api
-    /// failure on the page.</summary>
+    /// <summary>Saves the submitted answers and reloads the page's answers; reports a rejected value, a concurrent edit or a
+    /// CDC.Api failure on the page, which stays usable, as the legacy page did.</summary>
     /// <returns><see langword="true"/> when the answers were saved.</returns>
-    private async Task<bool> TrySaveSectionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    private async Task<bool> TrySaveSectionAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken)
     {
         var (answers, validationErrors) = ParseSubmittedAnswers(CurrentSection!);
 
@@ -204,30 +295,125 @@ public class EditProfileQuestionsModel(
             return false;
         }
 
+        ProfileSectionWriteResult saved;
+
         try
         {
-            var result = await ProfileSectionsApi.SaveProfileVersionSectionAsync(
-                profileVersionId, CurrentSection!.Id, answers, cancellationToken);
-            FieldsSavedCount = result.FieldsSavedCount;
+            saved = await ProfileSectionsApi.SaveProfileVersionSectionAsync(
+                profileVersionId, CurrentSection!.Id, answers, ProfileNoteChangeBuilder.DecodeRowVersion(lastUpdated), cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            Logger.ProfileSectionSaveFailed(exception, ProfileId, CurrentSection!.Id);
+            SetAction(SaveFailedMessage + RequestFailedReason, isError: true);
 
-            // Re-load so the page reflects the newly-saved answers rather than the stale ones
-            // already fetched by OnGetAsync above.
-            await LoadQuestionsAsync(profileVersionId, CurrentSection, cancellationToken);
+            return false;
+        }
+
+        if (saved.Outcome != ProfileSectionWriteOutcome.Success)
+        {
+            Logger.ProfileSectionWriteRefused("save", ProfileId, CurrentSection.Id, saved.Outcome);
+            SetAction(SaveFailedMessage + saved.ErrorMessage, isError: true);
+
+            return false;
+        }
+
+        SetAction(SaveSucceededMessage, isError: false);
+
+        // Re-load so the page reflects the newly-saved answers, their validation icons and the section's new row version
+        // rather than the stale ones already fetched by OnGetAsync above.
+        return await TryReloadQuestionsAsync(profileVersionId, cancellationToken);
+    }
+
+    private void SetAction(string message, bool isError)
+    {
+        ActionMessage = message;
+        ActionMessageIsError = isError;
+    }
+
+    private async Task<bool> TryReloadQuestionsAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RefreshValidationStatusAsync(cancellationToken);
+            await LoadQuestionsAsync(profileVersionId, CurrentSection!, cancellationToken);
 
             return true;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
-            Logger.ProfileSectionSaveFailed(exception, ProfileId, CurrentSection!.Id);
+            Logger.ProfileQuestionsLoadFailed(exception, ProfileId);
             HasError = true;
 
             return false;
         }
     }
 
+    /// <summary>The steps of the legacy Clear button that follow clearing the answers. Each failure ends the sequence and is
+    /// reported in the legacy wording, naming what could not be cleared.</summary>
+    /// <returns>The message to show when a step failed, otherwise <see langword="null"/>.</returns>
+    private async Task<string?> ClearReferencesAndReviewCommentsAsync(Guid profileVersionId, Guid sectionId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var noteTypes = await ProfileSectionsApi.GetProfileNoteTypesAsync(cancellationToken);
+
+            foreach (var (normalisedName, description) in ClearedNoteTypes)
+            {
+                var noteType = noteTypes.FirstOrDefault(type => ProfileNoteDisplayHelper.NormaliseNoteTypeName(type.Name) == normalisedName);
+
+                if (noteType is null)
+                {
+                    continue;
+                }
+
+                var error = await UnlinkNotesFromSectionAsync(profileVersionId, sectionId, noteType.Id, cancellationToken);
+
+                if (error is not null)
+                {
+                    return $"{ClearFailedWhileClearingMessage}{description}: {error}";
+                }
+            }
+
+            var comments = await ProfileSectionsApi.DeleteAllProfileReviewCommentsAsync(profileVersionId, sectionId, cancellationToken);
+
+            return comments.Outcome == ProfileSectionWriteOutcome.Success
+                ? null
+                : $"{ClearFailedWhileClearingMessage}review comments: {comments.ErrorMessage}";
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            Logger.ProfileSectionClearFailed(exception, ProfileId, sectionId);
+
+            return ClearFailedMessage + RequestFailedReason;
+        }
+    }
+
+    /// <summary>Unlinks every note of one type from every question of the section, the legacy
+    /// <c>NoteList.RemoveQuestionReferenceByProfileSectionId</c> followed by <c>Save()</c>. The notes stay in the master list.</summary>
+    /// <returns>The reason when the change was refused, otherwise <see langword="null"/>.</returns>
+    private async Task<string?> UnlinkNotesFromSectionAsync(Guid profileVersionId, Guid sectionId, Guid noteTypeId, CancellationToken cancellationToken)
+    {
+        var notes = await ProfileSectionsApi.GetProfileNotesBySectionAsync(profileVersionId, sectionId, noteTypeId, cancellationToken);
+        var updates = notes
+            .Select(note => ProfileNoteChangeBuilder.BuildRemoval(note, note.LastUpdated, sectionId))
+            .OfType<ProfileNoteUpdate>()
+            .ToList();
+
+        if (updates.Count == 0)
+        {
+            return null;
+        }
+
+        var result = await ProfileSectionsApi.UpdateProfileNotesAsync(profileVersionId, noteTypeId, [], updates, cancellationToken);
+
+        return result.Outcome == ProfileNoteChangeOutcome.Success ? null : result.ErrorMessage;
+    }
+
     private async Task LoadQuestionsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
     {
         var answers = await ProfileSectionsApi.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
+        SectionLastUpdated = Convert.ToBase64String(answers.LastUpdated);
 
         var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
         var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
@@ -257,17 +443,12 @@ public class EditProfileQuestionsModel(
                 var isQuestionEditable = CanEditProfileSection && !question.IsPerSpecies && !question.IsRepeating;
                 var questionValues = valuesByQuestion[question.Id].ToList();
 
-                // Matches the legacy CollapsiblePanel's tick/cross icon: valid once every
-                // mandatory, non-"Field Group" field has a recorded answer.
-                var isQuestionValid = question.Fields
-                    .Where(field => field.IsMandatory && !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-                    .All(field => questionValues.Any(value => value.FieldNumber == field.FieldNumber && HasRecordedValue(value)));
-
                 return new ProfileQuestionEditView
                 {
                     Number = $"{section.SectionNumber}.{question.QuestionNumber}",
                     Text = namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
-                    IsValid = isQuestionValid,
+                    IsValid = GetQuestionValidationStatus(question.Id),
+                    IsHidden = IsQuestionIrrelevant(question.Id),
                     CanEditReferences = CanEditProfileSection,
                     Fields =
                     [
@@ -277,7 +458,7 @@ public class EditProfileQuestionsModel(
                             .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
                             .Select(field => BuildFieldEditView(
                                 field,
-                                isQuestionEditable,
+                                isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario),
                                 questionValues.Where(value => value.FieldNumber == field.FieldNumber).ToList(),
                                 referenceValuesByTable))
                     ]
@@ -285,15 +466,6 @@ public class EditProfileQuestionsModel(
             })
         ];
     }
-
-    /// <summary>Matches the legacy question-level validity check: a field counts as answered when
-    /// any value property is populated.</summary>
-    private static bool HasRecordedValue(ProfileFieldValueDto value) =>
-        value.BooleanValue is not null
-        || value.ListValue is not null
-        || value.DecimalValue is not null
-        || value.DateValue is not null
-        || !string.IsNullOrWhiteSpace(value.TextValue);
 
     /// <summary>Builds one field's view: a real editable control matching its data type when
     /// <paramref name="isEditable"/>, otherwise the same static read-only rendering as before
@@ -348,7 +520,8 @@ public class EditProfileQuestionsModel(
 
     /// <summary>Reads the posted form values for every editable field in <paramref name="section"/>
     /// and builds the corresponding <see cref="ProfileFieldAnswerInputDto"/> entries, matching the
-    /// legacy per-datatype controls' Save() logic. An invalid decimal or date is reported as a
+    /// legacy per-datatype controls' Save() logic. A field that is read-only for the kind of profile has no
+    /// control, so it is not read. An invalid decimal or date is reported as a
     /// validation error rather than silently dropped or thrown.</summary>
     private (IReadOnlyList<ProfileFieldAnswerInputDto> Answers, IReadOnlyList<string> Errors) ParseSubmittedAnswers(
         ProfileSectionMetadataDto section)
@@ -365,7 +538,8 @@ public class EditProfileQuestionsModel(
 
             foreach (var field in question.Fields)
             {
-                if (string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase)
+                    || field.IsReadOnlyFor(IsWhatIfScenario))
                 {
                     continue;
                 }

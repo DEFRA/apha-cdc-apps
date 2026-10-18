@@ -37,4 +37,10 @@ public sealed record ProfileFieldMetadata : BaseEntity
 
     /// <summary>Gets a value indicating whether the backing reference table is user-maintainable.</summary>
     public required bool ReferenceTableIsMaintainable { get; init; }
+
+    /// <summary>Gets a value indicating whether the field is read-only for the current situation of a profile.</summary>
+    public bool IsReadOnlyCurrentSituation { get; init; }
+
+    /// <summary>Gets a value indicating whether the field is read-only for a "what-if" scenario.</summary>
+    public bool IsReadOnlyScenario { get; init; }
 }

@@ -145,6 +145,8 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
     [InlineData("/SurveillanceProfiles/EditProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/ManageProfile/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     [InlineData("/SurveillanceProfiles/EditProfileTitle/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
+    [InlineData("/SurveillanceProfiles/ProfileProperties")]
+    [InlineData("/SurveillanceProfiles/ProfileProperties/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f")]
     public async Task ProtectedRoutes_Anonymous_RedirectToEntraRatherThanRenderingView(string url)
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
