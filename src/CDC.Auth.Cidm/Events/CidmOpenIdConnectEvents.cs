@@ -117,7 +117,9 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
         // never be able to recover Properties.RedirectUri (/Account/SignedOut).
         if (string.IsNullOrEmpty(context.ProtocolMessage.State))
         {
-            context.ProtocolMessage.State = context.Options.StateDataFormat.Protect(context.Properties);
+            // Only the redirect target goes in state - the id_token in Properties would push /signout-oidc past the WAF query-string limit.
+            var stateProperties = new AuthenticationProperties { RedirectUri = context.Properties.RedirectUri };
+            context.ProtocolMessage.State = context.Options.StateDataFormat.Protect(stateProperties);
         }
 
         context.HandleResponse();
