@@ -13,27 +13,13 @@ namespace CDC.Auth.Entra.Events;
 /// </summary>
 public sealed partial class EntraOpenIdConnectEvents : OpenIdConnectEvents
 {
-    private const string AccessTokenName = "access_token";
-
-    // Claims the app reads after sign-in; the rest of the id_token's claims only bloat the cookie past the WAF's 10 KB cookie-header limit.
-    private static readonly HashSet<string> RetainedClaimTypes = new(StringComparer.Ordinal)
-    {
-        ClaimTypes.NameIdentifier,
-        ClaimTypes.Name,
-        ClaimTypes.GivenName,
-        ClaimTypes.Surname,
-        ClaimTypes.Email,
+    // Claims the app reads after sign-in, on top of the common identity claims.
+    private static readonly IReadOnlySet<string> RetainedClaimTypes = OpenIdConnectEventHelpers.RetainedClaims(
         EntraClaimTypes.ObjectId,
         EntraClaimTypes.ObjectIdLongClaimUri,
-        "sub",
         "sid",
-        "name",
         "displayname",
-        "preferred_username",
-        "given_name",
-        "family_name",
-        "email"
-    };
+        "preferred_username");
 
     private readonly ILogger<EntraOpenIdConnectEvents> _logger;
 
@@ -51,36 +37,16 @@ public sealed partial class EntraOpenIdConnectEvents : OpenIdConnectEvents
             return;
         }
 
-        var tokenClaims = identity.Claims.ToList();
-
         await OpenIdConnectEventHelpers.ResolveOrDenyAsync<IEntraInternalUserResolver, EntraInternalUserResolution>(
             context,
             identity,
-            (resolver, principal, cancellationToken) => resolver.ResolveAsync(principal, cancellationToken));
-
-        if (context.Result?.Handled ?? false)
-        {
-            return;
-        }
-
-        // Only the claims present before resolution are trimmed, so the ones the resolver just added are kept.
-        foreach (var claim in tokenClaims.Where(claim => !RetainedClaimTypes.Contains(claim.Type)))
-        {
-            identity.RemoveClaim(claim);
-        }
+            (resolver, principal, cancellationToken) => resolver.ResolveAsync(principal, cancellationToken),
+            RetainedClaimTypes);
     }
 
     /// <inheritdoc />
-    public override Task TicketReceived(TicketReceivedContext context)
-    {
-        // Nothing uses the access token, and it is the largest avoidable part of the session cookie, which must stay under the WAF's 10 KB cookie-header limit.
-        if (context.Properties is { } properties)
-        {
-            properties.StoreTokens(properties.GetTokens().Where(token => token.Name != AccessTokenName).ToList());
-        }
-
-        return Task.CompletedTask;
-    }
+    public override Task TicketReceived(TicketReceivedContext context) =>
+        OpenIdConnectEventHelpers.RemoveAccessTokenAsync(context);
 
     /// <inheritdoc />
     public override Task RemoteFailure(RemoteFailureContext context) =>
