@@ -1,4 +1,5 @@
 using CDC.Auth.Entra.Options;
+using CDC.Common.Auth;
 using CDC.Auth.Entra.TokenRefresh;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -63,7 +64,7 @@ public class EntraCookieEventsTests
     public async Task ValidatePrincipal_NoTokenMetadata_LeavesPrincipalUnchanged()
     {
         var context = CreateContext(new AuthenticationProperties(), out _);
-        var refreshService = new FakeTokenRefreshService(EntraTokenRefreshResult.Failed);
+        var refreshService = new FakeTokenRefreshService(TokenRefreshResult.Failed);
 
         await CreateEvents(refreshService).ValidatePrincipal(context);
 
@@ -76,7 +77,7 @@ public class EntraCookieEventsTests
     {
         var properties = CreatePropertiesWithTokens(Now.AddMinutes(30).ToString("o"), "refresh-token-value");
         var context = CreateContext(properties, out _);
-        var refreshService = new FakeTokenRefreshService(EntraTokenRefreshResult.Failed);
+        var refreshService = new FakeTokenRefreshService(TokenRefreshResult.Failed);
 
         await CreateEvents(refreshService).ValidatePrincipal(context);
 
@@ -88,7 +89,7 @@ public class EntraCookieEventsTests
     {
         var properties = CreatePropertiesWithTokens(Now.AddMinutes(2).ToString("o"), "old-refresh-token");
         var context = CreateContext(properties, out _);
-        var refreshService = new FakeTokenRefreshService(new EntraTokenRefreshResult(true, "new-access", "new-id", "new-refresh", Now.AddHours(1)));
+        var refreshService = new FakeTokenRefreshService(new TokenRefreshResult(true, "new-access", "new-id", "new-refresh", Now.AddHours(1)));
 
         await CreateEvents(refreshService).ValidatePrincipal(context);
 
@@ -103,7 +104,7 @@ public class EntraCookieEventsTests
     {
         var properties = CreatePropertiesWithTokens(Now.AddMinutes(1).ToString("o"), "old-refresh-token");
         var context = CreateContext(properties, out var authService);
-        var refreshService = new FakeTokenRefreshService(EntraTokenRefreshResult.Failed);
+        var refreshService = new FakeTokenRefreshService(TokenRefreshResult.Failed);
 
         await CreateEvents(refreshService).ValidatePrincipal(context);
 
@@ -116,7 +117,7 @@ public class EntraCookieEventsTests
     {
         var properties = CreatePropertiesWithTokens(Now.AddMinutes(1).ToString("o"), "original-refresh-token");
         var context = CreateContext(properties, out _);
-        var refreshService = new FakeTokenRefreshService(new EntraTokenRefreshResult(true, "new-access", null, null, Now.AddHours(1)));
+        var refreshService = new FakeTokenRefreshService(new TokenRefreshResult(true, "new-access", null, null, Now.AddHours(1)));
 
         await CreateEvents(refreshService).ValidatePrincipal(context);
 
@@ -128,11 +129,11 @@ public class EntraCookieEventsTests
         public override DateTimeOffset GetUtcNow() => now;
     }
 
-    private sealed class FakeTokenRefreshService(EntraTokenRefreshResult result) : IEntraTokenRefreshService
+    private sealed class FakeTokenRefreshService(TokenRefreshResult result) : IEntraTokenRefreshService
     {
         public int CallCount { get; private set; }
 
-        public Task<EntraTokenRefreshResult> RefreshAsync(string refreshToken, string redirectUri, CancellationToken cancellationToken = default)
+        public Task<TokenRefreshResult> RefreshAsync(string refreshToken, string redirectUri, CancellationToken cancellationToken = default)
         {
             CallCount++;
             return Task.FromResult(result);
