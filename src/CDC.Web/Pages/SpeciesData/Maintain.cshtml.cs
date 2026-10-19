@@ -100,8 +100,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     public Guid? SelectedSpeciesId { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the hierarchy is in reorder mode ("Reorder list" clicked).</summary>
-    /// <remarks>Bound on GET too, so it survives the post-redirect-get round trip after a move.</remarks>
-    [BindProperty(SupportsGet = true)]
+    /// <remarks>Not model-bound, so only the reorder handlers (and the GET after a move) can turn it on.</remarks>
     public bool ReorderMode { get; set; }
 
     /// <summary>Gets a value indicating whether the selected species has a previous sibling to move up to.</summary>
@@ -132,8 +131,11 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <param name="inactivated">Set by the redirect after a species has been inactivated, to show the confirmation banner.</param>
     /// <param name="deleted">Set by the redirect after a species has been deleted, to show the confirmation banner.</param>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task OnGetAsync(bool saved, bool added, bool inactivated, bool deleted, CancellationToken cancellationToken)
+    /// <param name="reorderMode">Set by the redirect after a move, to keep the Move up/down arrows open.</param>
+    public async Task OnGetAsync(bool saved, bool added, bool inactivated, bool deleted, CancellationToken cancellationToken, bool reorderMode = false)
     {
+        ReorderMode = reorderMode;
+
         await LoadTreeAsync(cancellationToken);
 
         if (saved)

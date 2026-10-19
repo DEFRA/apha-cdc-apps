@@ -737,6 +737,25 @@ public class MaintainModelTests
         Assert.False(pageModel.ReorderMode);
     }
 
+    [Fact]
+    public async Task OnGetAsync_StaysInReorderMode_AfterTheRedirectFromAMove()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None, reorderMode: true);
+
+        Assert.True(pageModel.ReorderMode);
+    }
+
+    [Fact]
+    public void ReorderMode_IsNotModelBound_SoOtherButtonsCannotReopenTheArrows()
+    {
+        var property = typeof(MaintainModel).GetProperty(nameof(MaintainModel.ReorderMode));
+
+        Assert.Null(Attribute.GetCustomAttribute(property!, typeof(Microsoft.AspNetCore.Mvc.BindPropertyAttribute)));
+    }
+
     [Theory]
     [InlineData(nameof(MaintainModel.OnPostEditNameParentAsync))]
     [InlineData(nameof(MaintainModel.OnPostSaveAsync))]
