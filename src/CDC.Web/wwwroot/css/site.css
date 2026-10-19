@@ -1458,13 +1458,10 @@ body {
   padding-bottom: 7px;
 }
 
+/* Read-only, not disabled, so the value stays focusable and announced by screen readers. */
 .app-legacy-form__value {
   width: 100%;
   box-sizing: border-box;
-}
-
-/* Read-only, not disabled, so the value stays focusable and announced by screen readers. */
-.app-legacy-form__value {
   background-color: #f3f2f1;
   overflow-x: auto;
   white-space: nowrap;
@@ -1483,6 +1480,8 @@ body {
 
 .app-legacy-form__field .app-richtext-toolbar {
   margin-top: 0;
+  gap: 0.5rem;
+  padding: 0.375rem;
 }
 
 .app-richtext-toolbar__button--icon:disabled {
@@ -1505,11 +1504,6 @@ body {
 /* An empty error message still has a bottom margin, which pushed the control below its label. */
 .app-legacy-form__field .govuk-error-message:empty {
   display: none;
-}
-
-.app-legacy-form__field .app-richtext-toolbar {
-  gap: 0.5rem;
-  padding: 0.375rem;
 }
 
 .app-legacy-form__field .app-richtext-toolbar__divider {

@@ -312,7 +312,7 @@ else
         <form method="post">
             <div class="app-legacy-form">
                 <span class="app-legacy-form__label app-legacy-form__cell--bottom">Old name:</span>
-                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="add-old-name" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old name">@newEntry</div>
+                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="add-old-name" tabindex="0" aria-label="Old name">@newEntry</div>
 
                 <label class="app-legacy-form__label app-legacy-form__cell--bottom" asp-for="AddInput.Name">New name:</label>
                 <div class="app-legacy-form__field@(ViewData.ModelState["AddInput.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
@@ -321,7 +321,7 @@ else
                 </div>
 
                 <span class="app-legacy-form__label">Old parent:</span>
-                <div class="govuk-input app-legacy-form__value" id="add-old-parent" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old parent">@newEntry</div>
+                <div class="govuk-input app-legacy-form__value" id="add-old-parent" tabindex="0" aria-label="Old parent">@newEntry</div>
 
                 <label class="app-legacy-form__label" asp-for="AddInput.ParentId">New parent:</label>
                 <div class="app-legacy-form__field@(ViewData.ModelState["AddInput.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
@@ -386,7 +386,7 @@ else
 
             <div class="app-legacy-form">
                 <span class="app-legacy-form__label app-legacy-form__cell--bottom">Old name:</span>
-                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="old-name" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
+                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="old-name" tabindex="0" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
 
                 <label class="app-legacy-form__label app-legacy-form__cell--bottom" asp-for="Input.Name">New name:</label>
                 <div class="app-legacy-form__field@(ViewData.ModelState["Input.Name"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
@@ -395,7 +395,7 @@ else
                 </div>
 
                 <span class="app-legacy-form__label">Old parent:</span>
-                <div class="govuk-input app-legacy-form__value" id="old-parent" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
+                <div class="govuk-input app-legacy-form__value" id="old-parent" tabindex="0" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
 
                 <label class="app-legacy-form__label" asp-for="Input.ParentId">New parent:</label>
                 <div class="app-legacy-form__field@(ViewData.ModelState["Input.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
@@ -519,7 +519,7 @@ else
 
             <div class="app-legacy-form">
                 <span class="app-legacy-form__label">Old name:</span>
-                <div class="govuk-input app-legacy-form__value" id="delete-old-name" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
+                <div class="govuk-input app-legacy-form__value" id="delete-old-name" tabindex="0" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
 
                 <label class="app-legacy-form__label" for="delete-new-name">New name:</label>
                 <div class="app-legacy-form__field">
@@ -527,7 +527,7 @@ else
                 </div>
 
                 <span class="app-legacy-form__label">Old parent:</span>
-                <div class="govuk-input app-legacy-form__value" id="delete-old-parent" role="textbox" aria-readonly="true" tabindex="0" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
+                <div class="govuk-input app-legacy-form__value" id="delete-old-parent" tabindex="0" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
 
                 <label class="app-legacy-form__label" for="delete-new-parent">New parent:</label>
                 <div class="app-legacy-form__field">
