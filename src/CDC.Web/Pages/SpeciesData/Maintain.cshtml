@@ -206,6 +206,14 @@ else
                                 Remove selection
                             </button>
                         </div>
+                        @if (Model.ReorderMode)
+                        {
+                            <div class="app-tree__actions">
+                                <button type="submit" asp-page-handler="ReorderDone" formnovalidate class="govuk-button" data-module="govuk-button">
+                                    Done
+                                </button>
+                            </div>
+                        }
                     </div>
 
                     @if (!Model.ReorderMode)
@@ -254,9 +262,6 @@ else
                                 class="govuk-button govuk-button--secondary app-reorder-arrow" data-module="govuk-button">
                                 <span aria-hidden="true">&darr;</span>
                                 <span class="govuk-visually-hidden">Move down</span>
-                            </button>
-                            <button type="submit" asp-page-handler="ReorderDone" formnovalidate class="govuk-button" data-module="govuk-button">
-                                Done
                             </button>
                         </div>
                     }

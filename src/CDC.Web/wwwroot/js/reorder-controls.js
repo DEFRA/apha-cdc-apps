@@ -26,6 +26,32 @@
         });
     });
 
+    // The arrows are rendered for the species selected when the page loaded; recompute them
+    // when another species is picked, otherwise they stay disabled and nothing can be moved.
+    const $moveUp = document.getElementById('reorder-move-up');
+    const $moveDown = document.getElementById('reorder-move-down');
+
+    function updateArrows($radio) {
+        const $item = $radio.closest('.app-tree__item');
+        const $siblings = $item ? Array.from($item.parentElement.children).filter(($li) => $li.matches('.app-tree__item')) : [];
+        const index = $siblings.indexOf($item);
+
+        $moveUp.disabled = index <= 0;
+        $moveDown.disabled = index < 0 || index >= $siblings.length - 1;
+    }
+
+    document.querySelector('.app-tree').addEventListener('change', (event) => {
+        if (event.target.matches('input[type="radio"]') && $moveUp && $moveDown) {
+            updateArrows(event.target);
+        }
+    });
+
+    const initiallyChecked = document.querySelector('.app-tree input[type="radio"]:checked');
+
+    if (initiallyChecked && $moveUp && $moveDown) {
+        updateArrows(initiallyChecked);
+    }
+
     const lastId = sessionStorage.getItem(STORAGE_KEY);
     const $last = $arrows.find(($arrow) => $arrow.id === lastId);
 
