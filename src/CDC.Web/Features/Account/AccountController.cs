@@ -110,4 +110,13 @@ public class AccountController : Controller
     {
         return View();
     }
+
+    // Where the cookie schemes (default AccessDeniedPath) send a signed-in user whose role a page's policy refuses.
+    [AllowAnonymous]
+    public IActionResult AccessDenied()
+    {
+        Response.StatusCode = StatusCodes.Status403Forbidden;
+
+        return View();
+    }
 }

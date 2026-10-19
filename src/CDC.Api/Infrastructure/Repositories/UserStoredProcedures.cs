@@ -14,6 +14,9 @@ public static class UserStoredProcedures
     /// </summary>
     public const string GetUserAuthorisation = "spgUserAuthorisation";
 
+    /// <summary>Returns one user row by id, with the profile editor and policy profile flags.</summary>
+    public const string GetUser = "spgUser";
+
     /// <summary>Returns the user row matching an email address, if any.</summary>
     public const string GetByEmailAddress = "spgUserByEmailAddress";
 

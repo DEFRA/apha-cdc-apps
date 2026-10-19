@@ -1,8 +1,8 @@
+using CDC.Api.Application;
 using CDC.Api.Features.ProfileNotes.Commands;
 using CDC.Api.Features.ProfileNotes.Dtos;
 using CDC.Api.Features.ProfileNotes.Interfaces;
 using CDC.Api.Features.ProfileNotes.Mapping;
-using CDC.Api.Infrastructure;
 
 namespace CDC.Api.Features.ProfileNotes;
 
@@ -11,11 +11,11 @@ namespace CDC.Api.Features.ProfileNotes;
 /// <see cref="IProfileNoteRepository"/> and maps domain entities onto the DTOs the API returns.
 /// </summary>
 /// <param name="repository">Profile note data access.</param>
-/// <param name="auditOptions">The temporary acting user recorded as the contributor until Entra ID supplies the signed-in user.</param>
+/// <param name="userContext">The signed-in user, recorded as the contributor of every section a change touches.</param>
 /// <param name="logger">Structured logger.</param>
 public sealed class ProfileNoteService(
     IProfileNoteRepository repository,
-    SpeciesAuditOptions auditOptions,
+    IUserContext userContext,
     ILogger<ProfileNoteService> logger)
     : IProfileNoteService
 {
@@ -59,7 +59,7 @@ public sealed class ProfileNoteService(
         ArgumentNullException.ThrowIfNull(command);
 
         // Each section the change touches records a contributor, which is a foreign key to [User], so a real user id is needed.
-        var result = await repository.UpdateNotesAsync(command, auditOptions.AuditUserId, cancellationToken);
+        var result = await repository.UpdateNotesAsync(command, userContext.RequireUserId(), cancellationToken);
         logger.AppliedChangeset(command.ProfileVersionId);
 
         return result.ToDto();

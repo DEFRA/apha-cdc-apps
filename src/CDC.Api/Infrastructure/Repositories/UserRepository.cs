@@ -175,6 +175,30 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         }
     }
 
+    /// <inheritdoc />
+    public async Task<ActingUser?> GetActingUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var row = await connection.QuerySingleOrDefaultAsync<ActingUserRow>(new CommandDefinition(
+                UserStoredProcedures.GetUser,
+                new { UserId = userId },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return row is null
+                ? null
+                : new ActingUser { Id = row.Id, IsProfileEditor = row.IsProfileEditor, IsPolicyProfileUser = row.IsPolicyProfileUser };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetUser);
+            throw;
+        }
+    }
+
     // SsoUserIdExt, SsoUserId and EmailAddress are nullable in the database (every internal row has
     // none of them) - a row returned by GetBySsoUserIdExtAsync/GetByEmailAddressAsync always has
     // SsoUserIdExt and EmailAddress, since both procedures filter on one of them, but the mapped
@@ -252,6 +276,14 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         public string? UserName { get; init; } // NOSONAR
         public string? FullName { get; init; } // NOSONAR
         public Guid? SsoUserIdInt { get; init; } // NOSONAR
+        public bool IsProfileEditor { get; init; } // NOSONAR
+        public bool IsPolicyProfileUser { get; init; } // NOSONAR
+    }
+
+    // spgUser returns more columns than the acting user needs; Dapper ignores the ones with no property.
+    private sealed record ActingUserRow
+    {
+        public Guid Id { get; init; } // NOSONAR
         public bool IsProfileEditor { get; init; } // NOSONAR
         public bool IsPolicyProfileUser { get; init; } // NOSONAR
     }

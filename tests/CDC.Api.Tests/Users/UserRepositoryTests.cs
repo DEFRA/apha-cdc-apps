@@ -27,6 +27,12 @@ public class UserRepositoryTests : IDisposable
         "Id", "UserName", "FullName", "IsProfileEditor", "IsPolicyProfileUser", "SsoUserIdInt"
     ];
 
+    private static readonly string[] ActingUserColumns =
+    [
+        "Id", "UserName", "FullName", "Organisation", "SubscribedToReviewEmails", "IsProfileEditor", "IsPolicyProfileUser",
+        "SsoUserId", "LastUpdated"
+    ];
+
     private readonly FakeDbConnection connection = new();
     private readonly Mock<ILogger<UserRepository>> logger = new();
 
@@ -377,6 +383,59 @@ public class UserRepositoryTests : IDisposable
         var act = async () => await repository.GetBySsoUserIdIntAsync(SsoUserIdInt, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task GetActingUserAsync_MapsTheIdAndRoleFlags_WhenFound()
+    {
+        connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(ActingUserColumns,
+                [
+                    [UserId, "jdoe", "Jane Doe", "APHA", false, true, false, null, new byte[8]]
+                ])
+            ]
+        });
+
+        var user = await CreateRepository().GetActingUserAsync(UserId, CancellationToken.None);
+
+        user.Should().NotBeNull();
+        user!.Id.Should().Be(UserId);
+        user.IsProfileEditor.Should().BeTrue();
+        user.IsPolicyProfileUser.Should().BeFalse();
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(UserStoredProcedures.GetUser);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(UserId);
+    }
+
+    [Fact]
+    public async Task GetActingUserAsync_ReturnsNull_WhenNotFound()
+    {
+        connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty(ActingUserColumns)]
+        });
+
+        var user = await CreateRepository().GetActingUserAsync(UserId, CancellationToken.None);
+
+        user.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetActingUserAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().GetActingUserAsync(UserId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
     }
 
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory

@@ -1,6 +1,8 @@
 using System.Text.Json;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -11,6 +13,7 @@ namespace CDC.Web.Pages.CrossProfileAdmin;
 /// changes in session - accumulating across criteria and categories - until Update commits them
 /// all and triggers a recalculation, matching the legacy MaintainCrossCuttingIssueScores page.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanManageCrossCuttingScores)]
 public class CrossCuttingIssueScoresModel(ICrossCuttingIssueScoreService issueScoreService, ILogger<CrossCuttingIssueScoresModel> logger)
     : BreadcrumbPageModelBase("Maintain cross-cutting issue scores")
 {

@@ -25,44 +25,47 @@ public class NavigationAuthorizationServiceTests
         Assert.True(await service.CanEditUserGuidanceAsync(user));
         Assert.True(await service.CanViewSpeciesDataAsync(user));
         Assert.True(await service.CanViewReviewTimingAsync(user));
+        Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
     }
 
     [Fact]
-    public async Task PolicyProfileUser_CanOnlyAccessProfileSearchAndReports()
+    public async Task PolicyProfileUser_CanAccessSearchReportsDiseaseRankingAndViewSpeciesData()
     {
         var service = CreateService();
         var user = CreateUser(AuthorizationRoles.PolicyProfileUser);
 
         Assert.True(await service.CanViewProfileSearchAsync(user));
         Assert.True(await service.CanViewReportsAsync(user));
+        Assert.True(await service.CanViewSpeciesDataAsync(user));
+        Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
 
         Assert.False(await service.CanCreateProfileAsync(user));
         Assert.False(await service.CanViewProfileComparisonAsync(user));
         Assert.False(await service.CanManageSpeciesDataAsync(user));
         Assert.False(await service.CanEditUserGuidanceAsync(user));
-        Assert.False(await service.CanViewSpeciesDataAsync(user));
         Assert.False(await service.CanViewReviewTimingAsync(user));
     }
 
     [Fact]
-    public async Task Contributor_CanOnlyAccessProfileSearchAndReports()
+    public async Task Contributor_CanAccessSearchReportsDiseaseRankingAndViewSpeciesData()
     {
         var service = CreateService();
         var user = CreateUser(AuthorizationRoles.Contributor);
 
         Assert.True(await service.CanViewProfileSearchAsync(user));
         Assert.True(await service.CanViewReportsAsync(user));
+        Assert.True(await service.CanViewSpeciesDataAsync(user));
+        Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
 
         Assert.False(await service.CanCreateProfileAsync(user));
         Assert.False(await service.CanViewProfileComparisonAsync(user));
         Assert.False(await service.CanManageSpeciesDataAsync(user));
         Assert.False(await service.CanEditUserGuidanceAsync(user));
-        Assert.False(await service.CanViewSpeciesDataAsync(user));
         Assert.False(await service.CanViewReviewTimingAsync(user));
     }
 
     [Fact]
-    public async Task Reviewer_CanAccessProfileSearchComparisonReportsAndReviewTiming()
+    public async Task Reviewer_CanAccessSearchComparisonReportsSpeciesViewDiseaseRankingAndReviewTiming()
     {
         var service = CreateService();
         var user = CreateUser(AuthorizationRoles.Reviewer);
@@ -71,11 +74,12 @@ public class NavigationAuthorizationServiceTests
         Assert.True(await service.CanViewProfileComparisonAsync(user));
         Assert.True(await service.CanViewReportsAsync(user));
         Assert.True(await service.CanViewReviewTimingAsync(user));
+        Assert.True(await service.CanViewSpeciesDataAsync(user));
+        Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
 
         Assert.False(await service.CanCreateProfileAsync(user));
         Assert.False(await service.CanManageSpeciesDataAsync(user));
         Assert.False(await service.CanEditUserGuidanceAsync(user));
-        Assert.False(await service.CanViewSpeciesDataAsync(user));
     }
 
     [Fact]
@@ -92,6 +96,7 @@ public class NavigationAuthorizationServiceTests
         Assert.False(await service.CanEditUserGuidanceAsync(user));
         Assert.False(await service.CanViewSpeciesDataAsync(user));
         Assert.False(await service.CanViewReviewTimingAsync(user));
+        Assert.False(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
     }
 
     [Fact]
@@ -102,6 +107,8 @@ public class NavigationAuthorizationServiceTests
 
         Assert.False(await service.CanViewProfileSearchAsync(user));
         Assert.False(await service.CanViewReportsAsync(user));
+        Assert.False(await service.CanViewSpeciesDataAsync(user));
+        Assert.False(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
     }
 
     [Fact]

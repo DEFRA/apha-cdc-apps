@@ -1,8 +1,8 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ProfileSections.Mapping;
-using CDC.Api.Infrastructure;
 using CDC.Common.Contracts;
 using FluentValidation;
 using FluentValidation.Results;
@@ -15,13 +15,13 @@ namespace CDC.Api.Features.ProfileSections;
 /// </summary>
 /// <param name="repository">Profile section data access.</param>
 /// <param name="contentRepository">Reads the questionnaire, every section's answers and the reference lists the validation needs.</param>
-/// <param name="auditOptions">The temporary acting user recorded as the contributor until Entra ID supplies the signed-in user.</param>
+/// <param name="userContext">The signed-in user, recorded as the contributor of every section they change.</param>
 /// <param name="logger">Structured logger.</param>
 /// <param name="timeProvider">Supplies the current time for review completed dates and the future-date rule; defaults to the system clock.</param>
 public sealed class ProfileSectionService(
     IProfileSectionRepository repository,
     IProfileReportContentRepository contentRepository,
-    SpeciesAuditOptions auditOptions,
+    IUserContext userContext,
     ILogger<ProfileSectionService> logger,
     TimeProvider? timeProvider = null)
     : IProfileSectionService
@@ -84,6 +84,7 @@ public sealed class ProfileSectionService(
         byte[]? lastUpdated,
         CancellationToken cancellationToken)
     {
+        var userId = userContext.RequireUserId();
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
         var section = questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
@@ -96,10 +97,10 @@ public sealed class ProfileSectionService(
         var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
         var change = ProfileSectionChangePlanner.PlanClear(section, answers, version.IsWhatIfScenario, lastUpdated);
 
-        // No authenticated user yet: the contribution is logged against the configured acting user
-        // (a real [User] row, as spiProfileVersionSectionUser has a foreign key) until Entra ID lands.
+        // The contribution is logged against the signed-in user (a real [User] row, as
+        // spiProfileVersionSectionUser has a foreign key to it).
         var clearedCount = await repository.ApplyProfileVersionSectionChangeAsync(
-            profileVersionId, profileSectionId, change, auditOptions.AuditUserId, cancellationToken);
+            profileVersionId, profileSectionId, change, userId, cancellationToken);
 
         logger.ClearedProfileVersionSection(profileVersionId, profileSectionId, clearedCount);
 
@@ -135,6 +136,7 @@ public sealed class ProfileSectionService(
         byte[]? lastUpdated,
         CancellationToken cancellationToken)
     {
+        var userId = userContext.RequireUserId();
         var version = await LoadVersionAnswersAsync(profileVersionId, cancellationToken);
         var section = version.Questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
@@ -151,9 +153,9 @@ public sealed class ProfileSectionService(
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
-        // Acting user placeholder: see ClearProfileVersionSectionAsync.
+        // The contribution is logged against the signed-in user: see ClearProfileVersionSectionAsync.
         var savedCount = await repository.ApplyProfileVersionSectionChangeAsync(
-            profileVersionId, profileSectionId, change, auditOptions.AuditUserId, cancellationToken);
+            profileVersionId, profileSectionId, change, userId, cancellationToken);
 
         logger.SavedProfileVersionSection(profileVersionId, profileSectionId, savedCount);
 
@@ -226,6 +228,7 @@ public sealed class ProfileSectionService(
         IReadOnlyList<ProfileSectionRevisionDatesInputDto> sections,
         CancellationToken cancellationToken)
     {
+        var userId = userContext.RequireUserId();
         var frequencies = await repository.GetReviewFrequenciesAsync(cancellationToken);
         var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
         var validFrequencyIds = frequencies.Select(item => item.Id).ToHashSet();
@@ -261,9 +264,9 @@ public sealed class ProfileSectionService(
             throw new ValidationException(failures);
         }
 
-        // Acting user placeholder: see ClearProfileVersionSectionAsync.
+        // The review dates are logged against the signed-in user: see ClearProfileVersionSectionAsync.
         var savedCount = await repository.UpdateProfileVersionSectionRevisionsAsync(
-            profileVersionId, updates, auditOptions.AuditUserId, cancellationToken);
+            profileVersionId, updates, userId, cancellationToken);
 
         logger.SavedProfileVersionRevisionDates(profileVersionId, savedCount, sections.Count);
 

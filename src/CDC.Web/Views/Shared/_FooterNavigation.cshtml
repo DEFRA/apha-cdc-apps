@@ -1,0 +1,43 @@
+@using CDC.Web.Models
+@using CDC.Web.Authorization.Services
+@inject INavigationAuthorizationService NavigationAuthorizationService
+@{
+    var visibleSections = new List<(string Title, List<FooterMenuLink> Links)>();
+
+    foreach (var footerSection in FooterMenu.Sections)
+    {
+        var visibleLinks = new List<FooterMenuLink>();
+        foreach (var link in footerSection.Links)
+        {
+            if (await NavigationAuthorizationService.CanAccessAsync(User, link.RequiredPolicy))
+            {
+                visibleLinks.Add(link);
+            }
+        }
+
+        if (visibleLinks.Count > 0)
+        {
+            visibleSections.Add((footerSection.Title, visibleLinks));
+        }
+    }
+}
+
+@* Each group and link is shown only to a user the legacy Footer.ascx showed it to; with nothing visible the whole block, including its rule, is omitted. *@
+@if (visibleSections.Count > 0)
+{
+    <div class="govuk-footer__navigation">
+        @foreach (var (title, links) in visibleSections)
+        {
+            <div class="govuk-footer__section govuk-grid-column-one-third">
+                <h2 class="govuk-footer__heading govuk-heading-m">@title</h2>
+                <ul class="govuk-footer__list">
+                    @foreach (var link in links)
+                    {
+                        <li class="govuk-footer__list-item"><a class="govuk-footer__link" href="@Url.Page(link.PagePath, link.RouteValues)">@link.Text</a></li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+    <hr class="govuk-footer__section-break">
+}

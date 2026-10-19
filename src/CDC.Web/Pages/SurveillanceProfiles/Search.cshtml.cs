@@ -1,5 +1,7 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
@@ -9,6 +11,7 @@ namespace CDC.Web.Pages;
 /// <summary>
 /// Razor Page for searching disease surveillance profiles with comprehensive filtering options.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanViewProfileSearch)]
 public class SurveillanceProfilesSearchModel : PageModel
 {
     private static readonly Action<ILogger, Exception?> LogFailedToLoadSpeciesFilterValuesMessage =

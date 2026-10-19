@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace CDC.Web.Pages.Reports;
 
+[Authorize(Policy = AuthorizationPolicies.CanViewReports)]
 public partial class GeneralModel : BreadcrumbPageModelBase
 {
     private const string ReportsPage = "/Reports/General";

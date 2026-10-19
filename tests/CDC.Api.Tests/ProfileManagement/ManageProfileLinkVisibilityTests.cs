@@ -362,6 +362,8 @@ public sealed class ManageProfileLinkVisibilityTests
 
         public static TestUserContext UserManagementSystem => new(true, true, false);
 
+        public Guid? UserId => null;
+
         public bool IsProfileEditor { get; } = isProfileEditor;
 
         public bool IsUserManagementSystem { get; } = isUserManagementSystem;
