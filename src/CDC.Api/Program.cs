@@ -31,11 +31,6 @@ StartupChecks.RequireDatabaseOptions(builder.Configuration);
 // return an identical 404 for "not configured" and "wrong key" alike.
 StartupChecks.RequireReadinessKey(builder.Configuration);
 
-// Species__AuditUserId - temporary placeholder acting user for the species audit trail until
-// Entra ID authentication supplies a real per-request caller. See SpeciesAuditOptions.
-var speciesAuditUserId = StartupChecks.RequireSpeciesAuditUserId(builder.Configuration);
-builder.Services.AddSingleton(new SpeciesAuditOptions(speciesAuditUserId));
-
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 
@@ -71,6 +66,9 @@ app.UseGlobalExceptionHandling();
 // Correlation ID before request logging so the one-line-per-request log carries it; CDC.Web
 // forwards its own ID here via CorrelationIdDelegatingHandler, so both services' logs correlate.
 app.UseCorrelationId();
+
+// Before request logging, so the one-line-per-request log carries the acting user's id too.
+app.UseActingUser();
 app.UseSerilogRequestLogging();
 
 // Swagger is enabled in every environment: the API is reachable only from inside the VPC,

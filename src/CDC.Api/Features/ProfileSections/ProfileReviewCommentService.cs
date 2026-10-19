@@ -4,7 +4,6 @@ using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSections.Interfaces;
-using CDC.Api.Infrastructure;
 using CDC.Common.Contracts;
 using MediatR;
 
@@ -18,15 +17,13 @@ namespace CDC.Api.Features.ProfileSections;
 /// </summary>
 /// <param name="repository">Profile section data access.</param>
 /// <param name="managementRepository">Profile data access, for the version's draft/published state.</param>
-/// <param name="userContext">The acting user's profile-authoring role flags.</param>
-/// <param name="auditOptions">The temporary acting user until Entra ID supplies the signed-in user.</param>
+/// <param name="userContext">The signed-in user: their profile-authoring role flags, and the author a comment is attributed to.</param>
 /// <param name="logger">Structured logger.</param>
 /// <param name="timeProvider">Supplies the comment time; defaults to the system clock.</param>
 public sealed class ProfileReviewCommentService(
     IProfileSectionRepository repository,
     IProfileManagementRepository managementRepository,
     IUserContext userContext,
-    SpeciesAuditOptions auditOptions,
     ILogger<ProfileReviewCommentService> logger,
     TimeProvider? timeProvider = null)
     : IProfileReviewCommentService
@@ -214,13 +211,12 @@ public sealed class ProfileReviewCommentService(
     {
         var summary = await managementRepository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
 
-        if (!ProfileManagementService.ComputeCanEditProfileSection(summary, userContext))
+        if (!ProfileManagementService.ComputeCanEditProfileSection(summary, userContext) || userContext.UserId is not { } userId)
         {
             return null;
         }
 
-        // No authenticated user yet: comments are attributed to the configured acting user.
-        return await repository.GetReviewCommentUserAsync(auditOptions.AuditUserId, cancellationToken);
+        return await repository.GetReviewCommentUserAsync(userId, cancellationToken);
     }
 
     private sealed record ModifyRefusal(ResultStatus Status, string? Error);

@@ -1,6 +1,8 @@
 using CDC.Common.Contracts;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Features.DiseaseRanking;
 using CDC.Web.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Pages.Reports;
@@ -10,6 +12,7 @@ namespace CDC.Web.Pages.Reports;
 /// replacing the legacy <c>DiseaseRanking.aspx</c>, <c>ShowDiseaseRankingReport.aspx</c> and
 /// <c>ShowDiseaseRankingRFIReport.aspx</c> pages.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanViewDiseaseRankingReport)]
 public class DiseaseRankingModel(
     IDiseaseRankingApiService apiService,
     IDiseaseRankingPdfService pdfService,

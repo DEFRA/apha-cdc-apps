@@ -2,7 +2,6 @@ using System.Security.Claims;
 using CDC.Auth.Entra;
 using CDC.Auth.Entra.Claims;
 using CDC.Auth.Entra.Events;
-using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.Extensions.Logging;
@@ -98,11 +97,9 @@ public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<I
                     [ExternalUserClaimTypes.InternalUserId] = result.User.Id.ToString(),
                     [ExternalUserClaimTypes.FullName] = result.User.FullName,
                     [ExternalUserClaimTypes.AuthenticationProvider] = EntraAuthenticationDefaults.AuthenticationScheme,
+                    // InternalRoleClaimsTransformation turns these two flags into role claims on every request.
                     [ExternalUserClaimTypes.IsProfileEditor] = result.User.IsProfileEditor.ToString(),
-                    [ExternalUserClaimTypes.IsPolicyProfileUser] = result.User.IsPolicyProfileUser.ToString(),
-                    // TEMPORARY: every internal user is hardcoded to ProfileEditor until roles are
-                    // read from the database/Entra ID groups automatically.
-                    [ClaimTypes.Role] = AuthorizationRoles.ProfileEditor
+                    [ExternalUserClaimTypes.IsPolicyProfileUser] = result.User.IsPolicyProfileUser.ToString()
                 }),
             { Outcome: ResolveInternalUserOutcome.NotPermitted } => EntraInternalUserResolution.Deny("/Account/NotPermitted"),
             _ => EntraInternalUserResolution.Deny("/Landing/Error")

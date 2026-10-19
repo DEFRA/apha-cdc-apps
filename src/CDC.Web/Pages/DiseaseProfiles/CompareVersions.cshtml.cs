@@ -1,6 +1,8 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Playwright;
 
@@ -11,6 +13,7 @@ namespace CDC.Web.Pages.DiseaseProfiles;
 /// only the answers that differ. Replaces the legacy <c>CompareProfileVersions.aspx</c> and
 /// <c>ShowProfileVersionComparisonReport.aspx</c>.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanViewProfileComparison)]
 public class CompareVersionsModel(
     IApiClient apiClient,
     IProfileVersionComparisonService comparisonService,

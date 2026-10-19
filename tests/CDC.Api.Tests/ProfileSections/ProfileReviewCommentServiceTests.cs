@@ -5,7 +5,6 @@ using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
-using CDC.Api.Infrastructure;
 using CDC.Common.Contracts;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,6 +26,7 @@ public class ProfileReviewCommentServiceTests
 
     public ProfileReviewCommentServiceTests()
     {
+        userContext.SetupGet(context => context.UserId).Returns(AuditUserId);
         userContext.SetupGet(context => context.IsProfileEditor).Returns(true);
         userContext.SetupGet(context => context.IsUserManagementSystem).Returns(false);
     }
@@ -36,7 +36,6 @@ public class ProfileReviewCommentServiceTests
             repository.Object,
             managementRepository.Object,
             userContext.Object,
-            new SpeciesAuditOptions(AuditUserId),
             NullLogger<ProfileReviewCommentService>.Instance,
             new FixedTimeProvider(FixedNow));
 
@@ -208,6 +207,18 @@ public class ProfileReviewCommentServiceTests
         var result = await CreateService().AddAsync(VersionId, SectionId, null, "S", "R", "T", CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task AddAsync_ReturnsForbidden_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+        GivenVersion();
+
+        var result = await CreateService().AddAsync(VersionId, SectionId, null, "S", "R", "T", CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.GetReviewCommentUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -16,11 +16,16 @@ public static class AuthorizationPolicies
     public const string CanCreateProfile = nameof(CanCreateProfile);
 
     /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. Header: "Compare
-    /// profile versions" and "Disease ranking report" (legacy drives both links' visibility from
-    /// this one check - see <c>NavigationLinks.ascx.vb</c>).</summary>
+    /// profile versions".</summary>
     public const string CanViewProfileComparison = nameof(CanViewProfileComparison);
 
-    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports".</summary>
+    /// <summary>Legacy: <c>NavigationLinks.ascx.vb</c> shows the "Disease ranking report" link to every
+    /// user (editors open the interactive report, everyone else the pre-generated static one); the page
+    /// here is the same for every role. Header: "Disease ranking report".</summary>
+    public const string CanViewDiseaseRankingReport = nameof(CanViewDiseaseRankingReport);
+
+    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Footer: "Help using D2R2" and
+    /// "D2R2 Quality Statement".</summary>
     public const string CanViewReports = nameof(CanViewReports);
 
     /// <summary>Legacy: <c>StaticReport.CanDelete</c> and <c>UploadStaticReportCommand.CanUploadStaticReport()</c>. General reports page: delete and add.</summary>
@@ -47,22 +52,20 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>ProfilesIdentity.IsProfileEditor</c> (also <c>TemplateService.CanEdit()</c>). Profile reports: hides the intro text; bespoke report: saving and deleting templates.</summary>
     public const string IsProfileEditor = nameof(IsProfileEditor);
 
-    /// <summary>Legacy: <c>GlobalUserList.CanGetGlobalUserList()</c>. Not yet wired to any page -
-    /// scaffolded for the footer/admin-pages phase.</summary>
+    /// <summary>Legacy: <c>GlobalUserList.CanGetGlobalUserList()</c>. Footer: "Global users".</summary>
     public const string CanManageGlobalUsers = nameof(CanManageGlobalUsers);
 
-    /// <summary>Legacy: <c>ReferenceTableInfoList.CanGetList()</c>. Not yet wired to any page -
-    /// scaffolded for the footer/admin-pages phase.</summary>
+    /// <summary>Legacy: <c>ReferenceTableInfoList.CanGetList()</c>. Footer: "Maintain reference data".</summary>
     public const string CanManageReferenceData = nameof(CanManageReferenceData);
 
-    /// <summary>Not yet wired to any page - scaffolded for the footer/admin-pages phase.</summary>
+    /// <summary>Legacy: <c>SsoUserMaintenance.CanGetSsoUserMaintenance()</c>. Footer: "External users".</summary>
     public const string CanManageExternalUsers = nameof(CanManageExternalUsers);
 
-    /// <summary>Legacy: <c>ProfilePrioritisationMetadata.CanGetObject()</c>. Not yet wired to any
-    /// page - scaffolded for the footer/admin-pages phase.</summary>
+    /// <summary>Legacy: <c>ProfilePrioritisationMetadata.CanGetObject()</c>. Footer: "Maintain prioritisation
+    /// variables".</summary>
     public const string CanManagePrioritisationVariables = nameof(CanManagePrioritisationVariables);
 
-    /// <summary>Legacy: <c>SpeciesPrioritisationMetadata.CanGetObject()</c>. Not yet wired to any
-    /// page - scaffolded for the footer/admin-pages phase.</summary>
+    /// <summary>Legacy: <c>SpeciesPrioritisationMetadata.CanGetObject()</c>. Footer: "Maintain cross-cutting issue
+    /// scores".</summary>
     public const string CanManageCrossCuttingScores = nameof(CanManageCrossCuttingScores);
 }

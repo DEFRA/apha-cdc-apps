@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -20,6 +22,7 @@ public sealed class CriterionValueScoreInput
 // draft-profile prioritisation, a single "Update" action that validates and saves the ranking
 // range plus (when a criterion is selected) its weighting and value scores together, and a
 // category-scoped criteria list (the "search results" grid shown after selecting a category).
+[Authorize(Policy = AuthorizationPolicies.CanManagePrioritisationVariables)]
 public class PrioritisationVariablesModel(
     IPrioritisationVariablesApiService prioritisationVariablesApiService,
     ILogger<PrioritisationVariablesModel> logger)
