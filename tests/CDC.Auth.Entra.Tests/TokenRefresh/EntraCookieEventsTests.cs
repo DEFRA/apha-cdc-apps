@@ -1,6 +1,6 @@
 using CDC.Auth.Entra.Options;
-using CDC.Common.Auth;
 using CDC.Auth.Entra.TokenRefresh;
+using CDC.Common.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
