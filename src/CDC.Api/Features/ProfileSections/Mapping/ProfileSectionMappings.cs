@@ -56,7 +56,9 @@ public static class ProfileSectionMappings
         DataTypeName = field.DataTypeName,
         IsMandatory = field.IsMandatory,
         ReferenceTableId = field.ReferenceTableId,
-        ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable
+        ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
+        IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
+        IsReadOnlyScenario = field.IsReadOnlyScenario
     };
 
     /// <summary>Projects one profile version section's recorded answers.</summary>
@@ -73,7 +75,8 @@ public static class ProfileSectionMappings
             Id = row.Id,
             QuestionId = row.QuestionId,
             SequenceNumber = row.SequenceNumber
-        })]
+        })],
+        LastUpdated = answers.LastUpdated
     };
 
     /// <summary>Projects a question's display names.</summary>

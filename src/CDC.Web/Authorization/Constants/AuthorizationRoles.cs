@@ -4,9 +4,9 @@ namespace CDC.Web.Authorization.Constants;
 /// Role names used by the authorization framework, mirroring the legacy <c>ProfilesIdentity</c>
 /// role flags (<c>IsProfileEditor</c>, <c>IsPolicyProfileUser</c>, <c>IsContributor</c>,
 /// <c>IsReviewer</c>, <c>IsUserManagementSystem</c>). These are plain role names, not Entra ID
-/// group/claim identifiers - the future claims transformation that replaces
-/// <see cref="Services.CurrentUserService"/> is responsible for mapping real identity provider
-/// claims onto these same role names, so no policy or handler needs to change.
+/// group/claim identifiers - <see cref="InternalRoleClaimsTransformation"/> (internal users) and the CIDM
+/// sign-in events (external users) map the signed-in user's permissions onto these same role names, so
+/// no policy or handler needs to know which identity provider was used.
 /// </summary>
 public static class AuthorizationRoles
 {

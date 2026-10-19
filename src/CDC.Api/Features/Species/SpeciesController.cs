@@ -1,8 +1,8 @@
+using CDC.Api.Application;
 using CDC.Api.Application.Extensions;
 using CDC.Api.Features.Species.Commands;
 using CDC.Api.Features.Species.Dtos;
 using CDC.Api.Features.Species.Queries;
-using CDC.Api.Infrastructure;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,12 +13,12 @@ namespace CDC.Api.Features.Species;
 /// <c>ISpeciesDataService</c> WCF endpoint.
 /// </summary>
 /// <param name="mediator">Dispatches queries and commands to their handlers.</param>
-/// <param name="speciesAuditOptions">Placeholder acting user for the species audit trail.</param>
+/// <param name="userContext">The signed-in user, recorded against every species change.</param>
 [ApiController]
 [Route("api/species")]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions speciesAuditOptions) : ControllerBase
+public sealed class SpeciesController(ISender mediator, IUserContext userContext) : ControllerBase
 {
     /// <summary>
     /// Gets every species and species group.
@@ -268,18 +268,19 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     /// <returns>The species identifier and its new row version.</returns>
     /// <response code="200">The change was committed.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The request carries no known signed-in user.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpPut("name-parent")]
     [ProducesResponseType(typeof(UpdateSpeciesNameParentResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<UpdateSpeciesNameParentResultDto>> UpdateSpeciesNameParent(
         [FromBody] UpdateSpeciesNameParentRequestDto request,
         CancellationToken cancellationToken)
     {
-        // UserId is set here from the configured placeholder audit user, never taken from the
-        // request body, so the audit trail cannot be spoofed by the client. Replace with the
-        // authenticated caller's id once Entra ID authentication is wired up.
+        // UserId is the signed-in user, never taken from the request body, so the audit trail
+        // cannot be spoofed by the client.
         var command = new UpdateSpeciesNameParentCommand
         {
             SpeciesId = request.SpeciesId,
@@ -287,7 +288,7 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
             ParentId = request.ParentId,
             Reason = request.Reason,
             LastUpdated = request.LastUpdated,
-            UserId = speciesAuditOptions.AuditUserId
+            UserId = userContext.RequireUserId()
         };
 
         var result = await mediator.Send(command, cancellationToken);
@@ -339,10 +340,12 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     /// <returns>The identifier assigned to the new species.</returns>
     /// <response code="201">The species was added.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The request carries no known signed-in user.</response>
     /// <response code="409">Another species already uses this name.</response>
     [HttpPost]
     [ProducesResponseType(typeof(AddSpeciesResultDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AddSpeciesResultDto>> AddSpecies(
         [FromBody] AddSpeciesRequestDto request,
@@ -350,15 +353,14 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // UserId is set here from the configured placeholder audit user, never taken from the
-        // request body, so the audit trail cannot be spoofed by the client. Replace with the
-        // authenticated caller's id once Entra ID authentication is wired up.
+        // UserId is the signed-in user, never taken from the request body, so the audit trail
+        // cannot be spoofed by the client.
         var command = new AddSpeciesCommand
         {
             Name = request.Name,
             ParentId = request.ParentId,
             Reason = request.Reason,
-            UserId = speciesAuditOptions.AuditUserId
+            UserId = userContext.RequireUserId()
         };
 
         var result = await mediator.Send(command, cancellationToken);
@@ -389,18 +391,20 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     /// No sibling exists at the resulting position - the species is already first/last, or an
     /// adjacent sequence number is missing.
     /// </response>
+    /// <response code="403">The request carries no known signed-in user.</response>
     [HttpPut("{speciesId:guid}/position")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult> ChangeSpeciesPosition(
         Guid speciesId,
         [FromBody] ChangeSpeciesPositionRequestDto request,
         CancellationToken cancellationToken)
     {
-        // UserId is set here from the configured placeholder audit user, never taken from the
-        // request body, so the audit trail cannot be spoofed by the client.
+        // UserId is the signed-in user, never taken from the request body, so the audit trail
+        // cannot be spoofed by the client.
         var result = await mediator.Send(
-            new ChangeSpeciesPositionCommand(speciesId, request.IsMovingUp, speciesAuditOptions.AuditUserId),
+            new ChangeSpeciesPositionCommand(speciesId, request.IsMovingUp, userContext.RequireUserId()),
             cancellationToken);
 
         return result.ToNoContentActionResult(this);
@@ -430,10 +434,12 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="204">The species was inactivated.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The request carries no known signed-in user.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpPut("{speciesId:guid}/inactivate")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult> InactivateSpecies(
         Guid speciesId,
@@ -442,14 +448,14 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // UserId is set here from the configured placeholder audit user, never taken from the
-        // request body, so the audit trail cannot be spoofed by the client.
+        // UserId is the signed-in user, never taken from the request body, so the audit trail
+        // cannot be spoofed by the client.
         var command = new InactivateSpeciesCommand
         {
             SpeciesId = speciesId,
             Reason = request.Reason,
             LastUpdated = request.LastUpdated,
-            UserId = speciesAuditOptions.AuditUserId
+            UserId = userContext.RequireUserId()
         };
 
         var result = await mediator.Send(command, cancellationToken);
@@ -484,11 +490,13 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     /// <response code="400">
     /// The request failed validation, or the species is inactive, in use, or has children.
     /// </response>
+    /// <response code="403">The request carries no known signed-in user.</response>
     /// <response code="404">No species exists with the supplied identifier.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpDelete("{speciesId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult> DeleteSpecies(
@@ -498,14 +506,14 @@ public sealed class SpeciesController(ISender mediator, SpeciesAuditOptions spec
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // UserId is set here from the configured placeholder audit user, never taken from the
-        // request body, so the audit trail cannot be spoofed by the client.
+        // UserId is the signed-in user, never taken from the request body, so the audit trail
+        // cannot be spoofed by the client.
         var command = new DeleteSpeciesCommand
         {
             SpeciesId = speciesId,
             Reason = request.Reason,
             LastUpdated = request.LastUpdated,
-            UserId = speciesAuditOptions.AuditUserId
+            UserId = userContext.RequireUserId()
         };
 
         var result = await mediator.Send(command, cancellationToken);

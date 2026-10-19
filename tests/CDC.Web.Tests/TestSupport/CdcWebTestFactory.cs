@@ -2,6 +2,7 @@ using System.Security.Claims;
 using CDC.Auth.Cidm;
 using CDC.Auth.Entra;
 using CDC.Web.Authorization.Constants;
+using CDC.Web.Features.Account;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -29,6 +30,7 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
     public const string FakeEndSessionEndpoint = "https://cidm.test/signout";
     public const string FakeEntraAuthorizationEndpoint = "https://entra.test/oauth2/v2.0/authorize";
     public const string TestSignInPath = "/__test/sign-in";
+    public const string RolesQueryKey = "roles";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -111,9 +113,7 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
             {
                 if (context.Request.Path == TestSignInPath)
                 {
-                    var identity = new ClaimsIdentity(
-                        [new Claim(ClaimTypes.Name, "test-user"), new Claim(ClaimTypes.Role, AuthorizationRoles.ProfileEditor)],
-                        CookieAuthenticationDefaults.AuthenticationScheme);
+                    var identity = new ClaimsIdentity(BuildTestClaims(context.Request.Query), CookieAuthenticationDefaults.AuthenticationScheme);
                     // Signed into both cookie schemes with the same test identity - most "protected"
                     // routes used across this test suite rely on the app's fallback policy (which
                     // resolves to Entra's cookie scheme), while LandingController.External is
@@ -130,6 +130,29 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
 
             next(app);
         };
+
+        // No query signs in as a ProfileEditor; ?roles=A,B gives exactly those roles; ?isProfileEditor=/?isPolicyProfileUser= give the resolver's permission claims.
+        private static List<Claim> BuildTestClaims(IQueryCollection query)
+        {
+            var claims = new List<Claim> { new(ClaimTypes.Name, "test-user") };
+
+            if (query.TryGetValue(RolesQueryKey, out var roles))
+            {
+                claims.AddRange(roles.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries).Select(role => new Claim(ClaimTypes.Role, role)));
+            }
+
+            var permissionClaimTypes = new[] { ExternalUserClaimTypes.IsProfileEditor, ExternalUserClaimTypes.IsPolicyProfileUser }
+                .Where(query.ContainsKey)
+                .ToList();
+            claims.AddRange(permissionClaimTypes.Select(claimType => new Claim(claimType, query[claimType].ToString())));
+
+            if (!query.ContainsKey(RolesQueryKey) && permissionClaimTypes.Count == 0)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, AuthorizationRoles.ProfileEditor));
+            }
+
+            return claims;
+        }
     }
 }
 
@@ -146,10 +169,25 @@ public static class CdcWebTestFactoryExtensions
     /// applied after <c>ConfigureClient</c> runs, so relying on that override alone silently leaves
     /// the client on http://, which drops any Secure-only cookie (session, auth) between requests.
     /// </summary>
-    public static async Task<HttpClient> SignedInClientAsync(this WebApplicationFactory<Program> factory)
+    public static async Task<HttpClient> SignedInClientAsync(this WebApplicationFactory<Program> factory) =>
+        await SignInAsync(factory, string.Empty);
+
+    /// <summary>Signs in with exactly the given role claims (none when empty), for pages whose content depends on the user's role.</summary>
+    public static async Task<HttpClient> SignedInClientWithRolesAsync(this WebApplicationFactory<Program> factory, params string[] roles) =>
+        await SignInAsync(factory, $"{CdcWebTestFactory.RolesQueryKey}={string.Join(',', roles)}");
+
+    /// <summary>Signs in with the permission claims the Entra resolver issues from the user's database row and no role claim,
+    /// so any role the user has comes from the claims transformation, as it does for a real internal user.</summary>
+    public static async Task<HttpClient> SignedInClientWithPermissionsAsync(
+        this WebApplicationFactory<Program> factory, bool isProfileEditor, bool isPolicyProfileUser) =>
+        await SignInAsync(
+            factory,
+            $"{ExternalUserClaimTypes.IsProfileEditor}={isProfileEditor}&{ExternalUserClaimTypes.IsPolicyProfileUser}={isPolicyProfileUser}");
+
+    private static async Task<HttpClient> SignInAsync(WebApplicationFactory<Program> factory, string query)
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
-        await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        await client.GetAsync(query.Length == 0 ? CdcWebTestFactory.TestSignInPath : $"{CdcWebTestFactory.TestSignInPath}?{query}");
         return client;
     }
 }

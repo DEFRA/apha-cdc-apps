@@ -12,9 +12,7 @@ namespace CDC.Web.Authorization;
 /// claims, so <c>User.IsInRole(...)</c> (every policy in <c>AuthorizationPolicyRegistration</c>, via
 /// <c>AllowedRolesAuthorizationHandler</c>, and the header "Menu" navigation filter) works the same
 /// way it already does for CIDM-authenticated external users, whose role claims are mapped directly
-/// in <c>CidmOpenIdConnectEvents.TokenValidated</c>. This is the claims transformation the doc comment
-/// on <see cref="AuthorizationRoles"/> describes as replacing the old placeholder
-/// <see cref="Services.CurrentUserService"/>.
+/// in <c>CidmOpenIdConnectEvents.TokenValidated</c>.
 /// </summary>
 public sealed class InternalRoleClaimsTransformation : IClaimsTransformation
 {

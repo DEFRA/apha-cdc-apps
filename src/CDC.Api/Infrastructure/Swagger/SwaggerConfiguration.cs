@@ -26,7 +26,10 @@ public static class SwaggerConfiguration
                 Version = DocumentName,
                 Description =
                     "Species reference data, questionnaire metadata and answer data for the Surveillance " +
-                    "Profiles (D2R2) service. Migrated from the legacy ISpeciesDataService WCF endpoint."
+                    "Profiles (D2R2) service. Migrated from the legacy ISpeciesDataService WCF endpoint. " +
+                    "A call made for a signed-in user carries that user's [User].Id in the X-Acting-User-Id " +
+                    "header; without it the request is anonymous, holds no role, and any operation that " +
+                    "records who made a change returns 403."
             });
 
             // Drives operation summaries, parameter descriptions and the sample payloads in the

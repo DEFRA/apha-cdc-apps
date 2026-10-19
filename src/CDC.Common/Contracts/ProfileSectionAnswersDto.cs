@@ -22,6 +22,10 @@ public sealed record ProfileSectionAnswersDto
 
     /// <summary>Gets the rows recorded for each repeating question, ordered by sequence.</summary>
     public IReadOnlyList<ProfileQuestionRowDto> QuestionRows { get; init; } = [];
+
+    /// <summary>Gets the row version of the profile version section when the answers were read. Send it back with a save so
+    /// the save fails, rather than overwrites, when someone else has saved the section since. Empty when unknown.</summary>
+    public byte[] LastUpdated { get; init; } = [];
 }
 
 /// <summary>One row of a repeating profile question.</summary>

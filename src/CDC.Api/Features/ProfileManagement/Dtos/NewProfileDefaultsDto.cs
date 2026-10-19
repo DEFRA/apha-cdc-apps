@@ -25,4 +25,16 @@ public sealed record NewProfileDefaultsDto
 
     /// <summary>Gets the species affected by the cloned profile version.</summary>
     public IReadOnlyList<AffectedSpeciesDto> AffectedSpecies { get; init; } = [];
+
+    /// <summary>
+    /// Gets a description of the cloned profile version, for example
+    /// "Anthrax - v1.0 (Published) Valid from 01/01/2020". The title may contain HTML.
+    /// </summary>
+    public string ClonedVersionDescription { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the cloned profile version belongs to a "what-if" scenario,
+    /// which cannot be cloned into a new current-situation profile.
+    /// </summary>
+    public bool ClonedVersionIsWhatIfScenario { get; init; }
 }

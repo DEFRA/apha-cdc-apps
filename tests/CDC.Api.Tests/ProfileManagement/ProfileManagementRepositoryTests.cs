@@ -343,8 +343,9 @@ public class ProfileManagementRepositoryTests : IDisposable
     {
         var columns = new[]
         {
-            "col0", "ProfileId", "Title", "col3", "col4", "col5",
-            "col6", "col7", "col8", "ScenarioTitle", "ParentProfileId", "col11", "ProfileStatusId"
+            "col0", "ProfileId", "Title", "VersionMajor", "VersionMinor", "State",
+            "EffectiveDateFrom", "EffectiveDateTo", "col8", "ScenarioTitle", "ParentProfileId", "col11", "ProfileStatusId",
+            "ProfileStatusName"
         };
 
         connection.Script(ProfileManagementStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript
@@ -354,9 +355,9 @@ public class ProfileManagementRepositoryTests : IDisposable
                 new FakeResultSet(
                     columns,
                     [[
-                        Guid.Empty, ProfileManagementTestData.ProfileId, "Bovine tuberculosis", null, null, null,
-                        null, null, null, "Scenario A", ProfileManagementTestData.ProfileId, null,
-                        ProfileManagementTestData.ProfileStatusId
+                        Guid.Empty, ProfileManagementTestData.ProfileId, "Bovine tuberculosis", (byte)1, (byte)2, "Draft",
+                        new DateTime(2024, 3, 5), null, null, "Scenario A", ProfileManagementTestData.ProfileId, null,
+                        ProfileManagementTestData.ProfileStatusId, "Validation complete"
                     ]]),
                 new FakeResultSet(
                     ["SpeciesId", "Name", "Type", "IsActive"],
@@ -373,6 +374,9 @@ public class ProfileManagementRepositoryTests : IDisposable
         defaults!.ScenarioTitle.Should().Be("Scenario A");
         defaults.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
         defaults.AffectedSpecies.Should().ContainSingle();
+        defaults.ClonedVersionIsWhatIfScenario.Should().BeTrue();
+        defaults.ClonedVersionDescription.Should().Be(
+            "Bovine tuberculosis (Scenario A) - v1.2 (Draft) Valid from 05/03/2024 (Validation complete)");
 
         if (isWhatIfScenario)
         {

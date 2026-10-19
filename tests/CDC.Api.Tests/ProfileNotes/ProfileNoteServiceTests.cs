@@ -1,8 +1,8 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileNotes.Commands;
 using CDC.Api.Features.ProfileNotes.Dtos;
 using CDC.Api.Features.ProfileNotes.Interfaces;
-using CDC.Api.Infrastructure;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -14,9 +14,13 @@ public class ProfileNoteServiceTests
     private static readonly Guid AuditUserId = Guid.Parse("8a3c0e55-4d2f-4f6a-9d5b-0b4c2f7a1e10");
 
     private readonly Mock<IProfileNoteRepository> repository = new(MockBehavior.Strict);
+    private readonly Mock<IUserContext> userContext = new();
+
+    public ProfileNoteServiceTests() =>
+        userContext.SetupGet(context => context.UserId).Returns(AuditUserId);
 
     private CDC.Api.Features.ProfileNotes.ProfileNoteService CreateService() =>
-        new(repository.Object, new SpeciesAuditOptions(AuditUserId), NullLogger<CDC.Api.Features.ProfileNotes.ProfileNoteService>.Instance);
+        new(repository.Object, userContext.Object, NullLogger<CDC.Api.Features.ProfileNotes.ProfileNoteService>.Instance);
 
     [Fact]
     public async Task GetNoteTypes_MapsEachType()
@@ -90,5 +94,22 @@ public class ProfileNoteServiceTests
 
         result.IdInsertList.Should().ContainSingle().Which.Should().Be(ProfileNoteTestData.NoteId);
         repository.VerifyAll();
+    }
+
+    [Fact]
+    public async Task UpdateNotes_Throws_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+        var command = new UpdateNotesCommand
+        {
+            ProfileVersionId = ProfileNoteTestData.ProfileVersionId,
+            NoteTypeId = ProfileNoteTestData.NoteTypeId,
+            Inserts = [new ProfileNoteInsertDto { Id = ProfileNoteTestData.NoteId, NoteText = "Note" }]
+        };
+
+        var act = async () => await CreateService().UpdateNotesAsync(command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
     }
 }

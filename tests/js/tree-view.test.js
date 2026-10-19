@@ -161,6 +161,19 @@ describe('tree-view', () => {
     expect(document.activeElement).toBe(parentRadio);
   });
 
+  it('skips disabled items when moving with the arrow keys', () => {
+    const { tree } = buildMultiSelectTree();
+    new window.TreeView(tree);
+
+    const poultry = tree.querySelector('input[value="poultry"]');
+    tree.querySelector('input[value="turkeys"]').disabled = true;
+    poultry.focus();
+
+    poultry.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+
+    expect(document.activeElement).toBe(tree.querySelector('input[value="chickens"]'));
+  });
+
   it('unchecks every descendant when a parent is checked (multi-select only)', () => {
     const { tree } = buildMultiSelectTree();
     new window.TreeView(tree);

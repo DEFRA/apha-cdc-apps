@@ -23,8 +23,9 @@ public interface IProfileSectionService
         Guid profileSectionId,
         CancellationToken cancellationToken);
 
-    /// <summary>Gets one profile version's per-section validation status: whether every
-    /// mandatory field in each section has a recorded answer.</summary>
+    /// <summary>Gets one profile version's per-section validation status: whether the legacy
+    /// <c>ProfileVersionSection.Validate()</c> finds no errors in each section, and which of its
+    /// questions have errors.</summary>
     /// <param name="profileVersionId">The profile version to check.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The profile version's per-section validation status.</returns>
@@ -33,46 +34,59 @@ public interface IProfileSectionService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Clears every recorded answer in one section, matching the legacy
-    /// <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway.
+    /// Clears every recorded answer in one section that is not read-only, deletes its repeating rows and blanks its
+    /// revision data, matching the legacy <c>ProfileVersionSection.Clear()</c> + <c>Save()</c> pathway.
     /// </summary>
     /// <param name="profileVersionId">The profile version to clear.</param>
     /// <param name="profileSectionId">The section to clear.</param>
+    /// <param name="lastUpdated">The row version of the section the caller last read, or <see langword="null"/> to clear
+    /// whatever the section holds now.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The number of fields cleared.</returns>
+    /// <returns>The number of recorded values cleared.</returns>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when the section was saved by another user since it was read, or the version is not a current draft.
+    /// </exception>
     Task<ClearProfileSectionResultDto> ClearProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken);
 
     /// <summary>
     /// Validates one section's recorded answers, matching the legacy
-    /// <c>ProfileVersionSection.Validate()</c> mandatory-field check.
+    /// <c>ProfileVersionSection.Validate()</c>: the revision-date rules, then every question's
+    /// mandatory, inactive reference data, relevance, species and range rules.
     /// </summary>
     /// <param name="profileVersionId">The profile version to validate.</param>
     /// <param name="profileSectionId">The section to validate.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>Whether the section is valid, and which mandatory questions are unanswered.</returns>
+    /// <returns>Whether the section is valid, and every validation error found.</returns>
     Task<ProfileSectionValidationResultDto> ValidateProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Saves every submitted field answer in one section, matching the legacy
-    /// <c>IProfileField.Save()</c> pathway for standard (non-per-species, non-repeating)
-    /// questions. Answers for a per-species question, a repeating question, or an unrecognised
-    /// field are silently ignored, since those are not yet supported for editing.
+    /// Saves the answers submitted for one section, matching the legacy save of the "Edit profile questions" page: only
+    /// the answers that differ from what is recorded are written, after the questions the answers have made irrelevant
+    /// have been cleared. Nothing is written, and the section is not touched, when nothing changed. Read-only fields and
+    /// the answers of per-species and repeating questions, which the page cannot edit yet, are ignored.
     /// </summary>
     /// <param name="profileVersionId">The profile version being answered.</param>
     /// <param name="profileSectionId">The section being answered.</param>
     /// <param name="answers">The submitted field answers.</param>
+    /// <param name="lastUpdated">The row version of the section the caller last read, or <see langword="null"/> to save
+    /// over whatever the section holds now.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The number of fields saved.</returns>
+    /// <returns>The number of recorded values saved or cleared.</returns>
+    /// <exception cref="Domain.Exceptions.ConcurrencyException">
+    /// Thrown when the section was saved by another user since it was read, or the version is not a current draft.
+    /// </exception>
     Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        byte[]? lastUpdated,
         CancellationToken cancellationToken);
 
     /// <summary>Gets every logged contribution to one profile version's section, for the

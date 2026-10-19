@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http.Resilience;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +67,10 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
+// Forwards the signed-in user's [User].Id to CDC.Api, so changes are recorded against and
+// authorised for that user rather than a placeholder. Attach it to every typed client below.
+builder.Services.AddTransient<ActingUserDelegatingHandler>();
+
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
 
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
@@ -73,13 +78,26 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     client.BaseAddress = apiBaseUri;
 })
     .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
+
+// Creates and updates profiles from the Profile properties page. Writes are not retried: an
+// attempt can succeed and still time out, and replaying a create would fail on the profile id the
+// first attempt already inserted.
+builder.Services.AddHttpClient<IProfilePropertiesApiService, ProfilePropertiesApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
 
 // Reference data is served from an in-process store until the reference data endpoints exist on
 // CDC.Api; swap this registration for a typed HttpClient when they do.
@@ -102,24 +120,28 @@ builder.Services.AddHttpClient<IProfileContributorsApiService, ProfileContributo
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IGlobalUsersApiService, GlobalUsersApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IExternalUsersApiService, ExternalUsersApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IProfileSectionsApiService, ProfileSectionsApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 // The contributions report reads every draft version's sections, so CDC.Api can take longer than the default 10-second attempt timeout.
@@ -127,6 +149,7 @@ builder.Services.AddHttpClient<IProfileReportsApiService, ProfileReportsApiServi
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler(options =>
     {
         options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(90);
@@ -150,12 +173,14 @@ builder.Services.AddHttpClient<IBespokeReportTemplatesApiService, BespokeReportT
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddScoped<IProfileVersionComparisonService, ProfileVersionComparisonService>();
@@ -166,6 +191,7 @@ builder.Services.AddHttpClient<IDiseaseRankingApiService, DiseaseRankingApiServi
     client.BaseAddress = apiBaseUri;
 })
     .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 // Disease ranking PDFs: report data from CDC.Api -> Razor view -> HTML -> headless Chromium -> PDF.
@@ -180,6 +206,7 @@ builder.Services.AddHttpClient<IDiseaseRankingFiltersApiService, DiseaseRankingF
 {
     client.BaseAddress = apiBaseUri;
 })
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
 builder.Services.AddHealthChecks()

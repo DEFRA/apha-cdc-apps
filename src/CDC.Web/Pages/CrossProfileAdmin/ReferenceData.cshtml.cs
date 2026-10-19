@@ -1,5 +1,7 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Pages.CrossProfileAdmin;
@@ -9,6 +11,7 @@ namespace CDC.Web.Pages.CrossProfileAdmin;
 /// changing them and for viewing the audit trail.
 /// </summary>
 /// <param name="referenceDataService">Reads reference tables and their values.</param>
+[Authorize(Policy = AuthorizationPolicies.CanManageReferenceData)]
 public class ReferenceDataModel(IReferenceDataService referenceDataService)
     : BreadcrumbPageModelBase("Maintain reference data")
 {

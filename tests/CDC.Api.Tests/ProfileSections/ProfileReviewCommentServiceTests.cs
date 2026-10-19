@@ -5,7 +5,6 @@ using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
-using CDC.Api.Infrastructure;
 using CDC.Common.Contracts;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,6 +26,7 @@ public class ProfileReviewCommentServiceTests
 
     public ProfileReviewCommentServiceTests()
     {
+        userContext.SetupGet(context => context.UserId).Returns(AuditUserId);
         userContext.SetupGet(context => context.IsProfileEditor).Returns(true);
         userContext.SetupGet(context => context.IsUserManagementSystem).Returns(false);
     }
@@ -36,7 +36,6 @@ public class ProfileReviewCommentServiceTests
             repository.Object,
             managementRepository.Object,
             userContext.Object,
-            new SpeciesAuditOptions(AuditUserId),
             NullLogger<ProfileReviewCommentService>.Instance,
             new FixedTimeProvider(FixedNow));
 
@@ -211,6 +210,18 @@ public class ProfileReviewCommentServiceTests
     }
 
     [Fact]
+    public async Task AddAsync_ReturnsForbidden_WhenTheRequestHasNoKnownUser()
+    {
+        userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
+        GivenVersion();
+
+        var result = await CreateService().AddAsync(VersionId, SectionId, null, "S", "R", "T", CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.GetReviewCommentUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task UpdateAsync_UpdatesAnOwnReplyFreeComment()
     {
         GivenVersion();
@@ -318,6 +329,44 @@ public class ProfileReviewCommentServiceTests
         GivenComments(comment);
 
         var result = await CreateService().DeleteAsync(VersionId, SectionId, comment.Id, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteAllAsync_DeletesEveryCommentOfTheSection_WhenTheVersionIsAnEditableCurrentDraft()
+    {
+        GivenVersion();
+        repository
+            .Setup(repo => repo.DeleteAllReviewCommentsAsync(VersionId, SectionId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.DeleteAllReviewCommentsAsync(VersionId, SectionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task DeleteAllAsync_ReturnsForbidden_WhenTheVersionIsPublishedOrNoLongerCurrent(bool isPublished, bool isSuperseded)
+    {
+        GivenVersion(isPublished, isSuperseded ? FixedNow.AddDays(-1) : null);
+
+        var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.DeleteAllReviewCommentsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAllAsync_ReturnsForbidden_WhenTheUserIsNotAProfileEditor()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        GivenVersion();
+
+        var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.Forbidden);
     }

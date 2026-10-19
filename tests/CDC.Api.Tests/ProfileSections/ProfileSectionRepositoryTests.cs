@@ -55,7 +55,7 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
                             ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, ProfileSectionTestData.FieldId,
                             "F1", 1, ProfileSectionTestData.DataFieldTypeId, "List", true,
                             ProfileSectionTestData.ReferenceTableId, false, false, "Affected species",
-                            false, false, false, false, false
+                            true, false, false, false, false
                         ]
                     ])
             ]
@@ -88,6 +88,42 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         field.IsMandatory.Should().BeTrue();
         field.ReferenceTableId.Should().Be(ProfileSectionTestData.ReferenceTableId);
         field.ReferenceTableIsMaintainable.Should().BeFalse();
+        field.IsReadOnlyCurrentSituation.Should().BeTrue();
+        field.IsReadOnlyScenario.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_ReportsTheDatabasesMultiValueListTypeUnderTheContractsName()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "ShortName", "SectionNumber"], [[ProfileSectionTestData.SectionId, "Epidemiology", "Epi", 3]]),
+                new FakeResultSet(
+                    ["ProfileSectionId", "Id", "ShortName", "QuestionNumber", "IsPerSpecies", "IsRepeating"],
+                    [[ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, "Q1", 1, false, false]]),
+                new FakeResultSet(
+                    [
+                        "ProfileSectionId", "QuestionId", "Id", "ShortName", "FieldNumber", "DataFieldTypeId",
+                        "DataTypeName", "IsMandatory", "ReferenceTableId", "ReferenceTableIsMaintainable",
+                        "AffectsRelevancy", "Name", "IsReadOnlyCurrentSituation", "IsReadOnlyScenario",
+                        "IsPerSpecies", "IsRepeating", "IncludeInSummary"
+                    ],
+                    [
+                        [
+                            ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, ProfileSectionTestData.FieldId,
+                            "F1", 1, ProfileSectionTestData.DataFieldTypeId, "Multi Value List", true,
+                            ProfileSectionTestData.ReferenceTableId, false, false, "Areas",
+                            false, false, false, false, false
+                        ]
+                    ])
+            ]
+        });
+
+        var metadata = await CreateRepository().GetProfileQuestionnaireMetadataAsync(CancellationToken.None);
+
+        metadata.Sections.Single().Questions.Single().Fields.Single().DataTypeName.Should().Be("MultiValueList");
     }
 
     [Fact]
@@ -210,6 +246,37 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
 
         answers.QuestionNames.Should().BeEmpty();
         answers.FieldValues.Should().BeEmpty();
+        answers.LastUpdated.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetProfileSectionAnswersAsync_ReadsTheSectionsRowVersion_ForALaterSaveToBeCheckedAgainst()
+    {
+        byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                FakeResultSet.Empty("Id", "Name", "IsActive"),
+                new FakeResultSet(
+                    RevisionColumns,
+                    [[ProfileSectionTestData.SectionId, null, null, null, null, null, null, rowVersion, null, null, null, null]]),
+                FakeResultSet.Empty("Id", "Name", "NonTechnicalName"),
+                FakeResultSet.Empty("Id", "ProfileQuestionId", "SequenceNumber"),
+                FakeResultSet.Empty(
+                    "Id", "SpeciesId", "ProfileVersionQuestionRowId", "BooleanValue", "ListValue", "DecimalValue",
+                    "DateValue", "TextValue", "ProfileFieldId", "ProfileFieldGroupId", "QuestionNumber",
+                    "QuestionId", "FieldNumber")
+            ]
+        });
+
+        var answers = await CreateRepository().GetProfileSectionAnswersAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            CancellationToken.None);
+
+        answers.LastUpdated.Should().Equal(rowVersion);
     }
 
     [Fact]
@@ -229,155 +296,224 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAnswersAsync_ExecutesEachInstruction_ThenLogsTheContribution_WithinOneTransaction()
+    public async Task ApplyProfileVersionSectionChangeAsync_WritesTheSectionRowRowsClearsAndSaves_ThenLogsTheContribution_InOrderWithinOneTransaction()
     {
-        connection.Script(ProfileSectionStoredProcedures.ClearProfileVersionFieldValue, new FakeCommandScript());
-        connection.Script(ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue, new FakeCommandScript());
-        connection.Script(ProfileSectionStoredProcedures.LogProfileVersionSectionContribution, new FakeCommandScript());
+        ScriptSectionRow();
+        var multiValueFieldId = Guid.NewGuid();
+        var rowId = Guid.NewGuid();
 
-        var instructions = new List<CDC.Api.Domain.Entities.ProfileFieldClearInstruction>
+        var change = new ProfileSectionChange
         {
-            new()
-            {
-                ProfileFieldId = ProfileSectionTestData.FieldId,
-                SpeciesId = null,
-                ProfileVersionQuestionRowId = null,
-                IsMultiValueList = false
-            },
-            new()
-            {
-                ProfileFieldId = ProfileSectionTestData.ReferenceTableId,
-                SpeciesId = null,
-                ProfileVersionQuestionRowId = null,
-                IsMultiValueList = true
-            }
+            QuestionRowIdsToDelete = [rowId],
+            Clears =
+            [
+                new ProfileFieldClearInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, IsMultiValueList = false },
+                new ProfileFieldClearInstruction { ProfileFieldId = multiValueFieldId, IsMultiValueList = true }
+            ],
+            Saves =
+            [
+                new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true, IsMultiValueList = false },
+                new ProfileFieldSaveInstruction { ProfileFieldId = multiValueFieldId, MultiListValues = [Guid.NewGuid(), Guid.NewGuid()], IsMultiValueList = true }
+            ]
         };
 
-        var clearedCount = await CreateRepository().ClearProfileVersionSectionAnswersAsync(
-            ProfileSectionTestData.ProfileVersionId,
-            ProfileSectionTestData.SectionId,
-            instructions,
-            Guid.Empty,
-            CancellationToken.None);
+        var changed = await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
 
-        clearedCount.Should().Be(2);
-        connection.Executed.Should().Contain(c => c.CommandText == ProfileSectionStoredProcedures.ClearProfileVersionFieldValue && c.HadTransaction);
-        connection.Executed.Should().Contain(c => c.CommandText == ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue && c.HadTransaction);
-        connection.Executed.Should().Contain(c => c.CommandText == ProfileSectionStoredProcedures.LogProfileVersionSectionContribution && c.HadTransaction);
+        changed.Should().Be(5);
+        connection.Executed.Select(command => command.CommandText).Should().Equal(
+            ProfileSectionStoredProcedures.GetProfileVersionSection,
+            ProfileSectionStoredProcedures.UpdateProfileVersionSection,
+            ProfileSectionStoredProcedures.DeleteProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.ClearProfileVersionFieldValue,
+            ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue,
+            ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.LogProfileVersionSectionContribution);
+        connection.Executed.Should().OnlyContain(command => command.HadTransaction);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.DeleteProfileVersionQuestionRow)
+            .Parameters["Id"].Should().Be(rowId);
+        connection.Transactions.Should().ContainSingle().Which.Committed.Should().BeTrue();
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAnswersAsync_ReturnsZero_AndExecutesNothing_WhenThereAreNoInstructions()
+    public async Task ApplyProfileVersionSectionChangeAsync_WritesTheSectionsRevisionDataBackUnchanged_WithBlankCompletedDates()
     {
-        var clearedCount = await CreateRepository().ClearProfileVersionSectionAnswersAsync(
+        ScriptSectionRow();
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
             ProfileSectionTestData.ProfileVersionId,
             ProfileSectionTestData.SectionId,
-            [],
+            new ProfileSectionChange { Saves = [new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes", IsMultiValueList = false }] },
             Guid.Empty,
             CancellationToken.None);
 
-        clearedCount.Should().Be(0);
-        connection.Executed.Should().BeEmpty();
+        var update = connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionSection).Parameters;
+        update["ProfileSectionId"].Should().Be(ProfileSectionTestData.SectionId);
+        update["TechnicalReviewFrequency"].Should().Be(SectionRowVaFrequency);
+        update["PolicyReviewFrequency"].Should().Be(SectionRowPolicyFrequency);
+        update["AuthorReviewFrequency"].Should().BeNull();
+        update["NextTechnicalReview"].Should().Be(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        update["NextPolicyReview"].Should().BeNull();
+        update["TechnicalReviewStatusId"].Should().Be(SectionRowVaStatus);
+        update["PolicyReviewStatusId"].Should().BeNull();
+        update["PolicyReviewCompleted"].Should().BeNull();
+        update["TechnicalReviewCompleted"].Should().BeNull();
+        update["AuthorReviewCompleted"].Should().BeNull();
+        update["LastUpdated"].Should().Be(SectionRowVersion);
     }
 
     [Fact]
-    public async Task ClearProfileVersionSectionAnswersAsync_RollsBackAndRethrows_OnDbException()
+    public async Task ApplyProfileVersionSectionChangeAsync_BlanksTheSectionsRevisionData_WhenTheChangeClearsIt()
     {
-        connection.Script(ProfileSectionStoredProcedures.ClearProfileVersionFieldValue, new FakeCommandScript
+        ScriptSectionRow();
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            new ProfileSectionChange { ClearRevision = true },
+            Guid.Empty,
+            CancellationToken.None);
+
+        var update = connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionSection).Parameters;
+        update["TechnicalReviewFrequency"].Should().BeNull();
+        update["PolicyReviewFrequency"].Should().BeNull();
+        update["NextTechnicalReview"].Should().BeNull();
+        update["TechnicalReviewStatusId"].Should().BeNull();
+        update["LastUpdated"].Should().Be(SectionRowVersion);
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_ChecksTheRowVersionTheCallerRead_NotTheCurrentOne()
+    {
+        ScriptSectionRow();
+        byte[] callersRowVersion = [8, 7, 6, 5, 4, 3, 2, 1];
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            new ProfileSectionChange { ExpectedLastUpdated = callersRowVersion, Clears = [new ProfileFieldClearInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, IsMultiValueList = false }] },
+            Guid.Empty,
+            CancellationToken.None);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionSection)
+            .Parameters["LastUpdated"].Should().Be(callersRowVersion);
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_DoesNotLogAContribution_WhenNoValueChanged()
+    {
+        ScriptSectionRow();
+
+        var changed = await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            new ProfileSectionChange { ClearRevision = true },
+            Guid.Empty,
+            CancellationToken.None);
+
+        changed.Should().Be(0);
+        connection.Executed.Should().NotContain(command => command.CommandText == ProfileSectionStoredProcedures.LogProfileVersionSectionContribution);
+        connection.Transactions.Should().ContainSingle().Which.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_RollsBackAndThrowsConcurrencyException_WithTheProceduresMessage_WhenTheSectionWasEditedByAnotherUser()
+    {
+        ScriptSectionRow();
+        connection.Script(ProfileSectionStoredProcedures.UpdateProfileVersionSection, new FakeCommandScript
         {
-            Throws = new FakeDbException("boom")
+            Throws = new FakeDbException("The profile version section has been edited by another user")
         });
 
-        var instructions = new List<CDC.Api.Domain.Entities.ProfileFieldClearInstruction>
-        {
-            new()
-            {
-                ProfileFieldId = ProfileSectionTestData.FieldId,
-                SpeciesId = null,
-                ProfileVersionQuestionRowId = null,
-                IsMultiValueList = false
-            }
-        };
-
-        var act = () => CreateRepository().ClearProfileVersionSectionAnswersAsync(
+        var act = () => CreateRepository().ApplyProfileVersionSectionChangeAsync(
             ProfileSectionTestData.ProfileVersionId,
             ProfileSectionTestData.SectionId,
-            instructions,
+            new ProfileSectionChange { Saves = [new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes", IsMultiValueList = false }] },
             Guid.Empty,
             CancellationToken.None);
 
-        await act.Should().ThrowAsync<FakeDbException>();
+        (await act.Should().ThrowAsync<ConcurrencyException>())
+            .Which.Message.Should().Be("The profile version section has been edited by another user");
+        connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
+        connection.Executed.Should().NotContain(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue);
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionAnswersAsync_UpsertsSingleValueFields_AndReplacesMultiValueListFields_WithinOneTransaction()
+    public async Task ApplyProfileVersionSectionChangeAsync_RollsBackAndRethrows_OnOtherDbException()
     {
-        connection.Script(ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue, new FakeCommandScript());
-        connection.Script(ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue, new FakeCommandScript());
-        connection.Script(ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue, new FakeCommandScript());
-        connection.Script(ProfileSectionStoredProcedures.LogProfileVersionSectionContribution, new FakeCommandScript());
-
-        var instructions = new List<CDC.Api.Domain.Entities.ProfileFieldSaveInstruction>
-        {
-            new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true, IsMultiValueList = false },
-            new()
-            {
-                ProfileFieldId = ProfileSectionTestData.ReferenceTableId,
-                MultiListValues = [Guid.NewGuid(), Guid.NewGuid()],
-                IsMultiValueList = true
-            }
-        };
-
-        var savedCount = await CreateRepository().SaveProfileVersionSectionAnswersAsync(
-            ProfileSectionTestData.ProfileVersionId,
-            ProfileSectionTestData.SectionId,
-            instructions,
-            Guid.Empty,
-            CancellationToken.None);
-
-        savedCount.Should().Be(2);
-        connection.Executed.Should().Contain(c => c.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue && c.HadTransaction);
-        connection.Executed.Should().Contain(c => c.CommandText == ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue && c.HadTransaction);
-        connection.Executed.Where(c => c.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue).Should().HaveCount(2);
-        connection.Executed.Should().Contain(c => c.CommandText == ProfileSectionStoredProcedures.LogProfileVersionSectionContribution && c.HadTransaction);
-    }
-
-    [Fact]
-    public async Task SaveProfileVersionSectionAnswersAsync_ReturnsZero_AndExecutesNothing_WhenThereAreNoInstructions()
-    {
-        var savedCount = await CreateRepository().SaveProfileVersionSectionAnswersAsync(
-            ProfileSectionTestData.ProfileVersionId,
-            ProfileSectionTestData.SectionId,
-            [],
-            Guid.Empty,
-            CancellationToken.None);
-
-        savedCount.Should().Be(0);
-        connection.Executed.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task SaveProfileVersionSectionAnswersAsync_RollsBackAndRethrows_OnDbException()
-    {
+        ScriptSectionRow();
         connection.Script(ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });
 
-        var instructions = new List<CDC.Api.Domain.Entities.ProfileFieldSaveInstruction>
-        {
-            new() { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes", IsMultiValueList = false }
-        };
-
-        var act = () => CreateRepository().SaveProfileVersionSectionAnswersAsync(
+        var act = () => CreateRepository().ApplyProfileVersionSectionChangeAsync(
             ProfileSectionTestData.ProfileVersionId,
             ProfileSectionTestData.SectionId,
-            instructions,
+            new ProfileSectionChange { Saves = [new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes", IsMultiValueList = false }] },
             Guid.Empty,
             CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
+        connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
+        connection.Executed.Should().NotContain(command => command.CommandText == ProfileSectionStoredProcedures.LogProfileVersionSectionContribution);
     }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_RollsBackAndRethrows_WhenTheSectionCannotBeRead()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, new ProfileSectionChange(), Guid.Empty, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_ChecksAgainstAnEmptyRowVersion_WhenTheVersionHasNoRecordOfTheSection()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty("Id", "Name", "IsActive"), FakeResultSet.Empty(RevisionColumns)]
+        });
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, new ProfileSectionChange(), Guid.Empty, CancellationToken.None);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionSection)
+            .Parameters["LastUpdated"].Should().BeOfType<byte[]>().Which.Should().Equal(new byte[8]);
+    }
+
+    private static readonly Guid SectionRowVaFrequency = Guid.NewGuid();
+    private static readonly Guid SectionRowPolicyFrequency = Guid.NewGuid();
+    private static readonly Guid SectionRowVaStatus = Guid.NewGuid();
+    private static readonly byte[] SectionRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+
+    /// <summary>Scripts the section row the change reads back inside its transaction: a VA frequency, a policy frequency, a
+    /// next VA review date and a VA review status, and nothing else.</summary>
+    private void ScriptSectionRow() =>
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                FakeResultSet.Empty("Id", "Name", "IsActive"),
+                new FakeResultSet(
+                    RevisionColumns,
+                    [[
+                        ProfileSectionTestData.SectionId, SectionRowVaFrequency, SectionRowPolicyFrequency, null,
+                        new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), null, null,
+                        SectionRowVersion, null, null, SectionRowVaStatus, null
+                    ]])
+            ]
+        });
 
     [Fact]
     public async Task GetProfileVersionSectionContributionsAsync_MapsContributions()
@@ -886,6 +1022,34 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         });
 
         var act = () => CreateRepository().DeleteReviewCommentAsync(Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task DeleteAllReviewCommentsAsync_CallsTheProcedureWithTheVersionAndSection()
+    {
+        connection.Script(ProfileSectionStoredProcedures.DeleteReviewCommentsByProfileSection, new FakeCommandScript());
+
+        await CreateRepository().DeleteAllReviewCommentsAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
+
+        var command = connection.Executed.Should().ContainSingle().Subject;
+        command.CommandText.Should().Be(ProfileSectionStoredProcedures.DeleteReviewCommentsByProfileSection);
+        command.Parameters["ProfileVersionId"].Should().Be(ProfileSectionTestData.ProfileVersionId);
+        command.Parameters["ProfileSectionId"].Should().Be(ProfileSectionTestData.SectionId);
+    }
+
+    [Fact]
+    public async Task DeleteAllReviewCommentsAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileSectionStoredProcedures.DeleteReviewCommentsByProfileSection, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = () => CreateRepository().DeleteAllReviewCommentsAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }

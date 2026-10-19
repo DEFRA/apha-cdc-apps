@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
@@ -12,6 +14,7 @@ namespace CDC.Web.Pages.SpeciesData;
 /// </summary>
 /// <param name="speciesApiService">Typed client for the species endpoints on CDC.Api.</param>
 /// <param name="logger">Structured logger.</param>
+[Authorize(Policy = AuthorizationPolicies.CanManageSpeciesData)]
 public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<MaintainModel> logger)
     : BreadcrumbPageModelBase("Maintain species data")
 {

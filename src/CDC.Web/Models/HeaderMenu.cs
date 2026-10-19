@@ -17,7 +17,7 @@ public static class HeaderMenu
         new("Disease Profiles",
         [
             new("Search disease profiles", "/SurveillanceProfiles/Search", AuthorizationPolicies.CanViewProfileSearch),
-            new("Create profile", "/DiseaseProfiles/Create", AuthorizationPolicies.CanCreateProfile),
+            new("Create profile", "/SurveillanceProfiles/ProfileProperties", AuthorizationPolicies.CanCreateProfile),
             new("Compare profile versions", "/DiseaseProfiles/CompareVersions", AuthorizationPolicies.CanViewProfileComparison),
             new("Review Timings", "/DiseaseProfiles/ReviewTimings", AuthorizationPolicies.CanViewReviewTiming),
         ]),
@@ -25,23 +25,12 @@ public static class HeaderMenu
         [
             new("General reports", "/Reports/General", AuthorizationPolicies.CanViewReports),
             new("Questions and guidance reports", "/Reports/QuestionsGuidance", AuthorizationPolicies.CanEditUserGuidance),
-            new("Disease ranking report", "/Reports/DiseaseRanking", AuthorizationPolicies.CanViewProfileComparison),
+            new("Disease ranking report", "/Reports/DiseaseRanking", AuthorizationPolicies.CanViewDiseaseRankingReport),
         ]),
         new("Species Data",
         [
             new("View species data", "/ViewSpeciesData", AuthorizationPolicies.CanViewSpeciesData),
             new("Maintain species data", "/SpeciesData/Maintain", AuthorizationPolicies.CanManageSpeciesData),
-        ]),
-        new("User admin",
-        [
-            new("Global users", "/UserAdmin/GlobalUsers", AuthorizationPolicies.CanManageGlobalUsers),
-            new("External users", "/UserAdmin/ExternalUsers", AuthorizationPolicies.CanManageExternalUsers),
-        ]),
-        new("Cross profile admin",
-        [
-            new("Maintain reference data", "/CrossProfileAdmin/ReferenceData", AuthorizationPolicies.CanManageReferenceData),
-            new("Maintain prioritisation variables", "/CrossProfileAdmin/PrioritisationVariables", AuthorizationPolicies.CanManagePrioritisationVariables),
-            new("Maintain cross-cutting issue scores", "/CrossProfileAdmin/CrossCuttingIssueScores", AuthorizationPolicies.CanManageCrossCuttingScores),
         ]),
     ];
 }

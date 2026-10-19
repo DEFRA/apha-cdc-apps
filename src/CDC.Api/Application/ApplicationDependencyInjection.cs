@@ -53,7 +53,9 @@ public static class ApplicationDependencyInjection
         // Registered after MediatR so that validation runs before any handler.
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
 
-        services.AddScoped<IUserContext, DefaultUserContext>();
+        // One instance per request: ActingUserMiddleware fills it in and every service reads it through IUserContext.
+        services.AddScoped<RequestUserContext>();
+        services.AddScoped<IUserContext>(provider => provider.GetRequiredService<RequestUserContext>());
         services.AddScoped<ISpeciesService, SpeciesService>();
         services.AddScoped<IProfileSearchService, ProfileSearchService>();
         services.AddScoped<IProfileManagementService, ProfileManagementService>();

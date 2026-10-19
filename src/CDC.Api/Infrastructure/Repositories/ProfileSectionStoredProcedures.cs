@@ -57,6 +57,12 @@ public static class ProfileSectionStoredProcedures
     /// <summary>Deletes a review comment.</summary>
     public const string DeleteReviewComment = "spdReviewComment";
 
+    /// <summary>Deletes every review comment, and reply, of one profile version's section.</summary>
+    public const string DeleteReviewCommentsByProfileSection = "spdReviewCommentsByProfileSection";
+
+    /// <summary>Deletes one repeating question row, together with the field values it holds.</summary>
+    public const string DeleteProfileVersionQuestionRow = "spdProfileVersionQuestionRow";
+
     /// <summary>Reads a user's logon name and full name by id. No stored procedure does this, so it is a
     /// parameterised text query.</summary>
     public const string GetReviewCommentUser = "SELECT [UserName], [FullName] FROM [dbo].[User] WHERE [Id] = @Id";
