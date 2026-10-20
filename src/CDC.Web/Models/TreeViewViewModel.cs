@@ -66,8 +66,4 @@ public sealed record TreeViewViewModel
     /// a group stands in for everything under it); wrong for trees where unrelated nodes -
     /// including a group and one of its own descendants - must each be selectable independently.
     public bool EnforceHierarchyExclusivity { get; init; } = true;
-
-    /// Whether the tree should auto-scroll to the selected node on load - only while actively
-    /// reordering (Maintain species data), not on an ordinary page load.
-    public bool ScrollToSelectionOnLoad { get; init; }
 }
