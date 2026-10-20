@@ -4,7 +4,7 @@ namespace CDC.Web.Authorization.Requirements;
 
 /// <summary>
 /// A single reusable requirement: the user must be in at least one of <see cref="AllowedRoles"/>.
-/// Every navigation/page/report policy is built from this one requirement type, parameterized by
+/// Every role-based navigation/page/report policy is built from this one requirement type, parameterized by
 /// role list, rather than one bespoke requirement class per policy.
 /// </summary>
 /// <param name="allowedRoles">The roles permitted to satisfy this requirement. Must not be empty -

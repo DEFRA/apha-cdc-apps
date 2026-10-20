@@ -279,6 +279,104 @@ public class ProfileSectionServiceTests
     }
 
     [Fact]
+    public async Task ValidateProfileVersionAsync_ReturnsNoErrors_WhenEverySectionIsValid()
+    {
+        SetupValidation(CompleteRevisionWithNextReviewDates(), answerTheMandatoryField: true);
+
+        var result = await CreateService().ValidateProfileVersionAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ValidateProfileVersionAsync_ListsEachMissingNextReviewDate_BeforeTheSectionsOwnErrors()
+    {
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: false);
+
+        var result = await CreateService().ValidateProfileVersionAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Select(reason => reason.Description).Should().Equal(
+            "\"Revision dates, Next policy review\" is required",
+            "\"Revision dates, Next VA review\" is required",
+            "\"Revision dates, Next author review\" is required",
+            "\"Is it endemic? - Endemic\" is required");
+        result.Take(3).Should().OnlyContain(reason => reason.SectionNumber == 3 && reason.QuestionNumber == 0 && reason.QuestionId == Guid.Empty);
+        result[3].QuestionId.Should().Be(ProfileSectionTestData.QuestionId);
+    }
+
+    [Fact]
+    public async Task ValidateProfileVersionAsync_IncludesTheSectionsRevisionDateErrors_AfterTheNextReviewDates()
+    {
+        SetupValidation(revision: null, answerTheMandatoryField: true);
+
+        var result = await CreateService().ValidateProfileVersionAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Should().HaveCount(12);
+        result[0].Description.Should().Be("\"Revision dates, Next policy review\" is required");
+        result[3].Description.Should().Be("\"Revision dates, Policy review frequency\" is required");
+    }
+
+    [Fact]
+    public async Task ValidateProfileVersionAsync_ValidatesEverySection_InTheOrderTheQuestionnaireListsThem()
+    {
+        var firstSection = QuestionnaireWithOneMandatoryField().Sections[0] with { SectionNumber = 2 };
+        var secondSectionId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+        var secondQuestionId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var secondSection = firstSection with
+        {
+            Id = secondSectionId,
+            SectionNumber = 5,
+            Questions =
+            [
+                firstSection.Questions[0] with
+                {
+                    Id = secondQuestionId,
+                    Fields = [firstSection.Questions[0].Fields[0] with { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") }]
+                }
+            ]
+        };
+        contentRepository
+            .Setup(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportQuestionnaire { Sections = [firstSection, secondSection] });
+        contentRepository
+            .Setup(repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, Guid sectionId, CancellationToken _) => new ReportSectionAnswers
+            {
+                Revision = CompleteRevisionWithNextReviewDates(),
+                QuestionNames =
+                [
+                    new ProfileQuestionName
+                    {
+                        Id = sectionId == secondSectionId ? secondQuestionId : ProfileSectionTestData.QuestionId,
+                        Name = "Is it endemic?",
+                        NonTechnicalName = "Is it endemic?"
+                    }
+                ]
+            });
+        contentRepository
+            .Setup(repo => repo.GetVersionContextAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportVersionContext());
+        SetupLookups();
+
+        var result = await CreateService().ValidateProfileVersionAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Select(reason => reason.SectionNumber).Should().Equal(2, 5);
+        result.Select(reason => reason.QuestionId).Should().Equal(ProfileSectionTestData.QuestionId, secondQuestionId);
+    }
+
+    [Fact]
+    public async Task ValidateProfileVersionAsync_ReadsEverySectionsAnswers_OfTheVersionBeingValidated()
+    {
+        SetupValidation(CompleteRevisionWithNextReviewDates(), answerTheMandatoryField: true);
+
+        await CreateService().ValidateProfileVersionAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        contentRepository.Verify(
+            repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
     public async Task ClearProfileVersionSectionAsync_AppliesAChangeThatClearsEveryAnswerRowAndTheRevisionData_AndReturnsTheClearedCount()
     {
         GivenClearInputs(isWhatIfScenario: false);
@@ -784,6 +882,13 @@ public class ProfileSectionServiceTests
         VaReviewStatusId = CompleteStatusId,
         PolicyReviewStatusId = CompleteStatusId,
         AuthorReviewStatusId = CompleteStatusId
+    };
+
+    private static ReportSectionRevision CompleteRevisionWithNextReviewDates() => CompleteRevision() with
+    {
+        NextPolicyReview = FixedNow.AddMonths(6),
+        NextVaReview = FixedNow.AddMonths(6),
+        NextAuthorReview = FixedNow.AddMonths(6)
     };
 
     private void SetupValidation(

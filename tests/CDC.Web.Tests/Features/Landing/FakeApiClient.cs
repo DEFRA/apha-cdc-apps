@@ -26,7 +26,8 @@ internal sealed class FakeApiClient( // NOSONAR
     CreateNewProfileVersionResult? createNewProfileVersionResult = null,
     DeleteProfileVersionResult? deleteProfileVersionResult = null,
     bool staticReportOperationResult = false,
-    Exception? throwOnStaticReportOperation = null) : IApiClient
+    Exception? throwOnStaticReportOperation = null,
+    PublishProfileResult? publishProfileResult = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -45,6 +46,8 @@ internal sealed class FakeApiClient( // NOSONAR
         createNewProfileVersionResult ?? new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, Guid.NewGuid(), null);
     private readonly DeleteProfileVersionResult _deleteProfileVersionResult =
         deleteProfileVersionResult ?? new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, false, null);
+    private readonly PublishProfileResult _publishProfileResult =
+        publishProfileResult ?? new PublishProfileResult(PublishProfileOutcome.Success, Guid.NewGuid(), null);
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         throwOnGetHealth is not null
@@ -145,6 +148,20 @@ internal sealed class FakeApiClient( // NOSONAR
         bool isPublic,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(_createNewProfileVersionResult);
+
+    public Task<PublishProfileResult> PublishProfileAsync(Guid profileId, bool isPublic, CancellationToken cancellationToken = default)
+    {
+        PublishedProfileId = profileId;
+        PublishedAsPublic = isPublic;
+
+        return Task.FromResult(_publishProfileResult);
+    }
+
+    /// <summary>Gets the profile the last publish request named, or <see langword="null"/> when none was made.</summary>
+    public Guid? PublishedProfileId { get; private set; }
+
+    /// <summary>Gets whether the last publish request asked for the version to be made public, or <see langword="null"/> when none was made.</summary>
+    public bool? PublishedAsPublic { get; private set; }
 
     public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_deleteProfileVersionResult);

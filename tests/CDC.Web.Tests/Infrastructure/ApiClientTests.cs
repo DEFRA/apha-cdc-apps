@@ -644,6 +644,112 @@ public class ApiClientTests
         Assert.Equal("The new draft version could not be created. Please try again.", result.ErrorMessage);
     }
 
+    [Theory]
+    [InlineData(true, """{"isPublic":true}""")]
+    [InlineData(false, """{"isPublic":false}""")]
+    public async Task PublishProfileAsync_PostsToThePublishEndpoint_AndReturnsTheNewVersionId_OnCreated(bool isPublic, string expectedBody)
+    {
+        var profileId = Guid.NewGuid();
+        var newVersionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.Created, $$"""{"newProfileVersionId":"{{newVersionId}}","invalidReasons":[]}""");
+        var client = CreateClient(handler);
+
+        var result = await client.PublishProfileAsync(profileId, isPublic);
+
+        Assert.Equal(PublishProfileOutcome.Success, result.Outcome);
+        Assert.Equal(newVersionId, result.NewProfileVersionId);
+        Assert.Null(result.ErrorMessage);
+        Assert.Empty(result.InvalidReasons);
+        Assert.Equal(HttpMethod.Post, handler.LastRequestMethod);
+        Assert.Equal($"/api/profiles/{profileId}/publish", handler.LastRequestUri!.AbsolutePath);
+        Assert.Equal(expectedBody, handler.LastRequestBody);
+    }
+
+    [Fact]
+    public async Task PublishProfileAsync_ReturnsTheValidationErrors_OnUnprocessableEntity()
+    {
+        const string json = """
+            {"newProfileVersionId":null,"invalidReasons":[
+              {"questionId":"00000000-0000-0000-0000-000000000000","sectionNumber":1,"questionNumber":0,"questionShortName":"","description":"\"Revision dates, Next policy review\" is required"},
+              {"questionId":"11111111-1111-1111-1111-111111111111","sectionNumber":3,"questionNumber":2,"questionShortName":"Q2","description":"\"Is it endemic? - Endemic\" is required"}]}
+            """;
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.UnprocessableEntity, json));
+
+        var result = await client.PublishProfileAsync(Guid.NewGuid(), isPublic: true);
+
+        Assert.Equal(PublishProfileOutcome.InvalidProfile, result.Outcome);
+        Assert.Null(result.NewProfileVersionId);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal(2, result.InvalidReasons.Count);
+        Assert.Equal("\"Revision dates, Next policy review\" is required", result.InvalidReasons[0].Description);
+        Assert.Equal(3, result.InvalidReasons[1].SectionNumber);
+        Assert.Equal(2, result.InvalidReasons[1].QuestionNumber);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict, PublishProfileOutcome.Conflict)]
+    [InlineData(HttpStatusCode.Forbidden, PublishProfileOutcome.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound, PublishProfileOutcome.NotFound)]
+    public async Task PublishProfileAsync_ReturnsTheMessageOfTheRuleThatWasBroken_OnAProblemResponse(HttpStatusCode statusCode, PublishProfileOutcome expectedOutcome)
+    {
+        const string json = """{"detail":"You cannot publish this scenario because the profile to which it belongs is not published."}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(statusCode, json));
+
+        var result = await client.PublishProfileAsync(Guid.NewGuid(), isPublic: false);
+
+        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal("You cannot publish this scenario because the profile to which it belongs is not published.", result.ErrorMessage);
+        Assert.Empty(result.InvalidReasons);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict, """{"detail":""}""", "This profile cannot be published.")]
+    [InlineData(HttpStatusCode.Conflict, "<html>Bad gateway</html>", "This profile cannot be published.")]
+    [InlineData(HttpStatusCode.Forbidden, "", "You do not have permission to publish this profile.")]
+    [InlineData(HttpStatusCode.NotFound, "{}", "This profile could not be found. Another user may have already deleted it.")]
+    public async Task PublishProfileAsync_FallsBackToAGenericMessage_WhenTheProblemResponseHasNoDetail(HttpStatusCode statusCode, string body, string expectedMessage)
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(statusCode, body));
+
+        var result = await client.PublishProfileAsync(Guid.NewGuid(), isPublic: false);
+
+        Assert.Equal(expectedMessage, result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task PublishProfileAsync_ReturnsValidationFailed_OnBadRequestWithErrors()
+    {
+        const string json = """{"errors":{"ProfileId":["A profile id is required."]}}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, json));
+
+        var result = await client.PublishProfileAsync(Guid.NewGuid(), isPublic: true);
+
+        Assert.Equal(PublishProfileOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("A profile id is required.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task PublishProfileAsync_FallsBackToAGenericMessage_OnBadRequestWithoutErrors()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, "not json"));
+
+        var result = await client.PublishProfileAsync(Guid.NewGuid(), isPublic: true);
+
+        Assert.Equal(PublishProfileOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("The profile could not be published.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task PublishProfileAsync_ReturnsError_OnAnyOtherStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await client.PublishProfileAsync(Guid.NewGuid(), isPublic: true);
+
+        Assert.Equal(PublishProfileOutcome.Error, result.Outcome);
+        Assert.Equal("The profile could not be published. Please try again.", result.ErrorMessage);
+    }
+
     [Fact]
     public async Task DeleteProfileVersionAsync_ReturnsSuccess_WithIsProfileDeleted_OnOk()
     {
@@ -695,14 +801,20 @@ public class ApiClientTests
     {
         public Uri? LastRequestUri { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public HttpMethod? LastRequestMethod { get; private set; }
+
+        public string? LastRequestBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequestUri = request.RequestUri;
+            LastRequestMethod = request.Method;
+            LastRequestBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
 
-            return Task.FromResult(new HttpResponseMessage(statusCode)
+            return new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(responseBody, Encoding.UTF8, "application/json")
-            });
+            };
         }
     }
 }

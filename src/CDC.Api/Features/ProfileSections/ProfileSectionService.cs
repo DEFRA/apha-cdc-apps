@@ -129,6 +129,28 @@ public sealed class ProfileSectionService(
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileSectionInvalidReasonDto>> ValidateProfileVersionAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken)
+    {
+        var validation = await LoadValidationAsync(profileVersionId, cancellationToken);
+        var reasons = new List<ProfileSectionInvalidReasonDto>();
+
+        // The questionnaire lists its sections in section number order, as the legacy ProfileSectionMetadataList did.
+        foreach (var section in validation.Questionnaire.Sections)
+        {
+            var answers = validation.Answers[section.Id];
+
+            reasons.AddRange(ProfileVersionValidator.NextReviewReasons(section.SectionNumber, answers.Revision));
+            reasons.AddRange(await validation.Validator.ValidateSectionAsync(section, answers, cancellationToken));
+        }
+
+        logger.ValidatedProfileVersion(profileVersionId, reasons.Count);
+
+        return reasons;
+    }
+
+    /// <inheritdoc />
     public async Task<SaveProfileSectionResultDto> SaveProfileVersionSectionAsync(
         Guid profileVersionId,
         Guid profileSectionId,

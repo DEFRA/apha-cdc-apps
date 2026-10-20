@@ -22,7 +22,7 @@ public class ManageProfilePublishIntegrationTests
     [InlineData("PublishDefranetOnly", "Successfully published this profile but did not make it public.")]
     public async Task Publish_RedirectsToTheNewVersionsProfileReports_WhichShowsTheSuccessMessageOnce(string handler, string message)
     {
-        using var factory = CreateFactory(new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, NewVersionId, null));
+        using var factory = CreateFactory(new PublishProfileResult(PublishProfileOutcome.Success, NewVersionId, null));
         var client = await SignedInClientWithoutRedirectsAsync(factory);
 
         var response = await PostPublishAsync(client, handler);
@@ -36,18 +36,73 @@ public class ManageProfilePublishIntegrationTests
         Assert.DoesNotContain(message, await client.GetStringAsync(response.Headers.Location));
     }
 
-    [Fact]
-    public async Task Publish_ShowsTheErrorOnTheManageProfilePage_WhenThePublishFails()
+    [Theory]
+    [InlineData("You cannot publish a profile based on an already published version.")]
+    [InlineData("You cannot publish this scenario because the profile to which it belongs is not published.")]
+    [InlineData("You cannot make this scenario public because there is no public version of this profile.")]
+    public async Task Publish_ShowsTheErrorOnTheManageProfilePage_WhenThePublishFails(string message)
     {
-        using var factory = CreateFactory(new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Conflict, null, "You cannot publish a profile based on an already published version."));
+        using var factory = CreateFactory(new PublishProfileResult(PublishProfileOutcome.Conflict, null, message));
         var client = await SignedInClientWithoutRedirectsAsync(factory);
 
         var response = await PostPublishAsync(client, "PublishPublic");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("You cannot publish a profile based on an already published version.", body);
+        Assert.Contains(message, body);
         Assert.DoesNotContain("Successfully published", body);
+        Assert.DoesNotContain("validation error", body);
+    }
+
+    [Theory]
+    [InlineData("PublishPublic")]
+    [InlineData("PublishDefranetOnly")]
+    public async Task Publish_ListsTheValidationErrorsOnTheManageProfilePage_AndDoesNotPublish_WhenTheDraftIsInvalid(string handler)
+    {
+        ProfileSectionInvalidReasonDto[] reasons =
+        [
+            new() { SectionNumber = 1, QuestionNumber = 0, Description = "\"Revision dates, Next policy review\" is required" },
+            new() { SectionNumber = 3, QuestionNumber = 2, QuestionId = Guid.NewGuid(), Description = "Cattle Row 2, \"Laboratory test - Name\" is required" }
+        ];
+        using var factory = CreateFactory(new PublishProfileResult(PublishProfileOutcome.InvalidProfile, null, null) { InvalidReasons = reasons });
+        var client = await SignedInClientWithoutRedirectsAsync(factory);
+
+        var response = await PostPublishAsync(client, handler);
+        var body = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("govuk-error-summary", body);
+        Assert.Contains("There are 2 validation errors", body);
+        Assert.Contains("<li>1.0 \"Revision dates, Next policy review\" is required</li>", body);
+        Assert.Contains("<li>3.2 Cattle Row 2, \"Laboratory test - Name\" is required</li>", body);
+        Assert.Contains("Error: Manage profile: Anthrax", body);
+        Assert.DoesNotContain("Successfully published", body);
+    }
+
+    [Fact]
+    public async Task Publish_UsesTheSingularHeading_WhenTheDraftHasOneValidationError()
+    {
+        ProfileSectionInvalidReasonDto[] reasons = [new() { SectionNumber = 2, QuestionNumber = 1, Description = "\"Is it endemic? - Endemic\" is required" }];
+        using var factory = CreateFactory(new PublishProfileResult(PublishProfileOutcome.InvalidProfile, null, null) { InvalidReasons = reasons });
+        var client = await SignedInClientWithoutRedirectsAsync(factory);
+
+        var response = await PostPublishAsync(client, "PublishPublic");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("There is 1 validation error", body);
+        Assert.DoesNotContain("validation errors", body);
+    }
+
+    [Fact]
+    public async Task ManageProfile_ShowsNoValidationErrors_WhenItIsOnlyViewed()
+    {
+        using var factory = CreateFactory(new PublishProfileResult(PublishProfileOutcome.Success, NewVersionId, null));
+        var client = await SignedInClientWithoutRedirectsAsync(factory);
+
+        var body = await client.GetStringAsync($"/SurveillanceProfiles/ManageProfile/{ProfileId}");
+
+        Assert.DoesNotContain("validation error", body);
+        Assert.DoesNotContain("Error: Manage profile", body);
     }
 
     private static async Task<HttpClient> SignedInClientWithoutRedirectsAsync(WebApplicationFactory<Program> factory)
@@ -73,7 +128,7 @@ public class ManageProfilePublishIntegrationTests
             }));
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(CreateNewProfileVersionResult publishResult)
+    private static WebApplicationFactory<Program> CreateFactory(PublishProfileResult publishResult)
     {
         var profile = new ManageProfileViewModel
         {
@@ -89,7 +144,7 @@ public class ManageProfilePublishIntegrationTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: profile, createNewProfileVersionResult: publishResult));
+                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: profile, publishProfileResult: publishResult));
                 services.RemoveAll<IProfileReportsApiService>();
                 services.AddSingleton<IProfileReportsApiService>(new FakeProfileReportsApiService(overview: new ProfileReportsOverviewResult(ProfileReportsOutcome.Success, overview)));
             }));

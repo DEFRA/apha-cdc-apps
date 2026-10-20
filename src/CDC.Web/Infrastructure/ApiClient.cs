@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using CDC.Common.Contracts;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -97,6 +99,13 @@ public interface IApiClient
         bool isPublished,
         bool isPublic,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Publishes a profile's current draft version via <c>POST /api/profiles/{profileId}/publish</c>. The draft is
+    /// validated first, as the legacy "Manage profile" page did, and a draft with validation errors is not published.</summary>
+    /// <param name="profileId">The profile to publish.</param>
+    /// <param name="isPublic">Whether the published version is also made public rather than visible to DefraNet only.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task<PublishProfileResult> PublishProfileAsync(Guid profileId, bool isPublic, CancellationToken cancellationToken = default);
 
     /// <summary>Deletes a profile version via <c>DELETE /api/profiles/versions/{profileVersionId}</c>.</summary>
     Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
@@ -216,6 +225,82 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
 
         return new CreateNewProfileVersionResult(
             CreateNewProfileVersionOutcome.Error, null, "The new draft version could not be created. Please try again.");
+    }
+
+    public async Task<PublishProfileResult> PublishProfileAsync(
+        Guid profileId,
+        bool isPublic,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync(
+            $"/api/profiles/{profileId}/publish",
+            new PublishProfileRequestDto { IsPublic = isPublic },
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var published = await response.Content.ReadFromJsonAsync<PublishProfileResultDto>(cancellationToken);
+            return new PublishProfileResult(PublishProfileOutcome.Success, published?.NewProfileVersionId, null);
+        }
+
+        // The API refuses to publish a draft that has validation errors and lists them in the response body.
+        if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
+        {
+            var invalid = await response.Content.ReadFromJsonAsync<PublishProfileResultDto>(cancellationToken);
+            return new PublishProfileResult(PublishProfileOutcome.InvalidProfile, null, null)
+            {
+                InvalidReasons = invalid?.InvalidReasons ?? []
+            };
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new PublishProfileResult(
+                PublishProfileOutcome.Conflict,
+                null,
+                await ReadProblemDetailAsync(response, "This profile cannot be published.", cancellationToken)),
+            HttpStatusCode.Forbidden => new PublishProfileResult(
+                PublishProfileOutcome.Forbidden,
+                null,
+                await ReadProblemDetailAsync(response, "You do not have permission to publish this profile.", cancellationToken)),
+            HttpStatusCode.NotFound => new PublishProfileResult(
+                PublishProfileOutcome.NotFound,
+                null,
+                await ReadProblemDetailAsync(response, "This profile could not be found. Another user may have already deleted it.", cancellationToken)),
+            HttpStatusCode.BadRequest => new PublishProfileResult(
+                PublishProfileOutcome.ValidationFailed,
+                null,
+                await ReadValidationMessageAsync(response, "The profile could not be published.", cancellationToken)),
+            _ => new PublishProfileResult(
+                PublishProfileOutcome.Error, null, "The profile could not be published. Please try again.")
+        };
+    }
+
+    // The detail of an RFC 7807 problem response, which carries the legacy message; the fallback is used when the body is not a problem document.
+    private static async Task<string> ReadProblemDetailAsync(HttpResponseMessage response, string fallback, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+            return string.IsNullOrWhiteSpace(problem?.Detail) ? fallback : problem.Detail;
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            return fallback;
+        }
+    }
+
+    private static async Task<string> ReadValidationMessageAsync(HttpResponseMessage response, string fallback, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
+            return problem?.Errors.Count > 0 ? string.Join(" ", problem.Errors.SelectMany(error => error.Value)) : fallback;
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            return fallback;
+        }
     }
 
     public async Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(

@@ -47,4 +47,13 @@ internal static partial class ProfileManagementLog
 
     [LoggerMessage(EventId = 3013, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
+
+    [LoggerMessage(EventId = 3014, Level = LogLevel.Information, Message = "Published profile {ProfileId} as version {NewProfileVersionId} from draft version {ProfileVersionId} (public: {IsPublic})")]
+    public static partial void PublishedProfile(this ILogger logger, Guid profileId, Guid newProfileVersionId, Guid profileVersionId, bool isPublic);
+
+    [LoggerMessage(EventId = 3015, Level = LogLevel.Information, Message = "Profile {ProfileId} was not published: its draft version {ProfileVersionId} has {ValidationErrorCount} validation errors")]
+    public static partial void PublishBlockedByValidation(this ILogger logger, Guid profileId, Guid profileVersionId, int validationErrorCount);
+
+    [LoggerMessage(EventId = 3016, Level = LogLevel.Warning, Message = "Refused to publish profile {ProfileId}: {Reason}")]
+    public static partial void PublishRefused(this ILogger logger, Guid profileId, string reason);
 }

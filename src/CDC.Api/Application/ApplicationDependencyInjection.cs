@@ -59,6 +59,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<ISpeciesService, SpeciesService>();
         services.AddScoped<IProfileSearchService, ProfileSearchService>();
         services.AddScoped<IProfileManagementService, ProfileManagementService>();
+        services.AddScoped<IProfilePublishingService, ProfilePublishingService>();
         services.AddScoped<IProfileContributorsService, ProfileContributorsService>();
         services.AddScoped<IProfileNoteService, ProfileNoteService>();
         services.AddScoped<IProfileQuestionService, ProfileQuestionService>();

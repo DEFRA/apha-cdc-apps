@@ -3,6 +3,7 @@ using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using CDC.Api.Features.ProfileManagement.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -230,6 +231,67 @@ public class ProfileManagementControllerTests
         var response = await CreateController().CreateNewProfileVersion(command, CancellationToken.None);
 
         AssertProblem(response.Result!, StatusCodes.Status409Conflict);
+    }
+
+    [Fact]
+    public async Task PublishProfile_ReturnsCreated_WithTheNewVersion()
+    {
+        var resultDto = new PublishProfileResultDto { NewProfileVersionId = ProfileManagementTestData.NewProfileVersionId };
+
+        mediator
+            .Setup(sender => sender.Send(new PublishProfileCommand(ProfileManagementTestData.ProfileId, true), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(resultDto));
+
+        var response = await CreateController().PublishProfile(
+            ProfileManagementTestData.ProfileId, new PublishProfileRequestDto { IsPublic = true }, CancellationToken.None);
+
+        var created = response.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        created.Value.Should().BeSameAs(resultDto);
+        created.RouteValues.Should().ContainKey("profileId").WhoseValue.Should().Be(ProfileManagementTestData.ProfileId);
+    }
+
+    [Fact]
+    public async Task PublishProfile_ReturnsUnprocessableEntity_WithTheValidationErrors_WhenTheDraftIsInvalid()
+    {
+        var resultDto = new PublishProfileResultDto
+        {
+            InvalidReasons = [new ProfileSectionInvalidReasonDto { SectionNumber = 1, Description = "\"Revision dates, Next policy review\" is required" }]
+        };
+
+        mediator
+            .Setup(sender => sender.Send(new PublishProfileCommand(ProfileManagementTestData.ProfileId, false), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(resultDto));
+
+        var response = await CreateController().PublishProfile(
+            ProfileManagementTestData.ProfileId, new PublishProfileRequestDto { IsPublic = false }, CancellationToken.None);
+
+        var unprocessable = response.Result.Should().BeOfType<UnprocessableEntityObjectResult>().Subject;
+        unprocessable.StatusCode.Should().Be(StatusCodes.Status422UnprocessableEntity);
+        unprocessable.Value.Should().BeSameAs(resultDto);
+    }
+
+    [Theory]
+    [InlineData(ResultStatus.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(ResultStatus.Forbidden, StatusCodes.Status403Forbidden)]
+    [InlineData(ResultStatus.Conflict, StatusCodes.Status409Conflict)]
+    public async Task PublishProfile_ReturnsAProblemCarryingTheLegacyMessage_WhenThePublishIsRefused(ResultStatus status, int expectedStatusCode)
+    {
+        const string message = "You cannot publish this profile because it does not have a current draft version.";
+        Result<PublishProfileResultDto> refusal = status switch
+        {
+            ResultStatus.NotFound => Result.NotFound<PublishProfileResultDto>(message),
+            ResultStatus.Forbidden => Result.Forbidden<PublishProfileResultDto>(message),
+            _ => Result.Conflict<PublishProfileResultDto>(message)
+        };
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<PublishProfileCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(refusal);
+
+        var response = await CreateController().PublishProfile(
+            ProfileManagementTestData.ProfileId, new PublishProfileRequestDto { IsPublic = true }, CancellationToken.None);
+
+        AssertProblem(response.Result!, expectedStatusCode).Detail.Should().Be(message);
     }
 
     [Fact]

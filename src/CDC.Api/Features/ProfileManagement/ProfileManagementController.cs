@@ -2,6 +2,7 @@ using CDC.Api.Application.Extensions;
 using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using CDC.Api.Features.ProfileManagement.Queries;
+using CDC.Common.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -201,6 +202,50 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
                 new { profileId = result.Value.NewProfileVersionId },
                 result.Value)
             : result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Publishes a profile's current draft version.
+    /// </summary>
+    /// <remarks>
+    /// Replaces the legacy "Publish (public)" and "Publish (Defranet only)" links of the "Manage profile" page. Every section
+    /// of the draft is validated first, as the legacy <c>Profile.Validate()</c> did, and nothing is published when there is
+    /// any error to list. Otherwise the draft must be the latest version of the profile and have an active profiled species;
+    /// a "what-if" scenario can only be published when its profile is published, and made public when its profile has a
+    /// public version. Publishing recalculates prioritisation scores.
+    /// </remarks>
+    /// <param name="profileId">The profile to publish.</param>
+    /// <param name="request">Whether the published version is also made public.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The new published version, or the validation errors that stopped the profile being published.</returns>
+    /// <response code="201">The draft was published as a new version.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user is not a profile editor.</response>
+    /// <response code="404">No profile exists with the supplied identifier.</response>
+    /// <response code="409">The profile cannot be published, for example because it has no draft version.</response>
+    /// <response code="422">The draft has validation errors, which are returned, so it was not published.</response>
+    [HttpPost("{profileId:guid}/publish")]
+    [ProducesResponseType(typeof(PublishProfileResultDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(PublishProfileResultDto), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PublishProfileResultDto>> PublishProfile(
+        Guid profileId,
+        [FromBody] PublishProfileRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new PublishProfileCommand(profileId, request.IsPublic), cancellationToken);
+
+        if (result.Status != Domain.Common.ResultStatus.Success)
+        {
+            return result.ToActionResult(this);
+        }
+
+        return result.Value.NewProfileVersionId is null
+            ? UnprocessableEntity(result.Value)
+            : CreatedAtAction(nameof(GetProfileAttributes), new { profileId }, result.Value);
     }
 
     /// <summary>
