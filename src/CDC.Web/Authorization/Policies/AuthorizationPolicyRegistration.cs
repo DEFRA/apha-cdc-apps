@@ -5,21 +5,19 @@ using Microsoft.AspNetCore.Authorization;
 namespace CDC.Web.Authorization.Policies;
 
 /// <summary>
-/// Registers every named policy from <see cref="AuthorizationPolicies"/> against an
-/// <see cref="AllowedRolesRequirement"/>, with the allowed roles for each policy centralized
-/// here - the single place to change a role mapping. Each list follows the legacy <c>CanXxx()</c>
-/// method it replaces, except where the requester explicitly chose otherwise: Compare profile versions
-/// and Review Timings also allow Reviewer, and View species data and Disease ranking report are open
-/// to every role, as the legacy menu showed them to everybody.
+/// Registers every named policy from <see cref="AuthorizationPolicies"/>, with the allowed roles for each
+/// role-based policy (an <see cref="AllowedRolesRequirement"/>) centralized here - the single place to change a
+/// role mapping. Each list follows the legacy <c>CanXxx()</c> method it replaces, except where the requester
+/// explicitly chose otherwise: Compare profile versions and Review Timings also allow Reviewer, and Search disease
+/// profiles, General reports (with the Help and Support footer links, which share its policy), Disease ranking
+/// report and View species data are open to every signed-in user, internal or external, whatever roles they hold.
 /// </summary>
 public static class AuthorizationPolicyRegistration
 {
     /// <summary>Adds every policy used by the application to <paramref name="options"/>.</summary>
     public static void AddCdcWebPolicies(this AuthorizationOptions options)
     {
-        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewProfileSearch,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
-            AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
+        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewProfileSearch);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanCreateProfile,
             AuthorizationRoles.ProfileEditor);
@@ -27,13 +25,9 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewProfileComparison,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
 
-        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewDiseaseRankingReport,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
-            AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
+        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewDiseaseRankingReport);
 
-        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReports,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
-            AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
+        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewReports);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageReports,
             AuthorizationRoles.ProfileEditor);
@@ -44,9 +38,7 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanEditUserGuidance,
             AuthorizationRoles.ProfileEditor);
 
-        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewSpeciesData,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser,
-            AuthorizationRoles.Contributor, AuthorizationRoles.Reviewer);
+        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewSpeciesData);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReviewTiming,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
@@ -80,4 +72,10 @@ public static class AuthorizationPolicyRegistration
 
     private static void AddAllowedRolesPolicy(AuthorizationOptions options, string policyName, params string[] allowedRoles) =>
         options.AddPolicy(policyName, policy => policy.Requirements.Add(new AllowedRolesRequirement(allowedRoles)));
+
+    // Any signed-in user whatever their roles, except the UserManagementSystem service role, which every policy denies.
+    private static void AddSignedInUserPolicy(AuthorizationOptions options, string policyName) =>
+        options.AddPolicy(policyName, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context => !context.User.IsInRole(AuthorizationRoles.UserManagementSystem)));
 }

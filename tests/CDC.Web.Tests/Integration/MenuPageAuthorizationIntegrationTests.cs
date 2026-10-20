@@ -1,11 +1,14 @@
 using System.Net;
 using CDC.Web.Authorization.Constants;
+using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using CDC.Web.Tests.Features.Landing;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CDC.Web.Tests.Integration;
 
@@ -71,18 +74,23 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
         Assert.Contains(RefusalHeading, await response.Content.ReadAsStringAsync());
     }
 
-    // The footer hides Help and Support from a user whose record holds no permission, and the pages refuse them too.
+    // Help and Support is open to every signed-in user: the footer shows it to a user whose record holds no permission, and the pages let them in.
     [Theory]
     [InlineData("/HelpSupport/StaticReports")]
     [InlineData("/HelpSupport/QualityStatement")]
-    public async Task UserWithNoPermissions_IsRefusedTheHelpAndSupportPages(string path)
+    public async Task UserWithNoPermissions_IsAllowedTheHelpAndSupportPages(string path)
     {
-        var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: false);
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IApiClient>();
+            services.AddSingleton<IApiClient>(new FakeApiClient());
+        }));
+        var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: false);
 
         var response = await client.GetAsync(path);
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Contains(RefusalHeading, await response.Content.ReadAsStringAsync());
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.DoesNotContain(RefusalHeading, await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

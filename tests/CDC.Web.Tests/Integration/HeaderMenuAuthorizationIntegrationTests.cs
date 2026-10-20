@@ -72,14 +72,26 @@ public partial class HeaderMenuAuthorizationIntegrationTests : IClassFixture<Cdc
     }
 
     [Fact]
-    public async Task UserWithNoPermissionsOnTheirRecord_ListsNoMenuLinks()
+    public async Task UserWithNoPermissionsOnTheirRecord_ListsOnlyTheLinksOpenToEveryUser()
     {
         var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: false);
 
         var menu = await GetMenuAsync(client);
 
-        Assert.Empty(menu.Sections);
-        Assert.Empty(menu.Links);
+        Assert.Equal(["Disease Profiles", "Reports", "Species Data"], menu.Sections);
+        Assert.Equal(["Search disease profiles", "General reports", "Disease ranking report", "View species data"], menu.Links);
+    }
+
+    // An external user's role comes from CIDM and need not be one the app names.
+    [Fact]
+    public async Task SignedInUserWithARoleTheAppDoesNotName_ListsOnlyTheLinksOpenToEveryUser()
+    {
+        var client = await _factory.SignedInClientWithRolesAsync("SomeCidmRole");
+
+        var menu = await GetMenuAsync(client);
+
+        Assert.Equal(["Disease Profiles", "Reports", "Species Data"], menu.Sections);
+        Assert.Equal(["Search disease profiles", "General reports", "Disease ranking report", "View species data"], menu.Links);
     }
 
     private static async Task<(List<string> Sections, List<string> Links)> GetMenuAsync(HttpClient client)

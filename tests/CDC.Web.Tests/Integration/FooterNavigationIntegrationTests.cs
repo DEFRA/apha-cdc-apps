@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace CDC.Web.Tests.Integration;
 
 // Renders a real page through the whole pipeline (sign-in cookie, claims transformation, policies, Razor) so the footer
-// is shown to list exactly the groups and links the legacy Footer.ascx showed the signed-in user's role: User Admin and
-// Cross Profile Admin live here and not in the header, and a group with nothing visible is omitted.
+// is shown to list exactly the groups and links the signed-in user's role allows: User Admin and Cross Profile Admin
+// live here and not in the header, Help and Support is open to every signed-in user, and a group with nothing visible is omitted.
 public partial class FooterNavigationIntegrationTests : IClassFixture<CdcWebTestFactory>
 {
     // The home page: open to every signed-in user and needs no CDC.Api call to render the layout.
@@ -66,18 +66,32 @@ public partial class FooterNavigationIntegrationTests : IClassFixture<CdcWebTest
     }
 
     [Fact]
-    public async Task UserWithNoPermissions_SeesNoFooterNavigation_ButKeepsTheStandardFooterLinks()
+    public async Task UserWithNoPermissions_SeesOnlyHelpAndSupport_AndKeepsTheStandardFooterLinks()
     {
         var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: false);
 
         var footer = await GetFooterAsync(client, StaticPage);
 
-        Assert.Empty(footer.Groups);
-        Assert.Empty(footer.Links);
-        Assert.DoesNotContain("govuk-footer__navigation", footer.Page);
-        Assert.DoesNotContain("govuk-footer__section-break", footer.Page);
+        Assert.Equal(["Help and Support"], footer.Groups);
+        Assert.Equal(
+            [("Help using D2R2", "/HelpSupport/StaticReports?UserManual=1"), ("D2R2 Quality Statement", "/HelpSupport/QualityStatement")],
+            footer.Links);
         Assert.Contains("Back to top", footer.Page);
         Assert.Contains("Open Government Licence", footer.Page);
+    }
+
+    // An external user's role comes from CIDM and need not be one the app names.
+    [Fact]
+    public async Task SignedInUserWithARoleTheAppDoesNotName_SeesOnlyHelpAndSupport()
+    {
+        var client = await _factory.SignedInClientWithRolesAsync("SomeCidmRole");
+
+        var footer = await GetFooterAsync(client, StaticPage);
+
+        Assert.Equal(["Help and Support"], footer.Groups);
+        Assert.Equal(
+            [("Help using D2R2", "/HelpSupport/StaticReports?UserManual=1"), ("D2R2 Quality Statement", "/HelpSupport/QualityStatement")],
+            footer.Links);
     }
 
     [Fact]
