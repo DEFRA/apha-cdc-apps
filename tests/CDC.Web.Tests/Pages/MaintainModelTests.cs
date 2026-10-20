@@ -1045,5 +1045,11 @@ public class MaintainModelTests
     }
 
     private static MaintainModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>
-        new(speciesApiService, new AlwaysEnabledLogger<MaintainModel>());
+        new(speciesApiService, new AlwaysEnabledLogger<MaintainModel>())
+        {
+            PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+            }
+        };
 }
