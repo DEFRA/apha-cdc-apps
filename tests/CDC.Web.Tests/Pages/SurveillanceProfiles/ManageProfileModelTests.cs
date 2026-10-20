@@ -1,3 +1,4 @@
+using CDC.Common.Contracts;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;
@@ -20,18 +21,21 @@ public class ManageProfileModelTests
         IReadOnlyList<ProfileStatusTypeDto>? profileStatusTypes = null,
         UpdateProfileStatusResult? updateProfileStatusResult = null,
         CreateNewProfileVersionResult? createNewProfileVersionResult = null,
-        DeleteProfileVersionResult? deleteProfileVersionResult = null)
+        DeleteProfileVersionResult? deleteProfileVersionResult = null,
+        PublishProfileResult? publishProfileResult = null) =>
+        CreatePageModel(new FakeApiClient(
+            manageProfile: manageProfile,
+            throwOnGetManageProfile: throwOnGetManageProfile,
+            profileStatusTypes: profileStatusTypes,
+            updateProfileStatusResult: updateProfileStatusResult,
+            createNewProfileVersionResult: createNewProfileVersionResult,
+            deleteProfileVersionResult: deleteProfileVersionResult,
+            publishProfileResult: publishProfileResult));
+
+    private static ManageProfileModel CreatePageModel(FakeApiClient apiClient)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
-        var pageModel = new ManageProfileModel(
-            new FakeApiClient(
-                manageProfile: manageProfile,
-                throwOnGetManageProfile: throwOnGetManageProfile,
-                profileStatusTypes: profileStatusTypes,
-                updateProfileStatusResult: updateProfileStatusResult,
-                createNewProfileVersionResult: createNewProfileVersionResult,
-                deleteProfileVersionResult: deleteProfileVersionResult),
-            new AlwaysEnabledLogger<ManageProfileModel>())
+        var pageModel = new ManageProfileModel(apiClient, new AlwaysEnabledLogger<ManageProfileModel>())
         {
             ProfileId = ProfileId,
             PageContext = new PageContext
@@ -278,7 +282,7 @@ public class ManageProfileModelTests
         var pageModel = CreatePageModel(
             Profile(),
             profileStatusTypes: StatusTypes(),
-            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+            publishProfileResult: new PublishProfileResult(PublishProfileOutcome.Success, newVersionId, null));
 
         var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
 
@@ -296,8 +300,8 @@ public class ManageProfileModelTests
         var pageModel = CreatePageModel(
             Profile(),
             profileStatusTypes: StatusTypes(),
-            createNewProfileVersionResult: new CreateNewProfileVersionResult(
-                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for publishing."));
+            publishProfileResult: new PublishProfileResult(
+                PublishProfileOutcome.Conflict, null, "This profile version is not eligible for publishing."));
 
         var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
 
@@ -324,7 +328,7 @@ public class ManageProfileModelTests
         var pageModel = CreatePageModel(
             Profile(),
             profileStatusTypes: StatusTypes(),
-            createNewProfileVersionResult: new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Success, newVersionId, null));
+            publishProfileResult: new PublishProfileResult(PublishProfileOutcome.Success, newVersionId, null));
 
         var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
 
@@ -342,8 +346,8 @@ public class ManageProfileModelTests
         var pageModel = CreatePageModel(
             Profile(),
             profileStatusTypes: StatusTypes(),
-            createNewProfileVersionResult: new CreateNewProfileVersionResult(
-                CreateNewProfileVersionOutcome.Conflict, null, "This profile version is not eligible for publishing."));
+            publishProfileResult: new PublishProfileResult(
+                PublishProfileOutcome.Conflict, null, "This profile version is not eligible for publishing."));
 
         var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
 
@@ -362,6 +366,81 @@ public class ManageProfileModelTests
 
         Assert.IsType<NotFoundResult>(result);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Publish_AsksTheApiToPublishTheProfile_AsPublicOnlyForPublishPublic(bool isPublic)
+    {
+        var apiClient = new FakeApiClient(manageProfile: Profile(), profileStatusTypes: StatusTypes());
+        var pageModel = CreatePageModel(apiClient);
+
+        _ = isPublic
+            ? await pageModel.OnPostPublishPublicAsync(CancellationToken.None)
+            : await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.Equal(ProfileId, apiClient.PublishedProfileId);
+        Assert.Equal(isPublic, apiClient.PublishedAsPublic);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Publish_ListsTheValidationErrorsAndPublishesNothing_WhenTheDraftIsInvalid(bool isPublic)
+    {
+        ProfileSectionInvalidReasonDto[] reasons =
+        [
+            new() { SectionNumber = 1, QuestionNumber = 0, Description = "\"Revision dates, Next policy review\" is required" },
+            new() { SectionNumber = 3, QuestionNumber = 2, Description = "\"Is it endemic? - Endemic\" is required" }
+        ];
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            publishProfileResult: new PublishProfileResult(PublishProfileOutcome.InvalidProfile, null, null) { InvalidReasons = reasons });
+
+        var result = isPublic
+            ? await pageModel.OnPostPublishPublicAsync(CancellationToken.None)
+            : await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(reasons, pageModel.InvalidReasons);
+        Assert.Null(pageModel.SuccessMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+        Assert.NotNull(pageModel.Profile);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ListsNoValidationErrors()
+    {
+        var pageModel = CreatePageModel(Profile(), profileStatusTypes: StatusTypes());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(pageModel.InvalidReasons);
+    }
+
+    [Theory]
+    [InlineData(PublishProfileOutcome.Forbidden, "You do not have permission to publish this profile.")]
+    [InlineData(PublishProfileOutcome.Conflict, "You cannot publish this profile because it does not have a current draft version.")]
+    [InlineData(PublishProfileOutcome.Conflict, "You cannot publish this scenario because the profile to which it belongs is not published.")]
+    [InlineData(PublishProfileOutcome.Conflict, "You cannot make this scenario public because there is no public version of this profile.")]
+    [InlineData(PublishProfileOutcome.Conflict, "Version 8.1 is not the latest version of this profile. The profile may have been altered by another user.")]
+    [InlineData(PublishProfileOutcome.Error, "The profile could not be published. Please try again.")]
+    public async Task Publish_ShowsTheMessageOfTheRuleThatWasBroken_AndListsNoValidationErrors(PublishProfileOutcome outcome, string message)
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            profileStatusTypes: StatusTypes(),
+            publishProfileResult: new PublishProfileResult(outcome, null, message));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(message, pageModel.StatusErrorMessage);
+        Assert.Empty(pageModel.InvalidReasons);
+        Assert.Null(pageModel.SuccessMessage);
+    }
+
     [Fact]
     public async Task OnPostDeleteCurrentVersionAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
     {

@@ -4,6 +4,7 @@ using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileManagement.Queries;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -141,6 +142,38 @@ public class ProfileManagementHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(resultDto);
+    }
+
+    [Fact]
+    public async Task PublishProfileCommandHandler_ReturnsTheServicesResult()
+    {
+        var publishingService = new Mock<IProfilePublishingService>(MockBehavior.Strict);
+        var resultDto = new PublishProfileResultDto { NewProfileVersionId = ProfileManagementTestData.NewProfileVersionId };
+        publishingService
+            .Setup(svc => svc.PublishAsync(ProfileManagementTestData.ProfileId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(resultDto));
+
+        var result = await new PublishProfileCommandHandler(publishingService.Object, NullLogger<PublishProfileCommandHandler>.Instance)
+            .Handle(new PublishProfileCommand(ProfileManagementTestData.ProfileId, IsPublic: true), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(resultDto);
+    }
+
+    [Fact]
+    public async Task PublishProfileCommandHandler_ReturnsConflict_OnConcurrencyException()
+    {
+        var publishingService = new Mock<IProfilePublishingService>(MockBehavior.Strict);
+        publishingService
+            .Setup(svc => svc.PublishAsync(ProfileManagementTestData.ProfileId, false, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyException("Version 1.2 is not the latest version of this profile. The profile may have been altered by another user."));
+
+        var result = await new PublishProfileCommandHandler(publishingService.Object, NullLogger<PublishProfileCommandHandler>.Instance)
+            .Handle(new PublishProfileCommand(ProfileManagementTestData.ProfileId, IsPublic: false), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Error.Should().Be("Version 1.2 is not the latest version of this profile. The profile may have been altered by another user.");
     }
 
     [Fact]

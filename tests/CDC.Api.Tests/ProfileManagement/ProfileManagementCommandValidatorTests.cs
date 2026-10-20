@@ -191,6 +191,25 @@ public class ProfileManagementCommandValidatorTests
     }
 
     [Fact]
+    public void PublishProfileCommandValidator_RequiresProfileId()
+    {
+        var result = new PublishProfileCommandValidator().Validate(new PublishProfileCommand(Guid.Empty, IsPublic: false));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.PropertyName.Should().Be(nameof(PublishProfileCommand.ProfileId));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PublishProfileCommandValidator_Passes_ForAProfileId_WhetherOrNotThePublicationIsPublic(bool isPublic)
+    {
+        var result = new PublishProfileCommandValidator().Validate(new PublishProfileCommand(ProfileManagementTestData.ProfileId, isPublic));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void UpdateProfileStatusCommandValidator_RequiresBothIds()
     {
         var result = new UpdateProfileStatusCommandValidator().Validate(new UpdateProfileStatusCommand(Guid.Empty, Guid.Empty));
