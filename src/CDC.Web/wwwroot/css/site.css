@@ -779,6 +779,11 @@ body {
   cursor: pointer;
 }
 
+/* govuk-link only colours <a href>, so a link-styled button needs the link colour set explicitly. */
+.app-link-button--link-colour {
+  color: var(--govuk-link-colour, #1a65a6);
+}
+
 .app-inline-form {
   display: inline;
 }

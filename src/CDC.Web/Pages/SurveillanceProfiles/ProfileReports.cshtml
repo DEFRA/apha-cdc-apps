@@ -74,7 +74,7 @@
             <table class="govuk-table" aria-label="This table displays reports for this disease profile">
                 <thead class="govuk-table__head">
                     <tr class="govuk-table__row">
-                        <th scope="col" class="govuk-table__header">Title</th>
+                        <th scope="col" class="govuk-table__header govuk-!-width-one-quarter">Title</th>
                         <th scope="col" class="govuk-table__header">Action</th>
                     </tr>
                 </thead>
@@ -96,7 +96,7 @@
                                 @if (row.CanRegenerate)
                                 {
                                     <form method="post" asp-page-handler="Regenerate" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id" class="app-inline-form">
-                                        <button type="submit" class="govuk-link app-link-button">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
+                                        <button type="submit" class="govuk-link app-link-button app-link-button--link-colour">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
                                     </form>
                                 }
                             </td>
