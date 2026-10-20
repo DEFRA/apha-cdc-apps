@@ -50,6 +50,12 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancels the database call.</param>
     Task UpdateSsoUserIdIntAsync(Guid id, Guid ssoUserIdInt, CancellationToken cancellationToken);
 
+    /// <summary>Inserts a brand-new internal user row, with no privileges, via <c>spiInternalUser</c>.</summary>
+    /// <param name="newUser">The row to insert, including a client-assigned Id.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The row now held for the user's SsoUserIdInt: the one passed in, unless a concurrent sign-in created it first.</returns>
+    Task<Domain.Entities.InternalUser> CreateInternalUserAsync(Domain.Entities.InternalUser newUser, CancellationToken cancellationToken);
+
     /// <summary>Reads the signed-in user an API request is made for, with their role flags, via <c>spgUser</c>.</summary>
     /// <param name="userId">The <c>[User].Id</c> CDC.Web forwarded for the request.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>

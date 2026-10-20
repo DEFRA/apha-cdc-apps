@@ -386,6 +386,90 @@ public class UserRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateInternalUserAsync_ExecutesWithExpectedParameters_AndReturnsTheStoredRow()
+    {
+        connection.Script(UserStoredProcedures.CreateInternalUser, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(InternalUserColumns,
+                [
+                    [UserId, @"DEFRA\jdoe", "Jane Internal", false, false, SsoUserIdInt]
+                ])
+            ]
+        });
+
+        var created = await CreateRepository().CreateInternalUserAsync(NewInternalUser(UserId), CancellationToken.None);
+
+        created.Id.Should().Be(UserId);
+        created.UserName.Should().Be(@"DEFRA\jdoe");
+        created.FullName.Should().Be("Jane Internal");
+        created.SsoUserIdInt.Should().Be(SsoUserIdInt);
+        created.IsProfileEditor.Should().BeFalse();
+        created.IsPolicyProfileUser.Should().BeFalse();
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(UserStoredProcedures.CreateInternalUser);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters.Should().ContainKey("Id").WhoseValue.Should().Be(UserId);
+        executed.Parameters.Should().ContainKey("UserName").WhoseValue.Should().Be(@"DEFRA\jdoe");
+        executed.Parameters.Should().ContainKey("FullName").WhoseValue.Should().Be("Jane Internal");
+        executed.Parameters.Should().ContainKey("SsoUserIdInt").WhoseValue.Should().Be(SsoUserIdInt);
+    }
+
+    [Fact]
+    public async Task CreateInternalUserAsync_ReturnsTheRowTheDatabaseHolds_WhenAnotherSignInCreatedItFirst()
+    {
+        var winnerId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        connection.Script(UserStoredProcedures.CreateInternalUser, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(InternalUserColumns,
+                [
+                    [winnerId, @"DEFRA\jdoe", "Jane Internal", false, false, SsoUserIdInt]
+                ])
+            ]
+        });
+
+        var created = await CreateRepository().CreateInternalUserAsync(NewInternalUser(UserId), CancellationToken.None);
+
+        created.Id.Should().Be(winnerId);
+    }
+
+    [Fact]
+    public async Task CreateInternalUserAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.CreateInternalUser, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().CreateInternalUserAsync(NewInternalUser(UserId), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task CreateInternalUserAsync_Throws_WhenNewUserIsNull()
+    {
+        var act = async () => await CreateRepository().CreateInternalUserAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    private static InternalUser NewInternalUser(Guid id) => new()
+    {
+        Id = id,
+        UserName = @"DEFRA\jdoe",
+        FullName = "Jane Internal",
+        SsoUserIdInt = SsoUserIdInt,
+        IsProfileEditor = false,
+        IsPolicyProfileUser = false
+    };
+
+    [Fact]
     public async Task GetActingUserAsync_MapsTheIdAndRoleFlags_WhenFound()
     {
         connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
@@ -402,7 +486,7 @@ public class UserRepositoryTests : IDisposable
         var user = await CreateRepository().GetActingUserAsync(UserId, CancellationToken.None);
 
         user.Should().NotBeNull();
-        user!.Id.Should().Be(UserId);
+        user.Id.Should().Be(UserId);
         user.IsProfileEditor.Should().BeTrue();
         user.IsPolicyProfileUser.Should().BeFalse();
 

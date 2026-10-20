@@ -10,20 +10,19 @@ public sealed record ResolveInternalUserRequestDto
     public required string UserName { get; init; }
 
     /// <summary>
-    /// Gets the Entra ID display name claim, used only as the <c>FullName</c> for a user with no
-    /// matching <c>[dbo].[User]</c> row (legacy's "limited access" internal user).
+    /// Gets the Entra ID display name claim, used only as the <c>FullName</c> of a newly created
+    /// <c>[dbo].[User]</c> row.
     /// </summary>
     public required string FullName { get; init; }
 }
 
 /// <summary>
-/// Response body for <c>POST /api/users/internal/resolve</c>, on success. A user with no matching
-/// <c>[dbo].[User]</c> row is still returned here (legacy parity: "limited access") with
-/// <see cref="Id"/> set to <see cref="Guid.Empty"/> and both role flags <see langword="false"/>.
+/// Response body for <c>POST /api/users/internal/resolve</c>, on success. A user with no
+/// <c>[dbo].[User]</c> row yet is created first, with both role flags <see langword="false"/>.
 /// </summary>
 public sealed record InternalUserDto
 {
-    /// <summary>Gets the user's identifier, or <see cref="Guid.Empty"/> for a limited-access user.</summary>
+    /// <summary>Gets the user's identifier.</summary>
     public required Guid Id { get; init; }
 
     /// <summary>Gets the display name.</summary>

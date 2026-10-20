@@ -32,6 +32,7 @@ There is no journal table, so track what has been run here:
 | 0070-SeedD2R2QualityStatement.sql (needs `-v PdfPath="<pdf path>"`) | Y | | | |
 | 0071-FixSpiSpdGlobalUserQuotedIdentifier.sql | Y | | | |
 | 0072-FixSpiProfileContributorQuotedIdentifier.sql | Y | | | |
+| 0073-CreateSpiInternalUser.sql | Y | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by

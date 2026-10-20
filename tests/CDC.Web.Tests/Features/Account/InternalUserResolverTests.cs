@@ -4,6 +4,7 @@ using CDC.Auth.Entra.Claims;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using CDC.Web.Tests.Pages;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CDC.Web.Tests.Features.Account;
@@ -119,12 +120,14 @@ public class InternalUserResolverTests
     {
         var principal = CreatePrincipal(oid: "not-a-guid");
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
 
-        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, logger).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
         Assert.Null(apiClient.LastRequest);
+        Assert.Contains(logger.Messages, message => message.Contains("no usable object id", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -132,12 +135,30 @@ public class InternalUserResolverTests
     {
         var principal = CreatePrincipal(samAccountName: null, domainName: null);
         var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
 
-        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+        var resolution = await new InternalUserResolver(apiClient, logger).ResolveAsync(principal, CancellationToken.None);
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
         Assert.Null(apiClient.LastRequest);
+        Assert.Contains(
+            logger.Messages,
+            message => message.Contains($"SsoUserIdInt={SsoUserIdInt}", StringComparison.Ordinal)
+                && message.Contains("onprem_samaccountname", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_LogsTheOid_EvenWhenSignInIsDeniedForMissingUserName()
+    {
+        var principal = CreatePrincipal(samAccountName: null, domainName: null);
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
+
+        await new InternalUserResolver(apiClient, logger).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Contains(logger.Messages, message => message.Contains("received for object id", StringComparison.Ordinal)
+            && message.Contains(SsoUserIdInt.ToString(), StringComparison.Ordinal));
     }
 
     [Fact]

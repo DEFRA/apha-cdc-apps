@@ -98,24 +98,31 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
         var byUserName = await userRepository.GetByUserNameAsync(command.UserName, cancellationToken);
         if (byUserName is null)
         {
-            // Legacy parity: a Windows/Entra-authenticated user with no [dbo].[User] row is still
-            // let in - just with no profile-authoring privileges (IsProfileEditor/IsPolicyProfileUser
-            // both false, no linked Id) - rather than being denied sign-in outright.
-            logger.GrantedLimitedAccessForUnmatchedInternalUser();
-            return Result.Success(new InternalUser
-            {
-                Id = Guid.Empty,
-                UserName = command.UserName,
-                FullName = command.FullName,
-                SsoUserIdInt = null,
-                IsProfileEditor = false,
-                IsPolicyProfileUser = false
-            });
+            return Result.Success(await CreateInternalUserAsync(command, cancellationToken));
         }
 
         logger.MatchedByUserNameBackfillingSsoUserIdInt(byUserName.Id);
         await userRepository.UpdateSsoUserIdIntAsync(byUserName.Id, command.SsoUserIdInt, cancellationToken);
 
         return Result.Success(byUserName with { SsoUserIdInt = command.SsoUserIdInt });
+    }
+
+    private async Task<InternalUser> CreateInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken)
+    {
+        // No privileges: a profile editor grants a role later, on the Global users page.
+        var newUser = new InternalUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = command.UserName,
+            FullName = string.IsNullOrWhiteSpace(command.FullName) ? command.UserName : command.FullName.Trim(),
+            SsoUserIdInt = command.SsoUserIdInt,
+            IsProfileEditor = false,
+            IsPolicyProfileUser = false
+        };
+
+        var created = await userRepository.CreateInternalUserAsync(newUser, cancellationToken);
+        logger.CreatedNewInternalUser(created.Id);
+
+        return created;
     }
 }

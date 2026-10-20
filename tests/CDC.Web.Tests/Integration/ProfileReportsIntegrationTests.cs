@@ -33,12 +33,13 @@ public class ProfileReportsIntegrationTests
         Assert.Contains("Search disease profiles", body);
         Assert.Contains("govuk-breadcrumbs__list-item\" aria-current=\"page\"", body);
         Assert.Contains("Profile reports for Anthrax v1.2", body);
-        Assert.Contains("<th scope=\"col\" class=\"govuk-table__header\">Title</th>", body);
+        Assert.Contains("<th scope=\"col\" class=\"govuk-table__header govuk-!-width-one-quarter\">Title</th>", body);
         Assert.Contains("<th scope=\"col\" class=\"govuk-table__header\">Action</th>", body);
         Assert.Contains("handler=Download", body);
         Assert.Contains($"reportId={StoredReportId}", body);
-        Assert.Contains("Download PDF", body);
+        Assert.Contains(">Summary profile</a>", body);
         Assert.Contains("Regenerate report", body);
+        Assert.Contains("class=\"govuk-link app-link-button app-link-button--link-colour\"", body);
         Assert.Contains($"/SurveillanceProfiles/CreateBespokeReport/{ProfileVersionId}", body);
         Assert.Contains("Create bespoke report", body);
         Assert.Contains($"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}", body);

@@ -74,7 +74,7 @@
             <table class="govuk-table" aria-label="This table displays reports for this disease profile">
                 <thead class="govuk-table__head">
                     <tr class="govuk-table__row">
-                        <th scope="col" class="govuk-table__header">Title</th>
+                        <th scope="col" class="govuk-table__header govuk-!-width-one-quarter">Title</th>
                         <th scope="col" class="govuk-table__header">Action</th>
                     </tr>
                 </thead>
@@ -93,18 +93,10 @@
                                 }
                             </td>
                             <td class="govuk-table__cell">
-                                @if (row.CanDownload)
-                                {
-                                    <a class="govuk-link" asp-page-handler="Download" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id">Download PDF<span class="govuk-visually-hidden"> for @row.DisplayName</span></a>
-                                }
                                 @if (row.CanRegenerate)
                                 {
-                                    @if (row.CanDownload)
-                                    {
-                                        <span aria-hidden="true"> | </span>
-                                    }
                                     <form method="post" asp-page-handler="Regenerate" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id" class="app-inline-form">
-                                        <button type="submit" class="govuk-link app-link-button">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
+                                        <button type="submit" class="govuk-link app-link-button app-link-button--link-colour">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
                                     </form>
                                 }
                             </td>
