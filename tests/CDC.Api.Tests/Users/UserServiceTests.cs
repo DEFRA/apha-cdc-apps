@@ -181,6 +181,7 @@ public class UserServiceTests
 
         repository.Verify(repo => repo.GetByUserNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(repo => repo.UpdateSsoUserIdIntAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(repo => repo.CreateInternalUserAsync(It.IsAny<InternalUser>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -205,10 +206,69 @@ public class UserServiceTests
         result.Value.SsoUserIdInt.Should().Be(SsoUserIdInt);
 
         repository.Verify(repo => repo.UpdateSsoUserIdIntAsync(UserId, SsoUserIdInt, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(repo => repo.CreateInternalUserAsync(It.IsAny<InternalUser>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task ResolveInternalUserAsync_ReturnsLimitedAccessUser_WhenNoRowMatches()
+    public async Task ResolveInternalUserAsync_CreatesAUserWithNoPrivileges_WhenNoRowMatches()
+    {
+        GivenNoInternalUserMatches();
+
+        InternalUser? created = null;
+        repository
+            .Setup(repo => repo.CreateInternalUserAsync(It.IsAny<InternalUser>(), It.IsAny<CancellationToken>()))
+            .Callback<InternalUser, CancellationToken>((user, _) => created = user)
+            .ReturnsAsync((InternalUser user, CancellationToken _) => user);
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        created.Should().NotBeNull();
+        created.Id.Should().NotBe(Guid.Empty);
+        created.UserName.Should().Be(@"DEFRA\jdoe");
+        created.FullName.Should().Be("Jane Internal");
+        created.SsoUserIdInt.Should().Be(SsoUserIdInt);
+        created.IsProfileEditor.Should().BeFalse();
+        created.IsPolicyProfileUser.Should().BeFalse();
+
+        result.Value.Should().BeSameAs(created);
+        repository.Verify(repo => repo.UpdateSsoUserIdIntAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ResolveInternalUserAsync_UsesTheUserNameAsTheFullName_WhenTheTokenHasNoName(string fullName)
+    {
+        GivenNoInternalUserMatches();
+
+        InternalUser? created = null;
+        repository
+            .Setup(repo => repo.CreateInternalUserAsync(It.IsAny<InternalUser>(), It.IsAny<CancellationToken>()))
+            .Callback<InternalUser, CancellationToken>((user, _) => created = user)
+            .ReturnsAsync((InternalUser user, CancellationToken _) => user);
+
+        await CreateService().ResolveInternalUserAsync(InternalCommand() with { FullName = fullName }, CancellationToken.None);
+
+        created!.FullName.Should().Be(@"DEFRA\jdoe");
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_ReturnsTheStoredRow_WhenAConcurrentSignInCreatedItFirst()
+    {
+        GivenNoInternalUserMatches();
+
+        var stored = ExistingInternalUser(SsoUserIdInt);
+        repository
+            .Setup(repo => repo.CreateInternalUserAsync(It.IsAny<InternalUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stored);
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand(), CancellationToken.None);
+
+        result.Value.Should().BeSameAs(stored);
+    }
+
+    private void GivenNoInternalUserMatches()
     {
         repository
             .Setup(repo => repo.GetBySsoUserIdIntAsync(SsoUserIdInt, It.IsAny<CancellationToken>()))
@@ -216,18 +276,6 @@ public class UserServiceTests
         repository
             .Setup(repo => repo.GetByUserNameAsync(@"DEFRA\jdoe", It.IsAny<CancellationToken>()))
             .ReturnsAsync((InternalUser?)null);
-
-        var result = await CreateService().ResolveInternalUserAsync(InternalCommand(), CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Id.Should().Be(Guid.Empty);
-        result.Value.UserName.Should().Be(@"DEFRA\jdoe");
-        result.Value.FullName.Should().Be("Jane Internal");
-        result.Value.SsoUserIdInt.Should().BeNull();
-        result.Value.IsProfileEditor.Should().BeFalse();
-        result.Value.IsPolicyProfileUser.Should().BeFalse();
-
-        repository.Verify(repo => repo.UpdateSsoUserIdIntAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

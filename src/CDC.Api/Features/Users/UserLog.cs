@@ -28,7 +28,7 @@ internal static partial class UserLog
     [LoggerMessage(EventId = 8006, Level = LogLevel.Information, Message = "Matched internal user {UserId} by user name on first Entra sign-in; backfilling Entra SSO id")]
     public static partial void MatchedByUserNameBackfillingSsoUserIdInt(this ILogger logger, Guid userId);
 
-    [LoggerMessage(EventId = 8007, Level = LogLevel.Information, Message = "No existing user matched the Entra SSO id or user name claim; granting limited (no-privilege) internal access")]
-    public static partial void GrantedLimitedAccessForUnmatchedInternalUser(this ILogger logger);
+    [LoggerMessage(EventId = 8008, Level = LogLevel.Information, Message = "No existing user matched the Entra SSO id or user name claim; creating internal user {UserId}")]
+    public static partial void CreatedNewInternalUser(this ILogger logger, Guid userId);
 }
 

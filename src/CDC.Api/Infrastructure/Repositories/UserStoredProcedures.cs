@@ -28,4 +28,7 @@ public static class UserStoredProcedures
 
     /// <summary>Backfills SsoUserIdInt on a row previously matched by user name.</summary>
     public const string UpdateSsoUserIdInt = "spuUserSsoUserIdInt";
+
+    /// <summary>Inserts a brand-new internal user row with no privileges.</summary>
+    public const string CreateInternalUser = "spiInternalUser";
 }

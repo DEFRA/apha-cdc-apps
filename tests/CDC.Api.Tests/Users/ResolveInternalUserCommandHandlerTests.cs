@@ -46,14 +46,14 @@ public class ResolveInternalUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ReturnsLimitedAccessDto_WhenNoUserMatches()
+    public async Task Handle_ReturnsNoRoles_ForAUserWithNoPrivileges()
     {
         var user = new InternalUser
         {
-            Id = Guid.Empty,
+            Id = UserId,
             UserName = @"DEFRA\jdoe",
             FullName = "Jane Internal",
-            SsoUserIdInt = null,
+            SsoUserIdInt = SsoUserIdInt,
             IsProfileEditor = false,
             IsPolicyProfileUser = false
         };
@@ -65,7 +65,7 @@ public class ResolveInternalUserCommandHandlerTests
         var result = await new ResolveInternalUserCommandHandler(service.Object).Handle(Command(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Id.Should().Be(Guid.Empty);
+        result.Value.Id.Should().Be(UserId);
         result.Value.IsProfileEditor.Should().BeFalse();
         result.Value.IsPolicyProfileUser.Should().BeFalse();
     }

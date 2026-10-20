@@ -28,13 +28,12 @@ public interface IUserService
     /// <summary>
     /// Finds the user by SsoUserIdInt first. If no row has that SsoUserIdInt yet - true for every
     /// user's first Entra ID sign-in - falls back to matching by user name, backfilling SsoUserIdInt
-    /// on that row so every subsequent sign-in matches directly. Internal users are never
-    /// auto-provisioned - legacy parity: if no row matches either value, the sign-in still succeeds,
-    /// but with no profile-authoring privileges (<c>IsProfileEditor</c>/<c>IsPolicyProfileUser</c>
-    /// both <see langword="false"/>, no linked Id) rather than being denied.
+    /// on that row so every subsequent sign-in matches directly. If no row matches either value, a
+    /// new internal user is created with no privileges (<c>IsProfileEditor</c> and
+    /// <c>IsPolicyProfileUser</c> both <see langword="false"/>) until a role is granted.
     /// </summary>
     /// <param name="command">The Entra ID claims to resolve against.</param>
     /// <param name="cancellationToken">Cancels the database calls.</param>
-    /// <returns>The resolved user, with or without profile-authoring privileges.</returns>
+    /// <returns>The matched or newly created user.</returns>
     Task<Result<InternalUser>> ResolveInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken);
 }

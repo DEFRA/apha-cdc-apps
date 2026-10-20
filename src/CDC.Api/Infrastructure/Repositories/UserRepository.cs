@@ -176,6 +176,30 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     }
 
     /// <inheritdoc />
+    public async Task<InternalUser> CreateInternalUserAsync(InternalUser newUser, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(newUser);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var row = await connection.QuerySingleAsync<InternalUserRow>(new CommandDefinition(
+                UserStoredProcedures.CreateInternalUser,
+                new { newUser.Id, newUser.UserName, newUser.FullName, newUser.SsoUserIdInt },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return ToInternalUser(row);
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.CreateInternalUser);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<ActingUser?> GetActingUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -221,17 +245,17 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     // SsoUserIdInt is nullable in the database (every external/legacy row has none of it) - a row
     // returned by GetBySsoUserIdIntAsync/GetByUserNameAsync always has UserName, since both calls
     // filter on one of them, but the mapped type must still declare it nullable.
-    private static InternalUser? ToEntity(InternalUserRow? row) => row is null
-        ? null
-        : new InternalUser
-        {
-            Id = row.Id,
-            UserName = row.UserName ?? string.Empty,
-            FullName = row.FullName ?? string.Empty,
-            SsoUserIdInt = row.SsoUserIdInt,
-            IsProfileEditor = row.IsProfileEditor,
-            IsPolicyProfileUser = row.IsPolicyProfileUser
-        };
+    private static InternalUser? ToEntity(InternalUserRow? row) => row is null ? null : ToInternalUser(row);
+
+    private static InternalUser ToInternalUser(InternalUserRow row) => new()
+    {
+        Id = row.Id,
+        UserName = row.UserName ?? string.Empty,
+        FullName = row.FullName ?? string.Empty,
+        SsoUserIdInt = row.SsoUserIdInt,
+        IsProfileEditor = row.IsProfileEditor,
+        IsPolicyProfileUser = row.IsPolicyProfileUser
+    };
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
