@@ -583,7 +583,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         return Page();
     }
 
-    private bool IsFetchRequest => Request.Headers["X-Requested-With"] == "fetch";
+    private bool IsFetchRequest => Request.Headers.XRequestedWith == "fetch";
 
     private async Task<IActionResult> MoveSelectedSpeciesAsync(bool isMovingUp, CancellationToken cancellationToken)
     {

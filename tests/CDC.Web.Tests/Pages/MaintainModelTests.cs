@@ -726,6 +726,39 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnPostMoveUpAsync_ReturnsSuccessJson_ForFetchRequests()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.Request.Headers.XRequestedWith = "fetch";
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(result);
+        Assert.Null(json.StatusCode);
+    }
+
+    [Fact]
+    public async Task OnPostMoveUpAsync_ReturnsConflictJson_ForFetchRequests_WhenMoveFails()
+    {
+        var api = new FakeSpeciesApiService(
+            Species,
+            changePositionResult: new ChangeSpeciesPositionResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "Cannot move"
+            });
+        var pageModel = CreatePageModel(api);
+        pageModel.Request.Headers.XRequestedWith = "fetch";
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(result);
+        Assert.Equal(Microsoft.AspNetCore.Http.StatusCodes.Status409Conflict, json.StatusCode);
+    }
+
+    [Fact]
     public async Task OnPostReorderDoneAsync_ExitsReorderMode()
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
