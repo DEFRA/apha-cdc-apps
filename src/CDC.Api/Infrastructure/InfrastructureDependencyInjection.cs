@@ -12,6 +12,7 @@ using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ReferenceData.Interfaces;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
 using CDC.Api.Features.Species.Interfaces;
 using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Features.Users.Interfaces;
@@ -50,6 +51,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IGlobalUsersRepository, GlobalUsersRepository>();
         services.AddScoped<IExternalUsersRepository, ExternalUsersRepository>();
+        services.AddScoped<IReviewNotificationsRepository, ReviewNotificationsRepository>();
 
         return services;
     }

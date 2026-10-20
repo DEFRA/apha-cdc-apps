@@ -1,6 +1,7 @@
 using CDC.Api.Application;
 using CDC.Api.Features.Health;
 using CDC.Api.Features.ReviewNotifications;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Swagger;
 using CDC.Api.Middleware;
@@ -41,10 +42,13 @@ builder.Services.AddSwaggerDocumentation();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
-// Scaffold for the review-due notification scheduled job (see ReviewNotificationsJob) -
-// registered here rather than in AddApplication/AddInfrastructure since it has no feature
-// service/repository pair yet, just a single job-mode entry point.
+// Review-due notification scheduled job (see ReviewNotificationsJob): a job-mode entry point
+// with no controller, so it is registered here rather than in AddApplication.
 builder.Services.AddScoped<ReviewNotificationsJob>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<ReviewNotificationsOptions>(builder.Configuration.GetSection(ReviewNotificationsOptions.SectionName));
+builder.Services.Configure<GraphMailOptions>(builder.Configuration.GetSection(GraphMailOptions.SectionName));
+builder.Services.AddHttpClient<IEmailSender, GraphEmailSender>();
 
 var app = builder.Build();
 

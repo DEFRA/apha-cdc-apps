@@ -1,38 +1,64 @@
-using CDC.Api.Infrastructure;
-using Dapper;
+using CDC.Api.Features.ReviewNotifications.Dtos;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace CDC.Api.Features.ReviewNotifications;
 
 /// <summary>
-/// Scaffold entry point for the review-due notification scheduled job (an Amazon EventBridge
+/// Entry point for the review-due notification scheduled job (an Amazon EventBridge
 /// Scheduler-triggered ECS Scheduled Task reusing this image with a "review-notifications"
-/// command override, per the D2R2 LLD Scheduling section - no separate Lambda or image).
-/// This only proves the job-mode plumbing (container command, IAM, networking, Parameter
-/// Store, database reachability) works end to end; the real review-due query and GOV.UK
-/// Notify send logic will replace the body of <see cref="RunAsync"/> once built.
+/// command override). Sends each subscribed user one reminder listing their profile sections
+/// due for review; sends nothing when no review is due.
 /// </summary>
-public sealed class ReviewNotificationsJob(IDbConnectionFactory connectionFactory, ILogger<ReviewNotificationsJob> logger)
+public sealed class ReviewNotificationsJob(
+    IReviewNotificationsRepository repository,
+    IEmailSender emailSender,
+    IOptions<ReviewNotificationsOptions> options,
+    TimeProvider timeProvider,
+    ILogger<ReviewNotificationsJob> logger)
 {
-    /// <summary>Runs the job. Returns true on success, false on failure.</summary>
-    /// <param name="cancellationToken">Cancels the database probe.</param>
+    /// <summary>Runs the job. Returns true when every due reminder was sent, false if any failure occurred.</summary>
+    /// <param name="cancellationToken">Cancels the job.</param>
     public async Task<bool> RunAsync(CancellationToken cancellationToken)
     {
         logger.JobStarting();
 
+        IReadOnlyList<ReviewDueUser> users;
         try
         {
-            using var connection = connectionFactory.CreateConnection();
-            var databaseTimeUtc = await connection.QuerySingleAsync<DateTime>(
-                new CommandDefinition("SELECT GETUTCDATE()", cancellationToken: cancellationToken));
-
-            logger.DatabaseConnectivityConfirmed(databaseTimeUtc);
-
-            return true;
+            users = await repository.GetUsersDueReviewAsync(cancellationToken);
         }
         catch (Exception ex)
         {
-            logger.DatabaseConnectivityFailed(ex);
+            logger.DueReviewLookupFailed(ex);
             return false;
         }
+
+        if (users.Count == 0)
+        {
+            logger.NoReviewsDue();
+            return true;
+        }
+
+        var today = timeProvider.GetLocalNow().DateTime;
+        var failed = 0;
+
+        foreach (var user in users)
+        {
+            try
+            {
+                await emailSender.SendAsync(ReviewEmailComposer.Compose(user, today, options.Value), cancellationToken);
+                logger.ReminderSent(user.Id);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failed++;
+                logger.ReminderFailed(ex, user.Id);
+            }
+        }
+
+        logger.JobCompleted(users.Count - failed, failed);
+
+        return failed == 0;
     }
 }
