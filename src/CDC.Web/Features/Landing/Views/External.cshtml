@@ -1,10 +1,20 @@
 @{
-    ViewData["Title"] = "External User Sign In";
+    ViewData["Title"] = "D2R2";
     var fullName = User.FindFirst(ExternalUserClaimTypes.FullName)?.Value;
 }
 
+<h1 class="govuk-heading-l">@(string.IsNullOrEmpty(fullName) ? "Welcome" : $"Welcome, {fullName}")</h1>
+<p class="govuk-body">D2R2 is a comprehensive, peer-reviewed animal disease database and risk ranking tool. It is focused on the UK situation. Its standardised approach facilitates a transparent mechanism for making policy decisions.</p>
+
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-        <h1 class="govuk-heading-l">@(string.IsNullOrEmpty(fullName) ? "Welcome" : $"Welcome, {fullName}")</h1>
+        <partial name="_PopularOnD2R2" />
+    </div>
+    <div class="govuk-grid-column-one-third">
+        <img class="app-home__side-logo govuk-!-margin-bottom-4" src="~/assets/images/D2R2LogoSmall.png" alt="D2R2 - Disease Briefing, Decision Support, Risk Assessment, Ranking" />
+        <h2 class="govuk-heading-m">Quick links</h2>
+        <ul class="govuk-list">
+            <li><a class="govuk-link" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="1">Help using D2R2</a></li>
+        </ul>
     </div>
 </div>

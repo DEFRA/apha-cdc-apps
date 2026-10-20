@@ -73,9 +73,10 @@ public static class AuthorizationPolicyRegistration
     private static void AddAllowedRolesPolicy(AuthorizationOptions options, string policyName, params string[] allowedRoles) =>
         options.AddPolicy(policyName, policy => policy.Requirements.Add(new AllowedRolesRequirement(allowedRoles)));
 
-    // Any signed-in user whatever their roles, except the UserManagementSystem service role, which every policy denies.
+    // Any signed-in user, internal or external, whatever their roles, except the UserManagementSystem service role, which every policy denies.
     private static void AddSignedInUserPolicy(AuthorizationOptions options, string policyName) =>
         options.AddPolicy(policyName, policy => policy
+            .AddAuthenticationSchemes(InternalOrExternalAuthenticationScheme.Name)
             .RequireAuthenticatedUser()
             .RequireAssertion(context => !context.User.IsInRole(AuthorizationRoles.UserManagementSystem)));
 }
