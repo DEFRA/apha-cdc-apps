@@ -19,8 +19,110 @@
 
     const $arrows = Array.from($controls.querySelectorAll('.app-reorder-arrow'));
 
+    function showError(message) {
+        let $error = document.getElementById('species-select-error');
+
+        if (!$error) {
+            $error = document.createElement('p');
+            $error.id = 'species-select-error';
+            $error.className = 'govuk-error-message';
+            $controls.closest('form').appendChild($error);
+        }
+
+        $error.textContent = '';
+
+        const $hidden = document.createElement('span');
+
+        $hidden.className = 'govuk-visually-hidden';
+        $hidden.textContent = 'Error:';
+        $error.append($hidden, ' ' + message);
+    }
+
+    // Saves the move in the background and reorders the tree in place, so the page does not reload.
+    // Without fetch support, or if the request fails to send, the normal form post still applies.
+    async function moveInPlace($arrow) {
+        const $radio = document.querySelector('.app-tree input[type="radio"]:checked');
+        const $item = $radio && $radio.closest('.app-tree__item');
+
+        if (!$item) {
+            return false;
+        }
+
+        const movingUp = $arrow.id === 'reorder-move-up';
+        const $neighbour = movingUp ? $item.previousElementSibling : $item.nextElementSibling;
+
+        if (!$neighbour || !$neighbour.matches('.app-tree__item')) {
+            return false;
+        }
+
+        const form = $arrow.form;
+        const response = await fetch($arrow.formAction, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'fetch' },
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok && response.status !== 409) {
+            return false;
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+            showError(result.message);
+
+            return true;
+        }
+
+        const $error = document.getElementById('species-select-error');
+
+        if ($error) {
+            $error.remove();
+        }
+
+        if (movingUp) {
+            $neighbour.before($item);
+        } else {
+            $neighbour.after($item);
+        }
+
+        updateArrows($radio);
+        $radio.scrollIntoView({ block: 'nearest' });
+
+        if ($arrow.disabled) {
+            const $other = $arrows.find(($a) => !$a.disabled);
+
+            if ($other) {
+                $other.focus({ preventScroll: true });
+            }
+        }
+
+        return true;
+    }
+
     $arrows.forEach(($arrow) => {
-        $arrow.addEventListener('click', () => {
+        $arrow.addEventListener('click', (event) => {
+            if (typeof fetch === 'function' && typeof FormData === 'function') {
+                event.preventDefault();
+
+                if ($arrow.dataset.busy) {
+                    return;
+                }
+
+                $arrow.dataset.busy = 'true';
+                moveInPlace($arrow)
+                    .then((handled) => {
+                        if (!handled) {
+                            $arrow.form.requestSubmit($arrow);
+                        }
+                    })
+                    .catch(() => $arrow.form.requestSubmit($arrow))
+                    .finally(() => delete $arrow.dataset.busy);
+
+                return;
+            }
+
             sessionStorage.setItem(STORAGE_KEY, $arrow.id);
             sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
         });

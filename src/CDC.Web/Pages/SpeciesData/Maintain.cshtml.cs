@@ -583,6 +583,8 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         return Page();
     }
 
+    private bool IsFetchRequest => Request.Headers["X-Requested-With"] == "fetch";
+
     private async Task<IActionResult> MoveSelectedSpeciesAsync(bool isMovingUp, CancellationToken cancellationToken)
     {
         await LoadTreeAsync(cancellationToken);
@@ -606,11 +608,22 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         {
             logger.MoveFailed(SelectedSpeciesId.Value, result.Outcome);
             SelectionErrorMessage = result.ErrorMessage ?? "This species cannot be moved in that direction.";
+
+            if (IsFetchRequest)
+            {
+                return new JsonResult(new { success = false, message = SelectionErrorMessage }) { StatusCode = StatusCodes.Status409Conflict };
+            }
+
             UpdateMoveAvailability();
             return Page();
         }
 
         logger.MovedSpecies(SelectedSpeciesId.Value, isMovingUp);
+
+        if (IsFetchRequest)
+        {
+            return new JsonResult(new { success = true });
+        }
 
         // Post-redirect-get, so a refresh does not repeat the move.
         return RedirectToPage(new { species = SelectedSpeciesId, ReorderMode = true });

@@ -182,7 +182,7 @@ else
 {
     <form method="post">
         <div class="govuk-form-group app-tree__form-group">
-            <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
+            <fieldset class="govuk-fieldset" aria-describedby="@(Model.ReorderMode ? null : "species-tree-status")">
                 <legend class="govuk-visually-hidden">Species and species groups</legend>
 
                 <div class="app-species-layout">
@@ -201,12 +201,11 @@ else
                             </div>
                             <partial name="_TreeView" model="Model.SpeciesTree" />
                         </div>
-                        <div class="app-tree__actions">
-                            <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
-                                Remove selection
-                            </button>
-                        </div>
-                        @if (Model.ReorderMode)
+                        @if (!Model.ReorderMode)
+                        {
+                            <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+                        }
+                        else
                         {
                             <div class="app-tree__actions">
                                 <button type="submit" asp-page-handler="ReorderDone" formnovalidate class="govuk-button" data-module="govuk-button">
@@ -267,7 +266,14 @@ else
                     }
                 </div>
 
-                <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+                @if (!Model.ReorderMode)
+                {
+                    <div class="app-tree__actions">
+                        <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-app-tree-action="clear">
+                            Remove selection
+                        </button>
+                    </div>
+                }
             </fieldset>
         </div>
 
