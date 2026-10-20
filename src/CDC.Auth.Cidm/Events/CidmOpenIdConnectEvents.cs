@@ -18,6 +18,16 @@ namespace CDC.Auth.Cidm.Events;
 /// </summary>
 public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
 {
+    // Claims the app reads after sign-in, on top of the common identity claims. The raw relationships/roles
+    // arrays are dropped because the parsed claims below carry the same data.
+    private static readonly IReadOnlySet<string> RetainedClaimTypes = OpenIdConnectEventHelpers.RetainedClaims(
+        ClaimTypes.Role,
+        "firstName",
+        "lastName",
+        CidmClaimTypes.CurrentRelationshipId,
+        CidmClaimTypes.Relationship,
+        CidmClaimTypes.Role);
+
     private readonly CidmOptions _cidmOptions;
     private readonly ILogger<CidmOpenIdConnectEvents> _logger;
 
@@ -76,8 +86,13 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
         await OpenIdConnectEventHelpers.ResolveOrDenyAsync<ICidmExternalUserResolver, CidmExternalUserResolution>(
             context,
             identity,
-            (resolver, principal, cancellationToken) => resolver.ResolveAsync(principal, cancellationToken));
+            (resolver, principal, cancellationToken) => resolver.ResolveAsync(principal, cancellationToken),
+            RetainedClaimTypes);
     }
+
+    /// <inheritdoc />
+    public override Task TicketReceived(TicketReceivedContext context) =>
+        OpenIdConnectEventHelpers.RemoveAccessTokenAsync(context);
 
     /// <inheritdoc />
     public override Task RemoteFailure(RemoteFailureContext context) =>
@@ -102,7 +117,9 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
         // never be able to recover Properties.RedirectUri (/Account/SignedOut).
         if (string.IsNullOrEmpty(context.ProtocolMessage.State))
         {
-            context.ProtocolMessage.State = context.Options.StateDataFormat.Protect(context.Properties);
+            // Only the redirect target goes in state - the id_token in Properties would push /signout-oidc past the WAF query-string limit.
+            var stateProperties = new AuthenticationProperties { RedirectUri = context.Properties.RedirectUri };
+            context.ProtocolMessage.State = context.Options.StateDataFormat.Protect(stateProperties);
         }
 
         context.HandleResponse();

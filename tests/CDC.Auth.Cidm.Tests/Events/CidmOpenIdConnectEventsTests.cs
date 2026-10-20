@@ -186,6 +186,98 @@ public class CidmOpenIdConnectEventsTests
         Assert.Equal("/Account/NotPermitted", httpContext.Response.Headers.Location);
     }
 
+    [Fact]
+    public async Task TokenValidated_ResolverAllows_TrimsBulkyClaims_ButKeepsTheOnesTheAppReadsAndTheResolvedOnes()
+    {
+        var identity = new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.NameIdentifier, "22222222-2222-2222-2222-222222222222"),
+            new Claim(ClaimTypes.Email, "jane@example.com"),
+            new Claim("currentRelationshipId", "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee"),
+            new Claim("relationships", "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee:bc19305a-f9b6-ea11-a812-000d3ab4653d:ABC Organisation2:0:Employee:0"),
+            new Claim("roles", "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee:Certifier:3"),
+            new Claim("sessionId", "bulky"),
+            new Claim("uniqueReference", "bulky"),
+            new Claim("aud", "bulky")
+        ]);
+        var resolver = new StubResolver(CidmExternalUserResolution.Allow(new Dictionary<string, string>
+        {
+            ["internalUserId"] = "id",
+            ["sessionId"] = "added-by-resolver"
+        }));
+        var services = new ServiceCollection();
+        services.AddSingleton<ICidmExternalUserResolver>(resolver);
+        var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(identity), new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.Contains(identity.Claims, c => c.Type == ClaimTypes.NameIdentifier);
+        Assert.Contains(identity.Claims, c => c.Type == ClaimTypes.Email);
+        Assert.Contains(identity.Claims, c => c.Type == "currentRelationshipId");
+        Assert.Contains(identity.Claims, c => c.Type == ClaimTypes.Role && c.Value == "Certifier");
+        Assert.Contains(identity.Claims, c => c.Type == "cidm:relationship");
+        Assert.Contains(identity.Claims, c => c.Type == "cidm:role");
+        Assert.Contains(identity.Claims, c => c.Type == "internalUserId");
+        Assert.Contains(identity.Claims, c => c.Type == "sessionId" && c.Value == "added-by-resolver");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "relationships");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "roles");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "uniqueReference");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "aud");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "sessionId" && c.Value == "bulky");
+    }
+
+    [Fact]
+    public async Task TokenValidated_ResolverDenies_LeavesTheClaimsUntouched()
+    {
+        var identity = new ClaimsIdentity([new Claim("sessionId", "bulky"), new Claim(ClaimTypes.Name, "test-user")]);
+        var services = new ServiceCollection();
+        services.AddSingleton<ICidmExternalUserResolver>(new StubResolver(CidmExternalUserResolution.Deny("/Account/NotPermitted")));
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            Response = { Body = new MemoryStream() }
+        };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(identity), new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.Contains(identity.Claims, c => c.Type == "sessionId");
+    }
+
+    [Fact]
+    public async Task TicketReceived_RemovesTheAccessToken_AndKeepsTheOthers()
+    {
+        var properties = new AuthenticationProperties();
+        properties.StoreTokens(
+        [
+            new AuthenticationToken { Name = "access_token", Value = "access" },
+            new AuthenticationToken { Name = "id_token", Value = "id" },
+            new AuthenticationToken { Name = "refresh_token", Value = "refresh" },
+            new AuthenticationToken { Name = "expires_at", Value = "2026-10-13T15:00:00.0000000+00:00" }
+        ]);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity()), properties, "cidm");
+        var context = new TicketReceivedContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), ticket);
+
+        await CreateEvents().TicketReceived(context);
+
+        Assert.Null(properties.GetTokenValue("access_token"));
+        Assert.Equal("id", properties.GetTokenValue("id_token"));
+        Assert.Equal("refresh", properties.GetTokenValue("refresh_token"));
+        Assert.Equal("2026-10-13T15:00:00.0000000+00:00", properties.GetTokenValue("expires_at"));
+    }
+
+    [Fact]
+    public async Task TicketReceived_WithNoTokens_DoesNotThrow()
+    {
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity()), new AuthenticationProperties(), "cidm");
+        var context = new TicketReceivedContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), ticket);
+
+        var exception = await Record.ExceptionAsync(() => CreateEvents().TicketReceived(context));
+
+        Assert.Null(exception);
+    }
+
     private sealed class StubResolver(CidmExternalUserResolution resolution) : ICidmExternalUserResolver
     {
         public Task<CidmExternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken) =>
@@ -238,6 +330,41 @@ public class CidmOpenIdConnectEventsTests
         Assert.Contains("action=\"https://cidm.test/signout\"", body);
         Assert.Contains("text/html", httpContext.Response.ContentType);
         Assert.Equal("protected-state", context.ProtocolMessage.State);
+    }
+
+    private sealed class CapturingStateDataFormat : ISecureDataFormat<AuthenticationProperties>
+    {
+        public AuthenticationProperties? Protected { get; private set; }
+
+        public string Protect(AuthenticationProperties data)
+        {
+            Protected = data;
+            return "protected-state";
+        }
+
+        public string Protect(AuthenticationProperties data, string? purpose) => Protect(data);
+
+        public AuthenticationProperties? Unprotect(string? protectedText) => new();
+
+        public AuthenticationProperties? Unprotect(string? protectedText, string? purpose) => new();
+    }
+
+    [Fact]
+    public async Task RedirectToIdentityProviderForSignOut_StateCarriesOnlyTheRedirectTarget_NotTheTokens()
+    {
+        var stateFormat = new CapturingStateDataFormat();
+        var properties = new AuthenticationProperties { RedirectUri = "/Account/SignedOut" };
+        properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = "a-very-long-id-token" }]);
+        var httpContext = new DefaultHttpContext { Response = { Body = new MemoryStream() } };
+        var context = new RedirectContext(httpContext, CreateScheme(), new OpenIdConnectOptions { StateDataFormat = stateFormat }, properties)
+        {
+            ProtocolMessage = new OpenIdConnectMessage { IssuerAddress = "https://cidm.test/signout", IdTokenHint = "id-token" }
+        };
+
+        await CreateEvents().RedirectToIdentityProviderForSignOut(context);
+
+        Assert.Equal("/Account/SignedOut", stateFormat.Protected!.RedirectUri);
+        Assert.DoesNotContain(stateFormat.Protected.Items.Keys, key => key.StartsWith(".Token", StringComparison.Ordinal));
     }
 
     [Fact]
