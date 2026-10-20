@@ -1,105 +1,149 @@
-using System.Data;
 using CDC.Api.Features.ReviewNotifications;
-using CDC.Api.Infrastructure;
-using CDC.Api.Tests.Fakes;
+using CDC.Api.Features.ReviewNotifications.Dtos;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
+using CDC.Api.Infrastructure.Email;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace CDC.Api.Tests.ReviewNotifications;
 
-public class ReviewNotificationsJobTests : IDisposable
+public class ReviewNotificationsJobTests
 {
-    private const string DatabaseTimeQuery = "SELECT GETUTCDATE()";
-
-    private readonly FakeDbConnection connection = new();
+    private readonly Mock<IReviewNotificationRepository> repository = new();
+    private readonly Mock<IReviewEmailSender> sender = new();
     private readonly Mock<ILogger<ReviewNotificationsJob>> logger = new();
+    private readonly GraphMailOptions mailOptions = new() { Enabled = true };
 
     public ReviewNotificationsJobTests() =>
         logger.Setup(log => log.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
 
-    public void Dispose()
-    {
-        connection.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    private ReviewNotificationsJob CreateJob() => new(
+        repository.Object,
+        sender.Object,
+        Options.Create(mailOptions),
+        Options.Create(new ReviewNotificationsOptions()),
+        new FixedTimeProvider(new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero)),
+        logger.Object);
 
-    private ReviewNotificationsJob CreateJob() =>
-        new(new StubConnectionFactory(connection), logger.Object);
+    private static ReviewNotificationRecipient Recipient(bool withSections = true) => new(
+        Guid.NewGuid(),
+        "Test User",
+        "test.user@example.com",
+        [new ReviewProfileVersion(
+            Guid.NewGuid(),
+            "Profile",
+            null,
+            "1.0",
+            withSections
+                ? [new ReviewSection(1, "Introduction", new ReviewSchedule(null, null), new ReviewSchedule(null, null), new ReviewSchedule(null, null))]
+                : [])]);
 
     [Fact]
-    public async Task RunAsync_ReturnsTrue_WhenDatabaseConnectionSucceeds()
+    public async Task RunAsync_SendsOneEmailPerRecipientWithSections_AndReturnsTrue()
     {
-        connection.Script(DatabaseTimeQuery, new FakeCommandScript
-        {
-            ResultSets = [new FakeResultSet(["DatabaseTimeUtc"], [[new DateTime(2026, 9, 28, 12, 0, 0, DateTimeKind.Utc)]])]
-        });
+        repository.Setup(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([Recipient(), Recipient(), Recipient(withSections: false)]);
 
         var result = await CreateJob().RunAsync(CancellationToken.None);
 
         result.Should().BeTrue();
-        VerifyErrorLogged(Times.Never());
+        sender.Verify(s => s.SendAsync(It.IsAny<ReviewEmailMessage>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        VerifyLogged(LogLevel.Error, Times.Never());
     }
 
     [Fact]
-    public async Task RunAsync_ExecutesExpectedQuery_WhenDatabaseConnectionSucceeds()
+    public async Task RunAsync_SendsNothing_WhenNobodyIsDue()
     {
-        connection.Script(DatabaseTimeQuery, new FakeCommandScript
-        {
-            ResultSets = [new FakeResultSet(["DatabaseTimeUtc"], [[new DateTime(2026, 9, 28, 12, 0, 0, DateTimeKind.Utc)]])]
-        });
+        repository.Setup(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
-        await CreateJob().RunAsync(CancellationToken.None);
+        var result = await CreateJob().RunAsync(CancellationToken.None);
 
-        var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(DatabaseTimeQuery);
-        executed.CommandType.Should().Be(CommandType.Text);
+        result.Should().BeTrue();
+        sender.Verify(s => s.SendAsync(It.IsAny<ReviewEmailMessage>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]
-    public async Task RunAsync_ReturnsFalse_AndLogsError_WhenDatabaseConnectionFails()
+    public async Task RunAsync_ReturnsTrueWithoutReadingUsers_WhenDisabled()
     {
-        connection.Script(DatabaseTimeQuery, new FakeCommandScript
-        {
-            Throws = new InvalidOperationException("simulated database failure")
-        });
+        mailOptions.Enabled = false;
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeTrue();
+        repository.Verify(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>()), Times.Never());
+        VerifyLogged(LogLevel.Warning, Times.Once());
+    }
+
+    [Fact]
+    public async Task RunAsync_ReturnsFalse_WhenMailSettingsAreInvalid()
+    {
+        sender.Setup(s => s.ValidateConfiguration()).Throws(new InvalidOperationException("missing"));
 
         var result = await CreateJob().RunAsync(CancellationToken.None);
 
         result.Should().BeFalse();
-        VerifyErrorLogged(Times.Once());
+        repository.Verify(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>()), Times.Never());
+        VerifyLogged(LogLevel.Error, Times.Once());
     }
 
     [Fact]
-    public async Task RunAsync_ReturnsFalse_WhenConnectionFactoryThrows()
+    public async Task RunAsync_ReturnsFalse_WhenReadingUsersFails()
     {
-        var job = new ReviewNotificationsJob(
-            new ThrowingConnectionFactory(() => throw new InvalidOperationException("Database:Host is not configured")),
-            logger.Object);
+        repository.Setup(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
 
-        var result = await job.RunAsync(CancellationToken.None);
+        var result = await CreateJob().RunAsync(CancellationToken.None);
 
         result.Should().BeFalse();
-        VerifyErrorLogged(Times.Once());
+        sender.Verify(s => s.SendAsync(It.IsAny<ReviewEmailMessage>(), It.IsAny<CancellationToken>()), Times.Never());
+        VerifyLogged(LogLevel.Error, Times.Once());
     }
 
-    private void VerifyErrorLogged(Times times) =>
+    [Fact]
+    public async Task RunAsync_KeepsSendingAndReturnsFalse_WhenOneEmailFails()
+    {
+        repository.Setup(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([Recipient(), Recipient()]);
+        sender.SetupSequence(s => s.SendAsync(It.IsAny<ReviewEmailMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("rejected"))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.IsAny<ReviewEmailMessage>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        VerifyLogged(LogLevel.Error, Times.Once());
+    }
+
+    [Fact]
+    public async Task RunAsync_ReturnsFalse_WhenUnexpectedErrorOccurs()
+    {
+        repository.Setup(r => r.GetRecipientsDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([Recipient()]);
+        sender.Setup(s => s.SendAsync(It.IsAny<ReviewEmailMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeFalse();
+        VerifyLogged(LogLevel.Error, Times.Once());
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1873", Justification = "Mock verification expression, not a log call.")]
+    private void VerifyLogged(LogLevel level, Times times) =>
         logger.Verify(
             log => log.Log(
-                LogLevel.Error,
+                level,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             times);
 
-    private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
-        public IDbConnection CreateConnection() => connection;
-    }
-
-    private sealed class ThrowingConnectionFactory(Func<IDbConnection> factory) : IDbConnectionFactory
-    {
-        public IDbConnection CreateConnection() => factory();
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }

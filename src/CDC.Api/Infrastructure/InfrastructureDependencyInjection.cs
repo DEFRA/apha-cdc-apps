@@ -12,10 +12,14 @@ using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ReferenceData.Interfaces;
+using CDC.Api.Features.ReviewNotifications;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
 using CDC.Api.Features.Species.Interfaces;
 using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Features.Users.Interfaces;
+using CDC.Api.Infrastructure.Email;
 using CDC.Api.Infrastructure.Repositories;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CDC.Api.Infrastructure;
 
@@ -50,6 +54,18 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IGlobalUsersRepository, GlobalUsersRepository>();
         services.AddScoped<IExternalUsersRepository, ExternalUsersRepository>();
+        services.AddScoped<IReviewNotificationRepository, ReviewNotificationRepository>();
+
+        // Settings are validated by the job (not at startup) so the web API does not need the mail secrets.
+        services.AddOptions<GraphMailOptions>().BindConfiguration(GraphMailOptions.SectionName);
+        services.AddOptions<ReviewNotificationsOptions>().BindConfiguration(ReviewNotificationsOptions.SectionName);
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<IGraphTokenProvider, ClientCredentialsTokenProvider>();
+        services.AddHttpClient<IReviewEmailSender, GraphReviewEmailSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
 
         return services;
     }

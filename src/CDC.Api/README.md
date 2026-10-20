@@ -201,6 +201,22 @@ Deliberate differences, all recorded in `docs\SpeciesApiPrompt.md`:
 - The legacy `ParameterName` strings (`"@BooleanValue"`) are replaced by a typed `kind` enum
   that drives the same stored procedure parameters.
 
+## Review reminder emails (scheduled job)
+
+Replaces the legacy `Profiles.ReviewEmails` console app. An EventBridge Scheduler rule starts an ECS
+Scheduled Task that runs this image with the command override `review-notifications`; the process
+sends the emails, then exits with code 0 (all sent, or job disabled) or 1 (any failure).
+
+- Recipients and due reviews come from `vwReviewEmailUsers`, `vwReviewEmailProfiles` and
+  `vwReviewEmailProfileSections` (subscribed users, draft versions, reviews overdue or due within two weeks).
+- Mail is sent through Microsoft Graph `sendMail` as `SmtpSettings:SenderAddress` (application
+  permission `Mail.Send`). `SmtpSettings:Enabled` must be `true`; set `SmtpSettings__ClientSecret`
+  from Secrets Manager and `ReviewNotifications:InternalHomePageUrl` per environment.
+- Logs (JSON, CloudWatch) record user ids and counts only; failures are event ids 7004 and 7006-7008.
+  Alarm on exit code 1 or on those events.
+- A failed run is not retried automatically, because users already emailed would be emailed again.
+- Not carried over: the legacy comparison-PDF attachments (needs the PDF report pipeline).
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |
