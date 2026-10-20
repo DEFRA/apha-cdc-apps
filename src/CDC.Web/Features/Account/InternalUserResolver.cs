@@ -33,8 +33,11 @@ public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<I
             ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(entraSsoIdClaim, out var entraSsoId))
         {
+            LogInternalSignInDeniedNoObjectId();
             return EntraInternalUserResolution.Deny("/Account/NotPermitted");
         }
+
+        LogInternalSignInObjectId(entraSsoId);
 
         // Requires the Entra ID app registration to configure onprem_samaccountname and
         // onprem_domainname as optional ID token claims (Azure Portal: App registration -> Token
@@ -53,12 +56,13 @@ public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<I
 
         if (string.IsNullOrEmpty(userName))
         {
+            LogInternalSignInDeniedNoAccountName(entraSsoId);
             return EntraInternalUserResolution.Deny("/Account/NotPermitted");
         }
 
         // Standard OIDC 'name' claim (granted by the 'profile' scope) - used only as the FullName
-        // for a user with no matching [dbo].[User] row (legacy's "limited access" internal user);
-        // ignored once a row is matched, since FullName then comes from that row instead.
+        // of a [dbo].[User] row created for a first-time user; ignored once a row is matched, since
+        // FullName then comes from that row instead.
         var fullName = principal.FindFirst(ClaimTypes.Name)?.Value ?? principal.FindFirst("name")?.Value ?? string.Empty;
 
         var request = new ResolveInternalUserRequestDto
@@ -105,6 +109,15 @@ public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<I
             _ => EntraInternalUserResolution.Deny("/Landing/Error")
         };
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Entra sign-in received for object id (oid) SsoUserIdInt={SsoUserIdInt}")]
+    private partial void LogInternalSignInObjectId(Guid ssoUserIdInt);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Entra sign-in denied before calling CDC.Api: the token has no usable object id (oid) claim")]
+    private partial void LogInternalSignInDeniedNoObjectId();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Entra sign-in denied before calling CDC.Api (SsoUserIdInt={SsoUserIdInt}): the token has no onprem_samaccountname claim - a cloud-only or guest account, or the optional claim is not configured on the app registration, so no user row can be matched or created")]
+    private partial void LogInternalSignInDeniedNoAccountName(Guid ssoUserIdInt);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to resolve internal user (SsoUserIdInt={SsoUserIdInt}) against CDC.Api")]
     private partial void LogInternalUserResolutionFailed(Guid ssoUserIdInt, Exception exception);

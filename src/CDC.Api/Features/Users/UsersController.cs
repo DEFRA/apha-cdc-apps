@@ -38,12 +38,12 @@ public sealed class UsersController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Resolves the internal user matching the supplied Entra ID claims. Internal users are never
-    /// auto-provisioned.
+    /// Resolves the internal user matching the supplied Entra ID claims, creating the user with no
+    /// privileges when no row matches.
     /// </summary>
     /// <param name="command">The Entra ID claims to resolve against.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The resolved user, or a problem response when no account matches.</returns>
+    /// <returns>The resolved or newly created user.</returns>
     [HttpPost("internal/resolve")]
     [ProducesResponseType(typeof(InternalUserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
