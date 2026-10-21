@@ -17,12 +17,14 @@ public sealed record ReviewDueUser(
 /// <param name="ScenarioTitle">Optional scenario title.</param>
 /// <param name="Version">Version formatted as major.minor.</param>
 /// <param name="Sections">Sections assigned to the user for this version, in section order.</param>
+/// <param name="UserRoles">Names of the roles the user holds on the profile; they decide which reviewer groups the user belongs to.</param>
 public sealed record ReviewDueProfile(
     Guid ProfileVersionId,
     string Title,
     string? ScenarioTitle,
     string Version,
-    IReadOnlyList<ReviewDueSection> Sections);
+    IReadOnlyList<ReviewDueSection> Sections,
+    IReadOnlyList<string>? UserRoles = null);
 
 /// <summary>A profile section and the state of its three review types.</summary>
 /// <param name="Number">Section number.</param>

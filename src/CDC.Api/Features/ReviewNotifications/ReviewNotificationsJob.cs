@@ -42,13 +42,28 @@ public sealed class ReviewNotificationsJob(
 
         var today = timeProvider.GetLocalNow().DateTime;
         var failed = 0;
+        var sent = 0;
 
-        foreach (var user in users)
+        foreach (var group in ReviewerGroups.Unconfigured(options.Value))
         {
+            failed++;
+            logger.ReviewerGroupNotConfigured(group);
+        }
+
+        foreach (var due in users)
+        {
+            var user = ReviewerGroups.FilterToGroups(due, today, options.Value);
+
+            if (user is null)
+            {
+                continue;
+            }
+
             try
             {
                 await emailSender.SendAsync(ReviewEmailComposer.Compose(user, today, options.Value), cancellationToken);
                 logger.ReminderSent(user.Id);
+                sent++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -57,7 +72,7 @@ public sealed class ReviewNotificationsJob(
             }
         }
 
-        logger.JobCompleted(users.Count - failed, failed);
+        logger.JobCompleted(sent, failed);
 
         return failed == 0;
     }

@@ -21,6 +21,9 @@ internal static partial class ReviewNotificationsLog
     [LoggerMessage(EventId = 7004, Level = LogLevel.Error, Message = "Failed to send review reminder to user {UserId}")]
     public static partial void ReminderFailed(this ILogger logger, Exception exception, Guid userId);
 
+    [LoggerMessage(EventId = 7006, Level = LogLevel.Error, Message = "No reviewer group is configured for {ReviewerGroup}; reviews of that type were not emailed")]
+    public static partial void ReviewerGroupNotConfigured(this ILogger logger, string reviewerGroup);
+
     [LoggerMessage(EventId = 7005, Level = LogLevel.Information, Message = "Review notification job finished. Sent: {SentCount}, failed: {FailedCount}")]
     public static partial void JobCompleted(this ILogger logger, int sentCount, int failedCount);
 }

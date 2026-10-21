@@ -46,9 +46,14 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
             ]
         });
 
+    private void ScriptRoles(params object?[][] rows) => connection.Script(
+        ReviewNotificationsRepository.RolesQuery,
+        new FakeCommandScript { ResultSets = [new FakeResultSet(["UserId", "ProfileVersionId", "RoleName"], rows)] });
+
     [Fact]
     public async Task GetUsersDueReviewAsync_ReturnsEmpty_WhenNoUsersDue()
     {
+        ScriptRoles();
         ScriptUsers();
         ScriptProfiles();
         ScriptSections();
@@ -62,6 +67,7 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
     public async Task GetUsersDueReviewAsync_GroupsProfilesAndSectionsPerUser()
     {
         var due = new DateTime(2026, 10, 25);
+        ScriptRoles([UserId, VersionId, "Policy reviewer"], [Guid.NewGuid(), VersionId, "Technical author"]);
         ScriptUsers([UserId, "Ann Reviewer", "ann@example.test"]);
         ScriptProfiles(
             [UserId, VersionId, "Anthrax", null, (byte)2, (byte)1],
@@ -78,6 +84,7 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
         var profile = user.Profiles.Should().ContainSingle().Subject;
         profile.Title.Should().Be("Anthrax");
         profile.Version.Should().Be("2.1");
+        profile.UserRoles.Should().Equal("Policy reviewer");
         profile.Sections.Select(s => s.Name).Should().Equal("First", "Second");
         profile.Sections[0].Policy.Should().Be(new Features.ReviewNotifications.Dtos.ReviewItem(due, "Proposed"));
         profile.Sections[0].Author.Status.Should().Be("Complete");
@@ -87,6 +94,7 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
     [Fact]
     public async Task GetUsersDueReviewAsync_OmitsUsersWithNoSections()
     {
+        ScriptRoles();
         ScriptUsers([UserId, "Ann", "ann@example.test"]);
         ScriptProfiles([UserId, VersionId, "Anthrax", "Scenario", (byte)1, (byte)0]);
         ScriptSections();

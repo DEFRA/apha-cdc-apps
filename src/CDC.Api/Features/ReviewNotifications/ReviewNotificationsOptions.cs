@@ -11,6 +11,12 @@ public sealed class ReviewNotificationsOptions
 
     /// <summary>Mailbox users are told to contact for access problems.</summary>
     public string SupportMailbox { get; set; } = "D2R2@defra.gov.uk";
+
+    /// <summary>
+    /// Profile role names that make up each reviewer group, keyed by <see cref="ReviewerGroups"/> names
+    /// (<c>Policy</c>, <c>AuthorTechnical</c>, <c>VeterinaryAdvisor</c>). A review type with no roles configured is not emailed.
+    /// </summary>
+    public Dictionary<string, string[]> ReviewerGroups { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>Microsoft Graph mail settings, bound from the <c>SmtpSettings</c> section. <see cref="ClientSecret"/> comes from Secrets Manager.</summary>

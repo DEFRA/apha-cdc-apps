@@ -17,18 +17,75 @@ public class ReviewNotificationsJobTests
     public ReviewNotificationsJobTests() =>
         logger.Setup(log => log.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
 
+    private ReviewNotificationsOptions options = new()
+    {
+        ReviewerGroups = new(StringComparer.OrdinalIgnoreCase)
+        {
+            [ReviewerGroups.Policy] = ["Policy reviewer"],
+            [ReviewerGroups.AuthorTechnical] = ["Technical author"],
+            [ReviewerGroups.VeterinaryAdvisor] = ["Veterinary advisor"]
+        }
+    };
+
     private ReviewNotificationsJob CreateJob() => new(
         repository.Object,
         sender.Object,
-        Options.Create(new ReviewNotificationsOptions()),
+        Options.Create(options),
         TimeProvider.System,
         logger.Object);
 
-    private static ReviewDueUser User(string name, string email) => new(
-        Guid.NewGuid(),
-        name,
-        email,
-        [new ReviewDueProfile(Guid.NewGuid(), "Anthrax", null, "1.0", [])]);
+    private static ReviewDueUser User(string name, string email, params string[] roles)
+    {
+        var due = new ReviewItem(DateTime.Today.AddDays(-1), "Active");
+        var none = new ReviewItem(null, null);
+
+        return new(
+            Guid.NewGuid(),
+            name,
+            email,
+            [new ReviewDueProfile(Guid.NewGuid(), "Anthrax", null, "1.0", [new ReviewDueSection(1, "Intro", due, due, due)], roles.Length == 0 ? ["Policy reviewer"] : roles)]);
+    }
+
+    [Fact]
+    public async Task RunAsync_SendsOnlyReviewTypesOfTheUsersGroup()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", "Technical author")]);
+        EmailMessage? message = null;
+        sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<EmailMessage, CancellationToken>((m, _) => message = m);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        // One due cell (Author) of the three types.
+        message!.HtmlBody.Split("(Overdue)").Length.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task RunAsync_SkipsUser_WhenNotInAnyReviewerGroup()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", "Policy author")]);
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeTrue();
+        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RunAsync_DoesNotSendAndLogs_WhenReviewerGroupNotConfigured()
+    {
+        options = new();
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        VerifyErrorLogged(Times.Exactly(3));
+    }
 
     [Fact]
     public async Task RunAsync_SendsNothing_WhenNoReviewsDue()
