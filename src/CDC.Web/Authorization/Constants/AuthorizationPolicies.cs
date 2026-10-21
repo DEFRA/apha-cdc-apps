@@ -9,7 +9,8 @@ namespace CDC.Web.Authorization.Constants;
 /// </summary>
 public static class AuthorizationPolicies
 {
-    /// <summary>Legacy: <c>ProfileInfoList.CanGetProfileInfoList()</c>. Header: "Search disease profiles".</summary>
+    /// <summary>Legacy: <c>ProfileInfoList.CanGetProfileInfoList()</c>. Header: "Search disease profiles". Open to every
+    /// signed-in user.</summary>
     public const string CanViewProfileSearch = nameof(CanViewProfileSearch);
 
     /// <summary>Legacy: <c>Profile.CanCreateProfile()</c>. Header: "Create profile".</summary>
@@ -21,11 +22,11 @@ public static class AuthorizationPolicies
 
     /// <summary>Legacy: <c>NavigationLinks.ascx.vb</c> shows the "Disease ranking report" link to every
     /// user (editors open the interactive report, everyone else the pre-generated static one); the page
-    /// here is the same for every role. Header: "Disease ranking report".</summary>
+    /// here is the same for every user. Header: "Disease ranking report". Open to every signed-in user.</summary>
     public const string CanViewDiseaseRankingReport = nameof(CanViewDiseaseRankingReport);
 
     /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Footer: "Help using D2R2" and
-    /// "D2R2 Quality Statement".</summary>
+    /// "D2R2 Quality Statement". Open to every signed-in user.</summary>
     public const string CanViewReports = nameof(CanViewReports);
 
     /// <summary>Legacy: <c>StaticReport.CanDelete</c> and <c>UploadStaticReportCommand.CanUploadStaticReport()</c>. General reports page: delete and add.</summary>
@@ -37,7 +38,8 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>ProfileQuestion.CanEditObject()</c>. Header: "Questions and guidance reports".</summary>
     public const string CanEditUserGuidance = nameof(CanEditUserGuidance);
 
-    /// <summary>Legacy: <c>SpeciesSectionList.CanGetSpeciesSectionList()</c>. Header: "View species data".</summary>
+    /// <summary>Legacy: <c>SpeciesSectionList.CanGetSpeciesSectionList()</c>. Header: "View species data". Open to every
+    /// signed-in user.</summary>
     public const string CanViewSpeciesData = nameof(CanViewSpeciesData);
 
     /// <summary>Legacy: <c>DiseaseReviewsFilterInfo.CanGetObject()</c>. Header: "Review Timings".</summary>

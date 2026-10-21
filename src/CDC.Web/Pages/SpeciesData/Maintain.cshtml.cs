@@ -103,8 +103,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     public Guid? SelectedSpeciesId { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the hierarchy is in reorder mode ("Reorder list" clicked).</summary>
-    /// <remarks>Bound on GET too, so it survives the post-redirect-get round trip after a move.</remarks>
-    [BindProperty(SupportsGet = true)]
+    /// <remarks>Not model-bound, so only the reorder handlers (and the GET after a move) can turn it on.</remarks>
     public bool ReorderMode { get; set; }
 
     /// <summary>Gets a value indicating whether the selected species has a previous sibling to move up to.</summary>
@@ -135,8 +134,11 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     /// <param name="inactivated">Set by the redirect after a species has been inactivated, to show the confirmation banner.</param>
     /// <param name="deleted">Set by the redirect after a species has been deleted, to show the confirmation banner.</param>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task OnGetAsync(bool saved, bool added, bool inactivated, bool deleted, CancellationToken cancellationToken)
+    /// <param name="reorderMode">Set by the redirect after a move, to keep the Move up/down arrows open.</param>
+    public async Task OnGetAsync(bool saved, bool added, bool inactivated, bool deleted, CancellationToken cancellationToken, bool reorderMode = false)
     {
+        ReorderMode = reorderMode;
+
         await LoadTreeAsync(cancellationToken);
 
         if (saved)
@@ -557,14 +559,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         ReorderMode = true;
         UpdateMoveAvailability();
 
-        // Post-redirect-get, with a fragment targeting the selected species' row: without a
-        // fragment, the browser's own "scroll to top" for a fresh POST response can override the
-        // tree view's own scroll-to-selection script, same as the fix already applied to moves.
-        return RedirectToPage(
-            pageName: null,
-            pageHandler: null,
-            routeValues: new { species = SelectedSpeciesId, ReorderMode = true },
-            fragment: $"{SpeciesKey}-{SelectedSpeciesId}");
+        return Page();
     }
 
     /// <summary>Moves the selected species up one place and reloads the hierarchy in its new order.</summary>
@@ -587,6 +582,8 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
 
         return Page();
     }
+
+    private bool IsFetchRequest => Request.Headers.XRequestedWith == "fetch";
 
     private async Task<IActionResult> MoveSelectedSpeciesAsync(bool isMovingUp, CancellationToken cancellationToken)
     {
@@ -611,19 +608,25 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         {
             logger.MoveFailed(SelectedSpeciesId.Value, result.Outcome);
             SelectionErrorMessage = result.ErrorMessage ?? "This species cannot be moved in that direction.";
+
+            if (IsFetchRequest)
+            {
+                return new JsonResult(new { success = false, message = SelectionErrorMessage }) { StatusCode = StatusCodes.Status409Conflict };
+            }
+
             UpdateMoveAvailability();
             return Page();
         }
 
         logger.MovedSpecies(SelectedSpeciesId.Value, isMovingUp);
 
-        // Post-redirect-get, with a fragment targeting the moved species' row, so the browser
-        // keeps the view scrolled to it instead of jumping back to the top of the page.
-        return RedirectToPage(
-            pageName: null,
-            pageHandler: null,
-            routeValues: new { species = SelectedSpeciesId, ReorderMode = true },
-            fragment: $"{SpeciesKey}-{SelectedSpeciesId}");
+        if (IsFetchRequest)
+        {
+            return new JsonResult(new { success = true });
+        }
+
+        // Post-redirect-get, so a refresh does not repeat the move.
+        return RedirectToPage(new { species = SelectedSpeciesId, ReorderMode = true });
     }
 
     /// <summary>Opens the "Add species data value" section for a brand new species.</summary>
@@ -716,7 +719,9 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
 
     private void ValidateAddInput()
     {
-        if (string.IsNullOrWhiteSpace(AddInput.Name))
+        AddInput.Name = SpeciesNameHtml.Clean(AddInput.Name);
+
+        if (string.IsNullOrWhiteSpace(SpeciesNameHtml.ToPlainText(AddInput.Name)))
         {
             ModelState.AddModelError("AddInput.Name", "You need to provide a new name for this species");
         }
@@ -825,7 +830,9 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
 
     private void ValidateInput()
     {
-        if (string.IsNullOrWhiteSpace(Input.Name))
+        Input.Name = SpeciesNameHtml.Clean(Input.Name);
+
+        if (string.IsNullOrWhiteSpace(SpeciesNameHtml.ToPlainText(Input.Name)))
         {
             ModelState.AddModelError("Input.Name", "You need to provide a new name for this species.");
         }
@@ -857,8 +864,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
                 ItemNameSingular = SpeciesKey,
                 ItemNamePlural = SpeciesKey,
                 SelectedValue = SelectedSpeciesId?.ToString(),
-                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, preserveApiOrder: true),
-                ScrollToSelectionOnLoad = ReorderMode
+                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, preserveApiOrder: true)
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)

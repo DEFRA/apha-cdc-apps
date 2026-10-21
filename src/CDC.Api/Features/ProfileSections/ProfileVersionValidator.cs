@@ -99,6 +99,36 @@ internal sealed class ProfileVersionValidator(
         return reasons;
     }
 
+    /// <summary>
+    /// The three errors the legacy <c>Profile.GetInvalidReasons()</c> raised for each section, ahead of the section's own
+    /// <c>Validate()</c> errors, when a profile was checked for publication: the next policy, VA and author review dates
+    /// are mandatory. The "Validate" button on a single section never raised them.
+    /// </summary>
+    /// <param name="sectionNumber">The number of the section.</param>
+    /// <param name="revision">The section's recorded review data, or <see langword="null"/> when the profile version has no record of the section.</param>
+    /// <returns>An error for each next review date that is not set; a date is not set when it is missing or the minimum date.</returns>
+    internal static IEnumerable<ProfileSectionInvalidReasonDto> NextReviewReasons(int sectionNumber, ReportSectionRevision? revision)
+    {
+        (DateTime? Date, string FieldName)[] checks =
+        [
+            (revision?.NextPolicyReview, "Revision dates, Next policy review"),
+            (revision?.NextVaReview, "Revision dates, Next VA review"),
+            (revision?.NextAuthorReview, "Revision dates, Next author review")
+        ];
+
+        foreach (var (date, fieldName) in checks)
+        {
+            if (date is null || date == DateTime.MinValue)
+            {
+                yield return new ProfileSectionInvalidReasonDto
+                {
+                    SectionNumber = sectionNumber,
+                    Description = BuildDescription(string.Empty, 0, string.Empty, fieldName, ReasonText(ReasonKind.Mandatory))
+                };
+            }
+        }
+    }
+
     private static bool Has(Guid? id) => id is { } value && value != Guid.Empty;
 
     private static bool IsFieldGroup(ReportField field) => field.DataTypeName == ReportField.FieldGroupDataType;

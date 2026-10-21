@@ -50,4 +50,7 @@ internal static partial class ProfileSectionLog
 
     [LoggerMessage(EventId = 9015, Level = LogLevel.Information, Message = "Deleted every review comment of profile version {ProfileVersionId} section {ProfileSectionId}")]
     public static partial void DeletedAllReviewComments(this ILogger logger, Guid profileVersionId, Guid profileSectionId);
+
+    [LoggerMessage(EventId = 9016, Level = LogLevel.Information, Message = "Validated every section of profile version {ProfileVersionId}: {ValidationErrorCount} validation errors")]
+    public static partial void ValidatedProfileVersion(this ILogger logger, Guid profileVersionId, int validationErrorCount);
 }

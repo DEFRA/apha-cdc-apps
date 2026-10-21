@@ -128,7 +128,7 @@ public sealed record ReportSectionAnswers
     public IReadOnlyList<ReportFieldValue> Values { get; init; } = [];
 }
 
-/// <summary>The review frequencies and statuses of one section of a profile version, which the section's validation checks.</summary>
+/// <summary>The review frequencies, statuses and next review dates of one section of a profile version, which the validation checks.</summary>
 public sealed record ReportSectionRevision
 {
     /// <summary>Gets the VA (the database's "technical") review frequency.</summary>
@@ -148,6 +148,15 @@ public sealed record ReportSectionRevision
 
     /// <summary>Gets the author review status.</summary>
     public Guid? AuthorReviewStatusId { get; init; }
+
+    /// <summary>Gets the date of the next VA (the database's "technical") review, or <see langword="null"/> when none is set.</summary>
+    public DateTime? NextVaReview { get; init; }
+
+    /// <summary>Gets the date of the next policy review, or <see langword="null"/> when none is set.</summary>
+    public DateTime? NextPolicyReview { get; init; }
+
+    /// <summary>Gets the date of the next author review, or <see langword="null"/> when none is set.</summary>
+    public DateTime? NextAuthorReview { get; init; }
 }
 
 /// <summary>What the validation needs to know about a profile version as a whole.</summary>

@@ -22,6 +22,11 @@ public static class AuthorizationDependencyInjection
         services.AddSingleton<IAuthorizationHandler, Handlers.AllowedRolesAuthorizationHandler>();
         services.AddTransient<IClaimsTransformation, InternalRoleClaimsTransformation>();
 
+        services.AddAuthentication().AddPolicyScheme(
+            InternalOrExternalAuthenticationScheme.Name,
+            InternalOrExternalAuthenticationScheme.Name,
+            options => options.ForwardDefaultSelector = InternalOrExternalAuthenticationScheme.SelectCookieScheme);
+
         services.AddAuthorizationBuilder();
         services.Configure<AuthorizationOptions>(options => options.AddCdcWebPolicies());
 
