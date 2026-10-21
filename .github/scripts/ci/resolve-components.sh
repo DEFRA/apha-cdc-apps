@@ -13,7 +13,7 @@ set -euo pipefail
  
 if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
   if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
-    echo "::error::Production workflow dispatches must run from the main branch."
+    echo "::error::Production workflow dispatches must run from the main branch." >&2
     exit 1
   fi
  
@@ -28,7 +28,7 @@ if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
   fi
  
   if [[ "${COMPONENTS}" == "[]" ]]; then
-    echo "::error::Select a release increment for at least one component."
+    echo "::error::Select a release increment for at least one component." >&2
     exit 1
   fi
  

@@ -42,8 +42,9 @@ jobs:
           set -euo pipefail
  
           curl --silent --show-error --fail --location \
+            --proto '=https' --tlsv1.2 \
             --output "${RUNNER_TEMP}/gitleaks.tar.gz" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VER…
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/gitleaks.tar.gz" | sha256sum --check --strict
           tar --extract --gzip --file "${RUNNER_TEMP}/gitleaks.tar.gz" --directory "${RUNNER_TEMP}" gitleaks
  
@@ -203,6 +204,12 @@ jobs:
           category: /language:${{ matrix.language }}
           upload: never
           output: ${{ runner.temp }}/codeql-sarif
+
+      # The upload step above consumes the SARIF folder, so the gate reads its own copy.
+      - name: Keep SARIF for the findings gate
+        if: steps.analyze.outcome == 'success'
+        shell: bash
+        run: cp -r "${RUNNER_TEMP}/codeql-sarif" "${RUNNER_TEMP}/codeql-gate"
  
       - name: Upload results to code scanning
         if: >-
@@ -223,7 +230,7 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
  
-          SARIF_FILES=("${RUNNER_TEMP}/codeql-sarif"/*.sarif)
+          SARIF_FILES=("${RUNNER_TEMP}/codeql-gate"/*.sarif)
           if (( ${#SARIF_FILES[@]} == 0 )); then
             echo "::error::CodeQL produced no SARIF output, so the scan result cannot be trusted."
             exit 1

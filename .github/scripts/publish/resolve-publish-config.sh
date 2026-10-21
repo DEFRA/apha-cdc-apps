@@ -20,7 +20,7 @@ case "${COMPONENT}" in
     ECR_REPOSITORY="${ECR_WEB_REPOSITORY}"
     ;;
   *)
-    echo "::error::Unsupported component: ${COMPONENT}"
+    echo "::error::Unsupported component: ${COMPONENT}" >&2
     exit 1
     ;;
 esac
@@ -28,39 +28,39 @@ esac
 RELEASE_VERSION="$(jq -er --arg component "${COMPONENT}" \
   '.[$component]' <<< "${VERSIONS_JSON}")"
  
-test -n "${EXPECTED_AWS_ACCOUNT_ID}" || {
-  echo "::error::EXPECTED_AWS_ACCOUNT_ID is not configured."
+[[ -n "${EXPECTED_AWS_ACCOUNT_ID}" ]] || {
+  echo "::error::EXPECTED_AWS_ACCOUNT_ID is not configured." >&2
   exit 1
 }
  
-test -n "${EXPECTED_AWS_REGION}" || {
-  echo "::error::EXPECTED_AWS_REGION is not configured."
+[[ -n "${EXPECTED_AWS_REGION}" ]] || {
+  echo "::error::EXPECTED_AWS_REGION is not configured." >&2
   exit 1
 }
  
 [[ "${EXPECTED_AWS_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || {
-  echo "::error::EXPECTED_AWS_ACCOUNT_ID must contain exactly 12 digits."
+  echo "::error::EXPECTED_AWS_ACCOUNT_ID must contain exactly 12 digits." >&2
   exit 1
 }
  
 [[ "${AWS_REGION}" == "${EXPECTED_AWS_REGION}" ]] || {
-  echo "::error::AWS_REGION does not match EXPECTED_AWS_REGION."
+  echo "::error::AWS_REGION does not match EXPECTED_AWS_REGION." >&2
   exit 1
 }
  
-test -n "${ECR_REPOSITORY}" || {
-  echo "::error::No ECR repository is configured for ${COMPONENT}."
+[[ -n "${ECR_REPOSITORY}" ]] || {
+  echo "::error::No ECR repository is configured for ${COMPONENT}." >&2
   exit 1
 }
  
 [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-  echo "::error::Invalid calculated release version '${RELEASE_VERSION}'."
+  echo "::error::Invalid calculated release version '${RELEASE_VERSION}'." >&2
   exit 1
 }
  
 EXPECTED_ROLE_PREFIX="arn:aws:iam::${EXPECTED_AWS_ACCOUNT_ID}:role/"
 [[ "${AWS_ROLE_ARN}" == "${EXPECTED_ROLE_PREFIX}"* && "${AWS_ROLE_ARN}" != "${EXPECTED_ROLE_PREFIX}" ]] || {
-  echo "::error::The OIDC role ARN must reference the expected AWS account and include a role name."
+  echo "::error::The OIDC role ARN must reference the expected AWS account and include a role name." >&2
   exit 1
 }
  

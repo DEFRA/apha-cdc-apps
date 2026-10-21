@@ -27,7 +27,7 @@ IMAGE_DIGEST="$(aws ecr describe-images \
   --output text)"
  
 [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-  echo "::error::ECR returned an invalid image digest '${IMAGE_DIGEST}'."
+  echo "::error::ECR returned an invalid image digest '${IMAGE_DIGEST}'." >&2
   exit 1
 }
  
@@ -45,7 +45,7 @@ EXISTING_DIGEST="$(aws ecr describe-images \
  
 if [[ -n "${EXISTING_DIGEST}" && "${EXISTING_DIGEST}" != "None" ]]; then
   if [[ "${EXISTING_DIGEST}" != "${IMAGE_DIGEST}" ]]; then
-    echo "::error::Immutable tag ${RELEASE_TAG} already points to ${EXISTING_DIGEST}; expected ${IMAGE_DIGEST}."
+    echo "::error::Immutable tag ${RELEASE_TAG} already points to ${EXISTING_DIGEST}; expected ${IMAGE_DIGEST}." >&2
     exit 1
   fi
   echo "${RELEASE_TAG} already points to the expected digest; continuing safely."
@@ -75,7 +75,7 @@ for ATTEMPT in $(seq 1 10); do
 done
  
 if [[ "${RELEASE_DIGEST}" != "${IMAGE_DIGEST}" ]]; then
-  echo "::error::Release tag ${RELEASE_TAG} points to '${RELEASE_DIGEST:-missing}', but validated candidate ${CANDIDATE_TAG} points to '${IMAGE_DIGEST}'."
+  echo "::error::Release tag ${RELEASE_TAG} points to '${RELEASE_DIGEST:-missing}', but validated candidate ${CANDIDATE_TAG} points to '${IMAGE_DIGEST}'." >&2
   exit 1
 fi
  

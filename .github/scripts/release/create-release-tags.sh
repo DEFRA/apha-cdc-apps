@@ -29,7 +29,7 @@ while IFS= read -r COMPONENT; do
  
   if [[ -n "${EXISTING_COMMIT}" ]]; then
     if [[ "${EXISTING_COMMIT}" != "${GITHUB_SHA}" ]]; then
-      echo "::error::${RELEASE_TAG} already points to ${EXISTING_COMMIT}."
+      echo "::error::${RELEASE_TAG} already points to ${EXISTING_COMMIT}." >&2
       exit 1
     fi
     echo "${RELEASE_TAG} already points to this release commit."

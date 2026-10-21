@@ -24,7 +24,7 @@ if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
     --jq '[.[] | select(.merged_at != null and .base.ref == "main")] | sort_by(.merged_at) | last | .number // empty')"
  
   if [[ -z "${PR_NUMBER}" ]]; then
-    echo "::error::Production publication must originate from a pull request merged into main."
+    echo "::error::Production publication must originate from a pull request merged into main." >&2
     exit 1
   fi
  
@@ -39,7 +39,7 @@ mapfile -t GENERIC_LABELS < <(
 )
  
 if (( ${#GENERIC_LABELS[@]} > 0 )); then
-  echo "::error::Generic release labels are not supported. Use component-specific labels."
+  echo "::error::Generic release labels are not supported. Use component-specific labels." >&2
   exit 1
 fi
  
@@ -48,12 +48,14 @@ GIT_TAGS='{}'
 RELEASE_TYPES='{}'
  
 component_changed() {
-  jq -e --arg component "$1" 'index($component) != null' \
+  local component="$1"
+  jq -e --arg component "${component}" 'index($component) != null' \
     <<< "${COMPONENTS_JSON}" >/dev/null
 }
  
 manual_release_type() {
-  case "$1" in
+  local component="$1"
+  case "${component}" in
     api)
       printf '%s\n' "${MANUAL_API_RELEASE_TYPE}"
       ;;
@@ -156,7 +158,7 @@ assert_version_sequence() {
     expected="0.0.${sequence_number}"
     actual="$(bump_version "${current}" "patch")"
     [[ "${actual}" == "${expected}" ]] || {
-      echo "::error::Patch assertion failed: ${current} must produce ${expected}, received ${actual}."
+      echo "::error::Patch assertion failed: ${current} must produce ${expected}, received ${actual}." >&2
       return 1
     }
     current="${actual}"
@@ -167,7 +169,7 @@ assert_version_sequence() {
     expected="0.${sequence_number}.0"
     actual="$(bump_version "${current}" "minor")"
     [[ "${actual}" == "${expected}" ]] || {
-      echo "::error::Minor assertion failed: ${current} must produce ${expected}, received ${actual}."
+      echo "::error::Minor assertion failed: ${current} must produce ${expected}, received ${actual}." >&2
       return 1
     }
     current="${actual}"
@@ -220,7 +222,7 @@ for COMPONENT in api web; do
   )
  
   if (( ${#EXISTING_COMMIT_TAGS[@]} > 1 )); then
-    echo "::error::Commit ${GITHUB_SHA} has multiple ${COMPONENT} release tags; refusing an ambiguous rerun."
+    echo "::error::Commit ${GITHUB_SHA} has multiple ${COMPONENT} release tags; refusing an ambiguous rerun." >&2
     exit 1
   fi
  
@@ -233,7 +235,7 @@ for COMPONENT in api web; do
     NEXT_TAG="${COMPONENT}-v${NEXT_VERSION}"
  
     if git rev-parse --verify --quiet "refs/tags/${NEXT_TAG}" >/dev/null; then
-      echo "::error::Calculated Git tag ${NEXT_TAG} already exists."
+      echo "::error::Calculated Git tag ${NEXT_TAG} already exists." >&2
       exit 1
     fi
   fi
