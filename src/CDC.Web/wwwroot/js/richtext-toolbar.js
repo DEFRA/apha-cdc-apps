@@ -84,8 +84,10 @@
             var tag = ch === '<' ? TAG_PATTERN.exec(value) : null;
 
             if (tag) {
-                var name = tag[2].toLowerCase();
-                var allowed = ALLOWED_TAGS.indexOf(name.toUpperCase()) !== -1;
+                var allowedIndex = ALLOWED_TAGS.indexOf(tag[2].toUpperCase());
+                var allowed = allowedIndex !== -1;
+                // The name comes from the allow-list, not from the input text.
+                var name = allowed ? ALLOWED_TAGS[allowedIndex].toLowerCase() : '';
                 flush();
 
                 if (allowed && tag[1]) {
