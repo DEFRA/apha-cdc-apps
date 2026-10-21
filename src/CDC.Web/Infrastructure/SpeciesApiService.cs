@@ -186,6 +186,15 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             };
         }
 
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return new ChangeSpeciesPositionResult
+            {
+                Outcome = SpeciesUpdateOutcome.Error,
+                ErrorMessage = "You do not have permission to change the species order."
+            };
+        }
+
         return new ChangeSpeciesPositionResult
         {
             Outcome = SpeciesUpdateOutcome.Error,

@@ -1,3 +1,4 @@
+using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -60,6 +61,11 @@ public class ManageProfileModel : PageModel
             LogLevel.Error,
             new EventId(10, nameof(LogFailedToPublishProfileMessage)),
             "Failed to publish profile '{ProfileId}' (public: {IsPublic}): {ErrorMessage}");
+    private static readonly Action<ILogger, Guid, bool, int, Exception?> LogProfileNotPublishedMessage =
+        LoggerMessage.Define<Guid, bool, int>(
+            LogLevel.Information,
+            new EventId(11, nameof(LogProfileNotPublishedMessage)),
+            "Profile '{ProfileId}' was not published (public: {IsPublic}): it has {ValidationErrorCount} validation errors");
 
     private readonly IApiClient apiClient;
     private readonly ILogger<ManageProfileModel> logger;
@@ -92,6 +98,10 @@ public class ManageProfileModel : PageModel
 
     /// <summary>Gets the error message to display after a failed status save, if any.</summary>
     public string? StatusErrorMessage { get; private set; }
+
+    /// <summary>Gets the validation errors that stopped the draft being published, in the order the legacy page listed them;
+    /// empty unless a publish was refused because the draft is invalid.</summary>
+    public IReadOnlyList<ProfileSectionInvalidReasonDto> InvalidReasons { get; private set; } = [];
 
     /// <summary>Gets or sets the message the Profile reports page shows after a publish, which reads the same TempData key.</summary>
     [TempData]
@@ -190,11 +200,12 @@ public class ManageProfileModel : PageModel
     }
 
     /// <summary>
-    /// Publishes the profile's current draft version (<c>LatestVersionId</c>) as a new published
-    /// version, matching the legacy <c>lnkPublish_Click</c> handler shared by <c>lnkPublishPublic</c>
-    /// and <c>lnkPublish</c> (<c>profileData.Publish(makePublic)</c>). Redirects to the new version's
-    /// Profile reports page afterwards, as the legacy page did with <c>ProfileReports.aspx</c>. On
-    /// failure, redisplays Manage profile with an inline error, matching the legacy page.
+    /// Publishes the profile's current draft version as a new published version, matching the legacy
+    /// <c>lnkPublish_Click</c> handler shared by <c>lnkPublishPublic</c> and <c>lnkPublish</c>: the draft is validated first
+    /// (<c>profileData.Validate()</c>) and, when it has any validation errors, they are listed on this page and nothing is
+    /// published; otherwise <c>profileData.Publish(makePublic)</c> creates the new version and the browser is redirected to its
+    /// Profile reports page, as the legacy page did with <c>ProfileReports.aspx</c>. When a publish rule is broken, redisplays
+    /// Manage profile with the rule's message, matching the legacy <c>lblError</c>.
     /// </summary>
     private async Task<IActionResult> PublishAsync(bool isPublic, string successMessage, CancellationToken cancellationToken)
     {
@@ -205,22 +216,29 @@ public class ManageProfileModel : PageModel
             return HasError ? Page() : NotFound();
         }
 
-        var result = await apiClient.CreateNewProfileVersionAsync(
-            Profile!.LatestVersionId, isPublished: true, isPublic: isPublic, cancellationToken);
+        var result = await apiClient.PublishProfileAsync(ProfileId, isPublic, cancellationToken);
 
-        if (result.Outcome == CreateNewProfileVersionOutcome.Success)
+        switch (result.Outcome)
         {
-            LogPublishedProfileMessage(logger, ProfileId, isPublic, null);
-            SuccessMessage = successMessage;
+            case PublishProfileOutcome.Success:
+                LogPublishedProfileMessage(logger, ProfileId, isPublic, null);
+                SuccessMessage = successMessage;
 
-            return RedirectToPage("/SurveillanceProfiles/ProfileReports", new { profileVersionId = result.NewProfileVersionId });
+                return RedirectToPage("/SurveillanceProfiles/ProfileReports", new { profileVersionId = result.NewProfileVersionId });
+
+            case PublishProfileOutcome.InvalidProfile:
+                LogProfileNotPublishedMessage(logger, ProfileId, isPublic, result.InvalidReasons.Count, null);
+                InvalidReasons = result.InvalidReasons;
+
+                return Page();
+
+            default:
+                LogFailedToPublishProfileMessage(logger, ProfileId, isPublic, result.ErrorMessage ?? string.Empty, null);
+                StatusErrorMessage = result.ErrorMessage;
+                loaded = await LoadProfileAsync(cancellationToken);
+
+                return loaded || HasError ? Page() : NotFound();
         }
-
-        LogFailedToPublishProfileMessage(logger, ProfileId, isPublic, result.ErrorMessage ?? string.Empty, null);
-        StatusErrorMessage = result.ErrorMessage;
-        loaded = await LoadProfileAsync(cancellationToken);
-
-        return loaded || HasError ? Page() : NotFound();
     }
 
     /// <summary>Publishes the profile publicly - see <see cref="PublishAsync"/>.</summary>

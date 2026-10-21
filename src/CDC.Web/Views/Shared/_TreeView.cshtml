@@ -1,3 +1,4 @@
+@using CDC.Web.Infrastructure
 @model CDC.Web.Models.TreeViewViewModel
 
 @* Progressive enhancement: without JavaScript every group stays visible and every radio posts.
@@ -9,8 +10,7 @@
     data-app-tree-multiple="@(Model.AllowMultipleSelection ? "true" : "false")"
     data-app-tree-cascade="@(Model.AllowMultipleSelection && Model.CascadeSelection ? "true" : "false")"
     data-app-tree-hierarchy-exclusive="@(Model.EnforceHierarchyExclusivity ? "true" : "false")"
-    data-app-tree-empty-label="@Model.EmptySelectionLabel"
-    data-app-tree-scroll-to-selection="@(Model.ScrollToSelectionOnLoad ? "true" : "false")">
+    data-app-tree-empty-label="@Model.EmptySelectionLabel">
     @{
         // Rendered by a recursive local function rather than a partial per node, so that every
         // <li> is emitted inside this parent <ul>, not defined outside it.
@@ -32,7 +32,7 @@
                         <div class="@itemClass app-tree__radio">
                             <input class="@inputClass" id="@inputId" name="@Model.FieldName" type="@inputType" value="@node.Value" checked="@isSelected" />
                             <label class="govuk-label @labelClass@(node.IsInactive ? " app-tree__label--inactive" : string.Empty)" for="@inputId">
-                                @node.Label
+                                @ProfileTitleHtmlFormatter.Format(node.Label)
                                 @if (node.IsInactive)
                                 {
                                     <span class="app-tree__inactive-tag">(inactive)</span>
@@ -42,7 +42,7 @@
                     }
                     else
                     {
-                        <span class="govuk-body app-tree__branch-label">@node.Label</span>
+                        <span class="govuk-body app-tree__branch-label">@ProfileTitleHtmlFormatter.Format(node.Label)</span>
                     }
                 </div>
                 @if (node.Children.Count > 0)

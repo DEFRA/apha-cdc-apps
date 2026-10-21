@@ -355,6 +355,16 @@ public class SpeciesApiServiceTests
     }
 
     [Fact]
+    public async Task ChangeSpeciesPositionAsync_ReturnsPermissionError_OnHttp403()
+    {
+        var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.Forbidden, string.Empty));
+
+        var result = await service.ChangeSpeciesPositionAsync(Guid.NewGuid(), isMovingUp: true);
+
+        Assert.Equal("You do not have permission to change the species order.", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task ChangeSpeciesPositionAsync_ReturnsError_OnUnexpectedStatusCode()
     {
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));

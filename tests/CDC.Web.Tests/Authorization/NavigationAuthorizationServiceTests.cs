@@ -82,6 +82,27 @@ public class NavigationAuthorizationServiceTests
         Assert.False(await service.CanEditUserGuidanceAsync(user));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("SomeCidmRole")]
+    public async Task SignedInUserWithNoRecognisedRole_CanAccessOnlySearchReportsDiseaseRankingAndViewSpeciesData(string? role)
+    {
+        // No role models an internal user with limited access; an unnamed role models an external user whose CIDM role is not one of AuthorizationRoles.
+        var service = CreateService();
+        var user = role is null ? CreateUser() : CreateUser(role);
+
+        Assert.True(await service.CanViewProfileSearchAsync(user));
+        Assert.True(await service.CanViewReportsAsync(user));
+        Assert.True(await service.CanViewSpeciesDataAsync(user));
+        Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
+
+        Assert.False(await service.CanCreateProfileAsync(user));
+        Assert.False(await service.CanViewProfileComparisonAsync(user));
+        Assert.False(await service.CanManageSpeciesDataAsync(user));
+        Assert.False(await service.CanEditUserGuidanceAsync(user));
+        Assert.False(await service.CanViewReviewTimingAsync(user));
+    }
+
     [Fact]
     public async Task UserManagementSystem_IsDeniedEveryHeaderLink()
     {

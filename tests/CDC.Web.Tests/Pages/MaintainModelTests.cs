@@ -40,29 +40,6 @@ public class MaintainModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_DoesNotAutoScroll_OnAnOrdinaryPageLoad()
-    {
-        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
-        pageModel.SelectedSpeciesId = DairyId;
-
-        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None);
-
-        Assert.False(pageModel.SpeciesTree.ScrollToSelectionOnLoad);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_AutoScrolls_WhenReorderModeIsBoundFromTheQuerystring()
-    {
-        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
-        pageModel.SelectedSpeciesId = DairyId;
-        pageModel.ReorderMode = true;
-
-        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None);
-
-        Assert.True(pageModel.SpeciesTree.ScrollToSelectionOnLoad);
-    }
-
-    [Fact]
     public async Task OnGetAsync_SetsError_WhenApiCallFails()
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(throwOnGetAllSpecies: new HttpRequestException("down")));
@@ -655,20 +632,6 @@ public class MaintainModelTests
     }
 
     [Fact]
-    public async Task OnPostReorderListAsync_Redirects_WithAFragmentTargetingTheSelectedSpecies_SoScrollPositionIsKept()
-    {
-        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
-        pageModel.SelectedSpeciesId = DairyId;
-
-        var result = await pageModel.OnPostReorderListAsync(CancellationToken.None);
-
-        var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
-        Assert.Equal($"species-{DairyId}", redirect.Fragment);
-        Assert.Equal(DairyId, redirect.RouteValues?["species"]);
-        Assert.Equal(true, redirect.RouteValues?["ReorderMode"]);
-    }
-
-    [Fact]
     public async Task OnPostReorderListAsync_DisablesMoveUp_ForTheFirstSibling()
     {
         var goatId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -702,7 +665,7 @@ public class MaintainModelTests
     }
 
     [Fact]
-    public async Task OnPostMoveUpAsync_Redirects_WithAFragmentTargetingTheMovedSpecies_SoScrollPositionIsKept()
+    public async Task OnPostMoveUpAsync_Redirects_BackIntoReorderMode_WithTheMovedSpeciesSelected()
     {
         var api = new FakeSpeciesApiService(Species);
         var pageModel = CreatePageModel(api);
@@ -711,7 +674,7 @@ public class MaintainModelTests
         var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
 
         var redirect = Assert.IsType<Microsoft.AspNetCore.Mvc.RedirectToPageResult>(result);
-        Assert.Equal($"species-{DairyId}", redirect.Fragment);
+        Assert.Null(redirect.Fragment);
         Assert.Equal(DairyId, redirect.RouteValues?["species"]);
         Assert.Equal(true, redirect.RouteValues?["ReorderMode"]);
     }
@@ -763,6 +726,39 @@ public class MaintainModelTests
     }
 
     [Fact]
+    public async Task OnPostMoveUpAsync_ReturnsSuccessJson_ForFetchRequests()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.Request.Headers.XRequestedWith = "fetch";
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(result);
+        Assert.Null(json.StatusCode);
+    }
+
+    [Fact]
+    public async Task OnPostMoveUpAsync_ReturnsConflictJson_ForFetchRequests_WhenMoveFails()
+    {
+        var api = new FakeSpeciesApiService(
+            Species,
+            changePositionResult: new ChangeSpeciesPositionResult
+            {
+                Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ErrorMessage = "Cannot move"
+            });
+        var pageModel = CreatePageModel(api);
+        pageModel.Request.Headers.XRequestedWith = "fetch";
+        pageModel.SelectedSpeciesId = DairyId;
+
+        var result = await pageModel.OnPostMoveUpAsync(CancellationToken.None);
+
+        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(result);
+        Assert.Equal(Microsoft.AspNetCore.Http.StatusCodes.Status409Conflict, json.StatusCode);
+    }
+
+    [Fact]
     public async Task OnPostReorderDoneAsync_ExitsReorderMode()
     {
         var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
@@ -772,6 +768,25 @@ public class MaintainModelTests
         await pageModel.OnPostReorderDoneAsync(CancellationToken.None);
 
         Assert.False(pageModel.ReorderMode);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_StaysInReorderMode_AfterTheRedirectFromAMove()
+    {
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species));
+        pageModel.SelectedSpeciesId = DairyId;
+
+        await pageModel.OnGetAsync(saved: false, added: false, inactivated: false, deleted: false, CancellationToken.None, reorderMode: true);
+
+        Assert.True(pageModel.ReorderMode);
+    }
+
+    [Fact]
+    public void ReorderMode_IsNotModelBound_SoOtherButtonsCannotReopenTheArrows()
+    {
+        var property = typeof(MaintainModel).GetProperty(nameof(MaintainModel.ReorderMode));
+
+        Assert.Null(Attribute.GetCustomAttribute(property!, typeof(Microsoft.AspNetCore.Mvc.BindPropertyAttribute)));
     }
 
     [Theory]
@@ -1063,5 +1078,11 @@ public class MaintainModelTests
     }
 
     private static MaintainModel CreatePageModel(FakeSpeciesApiService speciesApiService) =>
-        new(speciesApiService, new AlwaysEnabledLogger<MaintainModel>());
+        new(speciesApiService, new AlwaysEnabledLogger<MaintainModel>())
+        {
+            PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+            }
+        };
 }

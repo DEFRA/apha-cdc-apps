@@ -316,6 +316,9 @@ public class InternalUserResolverTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new CreateNewProfileVersionResult(CreateNewProfileVersionOutcome.Error, null, "Not implemented in this fake."));
 
+        public Task<PublishProfileResult> PublishProfileAsync(Guid profileId, bool isPublic, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PublishProfileResult(PublishProfileOutcome.Error, null, "Not implemented in this fake."));
+
         public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Error, false, "Not implemented in this fake."));
     }

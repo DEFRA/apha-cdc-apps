@@ -233,6 +233,52 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task External_ListsThePopularLinksAndHelpUsingD2R2_BelowTheWelcome()
+    {
+        var client = await _factory.SignedInExternalClientAsync();
+
+        var response = await client.GetAsync("/Landing/External");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("<title>D2R2</title>", body);
+        Assert.True(body.IndexOf("Welcome", StringComparison.Ordinal) < body.IndexOf("Popular on D2R2", StringComparison.Ordinal));
+        Assert.Contains("href=\"/SurveillanceProfiles/Search\">Search disease profiles</a>", body);
+        Assert.Contains("href=\"/Reports/DiseaseRanking\">Disease ranking report</a>", body);
+        Assert.Contains("href=\"/Reports/General\">General reports</a>", body);
+        Assert.Contains("href=\"/ViewSpeciesData\">View species data</a>", body);
+        Assert.Contains("href=\"/HelpSupport/StaticReports?UserManual=1\">Help using D2R2</a>", body);
+    }
+
+    // Every link on the External page, plus the footer's Help and Support, must open for a CIDM-only session
+    // rather than sending the user to the internal (Entra ID) sign-in.
+    [Theory]
+    [InlineData("/SurveillanceProfiles/Search")]
+    [InlineData("/Reports/DiseaseRanking")]
+    [InlineData("/Reports/General")]
+    [InlineData("/ViewSpeciesData")]
+    [InlineData("/HelpSupport/StaticReports?UserManual=1")]
+    public async Task ExternalUser_CanOpenThePagesLinkedFromTheExternalPage(string url)
+    {
+        var client = await _factory.SignedInExternalClientAsync();
+
+        var response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExternalUser_IsStillSentToTheInternalSignIn_ForAPageNotOpenToEveryUser()
+    {
+        var client = await _factory.SignedInExternalClientAsync();
+
+        var response = await client.GetAsync("/DiseaseProfiles/CompareVersions");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
+    }
 }
 
 // LandingController.Internal() requires authentication via the app's fallback policy, which

@@ -393,6 +393,9 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
             VaReviewFrequencyId = reader.ReadNullableGuid(1),
             PolicyReviewFrequencyId = reader.ReadNullableGuid(2),
             AuthorReviewFrequencyId = reader.ReadNullableGuid(3),
+            NextVaReview = reader.ReadNullableDateTime(4),
+            NextPolicyReview = reader.ReadNullableDateTime(5),
+            NextAuthorReview = reader.ReadNullableDateTime(6),
             PolicyReviewStatusId = reader.ReadNullableGuid(9),
             VaReviewStatusId = reader.ReadNullableGuid(10),
             AuthorReviewStatusId = reader.ReadNullableGuid(11)

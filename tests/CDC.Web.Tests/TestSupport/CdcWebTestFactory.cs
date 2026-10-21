@@ -31,6 +31,7 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
     public const string FakeEntraAuthorizationEndpoint = "https://entra.test/oauth2/v2.0/authorize";
     public const string TestSignInPath = "/__test/sign-in";
     public const string RolesQueryKey = "roles";
+    public const string ExternalOnlyQueryKey = "externalOnly";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -120,7 +121,11 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
                     // explicitly gated on the CIDM cookie scheme - one shared sign-in endpoint covers
                     // both without every calling test needing to know which scheme its route uses.
                     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
-                    await context.SignInAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme, new ClaimsPrincipal(identity));
+                    // ?externalOnly= leaves out Entra's cookie, as a real CIDM-only (external user) session would.
+                    if (!context.Request.Query.ContainsKey(ExternalOnlyQueryKey))
+                    {
+                        await context.SignInAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme, new ClaimsPrincipal(identity));
+                    }
                     context.Response.StatusCode = StatusCodes.Status204NoContent;
                     return;
                 }
@@ -183,6 +188,15 @@ public static class CdcWebTestFactoryExtensions
         await SignInAsync(
             factory,
             $"{ExternalUserClaimTypes.IsProfileEditor}={isProfileEditor}&{ExternalUserClaimTypes.IsPolicyProfileUser}={isPolicyProfileUser}");
+
+    /// <summary>Signs in through the CIDM cookie only, with no role, as an external user with no D2R2 permissions.
+    /// Redirects are not followed, so a test can see a page sending the user to sign in elsewhere.</summary>
+    public static async Task<HttpClient> SignedInExternalClientAsync(this WebApplicationFactory<Program> factory)
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        await client.GetAsync($"{CdcWebTestFactory.TestSignInPath}?{CdcWebTestFactory.ExternalOnlyQueryKey}=true&{CdcWebTestFactory.RolesQueryKey}=");
+        return client;
+    }
 
     private static async Task<HttpClient> SignInAsync(WebApplicationFactory<Program> factory, string query)
     {

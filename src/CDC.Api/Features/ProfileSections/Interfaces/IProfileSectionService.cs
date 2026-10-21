@@ -67,6 +67,18 @@ public interface IProfileSectionService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Validates every section of one profile version as the legacy <c>Profile.Validate()</c> did when the profile was
+    /// published: for each section in section order, the mandatory next policy, VA and author review dates, then the
+    /// section's own <c>ProfileVersionSection.Validate()</c> errors.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version to validate.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>Every validation error found; empty when the profile version is valid.</returns>
+    Task<IReadOnlyList<ProfileSectionInvalidReasonDto>> ValidateProfileVersionAsync(
+        Guid profileVersionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Saves the answers submitted for one section, matching the legacy save of the "Edit profile questions" page: only
     /// the answers that differ from what is recorded are written, after the questions the answers have made irrelevant
     /// have been cleared. Nothing is written, and the section is not touched, when nothing changed. Read-only fields and

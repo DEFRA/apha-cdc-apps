@@ -518,6 +518,69 @@ public class ProfileVersionValidatorTests
         reasons.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task TheNextReviewDates_AreNotCheckedWhenASingleSectionIsValidated()
+    {
+        var reasons = await ValidateAsync(Section(), Answers(revision: CompleteRevision() with { NextPolicyReview = null }));
+
+        reasons.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ASectionWithNoRevisionRecord_IsMissingEveryNextReviewDate_InPolicyVaAuthorOrder()
+    {
+        var reasons = ProfileVersionValidator.NextReviewReasons(7, revision: null).ToList();
+
+        reasons.Select(reason => reason.Description).Should().Equal(
+            "\"Revision dates, Next policy review\" is required",
+            "\"Revision dates, Next VA review\" is required",
+            "\"Revision dates, Next author review\" is required");
+        reasons.Should().OnlyContain(reason => reason.SectionNumber == 7 && reason.QuestionNumber == 0 && reason.QuestionId == Guid.Empty && reason.QuestionShortName == string.Empty);
+    }
+
+    [Fact]
+    public void ASectionWithEveryNextReviewDateSet_HasNoNextReviewErrors()
+    {
+        var revision = CompleteRevision() with
+        {
+            NextPolicyReview = Now.AddMonths(6),
+            NextVaReview = Now.AddMonths(6),
+            NextAuthorReview = Now.AddMonths(6)
+        };
+
+        ProfileVersionValidator.NextReviewReasons(3, revision).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(true, false, false, "\"Revision dates, Next policy review\" is required")]
+    [InlineData(false, true, false, "\"Revision dates, Next VA review\" is required")]
+    [InlineData(false, false, true, "\"Revision dates, Next author review\" is required")]
+    public void OnlyTheNextReviewDatesThatAreNotSet_AreReported(bool policyMissing, bool vaMissing, bool authorMissing, string expected)
+    {
+        var revision = new ReportSectionRevision
+        {
+            NextPolicyReview = policyMissing ? null : Now,
+            NextVaReview = vaMissing ? null : Now,
+            NextAuthorReview = authorMissing ? null : Now
+        };
+
+        ProfileVersionValidator.NextReviewReasons(3, revision).Should().ContainSingle().Which.Description.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ANextReviewDateIsNotSet_WhenItIsTheMinimumDate_ButAnyOtherDateIsSet()
+    {
+        var revision = new ReportSectionRevision
+        {
+            NextPolicyReview = DateTime.MinValue,
+            NextVaReview = new DateTime(1900, 1, 1),
+            NextAuthorReview = DateTime.MaxValue
+        };
+
+        ProfileVersionValidator.NextReviewReasons(3, revision).Should().ContainSingle()
+            .Which.Description.Should().Be("\"Revision dates, Next policy review\" is required");
+    }
+
     private static ReportField Field(Guid id, string name, string dataType = "Boolean", bool mandatory = true) => new()
     {
         Id = id,
