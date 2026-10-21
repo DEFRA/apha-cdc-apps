@@ -58,9 +58,20 @@ var app = builder.Build();
 if (args.Length > 0 && args[0] == "review-notifications")
 {
     using var jobScope = app.Services.CreateScope();
-    var job = jobScope.ServiceProvider.GetRequiredService<ReviewNotificationsJob>();
-    var succeeded = await job.RunAsync(CancellationToken.None);
-    Environment.ExitCode = succeeded ? 0 : 1;
+    try
+    {
+        var job = jobScope.ServiceProvider.GetRequiredService<ReviewNotificationsJob>();
+        var succeeded = await job.RunAsync(CancellationToken.None);
+        Environment.ExitCode = succeeded ? 0 : 1;
+    }
+    catch (Exception ex)
+    {
+        // A non-zero exit marks the ECS task as failed so the CloudWatch alarm fires.
+        app.Logger.JobTerminated(ex);
+        Environment.ExitCode = 1;
+    }
+
+    await Log.CloseAndFlushAsync();
     return;
 }
 

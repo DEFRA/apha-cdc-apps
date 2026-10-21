@@ -26,4 +26,7 @@ internal static partial class ReviewNotificationsLog
 
     [LoggerMessage(EventId = 7005, Level = LogLevel.Information, Message = "Review notification job finished. Sent: {SentCount}, failed: {FailedCount}")]
     public static partial void JobCompleted(this ILogger logger, int sentCount, int failedCount);
+
+    [LoggerMessage(EventId = 7007, Level = LogLevel.Critical, Message = "Review notification job terminated unexpectedly")]
+    public static partial void JobTerminated(this ILogger logger, Exception exception);
 }
