@@ -253,12 +253,14 @@ jobs:
             else
               echo "| Blocking | Rule | Severity | Location |"
               echo "|---|---|---|---|"
-              jq -r 'sort_by(-.severity) | .[] | "| \(if .blocking then "yes" else "no" end) | \(.rule) | \(.severity) | \(.file):\(.line) |"' <<< "${FINDINGS}"
+              jq -r 'sort_by(-.severity) | .[] | "| \(if .blocking then "yes" elif .accepted then "accepted" else "no" end) | \(.rule) | \(.severity) | \(.file):\(.line) |"' <<< "${FINDINGS}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
  
           if (( BLOCKING > 0 )); then
             jq -r '.[] | select(.blocking) | "::error file=\(.file),line=\(.line)::\(.rule) (severity \(.severity)): \(.message)"' <<< "${FINDINGS}"
+            # Annotations are capped at 10 per step, so the full list is also printed as plain text.
+            jq -r '.[] | select(.blocking) | "  BLOCKING \(.file):\(.line)  \(.rule)  \(.message)"' <<< "${FINDINGS}"
             echo "::error::${BLOCKING} High or Critical CodeQL finding(s) in ${{ matrix.language }}. Fix them before merging."
             exit 1
           fi

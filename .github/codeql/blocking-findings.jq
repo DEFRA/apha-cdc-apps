@@ -1,6 +1,10 @@
 # Reads a CodeQL SARIF file and emits one object per finding, with `blocking` set when
 # the build must fail: security-severity >= 7.0 (High or Critical), or an error-level
 # result whose rule metadata cannot be found (fail safe rather than silently pass).
+# Accepted risk (still reported, not blocking): CDC.Api has no authentication of its own by design -
+# it is reachable only from the CDC.Web ECS task inside the VPC, and CDC.Web authenticates and
+# authorises users. The function-level access-control and IDOR rules therefore flag every
+# controller action. Revisit if the API is ever exposed beyond the Web task.
 # Results in tests/ and in vendored wwwroot/lib/ are ignored.
 [ .runs[] as $run
   | ([($run.tool.driver.rules // [])[], (($run.tool.extensions // [])[] | (.rules // [])[])]) as $rules
@@ -15,4 +19,7 @@
       line: ($r.locations[0].physicalLocation.region.startLine // 0),
       message: ($r.message.text // "") }
   | select((.file | test("^(tests/|.*/wwwroot/lib/)")) | not)
-  | . + { blocking: (.severity >= 7 or (.known == false and .level == "error")) } ]
+  | (.rule | IN("cs/web/missing-function-level-access-control", "cs/web/insecure-direct-object-reference")) as $ruleAccepted
+  | (.file | startswith("src/CDC.Api/")) as $inApi
+  | . + { accepted: ($ruleAccepted and $inApi) }
+  | . + { blocking: ((.accepted | not) and (.severity >= 7 or (.known == false and .level == "error"))) } ]

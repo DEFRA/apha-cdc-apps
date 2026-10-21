@@ -19,17 +19,27 @@
     }
 
     function toEditorHtml(value) {
+        // DOMParser builds an inert document, so only <em>/<i> are kept and every other tag is
+        // dropped without relying on regex stripping. Text is re-added as text nodes.
+        var source = new DOMParser().parseFromString(value, 'text/html').body;
         var container = document.createElement('div');
-        var current = container;
-        value.replace(/<(?!\/?(?:em|i)>)[^>]*>/gi, '').split(/(<\/?(?:em|i)>)/i).forEach(function (part) {
-            if (/^<(?:em|i)>$/i.test(part)) {
-                current = container.appendChild(document.createElement('em'));
-            } else if (/^<\/(?:em|i)>$/i.test(part)) {
-                current = container;
-            } else if (part) {
-                current.appendChild(document.createTextNode(part));
-            }
-        });
+
+        function copy(node, target) {
+            node.childNodes.forEach(function (child) {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    if (child.nodeValue) {
+                        target.appendChild(document.createTextNode(child.nodeValue));
+                    }
+                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                    var isEmphasis = child.tagName === 'EM' || child.tagName === 'I';
+                    copy(child, isEmphasis && target === container
+                        ? container.appendChild(document.createElement('em'))
+                        : target);
+                }
+            });
+        }
+
+        copy(source, container);
         return container.innerHTML;
     }
 
