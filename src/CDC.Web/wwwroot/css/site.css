@@ -131,60 +131,16 @@ html {
   min-width: 12rem;
 }
 
-/* Puts a form-group's label and field on a single row instead of govuk-label's default stacked
-   layout (used by the Notes page's "Select a reference type"/"Items per page" controls). */
-.app-label-select-inline {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.app-label-select-inline .govuk-label {
-  margin-bottom: 0;
-}
-
-/* Maintain contributors (and Static reports) have only the "Items per page" control (no
-   sort-by), so unlike .app-results-toolbar - whose space-between layout relies on a second item
-   to space away from - it is pushed to the right explicitly. The label and select sit on a single
-   row rather than the govuk-form-group default of stacking the label above the field. */
+/* Maintain contributors has only the "Items per page" control (no sort-by), so unlike
+   .app-results-toolbar - whose space-between layout relies on a second item to space away from -
+   it is pushed to the right explicitly. */
 .app-contributors-toolbar {
   display: flex;
   justify-content: flex-end;
 }
 
-.app-contributors-toolbar .govuk-form-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: nowrap;
-}
-
-.app-contributors-toolbar .govuk-label {
-  margin-bottom: 0;
-  white-space: nowrap;
-}
-
 .app-contributors-toolbar .govuk-select {
   min-width: 12rem;
-}
-
-/* "Items per page" label and select on one line, right-aligned above a list. */
-.app-page-size-toolbar {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.app-page-size-toolbar .govuk-form-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 0;
-}
-
-.app-page-size-toolbar .govuk-label {
-  margin-bottom: 0;
-  white-space: nowrap;
 }
 
 /* Edit profile contributor panel (see MaintainContributors.cshtml). */
@@ -200,6 +156,35 @@ html {
 
 .app-contributor-permissions__item {
   break-inside: avoid;
+}
+
+/* Label to the left of its control, matching the legacy edit panel. */
+.app-inline-fields .govuk-form-group {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.app-inline-fields .govuk-form-group > .govuk-label {
+  flex: 0 0 8rem;
+  padding-top: 5px;
+  margin-bottom: 0;
+}
+
+.app-inline-fields__control {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.app-inline-fields .govuk-form-group.app-inline-fields__full {
+  display: block;
+}
+
+@media (max-width: 40.0525em) {
+  .app-inline-fields .govuk-form-group {
+    display: block;
+  }
 }
 
 /* OK/Cancel aligned to the bottom-right of the panel, matching the legacy panel. */
@@ -587,31 +572,7 @@ body {
   border-width: 2px;
 }
 
-/* Grouping node with no checkbox of its own (see TreeNodeViewModel.Selectable). */
-.app-tree__branch-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  padding: 5px 0 3px;
-}
-
-/* Compare profile versions: the tree panel is full width so long version labels stay on a line. */
-.app-compare-tree .app-tree__panel {
-  max-width: 100%;
-}
-
-.app-compare-selected {
-  padding: 15px;
-  border: 1px solid var(--govuk-border-colour, #b1b4b6);
-}
-
-.app-compare-selected__list {
-  margin-bottom: 15px;
-}
-
-/* Keeps absolutely positioned descendants (visually-hidden labels) inside the scroll area. */
 .app-tree__panel {
-  position: relative;
   max-height: 480px;
   padding: 10px 15px 10px 5px;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
@@ -622,20 +583,6 @@ body {
   display: flex;
   justify-content: flex-start;
   margin-bottom: 10px;
-}
-
-/* A tree with long labels (the bespoke report's questions) uses the full width and the legacy page's 400px height. */
-.app-tree__panel--wide {
-  max-width: 100%;
-  max-height: 400px;
-}
-
-/* "Create bespoke report": the template buttons sit on the left and "Generate bespoke report" on the right. */
-.app-bespoke-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
 }
 
 /* Maintain species data: the tree and its action buttons sit side by side, with the
@@ -666,6 +613,13 @@ body {
   white-space: nowrap;
 }
 
+/* Reorder mode's Move up/down arrows: compact square buttons, as in the legacy page. */
+.app-species-actions .app-reorder-arrow {
+  min-width: 56px;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
 /* Audit trail "Items per page" control: label and select sit on one line rather than
    stacking, aligned to the right of the page, per Maintain.cshtml. */
 .app-audit-trail-page-size {
@@ -675,38 +629,6 @@ body {
   gap: 10px;
 }
 
-/* Audit trail: fixed column widths so the table keeps the same layout whatever "Items per
-   page" is chosen - with an auto layout, "All" lets long names widen one column and squeeze
-   "View details" onto two lines. Long text wraps inside its column instead. */
-.app-audit-trail-table {
-  table-layout: fixed;
-  width: 100%;
-}
-
-.app-audit-trail-table th:nth-child(1),
-.app-audit-trail-table th:nth-child(2) {
-  width: 24%;
-}
-
-.app-audit-trail-table th:nth-child(3) {
-  width: 17%;
-}
-
-.app-audit-trail-table th:nth-child(4) {
-  width: 19%;
-}
-
-.app-audit-trail-table th:nth-child(5) {
-  width: 16%;
-}
-
-.app-audit-trail-table td {
-  overflow-wrap: anywhere;
-}
-
-.app-audit-trail-table .govuk-details__summary-text {
-  white-space: nowrap;
-}
 /* Sits directly above .app-audit-trail-page-size, per Maintain.cshtml. */
 .app-audit-trail-back-link {
   text-align: right;
@@ -771,19 +693,6 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Tighter row height than the default govuk-table on the Notes page's references table, which
-   typically lists many short rows. */
-.app-profile-note-table .govuk-table__cell,
-.app-profile-note-table .govuk-table__header {
-  padding-top: 5px;
-  padding-bottom: 5px;
-}
-
-/* Sortable column headers on the Notes page's references table. */
-.app-sortable-header a {
-  white-space: nowrap;
-}
-
 /* Shared confirmation dialog (e.g. "Create new draft version"): a native <dialog>, styled with
    GOV.UK tokens since GOV.UK Frontend has no official modal component, and Bootstrap is
    deliberately being phased out of this app (see _Layout.cshtml). Visibility, centring and
@@ -809,15 +718,6 @@ body {
   padding: 0;
   font: inherit;
   cursor: pointer;
-}
-
-/* govuk-link only colours <a href>, so a link-styled button needs the link colour set explicitly. */
-.app-link-button--link-colour {
-  color: var(--govuk-link-colour, #1a65a6);
-}
-
-.app-inline-form {
-  display: inline;
 }
 
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
@@ -856,33 +756,6 @@ body {
 }
 
 .app-tree__status[hidden] {
-  display: none;
-}
-
-/* Profile properties: the profiled species and other affected species trees sit side by side,
-   wrapping to one above the other on a narrow screen. Each shows its own "Selected: ..." summary. */
-.app-species-selector {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 0 20px;
-}
-
-.app-species-selector__column {
-  min-width: 0;
-}
-
-.app-species-selector__panel {
-  max-height: 400px;
-}
-
-.app-species-selector__status {
-  display: block;
-  margin-top: 10px;
-  margin-bottom: 0;
-  font-weight: bold;
-}
-
-.app-species-selector__status[hidden] {
   display: none;
 }
 
@@ -1054,7 +927,6 @@ body {
 }
 
 .app-subnav__item {
-  display: block;
   padding: 0.5rem 0 0.5rem 0.75rem;
   border-left: 4px solid transparent;
 }
@@ -1063,21 +935,6 @@ body {
   border-left-color: var(--govuk-brand-colour, #1d70b8);
   font-weight: 700;
 }
-
-/* Section validation tick/cross shown before each left-nav entry (EditProfileQuestions). */
-.app-section-status {
-  margin-right: 0.3rem;
-  vertical-align: text-bottom;
-}
-
-.app-section-status--valid {
-  color: #00703c;
-}
-
-.app-section-status--invalid {
-  color: #d4351c;
-}
-
 
 /* Single active tab labelled with the current section's title, above the question accordion. */
 .app-species-tabs {
@@ -1120,120 +977,6 @@ body {
   height: 30px;
   margin: 0 15px;
   background-color: rgba(255, 255, 255, 0.5);
-}
-
-/* Edit/validity/help status icons shown top-right of each question in the accordion
-   (EditProfileQuestions), matching the legacy CollapsiblePanel header icons. */
-.app-question-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.app-question-status-icons {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.app-question-status-icon {
-  width: 20px;
-  height: 20px;
-}
-
-/* Horizontally-scrolling tab strip with "view more tabs" controls, matching the legacy
-   Profiles.WebControls.TabStrip carousel behaviour for EditProfileQuestions. */
-.app-tab-carousel {
-  position: relative;
-}
-
-.app-tab-carousel__nav {
-  display: none;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.app-tab-carousel--overflowing .app-tab-carousel__nav {
-  display: flex;
-}
-
-.app-tab-carousel__scroll {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.app-tab-carousel__scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.app-tab-carousel__scroll .govuk-tabs__list {
-  display: flex;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-
-/* Rich text toolbar above a "Long Text" field, matching the legacy TinyMCE toolbar
-   (Undo, Redo, Italic, Bullets, Link). */
-.app-richtext-toolbar {
-  display: flex;
-  gap: 0.25rem;
-  border: 1px solid var(--govuk-border-colour, #b1b4b6);
-  border-bottom: none;
-  padding: 0.25rem;
-  background-color: #f3f2f1;
-}
-
-.app-richtext-toolbar__button {
-  border: 1px solid transparent;
-  background: transparent;
-  color: #0b0c0c;
-  padding: 0.25rem 0.5rem;
-  cursor: pointer;
-}
-
-.app-richtext-toolbar__button:hover,
-.app-richtext-toolbar__button:focus {
-  border-color: var(--govuk-border-colour, #b1b4b6);
-}
-
-/* Icon-only formatting buttons (undo, redo, italic, bulleted list, link) shown above a
-   "Long Text" field's editor, matching the legacy TinyMCE toolbar's icon symbols. */
-.app-richtext-toolbar__button--icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2rem;
-  height: 2rem;
-  border-color: var(--govuk-border-colour, #b1b4b6);
-  background-color: #ffffff;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.app-richtext-toolbar__button--italic {
-  font-style: italic;
-  font-weight: 700;
-}
-
-.app-richtext-toolbar__divider {
-  width: 1px;
-  align-self: stretch;
-  background-color: var(--govuk-border-colour, #b1b4b6);
-}
-
-.app-richtext-editor {
-  border: 1px solid var(--govuk-border-colour, #0b0c0c);
-  min-height: 150px;
-  padding: 0.5rem;
-  background-color: #fff;
-}
-
-.app-richtext-editor:focus {
-  outline: 3px solid #ffdd00;
-  outline-offset: 0;
 }
 
 /* The Menu button reuses govuk-service-navigation's toggle styling, but is driven by our own
@@ -1341,212 +1084,4 @@ body {
 
 .app-button-group--right.govuk-button-group {
   display: flex;
-}
-
-/* Disease ranking report: a report dropdown with its actions beside it, wrapping on narrow screens. */
-.app-select-with-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.app-select-with-actions .govuk-select {
-  max-width: 100%;
-}
-
-/* All Revision dates tab */
-.app-revision-set-all {
-    margin-bottom: 20px;
-}
-
-.app-revision-dates-layout td {
-    padding: 2px 6px 2px 0;
-    vertical-align: middle;
-}
-
-.app-revision-dates-layout .govuk-label {
-    margin: 0;
-}
-
-.app-revision-dates-layout__gap {
-    width: 30px;
-}
-
-.app-revision-dates-date {
-    width: 10em;
-}
-
-.app-revision-dates-readonly {
-    display: inline-block;
-    min-width: 130px;
-    min-height: 1.5em;
-    padding: 2px 5px;
-    border: 1px solid #0b0c0c;
-    background-color: #ffffff;
-}
-
-/* A tab that posts the page (so it can save first) but looks like the link tab. */
-.app-tab-button {
-    border: 0;
-    background: none;
-    font: inherit;
-    cursor: pointer;
-}
-
-/* Review comments tab: the "Add a review comment:" row, the red "new!" label and the add/view panel.
-   The Further information tab shares the row, panel and read-only box (its "Add a new ...:" and "Select a ...:" rows). */
-.app-review-comment-add,
-.app-note-action {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.app-review-comment-new {
-  color: #d4351c;
-  font-weight: bold;
-  margin-left: 0.25rem;
-}
-
-.app-review-comment-panel,
-.app-note-panel {
-  margin-top: 1.5rem;
-  padding: 1rem 1.5rem;
-  border: 1px solid var(--govuk-border-colour, #b1b4b6);
-  background: #fff;
-}
-
-.app-review-comment-readonly,
-.app-note-readonly {
-  padding: 0.5rem;
-  border: 1px solid var(--govuk-border-colour, #b1b4b6);
-  background: #f3f2f1;
-  overflow-wrap: anywhere;
-}
-
-/* Further information panel: "Tick all"/"Untick all" on the left, "OK"/"Cancel" on the right, as in legacy. */
-.app-note-panel__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0 1rem;
-}
-
-.app-note-select-form .govuk-select {
-  max-width: 100%;
-}
-
-/* Add / Edit name/parent: label and field pairs in a four-column grid, matching the legacy
-   MaintainSpeciesData page (old name | new name, then old parent | new parent, then a
-   full-width reason for change and the buttons). */
-.app-legacy-form {
-  display: grid;
-  grid-template-columns: 15% 35% 15% 35%;
-  gap: 15px 10px;
-  align-items: start;
-}
-
-.app-legacy-form__label {
-  padding-top: 7px;
-  font-weight: bold;
-}
-
-/* The name row has a toolbar above its editor, so its cells sit level with the editor, not the toolbar. */
-.app-legacy-form__cell--bottom {
-  align-self: end;
-}
-
-.app-legacy-form__label.app-legacy-form__cell--bottom {
-  padding-top: 0;
-  padding-bottom: 7px;
-}
-
-/* Read-only, not disabled, so the value stays focusable and announced by screen readers. */
-.app-legacy-form__value {
-  width: 100%;
-  box-sizing: border-box;
-  background-color: #f3f2f1;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-/* Single-line editable box beneath its formatting toolbar; scrolls sideways when the name is long. */
-.app-richtext-editor--single-line {
-  min-height: 0;
-  height: 40px;
-  overflow-x: hidden;
-  overflow-y: scroll;
-  white-space: normal;
-  word-break: break-all;
-  box-sizing: border-box;
-}
-
-.app-legacy-form__field .app-richtext-toolbar {
-  margin-top: 0;
-  gap: 0.5rem;
-  padding: 0.375rem;
-}
-
-.app-richtext-toolbar__button--icon:disabled {
-  color: #505a5f;
-  background-color: #f3f2f1;
-  cursor: default;
-}
-
-/* Pressed state: darker fill and a bottom bar, so it does not rely on colour alone. */
-.app-richtext-toolbar__button--active {
-  background-color: #b1b4b6;
-  border-color: #0b0c0c;
-  box-shadow: inset 0 -3px 0 #0b0c0c;
-}
-
-.app-legacy-form__field {
-  min-width: 0;
-}
-
-/* An empty error message still has a bottom margin, which pushed the control below its label. */
-.app-legacy-form__field .govuk-error-message:empty {
-  display: none;
-}
-
-.app-legacy-form__field .app-richtext-toolbar__divider {
-  flex: 0 0 2px;
-  width: 2px;
-  margin: 0 0.5rem;
-  background-color: #505a5f;
-}
-
-.app-legacy-form__field--wide {
-  grid-column: 2 / -1;
-}
-
-.app-legacy-form__field .govuk-input,
-.app-legacy-form__field .govuk-select,
-.app-legacy-form__field .govuk-textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.app-legacy-form__actions {
-  grid-column: 2;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.app-legacy-form__actions .govuk-button {
-  margin-bottom: 0;
-}
-
-@media (max-width: 40.0525em) {
-  .app-legacy-form {
-    grid-template-columns: 1fr;
-  }
-
-  .app-legacy-form__field--wide,
-  .app-legacy-form__actions {
-    grid-column: auto;
-  }
 }

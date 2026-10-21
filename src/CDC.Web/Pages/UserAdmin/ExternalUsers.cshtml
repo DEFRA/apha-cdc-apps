@@ -168,10 +168,13 @@
                         <form method="get" asp-page="/UserAdmin/ExternalUsers" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" class="app-external-user-add govuk-!-margin-bottom-6">
                             <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                             <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
+                            <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
+                            <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
                             <input type="hidden" name="EditUserId" value="@Model.EditUser.Id" />
                             <div class="govuk-form-group govuk-!-margin-bottom-0">
-                                <label class="govuk-label" for="AddProfileId">Select a profile to add</label>
                                 <div class="app-external-user-add__row">
+                                    <label class="govuk-label govuk-!-margin-bottom-0" for="AddProfileId">Select a profile to add</label>
                                     <select class="govuk-select app-external-user-add__select" id="AddProfileId" name="AddProfileId" required>
                                         <option value="">Please select...</option>
                                         @foreach (var profile in Model.Access.AvailableProfiles)
@@ -179,7 +182,7 @@
                                             <option value="@profile.Id" selected="@(Model.AddProfileId == profile.Id ? "selected" : null)">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(profile.Title)</option>
                                         }
                                     </select>
-                                    <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Add</button>
+                                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0">Add</button>
                                 </div>
                             </div>
                         </form>
@@ -191,46 +194,116 @@
                     }
                     else
                     {
+                        <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                            <div class="govuk-form-group govuk-!-margin-bottom-0">
+                                <label class="govuk-label" for="ProfilePageSize">Items per page:</label>
+                                <select class="govuk-select" id="ProfilePageSize" name="ProfilePageSize" form="external-user-profiles-page-size-form" onchange="this.form.requestSubmit()">
+                                    @foreach (var option in CDC.Web.Pages.UserAdmin.ExternalUsersModel.PageSizeOptions)
+                                    {
+                                        <option value="@option" selected="@(option == Model.ProfilePageSize ? "selected" : null)">@option</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <form method="get" asp-page="/UserAdmin/ExternalUsers" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PanelId" id="external-user-profiles-page-size-form">
+                            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                            <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="EditUserId" value="@Model.EditUser.Id" />
+                            <input type="hidden" name="ProfilePageNumber" value="1" />
+                            <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
+                            <noscript><button type="submit" class="govuk-button govuk-button--secondary">Apply</button></noscript>
+                        </form>
+
                         <table class="govuk-table">
                             <caption class="govuk-table__caption govuk-visually-hidden">Profiles this user can access</caption>
                             <thead class="govuk-table__head">
                                 <tr class="govuk-table__row">
-                                    <th scope="col" class="govuk-table__header">Title</th>
-                                    <th scope="col" class="govuk-table__header">Role</th>
+                                    <th scope="col" class="govuk-table__header app-sortable-header govuk-!-width-two-thirds" aria-sort="@Model.ProfileTitleAriaSort">
+                                        <a class="govuk-link govuk-link--no-visited-state app-sort-link" href="@Model.BuildProfileSortUrl()">Title <span class="app-sort-indicator" aria-hidden="true">@(Model.IsProfileSortDescending ? "\u25BC" : "\u25B2")</span></a>
+                                    </th>
                                     <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
                                     <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
                                 </tr>
                             </thead>
                             <tbody class="govuk-table__body">
-                                @foreach (var grant in Model.Access.Profiles)
+                                @foreach (var grant in Model.PagedProfiles)
                                 {
                                     var plainTitle = CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(grant.Title);
                                     <tr class="govuk-table__row">
                                         <td class="govuk-table__cell">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(grant.Title)</td>
-                                        <td class="govuk-table__cell">@grant.RoleName</td>
                                         <td class="govuk-table__cell">
                                             <a class="govuk-link" href="@Model.BuildAccessUrl(grant.ProfileId)">Edit<span class="govuk-visually-hidden"> access to @plainTitle</span></a>
                                         </td>
                                         <td class="govuk-table__cell">
-                                            <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-access-@grant.ProfileId">Delete<span class="govuk-visually-hidden"> access to @plainTitle</span></button>
-                                            <dialog class="app-modal" id="delete-access-@grant.ProfileId" aria-labelledby="delete-access-@(grant.ProfileId)-title">
-                                                <h2 class="govuk-heading-m" id="delete-access-@(grant.ProfileId)-title">Confirm</h2>
-                                                <p class="govuk-body">Are you sure you want to remove this user's access to @plainTitle?</p>
-                                                <form method="post" asp-page-handler="DeleteAccess">
-                                                    <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
-                                                    <input type="hidden" name="ProfileId" value="@grant.ProfileId" />
-                                                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
-                                                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
-                                                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
-                                                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
-                                                </form>
-                                            </dialog>
+                                            <form method="post" asp-page-handler="DeleteAccess">
+                                                <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
+                                                <input type="hidden" name="ProfileId" value="@grant.ProfileId" />
+                                                <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                                <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                                <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
+                                                <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
+                                                <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
+                                                <button type="submit" class="govuk-link app-link-button">Delete<span class="govuk-visually-hidden"> access to @plainTitle</span></button>
+                                            </form>
                                         </td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
+
+                        @if (Model.ProfileTotalPages > 1)
+                        {
+                            <div class="app-pagination-center">
+                                <nav class="govuk-pagination" aria-label="Profile pages">
+                                    @if (Model.ProfilePageNumber > 1)
+                                    {
+                                        <div class="govuk-pagination__prev">
+                                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildProfilePageUrl(Model.ProfilePageNumber - 1)" rel="prev"><span class="govuk-pagination__link-title">Previous</span></a>
+                                        </div>
+                                    }
+
+                                    <ul class="govuk-pagination__list">
+                                        @for (var pageNumber = 1; pageNumber <= Model.ProfileTotalPages; pageNumber++)
+                                        {
+                                            <li class="govuk-pagination__item @(pageNumber == Model.ProfilePageNumber ? "govuk-pagination__item--current" : string.Empty)">
+                                                <a class="govuk-link govuk-pagination__link" href="@Model.BuildProfilePageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.ProfilePageNumber ? "page" : null)">@(pageNumber)</a>
+                                            </li>
+                                        }
+                                    </ul>
+
+                                    @if (Model.ProfilePageNumber < Model.ProfileTotalPages)
+                                    {
+                                        <div class="govuk-pagination__next">
+                                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildProfilePageUrl(Model.ProfilePageNumber + 1)" rel="next"><span class="govuk-pagination__link-title">Next</span></a>
+                                        </div>
+                                    }
+                                </nav>
+                            </div>
+                        }
                     }
+
+                    <form method="post" asp-page-handler="Save" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PanelId" class="app-external-user-subscription" data-module="app-track-changes" data-has-pending="@(Model.HasPendingChanges ? "true" : "false")" novalidate>
+                        <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
+                        <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                        <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                        <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
+                        <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
+                        <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
+
+                        <div class="govuk-form-group">
+                            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                <div class="govuk-checkboxes__item">
+                                    <input class="govuk-checkboxes__input" id="SubscribedToReviewEmails" name="SubscribedToReviewEmails" type="checkbox" value="true" checked="@(Model.SubscribedToReviewEmails ? "checked" : null)" />
+                                    <label class="govuk-label govuk-checkboxes__label" for="SubscribedToReviewEmails">Subscribe to review emails</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="app-contributor-edit__actions">
+                            <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-requires-change>OK</button>
+                            <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseUrl()">Cancel</a>
+                        </div>
+                    </form>
 
                     @if (Model.IsAccessPanelOpen)
                     {
@@ -239,11 +312,14 @@
                         var sectionsError = Model.AccessError is not null && !roleMissing;
                         var accessErrorTarget = roleMissing ? "#RoleId" : "#app-external-user-sections";
 
-                        <form method="post" asp-page-handler="SaveAccess" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" id="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" class="app-contributor-edit govuk-!-margin-top-6" novalidate>
+                        <form method="post" asp-page-handler="SaveAccess" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" id="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" class="app-contributor-edit govuk-!-margin-top-6" data-module="app-track-changes" novalidate>
                             <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
                             <input type="hidden" name="ProfileId" value="@Model.ProfileId" />
                             <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                             <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
+                            <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
+                            <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
 
                             @if (Model.AccessError is not null)
                             {
@@ -301,32 +377,23 @@
                             </fieldset>
 
                             <div class="app-contributor-edit__actions">
-                                <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
+                                <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-requires-change>OK</button>
                                 <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseAccessUrl()">Cancel</a>
                             </div>
                         </form>
                     }
-                }
 
-                <form method="post" asp-page-handler="Save" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PanelId" class="app-external-user-subscription" novalidate>
-                    <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
-                    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
-                    <input type="hidden" name="PageSize" value="@Model.PageSize" />
-
-                    <div class="govuk-form-group">
-                        <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
-                            <div class="govuk-checkboxes__item">
-                                <input class="govuk-checkboxes__input" id="SubscribedToReviewEmails" name="SubscribedToReviewEmails" type="checkbox" value="true" checked="@(Model.SubscribedToReviewEmails ? "checked" : null)" />
-                                <label class="govuk-label govuk-checkboxes__label" for="SubscribedToReviewEmails">Subscribe to review emails</label>
-                            </div>
+                    @if (Model.HasPendingChanges)
+                    {
+                        <div class="govuk-warning-text govuk-!-margin-top-6" role="status">
+                            <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+                            <strong class="govuk-warning-text__text">
+                                <span class="govuk-visually-hidden">Warning</span>
+                                You have pending changes. To save these changes, click the OK button.
+                            </strong>
                         </div>
-                    </div>
-
-                    <div class="app-contributor-edit__actions">
-                        <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
-                        <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseUrl()">Cancel</a>
-                    </div>
-                </form>
+                    }
+                }
             </section>
         }
     </div>

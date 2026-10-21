@@ -35,7 +35,7 @@
         <h1 class="govuk-heading-l">Maintain global users</h1>
 
         <p class="govuk-body">
-            Use this page to grant either Profile editor or Policy profile user access to a Defra user.
+            Use this function to grant either Profile editor or Policy profile user privileges to a Defra user.
             Profile editors have the highest level of access to the system and should be regarded as administrators.
             Policy profile users have read-only access to all draft profiles.
         </p>
@@ -198,14 +198,18 @@
                 @{
                     var lookupError = Model.FieldErrors.GetValueOrDefault("UserName");
                 }
+                <div class="app-inline-fields">
                 <div class="govuk-form-group @(lookupError is null ? null : "govuk-form-group--error")">
-                    <label class="govuk-label" for="UserName">Username</label>
+                    <label class="govuk-label" for="UserName">Username:</label>
+                    <div class="app-inline-fields__control">
                     <div id="UserName-hint" class="govuk-hint">For example, DEFRA\jsmith</div>
                     @if (lookupError is not null)
                     {
                         <p id="UserName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @lookupError</p>
                     }
                     <input class="govuk-input govuk-input--width-20 @(lookupError is null ? null : "govuk-input--error")" id="UserName" name="UserName" type="text" maxlength="50" value="@Model.UserName" spellcheck="false" autocomplete="off" aria-describedby="UserName-hint@(lookupError is null ? null : " UserName-error")" />
+                    </div>
+                </div>
                 </div>
                 <button type="submit" class="govuk-button govuk-button--secondary">Look up</button>
                 <a class="govuk-button govuk-button--secondary" href="@Model.BuildCloseUrl()">Cancel</a>
@@ -241,16 +245,19 @@
                     var organisationError = Model.FieldErrors.GetValueOrDefault("Organisation");
                 }
 
-                <div class="govuk-grid-row">
+                <div class="govuk-grid-row app-inline-fields">
                     <div class="govuk-grid-column-one-half">
                         <div class="govuk-form-group">
-                            <label class="govuk-label" for="app-global-user-username">Username</label>
-                            <input class="govuk-input govuk-input--width-20" id="app-global-user-username" type="text" value="@Model.UserName" readonly disabled aria-readonly="true" />
+                            <label class="govuk-label" for="app-global-user-username">Username:</label>
+                            <div class="app-inline-fields__control">
+                                <input class="govuk-input govuk-input--width-20" id="app-global-user-username" type="text" value="@Model.UserName" readonly disabled aria-readonly="true" />
+                            </div>
                         </div>
                     </div>
                     <div class="govuk-grid-column-one-half">
                         <div class="govuk-form-group @(roleError is null ? null : "govuk-form-group--error")">
-                            <label class="govuk-label" for="Role">Role</label>
+                            <label class="govuk-label" for="Role">Role:</label>
+                            <div class="app-inline-fields__control">
                             @if (roleError is not null)
                             {
                                 <p id="Role-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @roleError</p>
@@ -259,8 +266,7 @@
                             {
                                 @* Disabled controls are not submitted, so the locked role travels in a hidden field. *@
                                 <input type="hidden" name="Role" value="@((int)Model.Role)" />
-                                <div id="Role-hint" class="govuk-hint">You cannot change your own role.</div>
-                                <select class="govuk-select govuk-input--width-20" id="Role" disabled aria-describedby="Role-hint">
+                                <select class="govuk-select govuk-input--width-20" id="Role" disabled>
                                     <option selected>@Model.Role.ToDisplayName()</option>
                                 </select>
                             }
@@ -272,31 +278,36 @@
                                     <option value="@((int)GlobalUserRole.PolicyProfileUser)" selected="@(Model.Role == GlobalUserRole.PolicyProfileUser ? "selected" : null)">@GlobalUserRole.PolicyProfileUser.ToDisplayName()</option>
                                 </select>
                             }
+                            </div>
                         </div>
 
                         <div class="govuk-form-group @(fullNameError is null ? null : "govuk-form-group--error")">
-                            <label class="govuk-label" for="FullName">Full name</label>
-                            @if (fullNameError is not null)
-                            {
-                                <p id="FullName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @fullNameError</p>
-                            }
-                            <input class="govuk-input govuk-input--width-20 @(fullNameError is null ? null : "govuk-input--error")" id="FullName" name="FullName" type="text" maxlength="100" value="@Model.FullName" aria-describedby="@(fullNameError is null ? null : "FullName-error")" />
+                            <label class="govuk-label" for="FullName">Full name:</label>
+                            <div class="app-inline-fields__control">
+                                @if (fullNameError is not null)
+                                {
+                                    <p id="FullName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @fullNameError</p>
+                                }
+                                <input class="govuk-input govuk-input--width-20 @(fullNameError is null ? null : "govuk-input--error")" id="FullName" name="FullName" type="text" maxlength="100" value="@Model.FullName" aria-describedby="@(fullNameError is null ? null : "FullName-error")" />
+                            </div>
                         </div>
 
                         <div class="govuk-form-group @(organisationError is null ? null : "govuk-form-group--error")">
-                            <label class="govuk-label" for="Organisation">Organisation</label>
-                            @if (organisationError is not null)
-                            {
-                                <p id="Organisation-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @organisationError</p>
-                            }
-                            <input class="govuk-input govuk-input--width-20 @(organisationError is null ? null : "govuk-input--error")" id="Organisation" name="Organisation" type="text" maxlength="100" value="@Model.Organisation" aria-describedby="@(organisationError is null ? null : "Organisation-error")" />
+                            <label class="govuk-label" for="Organisation">Organisation:</label>
+                            <div class="app-inline-fields__control">
+                                @if (organisationError is not null)
+                                {
+                                    <p id="Organisation-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @organisationError</p>
+                                }
+                                <input class="govuk-input govuk-input--width-20 @(organisationError is null ? null : "govuk-input--error")" id="Organisation" name="Organisation" type="text" maxlength="100" value="@Model.Organisation" aria-describedby="@(organisationError is null ? null : "Organisation-error")" />
+                            </div>
                         </div>
 
-                        <div class="govuk-form-group">
+                        <div class="govuk-form-group app-inline-fields__full">
                             <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
                                 <div class="govuk-checkboxes__item">
                                     <input class="govuk-checkboxes__input" id="SubscribedToReviewEmails" name="SubscribedToReviewEmails" type="checkbox" value="true" checked="@(Model.SubscribedToReviewEmails ? "checked" : null)" />
-                                    <label class="govuk-label govuk-checkboxes__label" for="SubscribedToReviewEmails">Subscribe to review emails</label>
+                                    <label class="govuk-label govuk-checkboxes__label" for="SubscribedToReviewEmails">Subscribe to Review emails</label>
                                 </div>
                             </div>
                         </div>
