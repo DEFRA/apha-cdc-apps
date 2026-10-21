@@ -9,45 +9,137 @@
     var ALLOWED_TAGS = ['EM', 'I', 'OL', 'UL', 'LI', 'A', 'P', 'BR'];
     var SAFE_HREF = /^(https?:|mailto:)/i;
 
-    function sanitiseNode(node) {
-        Array.prototype.slice.call(node.childNodes).forEach(function (child) {
-            if (child.nodeType === Node.ELEMENT_NODE) {
-                sanitiseNode(child);
+    var KEPT_ATTRIBUTES = ['href', 'target', 'title'];
+    var TAG_PATTERN = /<(\/?)([a-z][a-z0-9]*)((?:\s[^>]*)?)>/iy;
+    var ATTRIBUTE_PATTERN = /([a-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+    var ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
 
-                if (ALLOWED_TAGS.indexOf(child.tagName) === -1) {
-                    while (child.firstChild) {
-                        node.insertBefore(child.firstChild, child);
-                    }
-                    node.removeChild(child);
-                    return;
-                }
-
-                Array.prototype.slice.call(child.attributes).forEach(function (attribute) {
-                    var keep = child.tagName === 'A' && ['href', 'target', 'title'].indexOf(attribute.name) !== -1;
-                    if (!keep || (attribute.name === 'href' && !SAFE_HREF.test(attribute.value.trim()))) {
-                        child.removeAttribute(attribute.name);
-                    }
-                });
-            } else if (child.nodeType !== Node.TEXT_NODE) {
-                node.removeChild(child);
+    function decodeEntities(text) {
+        return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, function (match, name) {
+            if (name.charAt(0) === '#') {
+                var isHex = name.charAt(1).toLowerCase() === 'x';
+                var code = parseInt(name.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+                return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
             }
+            var decoded = ENTITIES[name.toLowerCase()];
+            return decoded === undefined ? match : decoded;
         });
     }
 
-    function sanitiseHtml(html) {
-        var container = document.createElement('div');
-        container.innerHTML = html;
-        sanitiseNode(container);
-        return container.innerHTML;
+    function escapeText(text) {
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\u00a0/g, '&nbsp;');
     }
 
-    function toEditorHtml(value) {
-        if (!/<\/?[a-z][^>]*>/i.test(value)) {
-            var escaper = document.createElement('div');
-            escaper.textContent = value;
-            return escaper.innerHTML.replace(/\r?\n/g, '<br>');
+    function escapeAttribute(text) {
+        return escapeText(text).replace(/"/g, '&quot;');
+    }
+
+    function readAttributes(source, tagName) {
+        var attributes = {};
+        if (tagName !== 'a') {
+            return attributes;
         }
-        return sanitiseHtml(value);
+        var match;
+        ATTRIBUTE_PATTERN.lastIndex = 0;
+        while ((match = ATTRIBUTE_PATTERN.exec(source)) !== null) {
+            var name = match[1].toLowerCase();
+            var value = decodeEntities(match[2] !== undefined ? match[2] : match[3]);
+            if (KEPT_ATTRIBUTES.indexOf(name) !== -1 && (name !== 'href' || SAFE_HREF.test(value.trim()))) {
+                attributes[name] = value;
+            }
+        }
+        return attributes;
+    }
+
+    // Builds the editor content as DOM nodes from the stored value. The value is only scanned for
+    // the allowed tags and added as text nodes, so it is never interpreted as HTML: every other
+    // tag is dropped, its text kept, and only safe link attributes survive.
+    function fillEditor(editor, value) {
+        var open = [];
+        var text = '';
+        var hasTags = /<\/?[a-z][^>]*>/i.test(value);
+
+        function current() {
+            return open.length ? open[open.length - 1] : editor;
+        }
+
+        function flush() {
+            if (text) {
+                current().appendChild(document.createTextNode(decodeEntities(text)));
+                text = '';
+            }
+        }
+
+        var i = 0;
+        while (i < value.length) {
+            var ch = value.charAt(i);
+
+            if (ch === '<' && value.startsWith('<!--', i)) {
+                var commentEnd = value.indexOf('-->', i + 4);
+                i = commentEnd === -1 ? value.length : commentEnd + 3;
+                continue;
+            }
+
+            TAG_PATTERN.lastIndex = i;
+            var tag = ch === '<' ? TAG_PATTERN.exec(value) : null;
+
+            if (tag) {
+                var name = tag[2].toLowerCase();
+                var allowed = ALLOWED_TAGS.indexOf(name.toUpperCase()) !== -1;
+                flush();
+
+                if (allowed && tag[1]) {
+                    var position = open.map(function (element) { return element.localName; }).lastIndexOf(name);
+                    if (position !== -1) {
+                        open.length = position;
+                    }
+                } else if (allowed) {
+                    var element = document.createElement(name);
+                    var attributes = readAttributes(tag[3], name);
+                    Object.keys(attributes).forEach(function (key) { element.setAttribute(key, attributes[key]); });
+                    current().appendChild(element);
+                    if (name !== 'br') {
+                        open.push(element);
+                    }
+                }
+                i = TAG_PATTERN.lastIndex;
+            } else if (!hasTags && (ch === '\n' || ch === '\r')) {
+                flush();
+                editor.appendChild(document.createElement('br'));
+                i += ch === '\r' && value.charAt(i + 1) === '\n' ? 2 : 1;
+            } else {
+                text += ch;
+                i++;
+            }
+        }
+        flush();
+    }
+
+    function serialise(node) {
+        var html = '';
+        node.childNodes.forEach(function (child) {
+            if (child.nodeType === Node.TEXT_NODE) {
+                html += escapeText(child.nodeValue);
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+                var tag = child.tagName;
+                if (ALLOWED_TAGS.indexOf(tag) === -1) {
+                    html += serialise(child);
+                    return;
+                }
+                var name = tag.toLowerCase();
+                var attributes = '';
+                if (name === 'a') {
+                    KEPT_ATTRIBUTES.forEach(function (key) {
+                        var attributeValue = child.getAttribute(key);
+                        if (attributeValue !== null && (key !== 'href' || SAFE_HREF.test(attributeValue.trim()))) {
+                            attributes += ' ' + key + '="' + escapeAttribute(attributeValue) + '"';
+                        }
+                    });
+                }
+                html += name === 'br' ? '<br>' : '<' + name + attributes + '>' + serialise(child) + '</' + name + '>';
+            }
+        });
+        return html;
     }
 
     function createEditor(textarea) {
@@ -74,14 +166,14 @@
             editor.classList.add('govuk-textarea--error');
         }
 
-        editor.innerHTML = toEditorHtml(textarea.value);
+        fillEditor(editor, textarea.value);
         textarea.hidden = true;
         textarea.parentNode.insertBefore(editor, textarea);
         return editor;
     }
 
     function syncToTextarea(editor, textarea) {
-        var html = sanitiseHtml(editor.innerHTML);
+        var html = serialise(editor);
         var hasContent = editor.textContent.trim().length > 0 || /<li/i.test(html);
         textarea.value = hasContent ? html : '';
     }
