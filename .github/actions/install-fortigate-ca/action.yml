@@ -1,0 +1,63 @@
+name: Install FortiGate TLS-inspection CA certificates
+description: >
+  Decodes the FortiGate root and issuing CA certificates from base64 values into build/certs so the
+  Dockerfiles can bake them into the image. Fails when a certificate is missing or expired and warns
+  when one expires within 30 days. Secrets must be passed in as inputs, because composite actions
+  cannot read the secrets context.
+ 
+inputs:
+  root-ca-cert-base64:
+    description: Base64 of the FortiGate root CA certificate (PEM or DER)
+    required: true
+  ca-cert-base64:
+    description: Base64 of the FortiGate issuing CA certificate (PEM or DER)
+    required: true
+ 
+outputs:
+  root_thumbprint:
+    description: Thumbprint of the root CA certificate
+    value: ${{ steps.install.outputs.root_thumbprint }}
+  thumbprint:
+    description: Thumbprint of the issuing CA certificate
+    value: ${{ steps.install.outputs.thumbprint }}
+ 
+runs:
+  using: composite
+  steps:
+    - name: Install FortiGate TLS-inspection CA certificates
+      id: install
+      shell: pwsh
+      env:
+        FORTIGATE_ROOT_CA_CERT_BASE64: ${{ inputs.root-ca-cert-base64 }}
+        FORTIGATE_CA_CERT_BASE64: ${{ inputs.ca-cert-base64 }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $certDir = Join-Path $env:GITHUB_WORKSPACE "build/certs"
+        New-Item -ItemType Directory -Force -Path $certDir | Out-Null
+        $items = @(
+          @{ Secret = "FORTIGATE_ROOT_CA_CERT_BASE64"; File = "fortigate-root-ca.cer"; Output = "root_thumbprint" },
+          @{ Secret = "FORTIGATE_CA_CERT_BASE64"; File = "fortigate-ca.cer"; Output = "thumbprint" }
+        )
+        foreach ($item in $items) {
+          $value = [Environment]::GetEnvironmentVariable($item.Secret)
+          if ([string]::IsNullOrWhiteSpace($value)) {
+            throw "$($item.Secret) is not set or not visible to this job (fork and Dependabot PRs receive no secrets)."
+          }
+          $bytes = [System.Convert]::FromBase64String($value)
+          $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+          $cert = if ($text -match '-----BEGIN CERTIFICATE-----') {
+            [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($text)
+          } else {
+            [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$bytes)
+          }
+          $daysLeft = [int][math]::Floor(($cert.NotAfter.ToUniversalTime() - [DateTime]::UtcNow).TotalDays)
+          Write-Host "$($item.Secret): $($cert.Subject), expires $($cert.NotAfter.ToString('yyyy-MM-dd')) ($daysLeft days)"
+          if ($daysLeft -lt 0) {
+            throw "Certificate in $($item.Secret) expired on $($cert.NotAfter.ToString('yyyy-MM-dd')). Update the secret."
+          }
+          if ($daysLeft -lt 30) {
+            Write-Host "::warning::Certificate in $($item.Secret) expires in $daysLeft days. Update the secret before then."
+          }
+          [System.IO.File]::WriteAllBytes((Join-Path $certDir $item.File), $bytes)
+          "$($item.Output)=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        }
