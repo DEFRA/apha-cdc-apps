@@ -36,6 +36,17 @@ public class ReviewEmailComposerTests
     }
 
     [Fact]
+    public void Compose_LinksProfileHeadingToItsReviewPage()
+    {
+        var profileId = Guid.NewGuid();
+        var user = new ReviewDueUser(Guid.NewGuid(), "Ann", "a@example.test",
+            [new ReviewDueProfile(profileId, "Anthrax", null, "2.1", [Section(new ReviewItem(Today, "Active"))])]);
+
+        ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody
+            .Should().Contain($"href=\"https://d2r2.example.test/SurveillanceProfiles/EditProfileAllRevisionDates/{profileId}\"");
+    }
+
+    [Fact]
     public void Compose_IncludesScenarioTitle_WhenPresent()
     {
         var user = UserWith("Ann", "Scenario A", Section(new ReviewItem(Today, "Active")));

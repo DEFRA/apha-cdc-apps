@@ -31,15 +31,17 @@ public static class ReviewEmailComposer
         html.Append("This can be achieved by locating the profile on the search page, clicking the browse link and then selecting the revision dates tab. ");
         html.Append("Set the status to complete by using the drop down list.</p>");
 
+        var hasHomePage = Uri.TryCreate(options.InternalHomePageUrl, UriKind.Absolute, out var homePage)
+            && (homePage.Scheme == Uri.UriSchemeHttps || homePage.Scheme == Uri.UriSchemeHttp);
+
         foreach (var profile in user.Profiles)
         {
-            AppendProfile(html, profile, today);
+            AppendProfile(html, profile, today, hasHomePage ? homePage : null);
         }
 
-        if (Uri.TryCreate(options.InternalHomePageUrl, UriKind.Absolute, out var homePage)
-            && (homePage.Scheme == Uri.UriSchemeHttps || homePage.Scheme == Uri.UriSchemeHttp))
+        if (hasHomePage)
         {
-            var url = Encode(homePage.AbsoluteUri);
+            var url = Encode(homePage!.AbsoluteUri);
             html.Append("<p>Internal users can access the D2R2 system using the following link: <a href=\"").Append(url).Append("\">").Append(url).Append("</a></p>");
         }
 
@@ -49,13 +51,26 @@ public static class ReviewEmailComposer
         return new EmailMessage(user.EmailAddress, user.FullName, Subject, html.ToString());
     }
 
-    private static void AppendProfile(StringBuilder html, ReviewDueProfile profile, DateTime today)
+    private static void AppendProfile(StringBuilder html, ReviewDueProfile profile, DateTime today, Uri? baseUri)
     {
         var title = string.IsNullOrEmpty(profile.ScenarioTitle)
             ? $"{profile.Title} - v {profile.Version} (Draft)"
             : $"{profile.Title} ({profile.ScenarioTitle}) - v {profile.Version} (Draft)";
 
-        html.Append("<h2 style=\"font-size:19px;margin:20px 0 10px;\">").Append(Encode(title)).Append("</h2>");
+        html.Append("<h2 style=\"font-size:19px;margin:20px 0 10px;\">");
+
+        if (baseUri is null)
+        {
+            html.Append(Encode(title));
+        }
+        else
+        {
+            // The target page enforces sign-in and profile authorisation.
+            var link = new Uri(baseUri, $"/SurveillanceProfiles/EditProfileAllRevisionDates/{profile.ProfileVersionId}");
+            html.Append("<a href=\"").Append(Encode(link.AbsoluteUri)).Append("\">").Append(Encode(title)).Append("</a>");
+        }
+
+        html.Append("</h2>");
         html.Append("<table style=\"").Append(TableStyle).Append("\"><caption style=\"text-align:left;font-weight:bold;\">Reviews due for ")
             .Append(Encode(title)).Append("</caption><thead><tr>");
 
