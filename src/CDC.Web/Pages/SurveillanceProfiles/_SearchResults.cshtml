@@ -3,6 +3,7 @@
 @* Rendered both by the full page and, via SurveillanceProfilesSearchModel.OnGetAsync, as an
    AJAX fragment so filter changes can repopulate this section without a full page reload. *@
 @{
+    var canEditProfile = await NavigationAuthorization.CanEditProfileAsync(User);
     var canViewContributionsReport = await NavigationAuthorization.CanViewContributionsReportAsync(User);
 }
 
@@ -71,8 +72,11 @@
                             <div class="app-profile-card__header">
                                 <h3 class="govuk-heading-s govuk-!-margin-bottom-0">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(profile.Title)</h3>
                                 <p class="govuk-body govuk-!-margin-bottom-0">
-                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileTitle" asp-route-profileId="@profile.Id">Edit Title</a>
-                                    <span aria-hidden="true"> | </span>
+                                    @if (canEditProfile)
+                                    {
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileTitle" asp-route-profileId="@profile.Id">Edit Title</a>
+                                        <span aria-hidden="true"> | </span>
+                                    }
                                     <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
                                     @if (canViewContributionsReport)
                                     {

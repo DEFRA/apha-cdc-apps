@@ -21,6 +21,9 @@ public interface INavigationAuthorizationService
     /// <summary>Legacy: <c>Profile.CanCreateProfile()</c>.</summary>
     Task<bool> CanCreateProfileAsync(ClaimsPrincipal user);
 
+    /// <summary>Legacy: <c>Profile.CanEditProfile()</c>.</summary>
+    Task<bool> CanEditProfileAsync(ClaimsPrincipal user);
+
     /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>.</summary>
     Task<bool> CanViewProfileComparisonAsync(ClaimsPrincipal user);
 

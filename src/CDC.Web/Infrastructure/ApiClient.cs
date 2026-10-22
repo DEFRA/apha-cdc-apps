@@ -178,12 +178,19 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
 
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
+            // Validation failures list their errors; a title the database refuses (for example one already in use) gives its reason as the detail.
             var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
             var message = problem?.Errors.Count > 0
                 ? string.Join(" ", problem.Errors.SelectMany(error => error.Value))
-                : "The profile title could not be saved.";
+                : problem?.Detail ?? "The profile title could not be saved.";
 
             return new UpdateProfileTitleResult(UpdateProfileTitleOutcome.ValidationFailed, message);
+        }
+
+        // The API reads the user's current role from the database, so it can refuse someone whose sign-in still says they may edit.
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Error, "You do not have permission to edit a profile title.");
         }
 
         return new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Error, "The profile title could not be saved. Please try again.");

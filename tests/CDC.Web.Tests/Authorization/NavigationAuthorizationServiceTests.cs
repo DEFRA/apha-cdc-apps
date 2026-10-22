@@ -159,6 +159,21 @@ public class NavigationAuthorizationServiceTests
         Assert.False(await service.IsProfileEditorAsync(new ClaimsPrincipal(new ClaimsIdentity())));
     }
 
+    // Legacy Profile.CanEditProfile(): a profile editor who is not a user management system account.
+    [Fact]
+    public async Task CanEditProfile_IsAllowedForProfileEditorsOnly()
+    {
+        var service = CreateService();
+
+        Assert.True(await service.CanEditProfileAsync(CreateUser(AuthorizationRoles.ProfileEditor)));
+        Assert.False(await service.CanEditProfileAsync(CreateUser(AuthorizationRoles.PolicyProfileUser)));
+        Assert.False(await service.CanEditProfileAsync(CreateUser(AuthorizationRoles.Contributor)));
+        Assert.False(await service.CanEditProfileAsync(CreateUser(AuthorizationRoles.Reviewer)));
+        Assert.False(await service.CanEditProfileAsync(CreateUser()));
+        Assert.False(await service.CanEditProfileAsync(CreateUser(AuthorizationRoles.ProfileEditor, AuthorizationRoles.UserManagementSystem)));
+        Assert.False(await service.CanEditProfileAsync(new ClaimsPrincipal(new ClaimsIdentity())));
+    }
+
     [Fact]
     public async Task CanAccessAsync_EvaluatesAnArbitraryPolicyName_ForDataDrivenNavigation()
     {

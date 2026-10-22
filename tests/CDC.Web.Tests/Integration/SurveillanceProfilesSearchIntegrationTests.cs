@@ -67,4 +67,47 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.True(response.IsSuccessStatusCode);
         Assert.Contains("Bovine tuberculosis", body);
     }
+
+    // Legacy Search.aspx showed "Edit Title" only when Profile.CanEditProfile(); the page refuses everyone else.
+    [Fact]
+    public async Task Search_ShowsTheEditTitleLink_ToAProfileEditor()
+    {
+        var body = await GetResultsPartialAsync(isProfileEditor: true, isPolicyProfileUser: false);
+
+        Assert.Contains($"href=\"/SurveillanceProfiles/EditProfileTitle/{ProfileId}\">Edit Title</a>", body);
+        Assert.Contains(">Manage</a>", body);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task Search_HidesTheEditTitleLink_FromAUserWhoMayNotEditAProfile(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        var body = await GetResultsPartialAsync(isProfileEditor, isPolicyProfileUser);
+
+        Assert.Contains("Bovine tuberculosis", body);
+        Assert.DoesNotContain("Edit Title", body);
+        Assert.DoesNotContain("EditProfileTitle", body);
+        Assert.Contains(">Manage</a>", body);
+    }
+
+    private static async Task<string> GetResultsPartialAsync(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new FakeApiClient(SearchResults));
+                services.RemoveAll<ISpeciesApiService>();
+                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
+            }));
+        var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor, isPolicyProfileUser);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(request);
+        Assert.True(response.IsSuccessStatusCode);
+
+        return await response.Content.ReadAsStringAsync();
+    }
 }

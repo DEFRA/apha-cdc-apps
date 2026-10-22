@@ -22,6 +22,9 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanCreateProfile,
             AuthorizationRoles.ProfileEditor);
 
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanEditProfile,
+            AuthorizationRoles.ProfileEditor);
+
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewProfileComparison,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
 

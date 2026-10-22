@@ -308,20 +308,4 @@ describe('profile-properties reset', () => {
 
     expect(warning.hidden).toBe(true);
   });
-
-  it('keeps the title on a single line by ignoring Enter', () => {
-    const { editor } = build();
-    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
-
-    editor.dispatchEvent(enter);
-
-    expect(enter.defaultPrevented).toBe(true);
-  });
-
-  it('exposes the title editor as a single-line textbox', () => {
-    const { editor } = build();
-
-    expect(editor.getAttribute('role')).toBe('textbox');
-    expect(editor.getAttribute('aria-multiline')).toBe('false');
-  });
 });

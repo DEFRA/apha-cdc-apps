@@ -225,24 +225,11 @@
 
             const $selector = $form.querySelector('[data-module="app-species-selector"]');
             const $reset = $form.querySelector('[data-profile-properties-reset]');
-            const $editor = $form.querySelector('[data-app-title-hidden-input]');
 
             this.selector = $selector ? new SpeciesSelector($selector) : null;
 
             if ($reset) {
                 $reset.addEventListener('click', () => this.reset($reset));
-            }
-
-            // The title is a single line, so Enter must not start a new one.
-            if ($editor) {
-                // Formatted text has no native element, so the editor is given its role here, as richtext-toolbar.js does.
-                $editor.setAttribute('role', 'textbox');
-                $editor.setAttribute('aria-multiline', 'false');
-                $editor.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter') {
-                        event.preventDefault();
-                    }
-                });
             }
         }
 

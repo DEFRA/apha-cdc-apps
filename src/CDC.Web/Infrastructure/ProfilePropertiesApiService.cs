@@ -87,10 +87,11 @@ public sealed class ProfilePropertiesApiService(HttpClient httpClient) : IProfil
 
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
+            // Validation failures list their errors; a title the database refuses (for example one already in use) gives its reason as the detail.
             var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
             var message = problem?.Errors.Count > 0
                 ? string.Join(" ", problem.Errors.SelectMany(error => error.Value))
-                : fallbackMessage;
+                : problem?.Detail ?? fallbackMessage;
 
             return (SaveProfileOutcome.ValidationFailed, message);
         }

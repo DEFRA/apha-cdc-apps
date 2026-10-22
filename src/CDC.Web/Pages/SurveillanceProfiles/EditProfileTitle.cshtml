@@ -1,7 +1,11 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.EditProfileTitleModel
+@using Microsoft.AspNetCore.Mvc.ModelBinding
 @{
-    ViewData["Title"] = "Edit profile title";
+    var titleErrors = ViewData.ModelState[nameof(Model.ProfileTitle)]?.Errors ?? new ModelErrorCollection();
+    var hasErrors = !ViewData.ModelState.IsValid;
+
+    ViewData["Title"] = hasErrors ? "Error: Edit profile title" : "Edit profile title";
 }
 
 @section Breadcrumbs {
@@ -24,16 +28,28 @@
     <div class="govuk-grid-column-full">
         <h1 class="govuk-heading-l">Edit profile title</h1>
 
-        @if (!ModelState.IsValid)
+        @if (hasErrors)
         {
             <div class="govuk-error-summary" data-module="govuk-error-summary">
                 <div role="alert">
                     <h2 class="govuk-error-summary__title">There is a problem</h2>
                     <div class="govuk-error-summary__body">
                         <ul class="govuk-list govuk-error-summary__list">
-                            @foreach (var error in ModelState.Values.SelectMany(state => state.Errors))
+                            @foreach (var entry in ViewData.ModelState.Where(state => state.Value?.Errors.Count > 0))
                             {
-                                <li>@error.ErrorMessage</li>
+                                foreach (var message in entry.Value!.Errors.Select(error => error.ErrorMessage))
+                                {
+                                    <li>
+                                        @if (entry.Key == nameof(Model.ProfileTitle))
+                                        {
+                                            <a href="#ProfileTitleEditor">@message</a>
+                                        }
+                                        else
+                                        {
+                                            @message
+                                        }
+                                    </li>
+                                }
                             }
                         </ul>
                     </div>
@@ -52,41 +68,51 @@
             </div>
         }
 
-        <form method="post">
-            <input type="hidden" asp-for="LastUpdated" />
+        @if (Model.ShowForm)
+        {
+            <form method="post">
+                <input type="hidden" id="LastUpdated" name="LastUpdated" value="@Model.LastUpdated" />
 
-            <div class="govuk-form-group govuk-!-margin-bottom-6 @(ModelState[nameof(Model.ProfileTitle)]?.ValidationState == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid ? "govuk-form-group--error" : string.Empty)">
-                <div class="app-edit-title-row">
-                    <label class="govuk-label app-edit-title-row__label" for="ProfileTitleEditor">Profile title:</label>
-                    <div class="app-edit-title-row__input-wrapper">
-                        <span asp-validation-for="ProfileTitle" class="govuk-error-message"></span>
-                        <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor" role="toolbar" aria-label="Profile title formatting">
-                            <button type="button" class="app-title-toolbar__button" data-app-title-action="undo" aria-label="Undo" title="Undo">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                    <path d="M6 8H3V5" />
-                                    <path d="M3 8a7 7 0 1 1 2 5" />
-                                </svg>
-                            </button>
-                            <button type="button" class="app-title-toolbar__button" data-app-title-action="redo" aria-label="Redo" title="Redo">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                    <path d="M14 8h3V5" />
-                                    <path d="M17 8a7 7 0 1 0-2 5" />
-                                </svg>
-                            </button>
-                            <button type="button" class="app-title-toolbar__button app-title-toolbar__button--italic" data-app-title-action="italic" aria-label="Italic" title="Italic">
-                                <em>I</em>
-                            </button>
+                <div class="govuk-form-group govuk-!-margin-bottom-6@(titleErrors.Count > 0 ? " govuk-form-group--error" : string.Empty)">
+                    <div class="app-edit-title-row">
+                        <label class="govuk-label app-edit-title-row__label" id="ProfileTitleLabel" for="ProfileTitleEditor">Profile title:</label>
+                        <div class="app-edit-title-row__input-wrapper">
+                            @foreach (var error in titleErrors)
+                            {
+                                <p id="ProfileTitle-error" class="govuk-error-message">
+                                    <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
+                                </p>
+                            }
+                            <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor" role="toolbar" aria-label="Profile title formatting">
+                                <button type="button" class="app-title-toolbar__button" data-app-title-action="undo" aria-label="Undo" title="Undo">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <path d="M6 8H3V5" />
+                                        <path d="M3 8a7 7 0 1 1 2 5" />
+                                    </svg>
+                                </button>
+                                <button type="button" class="app-title-toolbar__button" data-app-title-action="redo" aria-label="Redo" title="Redo">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <path d="M14 8h3V5" />
+                                        <path d="M17 8a7 7 0 1 0-2 5" />
+                                    </svg>
+                                </button>
+                                <button type="button" class="app-title-toolbar__button app-title-toolbar__button--italic" data-app-title-action="italic" aria-label="Italic" title="Italic">
+                                    <em>I</em>
+                                </button>
+                            </div>
+                            <div id="ProfileTitleEditor"
+                                 class="govuk-input app-edit-title-row__input app-title-editor@(titleErrors.Count > 0 ? " govuk-input--error" : string.Empty)"
+                                 contenteditable="true"
+                                 aria-labelledby="ProfileTitleLabel"
+                                 aria-describedby="@(titleErrors.Count > 0 ? "ProfileTitle-error" : null)"
+                                 data-app-title-hidden-input="ProfileTitle">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</div>
+                            <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="@Model.ProfileTitle" />
                         </div>
-                        <div id="ProfileTitleEditor"
-                             class="govuk-input app-edit-title-row__input app-title-editor"
-                             contenteditable="true"
-                             data-app-title-hidden-input="ProfileTitle">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</div>
-                        <input type="hidden" asp-for="ProfileTitle" />
+                        <button type="submit" class="govuk-button app-edit-title-row__button" data-module="govuk-button" data-app-title-save>Save</button>
                     </div>
-                    <button type="submit" class="govuk-button app-edit-title-row__button" data-module="govuk-button">Save</button>
                 </div>
-            </div>
-        </form>
+            </form>
+        }
     </div>
 </div>
 
