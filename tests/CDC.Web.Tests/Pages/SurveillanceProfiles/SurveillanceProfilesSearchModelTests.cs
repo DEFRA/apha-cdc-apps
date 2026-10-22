@@ -15,6 +15,15 @@ namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
 
 public class SurveillanceProfilesSearchModelTests
 {
+    private static readonly DateTime Now = new(2026, 6, 15, 12, 0, 0);
+
+    private sealed class FixedTimeProvider(DateTime now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(now, TimeSpan.Zero);
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    }
+
     private static ProfileSearchResultDto Profile(
         string title,
         string status = "Published",
@@ -61,13 +70,15 @@ public class SurveillanceProfilesSearchModelTests
         IReadOnlyList<ProfileSearchResultDto>? searchResults = null,
         Exception? throwOnSearchProfiles = null,
         IReadOnlyList<SpeciesDto>? species = null,
-        Exception? throwOnGetAllSpecies = null)
+        Exception? throwOnGetAllSpecies = null,
+        TimeProvider? timeProvider = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var pageModel = new SurveillanceProfilesSearchModel(
             new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles),
             new FakeSpeciesApiService(species, throwOnGetAllSpecies),
-            new AlwaysEnabledLogger<SurveillanceProfilesSearchModel>())
+            new AlwaysEnabledLogger<SurveillanceProfilesSearchModel>(),
+            timeProvider)
         {
             PageContext = new PageContext
             {
@@ -436,7 +447,7 @@ public class SurveillanceProfilesSearchModelTests
     {
         var profile = Profile("A", draft: [Version(1)]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.All(groups, group => Assert.Equal(profile.Id, group.ProfileId));
     }
@@ -447,7 +458,7 @@ public class SurveillanceProfilesSearchModelTests
         var draftVersion = Version(1);
         var profile = Profile("A", draft: [draftVersion]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.Equal(2, groups.Count);
 
@@ -468,7 +479,7 @@ public class SurveillanceProfilesSearchModelTests
     {
         var profile = Profile("A", status: "Draft", draft: [Version(1)]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.Null(groups[0].ProfileStatus);
     }
@@ -478,7 +489,7 @@ public class SurveillanceProfilesSearchModelTests
     {
         var profile = Profile("A", published: [Version(2)], draft: [Version(1)]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.True(groups[0].ShowViewReportsLink);
         Assert.False(groups[1].ShowViewReportsLink);
@@ -492,7 +503,7 @@ public class SurveillanceProfilesSearchModelTests
             published: [Version(2), Version(1)],
             draft: [Version(4), Version(3)]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.All(groups[0].VersionHistory, row => Assert.True(row.ShowViewReportsLink));
         Assert.All(groups[1].VersionHistory, row => Assert.False(row.ShowViewReportsLink));
@@ -503,7 +514,7 @@ public class SurveillanceProfilesSearchModelTests
     {
         var profile = Profile("A", published: [Version(11), Version(13), Version(12)]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: false);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: false, now: Now);
 
         Assert.Equal([13, 12, 11], groups[0].VersionHistory.Select(row => row.Version.VersionNumber));
         Assert.Equal(13, groups[0].CurrentVersion!.VersionNumber);
@@ -516,7 +527,7 @@ public class SurveillanceProfilesSearchModelTests
             "A",
             draft: [Version(12, minor: 1), Version(11, minor: 2), Version(12, minor: 2), Version(11, minor: 10)]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
 
         Assert.Equal(
             [(12, 2), (12, 1), (11, 10), (11, 2)],
@@ -531,7 +542,7 @@ public class SurveillanceProfilesSearchModelTests
         var superseded = Version(9) with { EffectiveToUtc = endedOn };
         var profile = Profile("A", published: [Version(10), superseded]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: false);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: false, now: Now);
 
         Assert.Null(groups[0].CurrentVersion!.EffectiveToUtc);
         var previous = groups[0].VersionHistory.Single(row => row.Version.VersionNumber == 9);
@@ -544,7 +555,7 @@ public class SurveillanceProfilesSearchModelTests
         var draftVersion = Version(1);
         var profile = Profile("A", draft: [draftVersion]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
 
         var draftCard = Assert.Single(groups);
         Assert.Same(draftVersion, draftCard.CurrentVersion);
@@ -559,7 +570,7 @@ public class SurveillanceProfilesSearchModelTests
         var draft = Version(1);
         var profile = Profile("A", published: [published], draft: [draft]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished, displayDraft);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished, displayDraft, Now);
 
         var card = Assert.Single(groups);
         Assert.Same(displayPublished ? published : draft, card.CurrentVersion);
@@ -572,7 +583,7 @@ public class SurveillanceProfilesSearchModelTests
         var draft = Version(1);
         var profile = Profile("A", published: [published], draft: [draft]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.Equal(2, groups.Count);
         Assert.Same(published, groups[0].CurrentVersion);
@@ -592,7 +603,7 @@ public class SurveillanceProfilesSearchModelTests
             draft: [draft],
             whatIfScenarios: [Scenario(draft: [scenarioVersion])]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         var publishedCard = groups[0];
         Assert.Same(published, publishedCard.CurrentVersion);
@@ -612,7 +623,7 @@ public class SurveillanceProfilesSearchModelTests
             published: [currentSituationVersion],
             whatIfScenarios: [Scenario(published: [scenarioAPublished]), Scenario(draft: [scenarioBDraft])]);
 
-        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true);
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: true, displayDraft: true, now: Now);
 
         Assert.Equal(2, groups.Count);
         Assert.Same(currentSituationVersion, groups[0].CurrentVersion);
@@ -631,7 +642,7 @@ public class SurveillanceProfilesSearchModelTests
         };
 
         var sections = SurveillanceProfilesSearchModel.GetScenarioSections(
-            profile, displayPublished: true, displayDraft: true, displayScenarios: false);
+            profile, displayPublished: true, displayDraft: true, displayScenarios: false, now: Now);
 
         var section = Assert.Single(sections);
         Assert.Equal(profile.Id, section.ScenarioId);
@@ -654,7 +665,7 @@ public class SurveillanceProfilesSearchModelTests
         };
 
         var sections = SurveillanceProfilesSearchModel.GetScenarioSections(
-            profile, displayPublished: true, displayDraft: true, displayScenarios: true);
+            profile, displayPublished: true, displayDraft: true, displayScenarios: true, now: Now);
 
         Assert.Equal(["Current situation", "Scenario A", "Scenario B"], sections.Select(section => section.Title));
         Assert.Equal([profile.Id, scenarioA.ScenarioId, scenarioB.ScenarioId], sections.Select(section => section.ScenarioId));
@@ -666,7 +677,6 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Same(scenarioBDraft, sections[2].Groups[1].CurrentVersion);
 
         Assert.All(sections, section => Assert.All(section.Groups, group => Assert.Equal(section.ScenarioId, group.ProfileId)));
-        Assert.All(sections.Skip(1), section => Assert.All(section.Groups, group => Assert.Null(group.ProfileStatus)));
 
         var sectionIds = sections.SelectMany(section => section.Groups).Select(group => group.SectionId).ToList();
         Assert.Equal(sectionIds.Count, sectionIds.Distinct().Count());
@@ -684,10 +694,121 @@ public class SurveillanceProfilesSearchModelTests
             whatIfScenarios: [Scenario(published: [Version(1, isScenario: true)], draft: [Version(2, isScenario: true)], title: "Scenario A")]);
 
         var sections = SurveillanceProfilesSearchModel.GetScenarioSections(
-            profile, displayPublished, displayDraft, displayScenarios: true);
+            profile, displayPublished, displayDraft, displayScenarios: true, now: Now);
 
         Assert.Equal(2, sections.Count);
         Assert.All(sections, section => Assert.Single(section.Groups));
+    }
+
+    [Fact]
+    public void GetScenarioSections_GivesEveryScenarioItsOwnProfileStatusAndReview()
+    {
+        var scenario = Scenario(published: [Version(1, isScenario: true)], draft: [Version(2, isScenario: true)], title: "Scenario A") with
+        {
+            ProfileStatusName = "Under review",
+            NextReviewDate = Now.AddDays(30)
+        };
+        var profile = Profile("A", published: [Version(1)], draft: [Version(2)], whatIfScenarios: [scenario]) with
+        {
+            ProfileStatusName = "Active",
+            ReviewIncomplete = true
+        };
+
+        var sections = SurveillanceProfilesSearchModel.GetScenarioSections(
+            profile, displayPublished: true, displayDraft: true, displayScenarios: true, now: Now);
+
+        Assert.Equal(["Published", "Active"], sections[0].Groups.Select(group => group.ProfileStatus));
+        Assert.Equal([null, "Review incomplete"], sections[0].Groups.Select(group => group.ReviewStatus));
+        Assert.Equal(["Published", "Under review"], sections[1].Groups.Select(group => group.ProfileStatus));
+        Assert.Equal([null, "Next review: 15/07/2026"], sections[1].Groups.Select(group => group.ReviewStatus));
+    }
+
+    [Fact]
+    public void GetScenarioSections_OnThePageModel_UsesItsFiltersAndTheCurrentTime()
+    {
+        var pageModel = CreatePageModel([], timeProvider: new FixedTimeProvider(Now));
+        pageModel.DisplayPublished = false;
+        pageModel.DisplayDraft = true;
+        pageModel.DisplayScenarios = false;
+        var profile = Profile("A", draft: [Version(1)]) with { NextReviewDate = Now.AddDays(-1) };
+
+        var section = Assert.Single(pageModel.GetScenarioSections(profile));
+
+        var draftCard = Assert.Single(section.Groups);
+        Assert.Equal("Review overdue: 14/06/2026", draftCard.ReviewStatus);
+    }
+
+    [Theory]
+    [InlineData(false, "Review complete")]
+    [InlineData(true, "Review incomplete")]
+    public void GetReviewStatus_WithoutANextReviewDate_SaysWhetherTheReviewIsComplete(bool reviewIncomplete, string expected) =>
+        Assert.Equal(expected, SurveillanceProfilesSearchModel.GetReviewStatus(null, reviewIncomplete, Now));
+
+    [Fact]
+    public void GetReviewStatus_WithANextReviewDateInThePast_SaysTheReviewIsOverdue() =>
+        Assert.Equal(
+            "Review overdue: 14/06/2026",
+            SurveillanceProfilesSearchModel.GetReviewStatus(new DateTime(2026, 6, 14), reviewIncomplete: true, Now));
+
+    [Fact]
+    public void GetReviewStatus_WithANextReviewDateEarlierToday_SaysTheReviewIsOverdue() =>
+        Assert.Equal(
+            "Review overdue: 15/06/2026",
+            SurveillanceProfilesSearchModel.GetReviewStatus(new DateTime(2026, 6, 15), reviewIncomplete: false, Now));
+
+    [Fact]
+    public void GetReviewStatus_WithANextReviewDateInTheFuture_SaysWhenTheNextReviewIs() =>
+        Assert.Equal(
+            "Next review: 16/06/2026",
+            SurveillanceProfilesSearchModel.GetReviewStatus(new DateTime(2026, 6, 16), reviewIncomplete: true, Now));
+
+    [Fact]
+    public void GetVersionGroups_PublishedCard_ShowsThePublishedStatus_OnlyWhenItHasACurrentVersion()
+    {
+        var withVersion = SurveillanceProfilesSearchModel.GetVersionGroups(
+            Profile("A", published: [Version(1)]), displayPublished: true, displayDraft: false, now: Now);
+        var withoutVersion = SurveillanceProfilesSearchModel.GetVersionGroups(
+            Profile("A", draft: [Version(1)]), displayPublished: true, displayDraft: false, now: Now);
+
+        var publishedCard = Assert.Single(withVersion);
+        Assert.Equal("Published", publishedCard.ProfileStatus);
+        Assert.Null(publishedCard.ReviewStatus);
+        Assert.Null(Assert.Single(withoutVersion).ProfileStatus);
+    }
+
+    [Theory]
+    [InlineData("Validation complete", "Validation complete")]
+    [InlineData("", "None")]
+    public void GetVersionGroups_DraftCard_ShowsTheProfileStatusName_OrNone(string profileStatusName, string expected)
+    {
+        var profile = Profile("A", draft: [Version(1)]) with { ProfileStatusName = profileStatusName };
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
+
+        Assert.Equal(expected, Assert.Single(groups).ProfileStatus);
+    }
+
+    [Fact]
+    public void GetVersionGroups_DraftCard_ShowsTheProfileStatusAndReview_EvenWithoutACurrentDraftVersion()
+    {
+        var profile = Profile("A", published: [Version(1)]) with { ProfileStatusName = "Active" };
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
+
+        var draftCard = Assert.Single(groups);
+        Assert.Equal("(No current draft version)", draftCard.NoVersionMessage);
+        Assert.Equal("Active", draftCard.ProfileStatus);
+        Assert.Equal("Review complete", draftCard.ReviewStatus);
+    }
+
+    [Fact]
+    public void GetVersionGroups_DraftCard_ShowsWhereTheCurrentDraftStandsInItsReview()
+    {
+        var profile = Profile("A", draft: [Version(1)]) with { NextReviewDate = new DateTime(2026, 6, 1) };
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
+
+        Assert.Equal("Review overdue: 01/06/2026", Assert.Single(groups).ReviewStatus);
     }
 
     [Fact]

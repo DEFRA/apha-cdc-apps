@@ -147,6 +147,70 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.DoesNotContain("Wildlife scenario", body);
     }
 
+    // Legacy showed the published version's status on the Published card.
+    [Fact]
+    public async Task Search_ShowsTheProfileStatus_OnAPublishedCard()
+    {
+        var body = await GetResultsPartialAsync(SearchResults, "?DisplayPublished=true");
+
+        Assert.Contains("Profile Status: Published</p>", body);
+    }
+
+    // Legacy showed the scenario's profile status and review on the Draft card even with no current draft version.
+    [Fact]
+    public async Task Search_ShowsTheProfileStatusAndReview_OnTheDraftCard_EvenWithoutACurrentDraftVersion()
+    {
+        var results = new[] { SearchResults[0] with { ProfileStatusName = "Active" } };
+
+        var body = await GetResultsPartialAsync(results, "?DisplayPublished=false&DisplayDraft=true");
+
+        Assert.Contains("Draft current version: (No current draft version)", body);
+        Assert.Contains("Profile Status: Active</p>", body);
+        Assert.Contains(">Review complete</p>", body);
+    }
+
+    [Fact]
+    public async Task Search_ShowsNoneAsTheProfileStatus_WhenTheScenarioHasNone()
+    {
+        var body = await GetResultsPartialAsync(SearchResults, "?DisplayPublished=false&DisplayDraft=true");
+
+        Assert.Contains("Profile Status: None</p>", body);
+    }
+
+    [Theory]
+    [InlineData(2020, "Review overdue: 15/01/2020")]
+    [InlineData(2099, "Next review: 15/01/2099")]
+    public async Task Search_ShowsWhetherTheCurrentDraftsReviewIsOverdue(int year, string expected)
+    {
+        var draft = new ProfileHistoryItemDto
+        {
+            VersionId = Guid.NewGuid(),
+            VersionNumber = 2,
+            Title = "Bovine tuberculosis",
+            CreatedAtUtc = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsScenario = false
+        };
+        var results = new[] { SearchResults[0] with { DraftVersions = [draft], NextReviewDate = new DateTime(year, 1, 15) } };
+
+        var body = await GetResultsPartialAsync(results, "?DisplayPublished=false&DisplayDraft=true");
+
+        Assert.Contains($">{expected}</p>", body);
+    }
+
+    [Fact]
+    public async Task Search_WithScenariosDisplayed_ShowsEachScenariosOwnProfileStatus()
+    {
+        var results = ResultsWithAScenario();
+        var scenario = results[0].WhatIfScenarios[0] with { ProfileStatusName = "Under review", ReviewIncomplete = true };
+        results = [results[0] with { ProfileStatusName = "Active", WhatIfScenarios = [scenario] }];
+
+        var body = await GetResultsPartialAsync(results, "?DisplayPublished=true&DisplayDraft=true&DisplayScenarios=true");
+
+        Assert.Contains("Profile Status: Active</p>", body);
+        Assert.Contains("Profile Status: Under review</p>", body);
+        Assert.Contains(">Review incomplete</p>", body);
+    }
+
     private static IReadOnlyList<ProfileSearchResultDto> ResultsWithAScenario() =>
     [
         SearchResults[0] with

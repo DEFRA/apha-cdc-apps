@@ -65,8 +65,7 @@
                 <div class="app-profile-list">
                     @foreach (var profile in Model.PagedResults)
                     {
-                        var scenarioSections = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetScenarioSections(
-                            profile, Model.DisplayPublished, Model.DisplayDraft, Model.DisplayScenarios);
+                        var scenarioSections = Model.GetScenarioSections(profile);
 
                         <div class="app-profile-card govuk-!-margin-bottom-3">
                             <div class="app-profile-card__header">

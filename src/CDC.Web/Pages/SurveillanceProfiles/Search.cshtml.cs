@@ -1,3 +1,4 @@
+using System.Globalization;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -40,18 +41,24 @@ public class SurveillanceProfilesSearchModel : PageModel
             new EventId(5, nameof(LogSearchCompletedMessage)),
             "Profile search completed with {ResultCount} results");
 
+    private const string PublishedLabel = "Published";
+    private const string DraftLabel = "Draft";
+
     private readonly IApiClient apiClient;
     private readonly ISpeciesApiService speciesApiService;
     private readonly ILogger<SurveillanceProfilesSearchModel> logger;
+    private readonly TimeProvider clock;
 
     public SurveillanceProfilesSearchModel(
         IApiClient apiClient,
         ISpeciesApiService speciesApiService,
-        ILogger<SurveillanceProfilesSearchModel> logger)
+        ILogger<SurveillanceProfilesSearchModel> logger,
+        TimeProvider? timeProvider = null)
     {
         this.apiClient = apiClient;
         this.speciesApiService = speciesApiService;
         this.logger = logger;
+        clock = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>Gets or sets the search text filter.</summary>
@@ -274,8 +281,13 @@ public class SurveillanceProfilesSearchModel : PageModel
     public static IReadOnlyList<ProfileVersionGroupViewModel> GetVersionGroups(
         ProfileSearchResultDto profile,
         bool displayPublished,
-        bool displayDraft) =>
-        BuildGroups(profile.Id, profile.Status, profile.PublishedVersions, profile.DraftVersions, displayPublished, displayDraft);
+        bool displayDraft,
+        DateTime now) =>
+        BuildGroups(
+            new Lineage(profile.Id, profile.ProfileStatusName, profile.NextReviewDate, profile.ReviewIncomplete, profile.PublishedVersions, profile.DraftVersions),
+            displayPublished,
+            displayDraft,
+            now);
 
     /// <summary>Gets what to list under a profile: its own (current-situation) lineage and, when
     /// <paramref name="displayScenarios"/> is set, each of its "what-if" scenarios after it - every
@@ -285,7 +297,8 @@ public class SurveillanceProfilesSearchModel : PageModel
         ProfileSearchResultDto profile,
         bool displayPublished,
         bool displayDraft,
-        bool displayScenarios)
+        bool displayScenarios,
+        DateTime now)
     {
         var sections = new List<ProfileScenarioSectionViewModel>
         {
@@ -293,7 +306,7 @@ public class SurveillanceProfilesSearchModel : PageModel
             {
                 ScenarioId = profile.Id,
                 Title = profile.ScenarioTitle,
-                Groups = GetVersionGroups(profile, displayPublished, displayDraft)
+                Groups = GetVersionGroups(profile, displayPublished, displayDraft, now)
             }
         };
 
@@ -303,32 +316,58 @@ public class SurveillanceProfilesSearchModel : PageModel
             {
                 ScenarioId = scenario.ScenarioId,
                 Title = scenario.ScenarioTitle,
-                // A "what-if" scenario has no status of its own to show.
-                Groups = BuildGroups(scenario.ScenarioId, null, scenario.PublishedVersions, scenario.DraftVersions, displayPublished, displayDraft)
+                Groups = BuildGroups(
+                    new Lineage(scenario.ScenarioId, scenario.ProfileStatusName, scenario.NextReviewDate, scenario.ReviewIncomplete, scenario.PublishedVersions, scenario.DraftVersions),
+                    displayPublished,
+                    displayDraft,
+                    now)
             }));
         }
 
         return sections;
     }
 
-    private static List<ProfileVersionGroupViewModel> BuildGroups(
-        Guid lineageId,
-        string? status,
-        IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
-        IReadOnlyList<ProfileHistoryItemDto> draftVersions,
-        bool displayPublished,
-        bool displayDraft)
+    /// <summary>Gets what to list under a profile for the current filters, with reviews checked against the current time.</summary>
+    public IReadOnlyList<ProfileScenarioSectionViewModel> GetScenarioSections(ProfileSearchResultDto profile) =>
+        GetScenarioSections(profile, DisplayPublished, DisplayDraft, DisplayScenarios, clock.GetLocalNow().DateTime);
+
+    /// <summary>Describes where a scenario's current draft version stands in its review, as the legacy
+    /// page did: "Review incomplete" or "Review complete" when no next review date is set, otherwise
+    /// "Review overdue" once that date has passed, or "Next review" before it.</summary>
+    public static string GetReviewStatus(DateTime? nextReviewDate, bool reviewIncomplete, DateTime now)
+    {
+        if (nextReviewDate is not { } dueDate)
+        {
+            return reviewIncomplete ? "Review incomplete" : "Review complete";
+        }
+
+        var formattedDate = dueDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+
+        return dueDate < now ? $"Review overdue: {formattedDate}" : $"Next review: {formattedDate}";
+    }
+
+    private static List<ProfileVersionGroupViewModel> BuildGroups(Lineage lineage, bool displayPublished, bool displayDraft, DateTime now)
     {
         var groups = new List<ProfileVersionGroupViewModel>();
 
         if (displayPublished)
         {
-            groups.Add(BuildLineageCard(lineageId, status, publishedVersions, "Published", "No current published version"));
+            var publishedCard = BuildLineageCard(lineage.Id, lineage.PublishedVersions, PublishedLabel, "No current published version");
+
+            // Legacy shows the published version's own status, so only a current published version has one.
+            groups.Add(publishedCard with { ProfileStatus = publishedCard.CurrentVersion is null ? null : PublishedLabel });
         }
 
         if (displayDraft)
         {
-            groups.Add(BuildLineageCard(lineageId, status, draftVersions, "Draft", "No current draft version"));
+            var draftCard = BuildLineageCard(lineage.Id, lineage.DraftVersions, DraftLabel, "No current draft version");
+
+            // Legacy shows the scenario's profile status and review on its Draft card even when it has no current draft version.
+            groups.Add(draftCard with
+            {
+                ProfileStatus = string.IsNullOrEmpty(lineage.ProfileStatusName) ? "None" : lineage.ProfileStatusName,
+                ReviewStatus = GetReviewStatus(lineage.NextReviewDate, lineage.ReviewIncomplete, now)
+            });
         }
 
         return groups;
@@ -339,7 +378,6 @@ public class SurveillanceProfilesSearchModel : PageModel
     /// type's versions or with any other scenario's.</summary>
     private static ProfileVersionGroupViewModel BuildLineageCard(
         Guid lineageId,
-        string? status,
         IReadOnlyList<ProfileHistoryItemDto> versions,
         string typeLabel,
         string noVersionMessage)
@@ -361,12 +399,20 @@ public class SurveillanceProfilesSearchModel : PageModel
                     .OrderByDescending(row => SortKey(row.Version))
             ],
             ProfileId = lineageId,
-            ProfileStatus = current is null ? null : status,
             NoVersionMessage = current is null ? $"({noVersionMessage})" : null,
             // "View reports" links to a published version's report; the Draft card has none.
-            ShowViewReportsLink = typeLabel != "Draft"
+            ShowViewReportsLink = typeLabel != DraftLabel
         };
     }
+
+    /// <summary>One version lineage the page lists - a profile's own, or a "what-if" scenario - and what its cards show.</summary>
+    private readonly record struct Lineage(
+        Guid Id,
+        string ProfileStatusName,
+        DateTime? NextReviewDate,
+        bool ReviewIncomplete,
+        IReadOnlyList<ProfileHistoryItemDto> PublishedVersions,
+        IReadOnlyList<ProfileHistoryItemDto> DraftVersions);
 
     private string? BuildSearchUrl(object routeValues)
     {
@@ -591,9 +637,13 @@ public sealed record ProfileVersionGroupViewModel
     /// link to <c>EditProfileQuestions</c> for the correct profile.</summary>
     public required Guid ProfileId { get; init; }
 
-    /// <summary>Only set for the profile's own Published/Draft cards - "what-if" scenarios have
-    /// no status of their own.</summary>
+    /// <summary>Gets the "Profile Status" to show: "Published" on a Published card with a current
+    /// version, or on a Draft card the scenario's profile status ("None" when it has none), shown
+    /// even when there is no current draft version.</summary>
     public string? ProfileStatus { get; init; }
+
+    /// <summary>Gets where the scenario's current draft stands in its review, shown only on a Draft card.</summary>
+    public string? ReviewStatus { get; init; }
 
     /// <summary>Set only when this is a Published or Draft card for a profile that has no version
     /// of that type, so a static placeholder is shown instead of a version summary.</summary>
