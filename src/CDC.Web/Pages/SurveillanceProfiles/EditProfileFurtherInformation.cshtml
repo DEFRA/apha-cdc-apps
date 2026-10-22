@@ -16,7 +16,7 @@
 
     <div class="govuk-tabs app-tab-carousel">
         <partial name="_ProfileSectionTabs" model="tabsModel" />
-        <div class="govuk-tabs__panel" id="profile-further-information-panel">
+        <div class="govuk-tabs__panel" id="profile-further-information-panel" data-app-paged-region>
             @if (Model.HasNoVersion)
             {
                 <div class="govuk-inset-text">This profile has no current version to browse.</div>

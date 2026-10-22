@@ -47,6 +47,15 @@ else if (Model.ShowAuditTrail)
     }
     else
     {
+        var pagination = new PaginationViewModel
+        {
+            CurrentPage = Model.AuditTrailPage,
+            TotalPages = Model.AuditTrailTotalPages,
+            PageUrl = Model.BuildAuditTrailPageUrl,
+            LandmarkLabel = "Audit trail pages"
+        };
+
+        <div id="audit-trail-region" data-app-paged-region>
         <p class="govuk-body app-audit-trail-back-link">
             <a class="govuk-link" asp-page="./Maintain">Back to Maintain species data</a>
         </p>
@@ -96,14 +105,6 @@ else if (Model.ShowAuditTrail)
             </tbody>
         </table>
 
-
-        var pagination = new PaginationViewModel
-        {
-            CurrentPage = Model.AuditTrailPage,
-            TotalPages = Model.AuditTrailTotalPages,
-            PageUrl = Model.BuildAuditTrailPageUrl,
-            LandmarkLabel = "Audit trail pages"
-        };
         <partial name="_Pagination" model="pagination" />
 
         @if (Model.AuditTrailDetailsEntry is not null)
@@ -153,6 +154,7 @@ else if (Model.ShowAuditTrail)
                 </div>
             </div>
         }
+        </div>
     }
 }
 else if (Model.SpeciesTree.Nodes.Count == 0)

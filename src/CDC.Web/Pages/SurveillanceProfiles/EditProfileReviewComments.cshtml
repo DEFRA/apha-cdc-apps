@@ -10,7 +10,7 @@
 
     <div class="govuk-tabs app-tab-carousel">
         <partial name="_ProfileSectionTabs" model="tabsModel" />
-        <div class="govuk-tabs__panel" id="profile-review-comments-panel">
+        <div class="govuk-tabs__panel" id="profile-review-comments-panel" data-app-paged-region>
             @if (Model.ActionMessage is not null)
             {
                 if (Model.ActionMessageIsError)

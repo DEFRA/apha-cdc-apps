@@ -57,6 +57,18 @@ public class HelpSupportIntegrationTests
         Assert.Contains("<nav class=\"govuk-pagination\" aria-label=\"Static reports pages\">", body);
     }
 
+    // The pagination links reload this region in place, so it has to hold everything the page number changes.
+    [Fact]
+    public async Task StaticReports_MarksTheReportListAndItsPaginationAsAPagedRegion()
+    {
+        using var factory = CreateFactory(Reports(30));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/HelpSupport/StaticReports?PageNumber=2&PageSize=10");
+
+        PagedRegionAssert.ContainsPagination(body, "static-reports-region");
+    }
+
     [Fact]
     public async Task StaticReports_LeavesThePageTitleAlone_WhenThereIsOnlyOnePage()
     {

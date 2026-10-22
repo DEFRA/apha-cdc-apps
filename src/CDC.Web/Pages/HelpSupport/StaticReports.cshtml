@@ -9,6 +9,7 @@
 
 <h1 class="govuk-heading-l">@Model.Breadcrumb.PageName</h1>
 
+<div id="static-reports-region" data-app-paged-region>
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
     <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-static-reports-success-title" data-module="govuk-notification-banner">
@@ -156,6 +157,7 @@ else
     };
     <partial name="_Pagination" model="pagination" />
 }
+</div>
 
 @if (!Model.IsHistoryMode && Model.CanUpload)
 {

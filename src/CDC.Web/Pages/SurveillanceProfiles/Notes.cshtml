@@ -51,7 +51,7 @@ else
         <div class="govuk-grid-column-one-quarter">
             <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(false, false, Model.BuildNotesUrl(Model.ProfileId), true, subnavModel)" />
         </div>
-        <div class="govuk-grid-column-three-quarters">
+        <div class="govuk-grid-column-three-quarters" id="notes-region" data-app-paged-region>
             @if (Model.HasNoVersion)
             {
                 <div class="govuk-inset-text">This profile has no current version to browse.</div>

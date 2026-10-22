@@ -67,6 +67,34 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("Simplifying the name", body);
     }
 
+    // The pagination links reload this region in place, so the details of the change shown below the table are inside it too.
+    [Fact]
+    public async Task Maintain_MarksTheAuditTrailAndItsPaginationAsAPagedRegion_WhenThereIsMoreThanOnePage()
+    {
+        var auditTrail = Enumerable.Range(1, 25)
+            .Select(number => new SpeciesAuditTrailEntryDto
+            {
+                Id = Guid.NewGuid(),
+                OldName = $"Old name {number}",
+                NewName = $"New name {number}",
+                OldParent = "Cattle",
+                NewParent = "Cattle",
+                ChangedBy = "a.user",
+                LogDate = DateTime.UtcNow,
+                ReasonForChange = "Simplifying the name"
+            })
+            .ToList();
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"/SpeciesData/Maintain?handler=AuditTrail&AuditTrailPage=2&AuditTrailPageSize=10&AuditTrailDetailsId={auditTrail[12].Id}");
+
+        PagedRegionAssert.ContainsPagination(body, "audit-trail-region");
+        Assert.True(
+            body.IndexOf("Details of change to", StringComparison.Ordinal) > body.IndexOf("id=\"audit-trail-region\"", StringComparison.Ordinal),
+            "The details of the change are not inside the region.");
+    }
+
     [Fact]
     public async Task Maintain_OffersAnAddAction_WhenSpeciesAreAvailable()
     {

@@ -66,6 +66,7 @@ public partial class MaintainContributorsIntegrationTests
         Assert.Contains("govuk-pagination", body);
         Assert.Contains("(page 2 of 3) - D2R2</title>", body);
         Assert.Contains(">Add<", body);
+        PagedRegionAssert.ContainsPagination(body, "contributors-region");
     }
 
     [Fact]

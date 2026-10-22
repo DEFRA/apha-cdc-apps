@@ -33,6 +33,7 @@ else
     </p>
 }
 
+<div id="general-reports-region" data-app-paged-region>
 @if (!string.IsNullOrEmpty(Model.StatusMessage))
 {
     <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="general-reports-success-title" data-module="govuk-notification-banner">
@@ -179,6 +180,7 @@ else
     };
     <partial name="_Pagination" model="pagination" />
 }
+</div>
 
 @if (Model.CanManageReports && !Model.IsHistoryPage)
 {
