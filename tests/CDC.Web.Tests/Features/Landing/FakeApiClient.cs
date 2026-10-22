@@ -102,11 +102,18 @@ internal sealed class FakeApiClient( // NOSONAR
     public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_profileStatusTypes);
 
+    /// <summary>Gets the profile and status most recently sent to <see cref="UpdateProfileStatusAsync"/>, or <see langword="null"/> when none was.</summary>
+    public (Guid ProfileId, Guid ProfileStatusId)? LastUpdatedProfileStatus { get; private set; }
+
     public Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
         Guid profileId,
         Guid profileStatusId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(_updateProfileStatusResult);
+        CancellationToken cancellationToken = default)
+    {
+        LastUpdatedProfileStatus = (profileId, profileStatusId);
+
+        return Task.FromResult(_updateProfileStatusResult);
+    }
 
     public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
         bool isUserManual = false,

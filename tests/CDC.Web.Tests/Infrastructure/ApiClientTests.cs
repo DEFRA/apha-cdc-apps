@@ -197,13 +197,17 @@ public class ApiClientTests
     public async Task UpdateProfileStatusAsync_ReturnsSuccess_OnNoContent()
     {
         var profileId = Guid.NewGuid();
+        var profileStatusId = Guid.NewGuid();
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
         var client = CreateClient(handler);
 
-        var result = await client.UpdateProfileStatusAsync(profileId, Guid.NewGuid());
+        var result = await client.UpdateProfileStatusAsync(profileId, profileStatusId);
 
         Assert.Equal(UpdateProfileStatusOutcome.Success, result.Outcome);
+        Assert.Equal(HttpMethod.Put, handler.LastRequestMethod);
         Assert.Equal($"/api/profiles/{profileId}/status", handler.LastRequestUri!.AbsolutePath);
+        // The profile is in the route, so the API must accept a body that carries only the status.
+        Assert.Equal($$"""{"profileStatusId":"{{profileStatusId}}"}""", handler.LastRequestBody);
     }
 
     [Fact]
