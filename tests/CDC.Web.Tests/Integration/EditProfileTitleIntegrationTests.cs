@@ -37,6 +37,10 @@ public partial class EditProfileTitleIntegrationTests
         Assert.Contains("<title>Edit profile title - D2R2</title>", page);
         Assert.Contains(">Bovine <em>tuberculosis</em></div>", page);
         Assert.Contains("data-app-title-save>Save</button>", page);
+        Assert.Contains("<div aria-live=\"polite\">", page);
+        Assert.Contains(
+            "<p id=\"ProfileTitle-required-error\" class=\"govuk-error-message\" data-app-title-required-error hidden><span class=\"govuk-visually-hidden\">Error:</span> You must enter a profile title</p>",
+            page);
         Assert.DoesNotContain("govuk-error-summary", page);
         Assert.DoesNotContain("govuk-input--error", page);
     }
@@ -92,7 +96,7 @@ public partial class EditProfileTitleIntegrationTests
         Assert.Contains("There is a problem", body);
         Assert.Contains("<a href=\"#ProfileTitleEditor\">You must enter a profile title</a>", body);
         Assert.Contains("<p id=\"ProfileTitle-error\" class=\"govuk-error-message\">", body);
-        Assert.Contains("<span class=\"govuk-visually-hidden\">Error:</span> You must enter a profile title", body);
+        Assert.Matches("<p id=\"ProfileTitle-error\"[^>]*>\\s*<span class=\"govuk-visually-hidden\">Error:</span> You must enter a profile title\\s*</p>", body);
         Assert.Contains("govuk-form-group--error", body);
         Assert.Contains("govuk-input--error", body);
         Assert.Contains("aria-describedby=\"ProfileTitle-error\"", body);

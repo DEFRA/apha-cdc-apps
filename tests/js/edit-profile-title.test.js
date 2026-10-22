@@ -1,15 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/CDC.Web/wwwroot/js/edit-profile-title.js';
 
-function buildEditor({ html = 'Initial title', withSaveButton = true } = {}) {
+const SERVER_ERROR = 'The profile title is already in use for a different profile';
+
+function buildEditor({ html = 'Initial title', withSaveButton = true, withRequiredError = true, serverError = null } = {}) {
   document.body.innerHTML = `
-    <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor" role="toolbar" aria-label="Profile title formatting">
-      <button type="button" data-app-title-action="undo" aria-label="Undo">Undo</button>
-      <button type="button" data-app-title-action="redo" aria-label="Redo">Redo</button>
-      <button type="button" data-app-title-action="italic" aria-label="Italic">I</button>
+    <div class="govuk-form-group${serverError ? ' govuk-form-group--error' : ''}">
+      ${serverError ? `<p id="ProfileTitle-error" class="govuk-error-message">${serverError}</p>` : ''}
+      ${withRequiredError ? '<div aria-live="polite"><p id="ProfileTitle-required-error" class="govuk-error-message" data-app-title-required-error hidden>You must enter a profile title</p></div>' : ''}
+      <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor" role="toolbar" aria-label="Profile title formatting">
+        <button type="button" data-app-title-action="undo" aria-label="Undo">Undo</button>
+        <button type="button" data-app-title-action="redo" aria-label="Redo">Redo</button>
+        <button type="button" data-app-title-action="italic" aria-label="Italic">I</button>
+      </div>
+      <div id="ProfileTitleEditor" class="govuk-input${serverError ? ' govuk-input--error' : ''}" contenteditable="true"${serverError ? ' aria-describedby="ProfileTitle-error"' : ''} data-app-title-hidden-input="ProfileTitle">${html}</div>
+      <input id="ProfileTitle" type="hidden" value="" />
     </div>
-    <div id="ProfileTitleEditor" contenteditable="true" data-app-title-hidden-input="ProfileTitle">${html}</div>
-    <input id="ProfileTitle" type="hidden" value="" />
     ${withSaveButton ? '<button type="submit" data-app-title-save>Save</button>' : ''}
   `;
 
@@ -21,7 +27,10 @@ function buildEditor({ html = 'Initial title', withSaveButton = true } = {}) {
     undoButton: document.querySelector('[data-app-title-action="undo"]'),
     redoButton: document.querySelector('[data-app-title-action="redo"]'),
     italicButton: document.querySelector('[data-app-title-action="italic"]'),
-    saveButton: document.querySelector('[data-app-title-save]')
+    saveButton: document.querySelector('[data-app-title-save]'),
+    group: document.querySelector('.govuk-form-group'),
+    requiredError: document.getElementById('ProfileTitle-required-error'),
+    serverError: document.getElementById('ProfileTitle-error')
   };
 }
 
@@ -313,6 +322,90 @@ describe('edit-profile-title', () => {
       typeInto(editor, '');
 
       expect(hiddenInput.value).toBe('');
+    });
+  });
+
+  describe('the required message', () => {
+    function expectShown({ editor, group, requiredError }) {
+      expect(requiredError.hidden).toBe(false);
+      expect(group.classList.contains('govuk-form-group--error')).toBe(true);
+      expect(editor.classList.contains('govuk-input--error')).toBe(true);
+      expect(editor.getAttribute('aria-describedby')).toBe('ProfileTitle-required-error');
+    }
+
+    it('is not shown when the page loads, even with no text, as in legacy', () => {
+      const { requiredError } = buildEditor({ html: '' });
+
+      expect(requiredError.hidden).toBe(true);
+    });
+
+    it('is shown with the error styling once the title is emptied, and goes when text returns', () => {
+      const page = buildEditor();
+      const { editor, group, requiredError } = page;
+
+      typeInto(editor, '');
+      expectShown(page);
+
+      typeInto(editor, 'Anthrax');
+      expect(requiredError.hidden).toBe(true);
+      expect(group.classList.contains('govuk-form-group--error')).toBe(false);
+      expect(editor.classList.contains('govuk-input--error')).toBe(false);
+      expect(editor.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it.each(['<br>', '<i></i>', '&nbsp;&nbsp;', '   '])('is shown for a title of only %j', (html) => {
+      const page = buildEditor();
+
+      typeInto(page.editor, html);
+
+      expectShown(page);
+    });
+
+    it('is shown when the editor loses focus with no text', () => {
+      const page = buildEditor();
+
+      page.editor.innerHTML = '';
+      page.editor.dispatchEvent(new Event('blur'));
+
+      expectShown(page);
+    });
+
+    it('is shown when undo returns to a title with no text', async () => {
+      const page = buildEditor({ html: '' });
+
+      typeInto(page.editor, 'Alpha');
+      await vi.advanceTimersByTimeAsync(300);
+      expect(page.requiredError.hidden).toBe(true);
+
+      page.undoButton.click();
+
+      expectShown(page);
+    });
+
+    it('stands in for the message the server gave for the title while the title is empty, then gives it back', () => {
+      const page = buildEditor({ serverError: SERVER_ERROR });
+      const { editor, group, requiredError, serverError } = page;
+
+      typeInto(editor, '');
+      expectShown(page);
+      expect(serverError.hidden).toBe(true);
+
+      typeInto(editor, 'Anthrax');
+      expect(requiredError.hidden).toBe(true);
+      expect(serverError.hidden).toBe(false);
+      expect(group.classList.contains('govuk-form-group--error')).toBe(true);
+      expect(editor.classList.contains('govuk-input--error')).toBe(true);
+      expect(editor.getAttribute('aria-describedby')).toBe('ProfileTitle-error');
+    });
+
+    it('is left alone on a page that has none', () => {
+      const { editor, group, hiddenInput } = buildEditor({ withRequiredError: false });
+
+      typeInto(editor, '');
+
+      expect(hiddenInput.value).toBe('');
+      expect(group.classList.contains('govuk-form-group--error')).toBe(false);
+      expect(editor.hasAttribute('aria-describedby')).toBe(false);
     });
   });
 });

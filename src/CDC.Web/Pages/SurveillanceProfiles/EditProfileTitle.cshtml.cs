@@ -14,6 +14,9 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 [Authorize(Policy = AuthorizationPolicies.CanEditProfile)]
 public class EditProfileTitleModel : PageModel
 {
+    /// <summary>The message for a title with no text, which the page's script also shows as soon as the title is emptied.</summary>
+    public const string TitleRequiredMessage = "You must enter a profile title";
+
     private const int MaxTitleLength = 255;
 
     private static readonly Action<ILogger, Guid, Exception?> LogProfileNotFoundMessage =
@@ -171,7 +174,7 @@ public class EditProfileTitleModel : PageModel
         {
             // Leaves the editor empty, not holding the <br> or &nbsp; it left behind.
             ProfileTitle = string.Empty;
-            ModelState.AddModelError(nameof(ProfileTitle), "You must enter a profile title");
+            ModelState.AddModelError(nameof(ProfileTitle), TitleRequiredMessage);
         }
         else if (title.Length > MaxTitleLength)
         {

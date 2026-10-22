@@ -251,6 +251,11 @@ html {
   margin-bottom: 0;
 }
 
+/* .govuk-error-message sets display:block, which would otherwise override the hidden attribute. */
+.app-edit-title-row__input-wrapper .govuk-error-message[hidden] {
+  display: none;
+}
+
 /* Edit profile title: formatting toolbar shown above the title textbox. */
 .app-title-toolbar {
   display: inline-flex;
