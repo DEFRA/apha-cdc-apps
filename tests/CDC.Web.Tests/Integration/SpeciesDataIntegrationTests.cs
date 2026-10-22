@@ -367,6 +367,12 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("Can individual animals be identified?", body);
         Assert.Contains("Show records", body);
         Assert.Contains("Movements", body);
+
+        // Moving between sections is the Design System's "block" pagination, with only a next link from the first section.
+        Assert.Contains("<nav class=\"govuk-pagination govuk-pagination--block govuk-!-margin-top-6\" aria-label=\"Section pagination\">", body);
+        Assert.Contains("<span class=\"govuk-pagination__link-label\">2. Movements</span>", body);
+        Assert.Contains("Next<span class=\"govuk-visually-hidden\"> page</span>", body);
+        Assert.DoesNotContain("rel=\"prev\"", body);
     }
 
     [Fact]

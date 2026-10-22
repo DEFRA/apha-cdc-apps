@@ -67,6 +67,12 @@ public class EditProfileFurtherInformationModel(
     /// <inheritdoc />
     public override bool HasFormErrors => FormErrors.Count > 0 || ActionMessageIsError;
 
+    /// <inheritdoc />
+    public override int ListPageNumber => PageNumber;
+
+    /// <inheritdoc />
+    public override int ListTotalPages => TotalPages;
+
     /// <summary>Gets or sets the open panel (<c>add</c> or <c>select</c>); with only a <see cref="NoteId"/> the View panel opens.</summary>
     [BindProperty(SupportsGet = true)]
     public string? Mode { get; set; }

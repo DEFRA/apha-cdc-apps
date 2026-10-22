@@ -35,7 +35,7 @@
     });
 
     function submitFiltersFromLink(event, $form) {
-        const $link = event.target.closest('[data-app-search-letter], [data-app-search-page]');
+        const $link = event.target.closest('[data-app-search-letter], [data-app-page]');
 
         // A modified click opens the link elsewhere, which only its own address can do.
         if (!$link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
@@ -57,7 +57,7 @@
             $letter.value = $link.dataset.appSearchLetter;
             $page.value = '1';
         } else {
-            $page.value = $link.dataset.appSearchPage;
+            $page.value = $link.dataset.appPage;
         }
 
         $form.requestSubmit();

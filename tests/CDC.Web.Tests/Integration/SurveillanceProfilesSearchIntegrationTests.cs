@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
@@ -107,8 +108,66 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("data-app-search-letter=\"All\"", page);
         Assert.All("ABCDEFGHIJKLMNOPQRSTUVWXYZ", letter => Assert.Contains($"data-app-search-letter=\"{letter}\"", page));
         Assert.Contains("<input type=\"hidden\" id=\"PageNumber\" name=\"PageNumber\" value=\"1\" form=\"search-form\" />", page);
-        Assert.Contains("data-app-search-page=\"1\" aria-label=\"Page 1\"", page);
-        Assert.Contains("data-app-search-page=\"2\" rel=\"next\"", page);
+        Assert.Contains("aria-label=\"Page 1\" aria-current=\"page\" data-app-page=\"1\"", page);
+        Assert.Contains("rel=\"next\" data-app-page=\"2\"", page);
+    }
+
+    // The Design System lists the first and last pages and the current page with its neighbours, with an ellipsis for pages left out.
+    [Fact]
+    public async Task Search_ListsAWindowOfPagesWithEllipses_WhenThereAreManyPages()
+    {
+        var profiles = Enumerable.Range(1, 1000)
+            .Select(number => SearchResults[0] with { Id = Guid.NewGuid(), Title = $"Profile {number:0000}" })
+            .ToList();
+        using var factory = CreateFactory(profiles);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search?PageNumber=5");
+
+        Assert.Equal(["1", "&ctdot;", "4", "5", "6", "&ctdot;", "100"], PaginationListItems(page));
+        Assert.Contains("<nav class=\"govuk-pagination\" aria-label=\"Search results pages\">", page);
+        Assert.Contains("govuk-pagination__item govuk-pagination__item--current\">", page);
+        Assert.Contains("rel=\"prev\"", page);
+        Assert.Contains("rel=\"next\"", page);
+        Assert.Contains("Previous<span class=\"govuk-visually-hidden\"> page</span>", page);
+        Assert.Contains("Next<span class=\"govuk-visually-hidden\"> page</span>", page);
+    }
+
+    // The Design System shows no previous link on the first page and no next link on the last page.
+    [Theory]
+    [InlineData(1, "rel=\"prev\"", "rel=\"next\"")]
+    [InlineData(2, "rel=\"next\"", "rel=\"prev\"")]
+    public async Task Search_OmitsThePreviousLinkOnTheFirstPage_AndTheNextLinkOnTheLast(int pageNumber, string missingLink, string presentLink)
+    {
+        var profiles = Enumerable.Range(1, 11)
+            .Select(number => SearchResults[0] with { Id = Guid.NewGuid(), Title = $"Profile {number:00}" })
+            .ToList();
+        using var factory = CreateFactory(profiles);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/Search?PageNumber={pageNumber}");
+
+        Assert.DoesNotContain(missingLink, page);
+        Assert.Contains(presentLink, page);
+    }
+
+    [Fact]
+    public async Task Search_ShowsNoPagination_WhenThereIsOnlyOnePage()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.DoesNotContain("govuk-pagination", page);
+    }
+
+    private static List<string> PaginationListItems(string html)
+    {
+        var list = Regex.Match(html, "<ul class=\"govuk-pagination__list\">(.*?)</ul>", RegexOptions.Singleline).Groups[1].Value;
+
+        return [.. Regex.Matches(list, "<li class=\"govuk-pagination__item[^\"]*\">(.*?)</li>", RegexOptions.Singleline)
+            .Select(item => Regex.Replace(item.Groups[1].Value, "<[^>]+>", string.Empty).Trim())];
     }
 
     // Legacy listed every scenario under its own title with its own Manage link, and moved those links out of the profile header.

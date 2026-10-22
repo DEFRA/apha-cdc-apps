@@ -119,6 +119,8 @@ public class EditProfileReviewCommentsModelTests
         Assert.Equal(12, pageModel.TotalRecords);
         Assert.Equal(2, pageModel.TotalPages);
         Assert.Equal(2, pageModel.PageNumber);
+        Assert.Equal(2, pageModel.ListPageNumber);
+        Assert.Equal(2, pageModel.ListTotalPages);
         Assert.Equal(2, pageModel.ReviewComments.Count);
     }
 

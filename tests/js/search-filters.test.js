@@ -121,7 +121,7 @@ function buildSearchPage({ searchText = '', letter = 'All', page = '2', withPage
     </form>
     <div id="search-results-container">
       ${withPageField ? `<input type="hidden" id="PageNumber" name="PageNumber" value="${page}" form="search-form" />` : ''}
-      <a id="next" href="/SurveillanceProfiles/Search?SearchText=foo&PageNumber=3" data-app-search-page="3"><span>Next</span></a>
+      <a id="next" href="/SurveillanceProfiles/Search?SearchText=foo&PageNumber=3" data-app-page="3"><span>Next</span></a>
       <a id="elsewhere" href="/somewhere-else">Elsewhere</a>
     </div>
   `;
@@ -220,7 +220,7 @@ describe('search-filters letter and page links', () => {
     const { submissions, results } = buildSearchPage();
     results.innerHTML = `
       <input type="hidden" id="PageNumber" name="PageNumber" value="1" form="search-form" />
-      <a id="refreshed" href="/SurveillanceProfiles/Search?PageNumber=2" data-app-search-page="2">2</a>
+      <a id="refreshed" href="/SurveillanceProfiles/Search?PageNumber=2" data-app-page="2">2</a>
     `;
 
     expect(click(document.getElementById('refreshed'))).toBe(true);
