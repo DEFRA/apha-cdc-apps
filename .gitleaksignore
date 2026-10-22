@@ -1,0 +1,9 @@
+# Gitleaks findings that have been reviewed and are not secrets belonging to this service.
+# One fingerprint per line: <commit>:<file>:<rule>:<line>.
+#
+# Commit 699bdb43 added a saved copy of a Microsoft sign-in page as editfilters.html (not in the
+# current tree). The "jwt" match is Microsoft's expired FIDO challenge token
+# (aud urn:microsoft:fido:challenge) and the "generic-api-key" match is the telemetry key
+# embedded in Microsoft's own sign-in page.
+699bdb43c8588e618dd2ece96ce1527acca39935:editfilters.html:generic-api-key:36
+699bdb43c8588e618dd2ece96ce1527acca39935:editfilters.html:jwt:36

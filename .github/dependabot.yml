@@ -1,0 +1,88 @@
+version: 2
+ 
+# Release labels: build-test-publish-images.yml requires exactly one release:api:* or
+# release:web:* label for every component whose paths change, and merging publishes a new
+# version of that component. Dependabot cannot work out which component a change affects, so
+# both labels are applied where a change can reach either one. A label for a component that
+# did not change is ignored with a warning, so this never blocks a pull request.
+#
+# Dependabot pull requests receive no repository secrets. Add FORTIGATE_ROOT_CA_CERT_BASE64,
+# FORTIGATE_CA_CERT_BASE64 (and SONAR_TOKEN when SONAR_ENABLED is true) under
+# Settings > Secrets and variables > Dependabot, or the container-validation job will fail.
+ 
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - "/src/*"
+      - "/tests/*"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - "release:api:patch"
+      - "release:web:patch"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      nuget-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+ 
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - "release:api:patch"
+      - "release:web:patch"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+ 
+  # Only the vitest/jsdom test tooling. These files are outside both component path filters,
+  # so no release label is needed.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps-dev)"
+ 
+  # Base-image tag bumps only; a new .NET major version is a deliberate, reviewed change.
+  - package-ecosystem: docker
+    directory: "/src/CDC.Api"
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - "release:api:patch"
+    commit-message:
+      prefix: "chore(docker)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+ 
+  - package-ecosystem: docker
+    directory: "/src/CDC.Web"
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - "release:web:patch"
+    commit-message:
+      prefix: "chore(docker)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+ 

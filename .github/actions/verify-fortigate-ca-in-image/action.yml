@@ -1,0 +1,42 @@
+name: Verify FortiGate CA chain is trusted in image
+description: >
+  Runs the built Windows container and checks that the FortiGate root and issuing CA certificates are
+  installed in its certificate stores and that the chain validates.
+ 
+inputs:
+  image:
+    description: Local image reference to check, for example cdc-api:<sha>
+    required: true
+  root-thumbprint:
+    description: Thumbprint of the root CA certificate, from install-fortigate-ca
+    required: true
+  subca-thumbprint:
+    description: Thumbprint of the issuing CA certificate, from install-fortigate-ca
+    required: true
+ 
+runs:
+  using: composite
+  steps:
+    - name: Verify FortiGate CA chain is trusted in image
+      shell: pwsh
+      env:
+        IMAGE: ${{ inputs.image }}
+        ROOT_THUMBPRINT: ${{ inputs.root-thumbprint }}
+        SUBCA_THUMBPRINT: ${{ inputs.subca-thumbprint }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $image = $env:IMAGE
+        $check = @'
+        $root = Get-ChildItem Cert:\LocalMachine\Root | Where-Object Thumbprint -eq $env:ROOT_THUMBPRINT
+        if (-not $root) { 'Root CA is missing from the Root store.'; exit 1 }
+        $sub = Get-ChildItem Cert:\LocalMachine\CA | Where-Object Thumbprint -eq $env:SUBCA_THUMBPRINT
+        if (-not $sub) { 'Subordinate CA is missing from the CA store.'; exit 1 }
+        $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
+        $chain.ChainPolicy.RevocationMode = 'NoCheck'
+        if (-not $chain.Build($sub)) { 'Chain does not validate: ' + (($chain.ChainStatus | ForEach-Object { $_.Status }) -join ','); exit 1 }
+        'OK'
+        '@
+        $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($check))
+        $output = docker run --rm -e "ROOT_THUMBPRINT=$env:ROOT_THUMBPRINT" -e "SUBCA_THUMBPRINT=$env:SUBCA_THUMBPRINT" --entrypoint powershell $image -NoProfile -EncodedCommand $encoded
+        if ($LASTEXITCODE -ne 0) { throw "FortiGate CA chain check failed in ${image}: $($output | Out-String)" }
+        Write-Host "FortiGate CA chain validates in $image."
