@@ -173,22 +173,24 @@ public class ProfileManagementControllerTests
 
         var response = await CreateController().UpdateProfileStatus(
             ProfileManagementTestData.ProfileId,
-            new UpdateProfileStatusCommand(Guid.Empty, ProfileManagementTestData.ProfileStatusId),
+            new UpdateProfileStatusRequestDto { ProfileStatusId = ProfileManagementTestData.ProfileStatusId },
             CancellationToken.None);
 
         AssertProblem(response, StatusCodes.Status404NotFound);
     }
 
     [Fact]
-    public async Task UpdateProfileStatus_ReturnsNoContent_WhenStatusKnown()
+    public async Task UpdateProfileStatus_SendsTheRoutesProfileWithTheBodysStatus_AndReturnsNoContent()
     {
         mediator
-            .Setup(sender => sender.Send(It.IsAny<UpdateProfileStatusCommand>(), It.IsAny<CancellationToken>()))
+            .Setup(sender => sender.Send(
+                new UpdateProfileStatusCommand(ProfileManagementTestData.ProfileId, ProfileManagementTestData.ProfileStatusId),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Unit.Value));
 
         var response = await CreateController().UpdateProfileStatus(
             ProfileManagementTestData.ProfileId,
-            new UpdateProfileStatusCommand(Guid.Empty, ProfileManagementTestData.ProfileStatusId),
+            new UpdateProfileStatusRequestDto { ProfileStatusId = ProfileManagementTestData.ProfileStatusId },
             CancellationToken.None);
 
         response.Should().BeOfType<NoContentResult>();

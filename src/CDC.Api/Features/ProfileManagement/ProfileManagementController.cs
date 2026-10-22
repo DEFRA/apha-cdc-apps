@@ -292,7 +292,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// Updates a profile's status.
     /// </summary>
     /// <param name="profileId">The profile to update.</param>
-    /// <param name="command">The status to set.</param>
+    /// <param name="request">The status to set.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>No content.</returns>
     /// <response code="204">The status was updated.</response>
@@ -304,10 +304,10 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateProfileStatus(
         Guid profileId,
-        [FromBody] UpdateProfileStatusCommand command,
+        [FromBody] UpdateProfileStatusRequestDto request,
         CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(command with { ProfileId = profileId }, cancellationToken);
+        var result = await mediator.Send(new UpdateProfileStatusCommand(profileId, request.ProfileStatusId), cancellationToken);
 
         return result.ToNoContentActionResult(this);
     }
