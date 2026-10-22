@@ -1,0 +1,27 @@
+name: Start Docker service
+description: Starts the Docker service on a Windows runner and waits up to 30 seconds for it to respond.
+ 
+runs:
+  using: composite
+  steps:
+    - name: Start Docker service
+      shell: pwsh
+      run: |
+        Start-Service -Name Docker -ErrorAction SilentlyContinue
+        $maxAttempts = 30
+        $attempt = 0
+ 
+        while ($attempt -lt $maxAttempts) {
+          try {
+            docker ps | Out-Null
+            Write-Host "Docker is running"
+            exit 0
+          }
+          catch {
+            $attempt++
+            Start-Sleep -Seconds 1
+          }
+        }
+ 
+        Write-Error "Docker failed to start after $maxAttempts attempts"
+        exit 1

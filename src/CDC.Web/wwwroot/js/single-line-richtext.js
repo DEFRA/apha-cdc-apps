@@ -18,44 +18,71 @@
         return html;
     }
 
-    function toEditorHtml(value) {
-        var container = document.createElement('div');
-        var current = container;
-        value.replace(/<(?!\/?(?:em|i)>)[^>]*>/gi, '').split(/(<\/?(?:em|i)>)/i).forEach(function (part) {
-            if (/^<(?:em|i)>$/i.test(part)) {
-                current = container.appendChild(document.createElement('em'));
-            } else if (/^<\/(?:em|i)>$/i.test(part)) {
-                current = container;
-            } else if (part) {
-                current.appendChild(document.createTextNode(part));
+    // Builds the editor content as DOM nodes from the stored value. The value is only ever scanned
+    // for <em>/<i> tags and added as text nodes, so it is never interpreted as HTML: every other
+    // tag is dropped and the text between tags is kept.
+    function fillEditor(editor, value) {
+        var emphasis = null;
+        var text = '';
+
+        function flush() {
+            if (text) {
+                (emphasis || editor).appendChild(document.createTextNode(text));
+                text = '';
             }
-        });
-        return container.innerHTML;
+        }
+
+        var i = 0;
+        while (i < value.length) {
+            var ch = value.charAt(i);
+            var end = ch === '<' ? value.indexOf('>', i) : -1;
+            if (end === -1) {
+                text += ch;
+                i++;
+                continue;
+            }
+            var tag = value.slice(i + 1, end).toLowerCase();
+            if (tag === 'em' || tag === 'i') {
+                flush();
+                emphasis = editor.appendChild(document.createElement('em'));
+            } else if (tag === '/em' || tag === '/i') {
+                flush();
+                emphasis = null;
+            }
+            i = end + 1;
+        }
+        flush();
     }
 
     var MAX_LENGTH = 50;
     var UNDO_PAUSE_MS = 600;
 
+    function snapshot(editor) {
+        return {
+            html: editor.innerHTML,
+            nodes: Array.prototype.map.call(editor.childNodes, function (node) { return node.cloneNode(true); })
+        };
+    }
+
     // Undo levels are taken at word boundaries, pauses and formatting changes, as TinyMCE does,
-    // rather than per keystroke.
+    // rather than per keystroke. States keep cloned nodes so restoring never re-parses HTML.
     function createHistory(editor, onChange) {
-        var states = [editor.innerHTML];
+        var states = [snapshot(editor)];
         var index = 0;
         var timer = null;
 
         function commit() {
             clearTimeout(timer);
             timer = null;
-            var html = editor.innerHTML;
-            if (html !== states[index]) {
+            if (editor.innerHTML !== states[index].html) {
                 states.length = index + 1;
-                states.push(html);
+                states.push(snapshot(editor));
                 index++;
             }
         }
 
         function restore() {
-            editor.innerHTML = states[index];
+            editor.replaceChildren.apply(editor, states[index].nodes.map(function (node) { return node.cloneNode(true); }));
             var range = document.createRange();
             range.selectNodeContents(editor);
             range.collapse(false);
@@ -76,8 +103,8 @@
                     commit();
                 }
             },
-            canUndo: function () { return index > 0 || editor.innerHTML !== states[index]; },
-            canRedo: function () { return index < states.length - 1 && editor.innerHTML === states[index]; },
+            canUndo: function () { return index > 0 || editor.innerHTML !== states[index].html; },
+            canRedo: function () { return index < states.length - 1 && editor.innerHTML === states[index].html; },
             undo: function () {
                 commit();
                 if (index > 0) { index--; restore(); }
@@ -178,7 +205,7 @@
             editor.classList.add('govuk-input--error');
         }
 
-        editor.innerHTML = toEditorHtml(input.value);
+        fillEditor(editor, input.value);
         input.hidden = true;
         input.parentNode.insertBefore(editor, input);
         var toolbar;
