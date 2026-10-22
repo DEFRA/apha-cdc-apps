@@ -2,6 +2,7 @@
 // [data-app-search-auto-refresh] control changes, instead of a full page reload - the modern
 // equivalent of the legacy Profiles.Web Search.aspx UpdatePanel partial postback. The browser
 // URL is left untouched, exactly as the legacy async postback left it.
+// The letter and page links submit the form too, so they apply the filters as they are now.
 (function () {
     'use strict';
 
@@ -22,7 +23,45 @@
                 refreshResults($form, $results, $autoRefreshControls);
             });
         });
+
+        // The links are built on the server from the last search, so following one would bring back a keyword cleared
+        // since. Every postback of the legacy page sent the filters as they stood, and submitting the form does the same.
+        $form.addEventListener('click', function (event) {
+            submitFiltersFromLink(event, $form);
+        });
+        $results.addEventListener('click', function (event) {
+            submitFiltersFromLink(event, $form);
+        });
     });
+
+    function submitFiltersFromLink(event, $form) {
+        const $link = event.target.closest('[data-app-search-letter], [data-app-search-page]');
+
+        // A modified click opens the link elsewhere, which only its own address can do.
+        if (!$link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return;
+        }
+
+        const isLetter = $link.dataset.appSearchLetter !== undefined;
+        const $letter = $form.querySelector('[name="SelectedLetter"]');
+        const $page = document.getElementById('PageNumber');
+
+        if (!$page || (isLetter && !$letter)) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (isLetter) {
+            // As in legacy, choosing a letter starts again from the first page.
+            $letter.value = $link.dataset.appSearchLetter;
+            $page.value = '1';
+        } else {
+            $page.value = $link.dataset.appSearchPage;
+        }
+
+        $form.requestSubmit();
+    }
 
     async function refreshResults($form, $results, $autoRefreshControls) {
         // Each call gets its own token; if a later call starts before this one finishes, its

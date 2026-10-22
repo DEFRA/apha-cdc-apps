@@ -108,3 +108,142 @@ describe('search-filters', () => {
     expect(results.innerHTML).toBe('<p>Fresh</p>');
   });
 });
+
+// The letter and page links carry the address of the last search; the script submits the form instead so the
+// filters go as they are now, which is what every postback of the legacy page did.
+function buildSearchPage({ searchText = '', letter = 'All', page = '2', withPageField = true } = {}) {
+  document.body.innerHTML = `
+    <form id="search-form" method="get" action="/SurveillanceProfiles/Search">
+      <input type="hidden" name="SelectedLetter" value="${letter}" />
+      <input type="text" id="SearchText" name="SearchText" value="${searchText}" />
+      <a id="letter-b" href="/SurveillanceProfiles/Search?SearchText=foo&SelectedLetter=B" data-app-search-letter="B">B</a>
+      <input type="checkbox" id="DisplayDraft" name="DisplayDraft" value="true" data-app-search-auto-refresh checked />
+    </form>
+    <div id="search-results-container">
+      ${withPageField ? `<input type="hidden" id="PageNumber" name="PageNumber" value="${page}" form="search-form" />` : ''}
+      <a id="next" href="/SurveillanceProfiles/Search?SearchText=foo&PageNumber=3" data-app-search-page="3"><span>Next</span></a>
+      <a id="elsewhere" href="/somewhere-else">Elsewhere</a>
+    </div>
+  `;
+
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+
+  const form = document.getElementById('search-form');
+  const submissions = [];
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submissions.push(Object.fromEntries(new FormData(form)));
+  });
+
+  return {
+    form,
+    submissions,
+    searchText: document.getElementById('SearchText'),
+    results: document.getElementById('search-results-container'),
+    letterLink: document.getElementById('letter-b'),
+    nextLink: document.getElementById('next'),
+    elsewhereLink: document.getElementById('elsewhere')
+  };
+}
+
+// Reports whether the script took the click over, then cancels it so jsdom does not try to navigate.
+function click(element, init = {}) {
+  let defaultPrevented;
+  const record = (event) => {
+    defaultPrevented = event.defaultPrevented;
+    event.preventDefault();
+  };
+
+  document.addEventListener('click', record, { once: true });
+  element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...init }));
+  document.removeEventListener('click', record);
+
+  return defaultPrevented;
+}
+
+describe('search-filters letter and page links', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('submits the form with the keyword as it is now, and from the first page, when a letter is clicked', () => {
+    const { submissions, letterLink, searchText } = buildSearchPage({ searchText: 'foo', page: '3' });
+    searchText.value = '';
+
+    expect(click(letterLink)).toBe(true);
+
+    expect(submissions).toEqual([{ SelectedLetter: 'B', SearchText: '', PageNumber: '1', DisplayDraft: 'true' }]);
+  });
+
+  it('submits the form with the keyword as it is now, and the page asked for, when a page link is clicked', () => {
+    const { submissions, nextLink, searchText } = buildSearchPage({ letter: 'A' });
+    searchText.value = 'bovine';
+
+    expect(click(nextLink)).toBe(true);
+
+    expect(submissions).toEqual([{ SelectedLetter: 'A', SearchText: 'bovine', PageNumber: '3', DisplayDraft: 'true' }]);
+  });
+
+  it('takes a click on something inside the link as a click on the link', () => {
+    const { submissions, nextLink } = buildSearchPage();
+
+    expect(click(nextLink.querySelector('span'))).toBe(true);
+
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0].PageNumber).toBe('3');
+  });
+
+  it.each([
+    ['control', { ctrlKey: true }],
+    ['command', { metaKey: true }],
+    ['shift', { shiftKey: true }],
+    ['alt', { altKey: true }],
+    ['middle button', { button: 1 }]
+  ])('leaves a %s click to the link itself', (_name, init) => {
+    const { submissions, letterLink, nextLink } = buildSearchPage();
+
+    expect(click(letterLink, init)).toBe(false);
+    expect(click(nextLink, init)).toBe(false);
+
+    expect(submissions).toEqual([]);
+  });
+
+  it('leaves other links alone', () => {
+    const { submissions, elsewhereLink } = buildSearchPage();
+
+    expect(click(elsewhereLink)).toBe(false);
+
+    expect(submissions).toEqual([]);
+  });
+
+  it('still works on page links that arrive with a refreshed results fragment', () => {
+    const { submissions, results } = buildSearchPage();
+    results.innerHTML = `
+      <input type="hidden" id="PageNumber" name="PageNumber" value="1" form="search-form" />
+      <a id="refreshed" href="/SurveillanceProfiles/Search?PageNumber=2" data-app-search-page="2">2</a>
+    `;
+
+    expect(click(document.getElementById('refreshed'))).toBe(true);
+
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0].PageNumber).toBe('2');
+  });
+
+  it('follows the link as it is when the form has no page number to set', () => {
+    const { submissions, letterLink, nextLink } = buildSearchPage({ withPageField: false });
+
+    expect(click(letterLink)).toBe(false);
+    expect(click(nextLink)).toBe(false);
+
+    expect(submissions).toEqual([]);
+  });
+
+  it('follows a letter link as it is when the form has no selected letter to set', () => {
+    const { form, submissions, letterLink } = buildSearchPage();
+    form.querySelector('[name="SelectedLetter"]').remove();
+
+    expect(click(letterLink)).toBe(false);
+
+    expect(submissions).toEqual([]);
+  });
+});

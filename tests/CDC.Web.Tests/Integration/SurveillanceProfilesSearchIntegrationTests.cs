@@ -91,16 +91,38 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains(">Manage</a>", body);
     }
 
-    private static async Task<string> GetResultsPartialAsync(bool isProfileEditor, bool isPolicyProfileUser)
+    // The script submits the form for these links, so the address they carry cannot bring back a keyword cleared since the last search.
+    [Fact]
+    public async Task Search_MarksEveryLetterLinkAndPageLink_ForTheScriptToSubmitTheFilters()
     {
-        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
+        var profiles = Enumerable.Range(1, 11)
+            .Select(number => SearchResults[0] with { Id = Guid.NewGuid(), Title = $"Profile {number:00}" })
+            .ToList();
+        using var factory = CreateFactory(profiles);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.Contains("data-app-search-letter=\"All\"", page);
+        Assert.All("ABCDEFGHIJKLMNOPQRSTUVWXYZ", letter => Assert.Contains($"data-app-search-letter=\"{letter}\"", page));
+        Assert.Contains("<input type=\"hidden\" id=\"PageNumber\" name=\"PageNumber\" value=\"1\" form=\"search-form\" />", page);
+        Assert.Contains("data-app-search-page=\"1\" aria-label=\"Page 1\"", page);
+        Assert.Contains("data-app-search-page=\"2\" rel=\"next\"", page);
+    }
+
+    private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults) =>
+        new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(SearchResults));
+                services.AddSingleton<IApiClient>(new FakeApiClient(searchResults));
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
             }));
+
+    private static async Task<string> GetResultsPartialAsync(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        using var factory = CreateFactory(SearchResults);
         var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor, isPolicyProfileUser);
         using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
         request.Headers.Add("X-Requested-With", "XMLHttpRequest");
