@@ -17,6 +17,7 @@ public class SurveillanceProfilesSearchIntegrationTests
 {
     private static readonly Guid ProfileId = Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f");
     private static readonly Guid VersionId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid ScenarioId = Guid.Parse("77777777-7777-7777-7777-777777777777");
 
     private static readonly IReadOnlyList<ProfileSearchResultDto> SearchResults =
     [
@@ -108,6 +109,83 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("<input type=\"hidden\" id=\"PageNumber\" name=\"PageNumber\" value=\"1\" form=\"search-form\" />", page);
         Assert.Contains("data-app-search-page=\"1\" aria-label=\"Page 1\"", page);
         Assert.Contains("data-app-search-page=\"2\" rel=\"next\"", page);
+    }
+
+    // Legacy listed every scenario under its own title with its own Manage link, and moved those links out of the profile header.
+    [Fact]
+    public async Task Search_WithScenariosDisplayed_ListsEachScenarioUnderItsTitle_WithItsOwnManageLink()
+    {
+        var body = await GetResultsPartialAsync(
+            ResultsWithAScenario(), "?DisplayPublished=true&DisplayDraft=true&DisplayScenarios=true");
+
+        Assert.Contains(">Current situation</h4>", body);
+        Assert.Contains(">Wildlife scenario</h4>", body);
+        Assert.Contains($"/SurveillanceProfiles/ManageProfile/{ProfileId}\">Manage<span class=\"govuk-visually-hidden\"> Current situation</span></a>", body);
+        Assert.Contains($"/SurveillanceProfiles/ManageProfile/{ScenarioId}\">Manage<span class=\"govuk-visually-hidden\"> Wildlife scenario</span></a>", body);
+        Assert.DoesNotContain(">Manage</a>", body);
+        Assert.Contains("EditProfileTitle", body);
+    }
+
+    [Fact]
+    public async Task Search_WithoutScenariosDisplayed_KeepsManageInTheProfileHeader_AndListsNoScenarios()
+    {
+        var body = await GetResultsPartialAsync(ResultsWithAScenario(), "?DisplayPublished=true&DisplayDraft=true");
+
+        Assert.Contains($"/SurveillanceProfiles/ManageProfile/{ProfileId}\">Manage</a>", body);
+        Assert.DoesNotContain("</h4>", body);
+        Assert.DoesNotContain("Wildlife scenario", body);
+    }
+
+    // The scenarios-only case is refused before the API is called, so no profile is listed.
+    [Fact]
+    public async Task Search_WithOnlyScenariosDisplayed_ListsNoProfiles()
+    {
+        var body = await GetResultsPartialAsync(
+            ResultsWithAScenario(), "?DisplayPublished=false&DisplayDraft=false&DisplayScenarios=true");
+
+        Assert.DoesNotContain("Bovine tuberculosis", body);
+        Assert.DoesNotContain("Wildlife scenario", body);
+    }
+
+    private static IReadOnlyList<ProfileSearchResultDto> ResultsWithAScenario() =>
+    [
+        SearchResults[0] with
+        {
+            ScenarioTitle = "Current situation",
+            WhatIfScenarios =
+            [
+                new ProfileScenarioDto
+                {
+                    ScenarioId = ScenarioId,
+                    ScenarioTitle = "Wildlife scenario",
+                    PublishedVersions = [],
+                    DraftVersions =
+                    [
+                        new ProfileHistoryItemDto
+                        {
+                            VersionId = Guid.NewGuid(),
+                            VersionNumber = 1,
+                            Title = "Bovine tuberculosis",
+                            CreatedAtUtc = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+                            IsScenario = true
+                        }
+                    ]
+                }
+            ]
+        }
+    ];
+
+    private static async Task<string> GetResultsPartialAsync(IReadOnlyList<ProfileSearchResultDto> searchResults, string query)
+    {
+        using var factory = CreateFactory(searchResults);
+        var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor: true, isPolicyProfileUser: false);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/SurveillanceProfiles/Search{query}");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(request);
+        Assert.True(response.IsSuccessStatusCode);
+
+        return await response.Content.ReadAsStringAsync();
     }
 
     private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults) =>

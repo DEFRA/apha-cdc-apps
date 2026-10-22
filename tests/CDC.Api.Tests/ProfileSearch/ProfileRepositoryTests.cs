@@ -215,6 +215,78 @@ public sealed class ProfileRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAllProfilesAsync_MapsScenarioTitlesFromResultSet2_InTheProceduresOrder()
+    {
+        var scenarioBId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns,
+                [
+                    [ProfileAId, ProfileAId, "Current situation", null, null],
+                    [scenarioBId, ProfileAId, "Alpha scenario", null, null],
+                    [ScenarioId, ProfileAId, "Zeta scenario", null, null],
+                    [Guid.NewGuid(), OrphanProfileId, "Orphan scenario", null, null]
+                ]),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, 1, 0, "Published", Utc(2026, 1, 1), null, true, Utc(2026, 1, 1)],
+                    [Guid.NewGuid(), ScenarioId, ProfileAId, 1, 0, "Draft", Utc(2026, 1, 2), null, false, Utc(2026, 1, 2)],
+                    [Guid.NewGuid(), scenarioBId, ProfileAId, 1, 0, "Draft", Utc(2026, 1, 3), null, false, Utc(2026, 1, 3)]
+                ])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ScenarioTitle.Should().Be("Current situation");
+        profile.WhatIfScenarios.Select(scenario => (scenario.ScenarioId, scenario.ScenarioTitle))
+            .Should().Equal((scenarioBId, "Alpha scenario"), (ScenarioId, "Zeta scenario"));
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_ListsAScenarioFromResultSet2_EvenWhenItHasNoVersions()
+    {
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns, [[ScenarioId, ProfileAId, "Empty scenario", null, null]]),
+                FakeResultSet.Empty(Rs3Columns)
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        var scenario = profile.WhatIfScenarios.Should().ContainSingle().Subject;
+        scenario.ScenarioTitle.Should().Be("Empty scenario");
+        scenario.PublishedVersions.Should().BeEmpty();
+        scenario.DraftVersions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_DefaultsTheOwnScenarioTitle_WhenResultSet2HasNoRowForIt()
+    {
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                FakeResultSet.Empty(Rs3Columns)
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ScenarioTitle.Should().Be("Current situation");
+    }
+
+    [Fact]
     public async Task GetAllProfilesAsync_DerivesDraftStatus_WhenOnlyDraftVersionsExist()
     {
         connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript

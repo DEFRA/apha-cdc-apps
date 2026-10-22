@@ -59,27 +59,27 @@ public sealed class ProfileSearchService(IProfileRepository repository) : IProfi
 
         return
         [
-            .. allProfiles.Where(profile =>
-            {
-                // A profile can have both a published and a draft version at once, so inclusion
-                // is decided by version availability, not by a single, mutually-exclusive status
-                // (a Draft+Published profile must still match when only "display draft" is on).
-                var hasPublishedVersion = profile.PublishedVersions.Count > 0;
-                var hasDraftVersion = profile.DraftVersions.Count > 0;
-                var hasWhatIfScenario = profile.WhatIfScenarios.Count > 0;
-
-                var matchesFilter = (displayPublished && hasPublishedVersion) ||
-                                     (displayDraft && hasDraftVersion) ||
-                                     (displayScenarios && hasWhatIfScenario);
-
-                if (!matchesFilter)
-                {
-                    return false;
-                }
-
-                return TitleMatches(profile.Title, searchText, searchForType);
-            })
+            .. allProfiles
+                .Where(profile => MatchesVersionFilter(profile, displayPublished, displayDraft)
+                    && TitleMatches(profile.Title, searchText, searchForType))
+                // As in legacy, the scenarios are listed only when asked for.
+                .Select(profile => displayScenarios ? profile : profile with { WhatIfScenarios = [] })
         ];
+    }
+
+    /// <summary>Mirrors the legacy <c>ProfileInfoList.Filter</c>: a profile matches when any of its
+    /// scenarios - its own, or a "what-if" - has a published version and published versions are
+    /// displayed, or has a draft version and draft versions are displayed. A profile can have both
+    /// at once, so a published and draft profile still matches when only "display draft" is on.
+    /// Displaying scenarios does not make a profile match on its own.</summary>
+    internal static bool MatchesVersionFilter(ProfileSearchResultDto profile, bool displayPublished, bool displayDraft)
+    {
+        var hasPublishedVersion = profile.PublishedVersions.Count > 0
+            || profile.WhatIfScenarios.Any(scenario => scenario.PublishedVersions.Count > 0);
+        var hasDraftVersion = profile.DraftVersions.Count > 0
+            || profile.WhatIfScenarios.Any(scenario => scenario.DraftVersions.Count > 0);
+
+        return (displayPublished && hasPublishedVersion) || (displayDraft && hasDraftVersion);
     }
 
     /// <summary>Mirrors the legacy <c>ProfileInfoList.TitleMatchesWords</c>: an exact-phrase search

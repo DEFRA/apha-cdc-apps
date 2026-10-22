@@ -267,36 +267,79 @@ public class SurveillanceProfilesSearchModel : PageModel
     public static IReadOnlyList<VersionHistoryRow> GetPreviousVersions(ProfileScenarioDto scenario) =>
         GetPreviousVersions(scenario.PublishedVersions, scenario.DraftVersions);
 
-    /// <summary>Gets every version-lineage card to render for a profile: an independent Published
-    /// card and an independent Draft card - each gated by its own display filter and shown even
-    /// when the profile has no version of that type (with a placeholder message) - plus one card
-    /// per "what-if" scenario when <paramref name="includeWhatIfScenarios"/> is set.</summary>
+    /// <summary>Gets every version-lineage card to render for a profile's own (current-situation)
+    /// lineage: an independent Published card and an independent Draft card - each gated by its own
+    /// display filter and shown even when the profile has no version of that type (with a placeholder
+    /// message).</summary>
     public static IReadOnlyList<ProfileVersionGroupViewModel> GetVersionGroups(
         ProfileSearchResultDto profile,
         bool displayPublished,
+        bool displayDraft) =>
+        BuildGroups(profile.Id, profile.Status, profile.PublishedVersions, profile.DraftVersions, displayPublished, displayDraft);
+
+    /// <summary>Gets what to list under a profile: its own (current-situation) lineage and, when
+    /// <paramref name="displayScenarios"/> is set, each of its "what-if" scenarios after it - every
+    /// one with its own independent Published and Draft cards, as the legacy page's scenario
+    /// repeater did.</summary>
+    public static IReadOnlyList<ProfileScenarioSectionViewModel> GetScenarioSections(
+        ProfileSearchResultDto profile,
+        bool displayPublished,
         bool displayDraft,
-        bool includeWhatIfScenarios)
+        bool displayScenarios)
+    {
+        var sections = new List<ProfileScenarioSectionViewModel>
+        {
+            new()
+            {
+                ScenarioId = profile.Id,
+                Title = profile.ScenarioTitle,
+                Groups = GetVersionGroups(profile, displayPublished, displayDraft)
+            }
+        };
+
+        if (displayScenarios)
+        {
+            sections.AddRange(profile.WhatIfScenarios.Select(scenario => new ProfileScenarioSectionViewModel
+            {
+                ScenarioId = scenario.ScenarioId,
+                Title = scenario.ScenarioTitle,
+                // A "what-if" scenario has no status of its own to show.
+                Groups = BuildGroups(scenario.ScenarioId, null, scenario.PublishedVersions, scenario.DraftVersions, displayPublished, displayDraft)
+            }));
+        }
+
+        return sections;
+    }
+
+    private static List<ProfileVersionGroupViewModel> BuildGroups(
+        Guid lineageId,
+        string? status,
+        IReadOnlyList<ProfileHistoryItemDto> publishedVersions,
+        IReadOnlyList<ProfileHistoryItemDto> draftVersions,
+        bool displayPublished,
+        bool displayDraft)
     {
         var groups = new List<ProfileVersionGroupViewModel>();
 
         if (displayPublished)
         {
-            groups.Add(BuildLineageCard(profile, profile.PublishedVersions, "Published", "No current published version"));
+            groups.Add(BuildLineageCard(lineageId, status, publishedVersions, "Published", "No current published version"));
         }
 
         if (displayDraft)
         {
-            groups.Add(BuildLineageCard(profile, profile.DraftVersions, "Draft", "No current draft version"));
+            groups.Add(BuildLineageCard(lineageId, status, draftVersions, "Draft", "No current draft version"));
         }
 
         return groups;
     }
 
-    /// <summary>Builds the Published or Draft card for a profile: real content when it has a
+    /// <summary>Builds the Published or Draft card for a lineage: real content when it has a
     /// version of that type, otherwise a placeholder - the card is never merged with the other
-    /// type's versions or with any "what-if" scenario's.</summary>
+    /// type's versions or with any other scenario's.</summary>
     private static ProfileVersionGroupViewModel BuildLineageCard(
-        ProfileSearchResultDto profile,
+        Guid lineageId,
+        string? status,
         IReadOnlyList<ProfileHistoryItemDto> versions,
         string typeLabel,
         string noVersionMessage)
@@ -305,7 +348,7 @@ public class SurveillanceProfilesSearchModel : PageModel
 
         return new ProfileVersionGroupViewModel
         {
-            SectionId = $"{typeLabel.ToLowerInvariant()}-{profile.Id}",
+            SectionId = $"{typeLabel.ToLowerInvariant()}-{lineageId}",
             HeadingLabel = $"{typeLabel} current version",
             CurrentVersion = current,
             CurrentVersionLabel = $"{typeLabel} current version",
@@ -317,8 +360,8 @@ public class SurveillanceProfilesSearchModel : PageModel
                     .Select(version => new VersionHistoryRow(version, typeLabel))
                     .OrderByDescending(row => SortKey(row.Version))
             ],
-            ProfileId = profile.Id,
-            ProfileStatus = current is null ? null : profile.Status,
+            ProfileId = lineageId,
+            ProfileStatus = current is null ? null : status,
             NoVersionMessage = current is null ? $"({noVersionMessage})" : null,
             // "View reports" links to a published version's report; the Draft card has none.
             ShowViewReportsLink = typeLabel != "Draft"
@@ -439,7 +482,8 @@ public class SurveillanceProfilesSearchModel : PageModel
         {
             IsSearchPerformed = true;
 
-            if (!DisplayPublished && !DisplayDraft && !DisplayScenarios)
+            // As in legacy, displaying scenarios never makes a profile match on its own.
+            if (!DisplayPublished && !DisplayDraft)
             {
                 SearchResults = [];
                 PagedResults = [];
@@ -533,8 +577,8 @@ public sealed record VersionHistoryRow(ProfileHistoryItemDto Version, string Sta
     public bool ShowViewReportsLink { get; } = Status != "Draft";
 }
 
-/// <summary>One version-lineage card to render for a profile: an independent Published card, an
-/// independent Draft card, or one of its independent "what-if" scenarios.</summary>
+/// <summary>One version-lineage card to render for a profile scenario: its independent Published
+/// card or its independent Draft card.</summary>
 public sealed record ProfileVersionGroupViewModel
 {
     public required string SectionId { get; init; }
@@ -557,4 +601,16 @@ public sealed record ProfileVersionGroupViewModel
 
     /// <summary>Whether the "View reports" link is shown - Draft cards have no report to view.</summary>
     public bool ShowViewReportsLink { get; init; } = true;
+}
+
+/// <summary>One scenario listed under a profile - its own current situation or a "what-if" - with
+/// the cards for its Published and Draft versions.</summary>
+public sealed record ProfileScenarioSectionViewModel
+{
+    /// <summary>Gets the id the scenario's Manage and Contributions links use.</summary>
+    public required Guid ScenarioId { get; init; }
+
+    public required string Title { get; init; }
+
+    public required IReadOnlyList<ProfileVersionGroupViewModel> Groups { get; init; }
 }

@@ -19,6 +19,9 @@ public abstract record ProfileSearchResultContract<THistoryItem, TScenario>
     /// <summary>Gets the profile status (Draft, Published, Scenario).</summary>
     public required string Status { get; init; }
 
+    /// <summary>Gets the title of the profile's own (current-situation) lineage, which heads it when the scenarios are listed.</summary>
+    public string ScenarioTitle { get; init; } = string.Empty;
+
     /// <summary>Gets the date the profile was created.</summary>
     public required DateTime CreatedAtUtc { get; init; }
 
@@ -55,6 +58,9 @@ public abstract record ProfileScenarioContract<THistoryItem>
 {
     /// <summary>Gets the scenario's identifier (its own root, distinct from the parent profile's).</summary>
     public required Guid ScenarioId { get; init; }
+
+    /// <summary>Gets the scenario's title.</summary>
+    public string ScenarioTitle { get; init; } = string.Empty;
 
     /// <summary>Gets this scenario's own published versions.</summary>
     public required IReadOnlyList<THistoryItem> PublishedVersions { get; init; }

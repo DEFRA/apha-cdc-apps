@@ -121,7 +121,7 @@ public class ProfileSearchHandlerTests
     [Theory]
     [InlineData(true, false, false, "Published", true)]
     [InlineData(false, true, false, "Draft", true)]
-    [InlineData(false, false, true, "Scenario", true)]
+    [InlineData(false, false, true, "Scenario", false)]
     [InlineData(false, false, false, "Published", false)]
     public async Task GetProfileSearchResultsAsync_FiltersByVersionAvailability(
         bool displayPublished,
@@ -162,6 +162,58 @@ public class ProfileSearchHandlerTests
             cancellationToken: CancellationToken.None);
 
         results.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, true, true, true)]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, false, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, false, true, false)]
+    public async Task GetProfileSearchResultsAsync_MatchesOnAScenariosVersion_OnlyWhenThatVersionTypeIsDisplayed(
+        bool displayPublished,
+        bool displayDraft,
+        bool displayScenarios,
+        bool expectedIncluded)
+    {
+        // The profile's own lineage is empty; only its "what-if" scenario has a (draft) version.
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Scenario")]);
+
+        var service = new ProfileSearchService(repository.Object);
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: displayPublished,
+            displayDraft: displayDraft,
+            displayScenarios: displayScenarios,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().HaveCount(expectedIncluded ? 1 : 0);
+    }
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public async Task GetProfileSearchResultsAsync_ReturnsTheWhatIfScenarios_OnlyWhenDisplayScenariosIsOn(
+        bool displayScenarios,
+        int expectedScenarioCount)
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Scenario")]);
+
+        var service = new ProfileSearchService(repository.Object);
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayDraft: true,
+            displayScenarios: displayScenarios,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle().Which.WhatIfScenarios.Should().HaveCount(expectedScenarioCount);
     }
 
     [Fact]

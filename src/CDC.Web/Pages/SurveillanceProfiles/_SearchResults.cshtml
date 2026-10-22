@@ -65,7 +65,7 @@
                 <div class="app-profile-list">
                     @foreach (var profile in Model.PagedResults)
                     {
-                        var versionGroups = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetVersionGroups(
+                        var scenarioSections = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetScenarioSections(
                             profile, Model.DisplayPublished, Model.DisplayDraft, Model.DisplayScenarios);
 
                         <div class="app-profile-card govuk-!-margin-bottom-3">
@@ -75,22 +75,50 @@
                                     @if (canEditProfile)
                                     {
                                         <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileTitle" asp-route-profileId="@profile.Id">Edit Title</a>
-                                        <span aria-hidden="true"> | </span>
                                     }
-                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
-                                    @if (canViewContributionsReport)
+                                    @* With scenarios shown, Manage and Contributions are offered per scenario below, not here. *@
+                                    @if (!Model.DisplayScenarios)
                                     {
-                                        <span aria-hidden="true"> | </span>
-                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
+                                        @if (canEditProfile)
+                                        {
+                                            <span aria-hidden="true"> | </span>
+                                        }
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
+                                        @if (canViewContributionsReport)
+                                        {
+                                            <span aria-hidden="true"> | </span>
+                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
+                                        }
                                     }
                                 </p>
                             </div>
 
-                            @for (var index = 0; index < versionGroups.Count; index++)
+                            @foreach (var scenario in scenarioSections)
                             {
-                                var versionGroup = versionGroups[index];
-                                <div class="@(index > 0 ? "govuk-!-margin-top-1" : string.Empty)">
-                                    <partial name="_ProfileVersionGroupCard" model="versionGroup" />
+                                @if (Model.DisplayScenarios)
+                                {
+                                    var scenarioName = CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(scenario.Title);
+
+                                    <div class="app-profile-card__header govuk-!-margin-bottom-2">
+                                        <h4 class="govuk-heading-s govuk-!-margin-bottom-0">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(scenario.Title)</h4>
+                                        <p class="govuk-body govuk-!-margin-bottom-0">
+                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@scenario.ScenarioId">Manage<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            @if (canViewContributionsReport)
+                                            {
+                                                <span aria-hidden="true"> | </span>
+                                                <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@scenario.ScenarioId">Contributions<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            }
+                                        </p>
+                                    </div>
+                                }
+
+                                <div class="@(Model.DisplayScenarios ? "govuk-!-margin-left-6 govuk-!-margin-bottom-4" : null)">
+                                    @for (var index = 0; index < scenario.Groups.Count; index++)
+                                    {
+                                        <div class="@(index > 0 ? "govuk-!-margin-top-1" : string.Empty)">
+                                            <partial name="_ProfileVersionGroupCard" model="scenario.Groups[index]" />
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
