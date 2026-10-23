@@ -97,13 +97,25 @@ public partial class ProfilePropertiesIntegrationTests
         var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
 
         Assert.Matches(
-            "<div class=\"app-edit-title-row\">\\s*<label class=\"govuk-label app-edit-title-row__label app-edit-title-row__label--quarter\" id=\"ProfileTitleLabel\" for=\"ProfileTitleEditor\">Profile title:</label>\\s*<div class=\"app-edit-title-row__input-wrapper\">",
+            "<div class=\"app-edit-title-row app-edit-title-row--message-below\">\\s*<label class=\"govuk-label app-edit-title-row__label app-edit-title-row__label--quarter\" id=\"ProfileTitleLabel\" for=\"ProfileTitleEditor\">Profile title:</label>\\s*<div class=\"app-edit-title-row__input-wrapper\">",
             page);
         Assert.Contains("data-app-title-toolbar=\"ProfileTitleEditor\" data-app-title-toolbar-on-focus role=\"toolbar\"", page);
         Assert.Contains(
             "<p id=\"ProfileTitle-required-error\" class=\"govuk-error-message\" data-app-title-required-error hidden><span class=\"govuk-visually-hidden\">Error:</span> You must enter a profile title</p>",
             page);
         Assert.Contains("data-app-title-save=\"on-load\">Create profile</button>", page);
+    }
+
+    // As the legacy page showed its validation message under the title box, the required message comes after the textbox, not before it.
+    [Fact]
+    public async Task CreatePage_PutsTheRequiredMessageBelowTheTitleBox()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
+
+        Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-required-error\"", page);
     }
 
     [Fact]
@@ -224,6 +236,7 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("<a href=\"#ProfileTitleEditor\">You must enter a profile title</a>", body);
         Assert.Contains("<a href=\"#profiled-species-group\">You must specify at least one profiled species</a>", body);
         Assert.Contains("<title>Error: Create new profile", body);
+        Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-error\"", body);
         Assert.Matches(CheckedBoxRegex("other-species", Sheep), body);
     }
 

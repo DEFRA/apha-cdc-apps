@@ -261,6 +261,19 @@ html {
   display: none;
 }
 
+/* Profile properties: the validation message sits below the textbox, so the label lines up with its first line (7px = its border and padding), not the row's bottom. */
+.app-edit-title-row--message-below {
+  align-items: flex-start;
+}
+
+.app-edit-title-row--message-below .app-edit-title-row__label {
+  margin: 7px 0 0;
+}
+
+.app-edit-title-row--message-below .govuk-error-message {
+  margin: 5px 0 0;
+}
+
 /* Edit profile title: formatting toolbar shown above the title textbox. */
 .app-title-toolbar {
   display: inline-flex;

@@ -249,56 +249,49 @@ describe('profile-properties species selector', () => {
     expect(warning.hidden).toBe(true);
   });
 
-  it('opens and closes the same branch in the other tree', async () => {
+  it('opens and closes the same branch in the other tree', () => {
     build();
     const toggle = (treeName) => document.querySelector(`#${treeName} #${treeName}-cattle`).closest('.app-tree__item').querySelector('.app-tree__toggle');
 
     toggle('profiled').click();
-    await Promise.resolve();
 
     expect(toggle('profiled').getAttribute('aria-expanded')).toBe('false');
     expect(toggle('other').getAttribute('aria-expanded')).toBe('false');
 
     toggle('other').click();
-    await Promise.resolve();
 
     expect(toggle('profiled').getAttribute('aria-expanded')).toBe('true');
   });
 
-  // As in the legacy page, each box has its own control; either one opens or closes the branches of both trees, and both then read alike.
-  it('opens and closes every branch in both trees from the Open all / Close all in either box', async () => {
+  // As in the legacy page, each box's control works on its own tree only; it is single branches that stay level between the trees.
+  it('opens and closes every branch in its own box only, from the Open all / Close all in that box', async () => {
     build();
     const toggleAll = (kind) => document.querySelector(`[data-species-tree="${kind}"] .app-tree__toggle-all`);
     const label = (kind) => toggleAll(kind).querySelector('.app-tree__toggle-all-text').textContent;
     const hidden = (kind) => [...document.querySelectorAll(`[data-species-tree="${kind}"] .app-tree__group`)].map((group) => group.hidden);
 
     toggleAll('profiled').click();
+    // Lets any delayed mirroring to the other tree happen before it is checked.
     await Promise.resolve();
 
     expect(hidden('profiled')).toEqual([true, true]);
-    expect(hidden('other')).toEqual([true, true]);
-    expect([label('profiled'), label('other')]).toEqual(['Open all', 'Open all']);
-    expect(toggleAll('other').getAttribute('aria-expanded')).toBe('false');
+    expect(label('profiled')).toBe('Open all');
+    expect(hidden('other')).toEqual([false, false]);
+    expect(label('other')).toBe('Close all');
+    expect(toggleAll('other').getAttribute('aria-expanded')).toBe('true');
 
     toggleAll('other').click();
     await Promise.resolve();
 
+    expect(hidden('other')).toEqual([true, true]);
+    expect(label('other')).toBe('Open all');
+
+    toggleAll('profiled').click();
+    await Promise.resolve();
+
     expect(hidden('profiled')).toEqual([false, false]);
-    expect(hidden('other')).toEqual([false, false]);
-    expect([label('profiled'), label('other')]).toEqual(['Close all', 'Close all']);
-    expect(toggleAll('profiled').getAttribute('aria-expanded')).toBe('true');
-  });
-
-  it('runs each box\'s Open all / Close all on its own tree only', () => {
-    build();
-    const [profiledList, otherList] = document.querySelectorAll('[data-module="app-tree-view"]');
-    const runProfiled = vi.spyOn(profiledList.treeView, 'runAction');
-    const runOther = vi.spyOn(otherList.treeView, 'runAction');
-
-    document.querySelector('[data-species-tree="profiled"] .app-tree__toggle-all').click();
-
-    expect(runProfiled).toHaveBeenCalledWith('toggle-all');
-    expect(runOther).not.toHaveBeenCalled();
+    expect(label('profiled')).toBe('Close all');
+    expect(hidden('other')).toEqual([true, true]);
   });
 });
 

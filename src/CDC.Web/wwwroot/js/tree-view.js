@@ -197,7 +197,8 @@
 
         /* ---------- expand and collapse ---------- */
 
-        setExpanded(item, expanded) {
+        // Announces a branch the user opens or closes (not "Open all"/"Close all", which passes silent) so a page can mirror it.
+        setExpanded(item, expanded, { silent = false } = {}) {
             const group = this.group(item);
             const toggle = this.toggle(item);
 
@@ -205,10 +206,16 @@
                 return;
             }
 
+            const changed = this.isExpanded(item) !== expanded;
+
             group.hidden = !expanded;
             toggle.setAttribute(EXPANDED, String(expanded));
             item.dataset.appTreeExpanded = String(expanded);
             this.refreshToggleAllControl();
+
+            if (changed && !silent) {
+                item.dispatchEvent(new CustomEvent('app-tree-toggle', { bubbles: true, detail: { expanded } }));
+            }
         }
 
         isExpanded(item) {
@@ -221,7 +228,7 @@
             if (action === 'toggle-all') {
                 const branches = this.items.filter((item) => this.group(item));
                 const expanded = !this.allExpanded(branches);
-                branches.forEach((item) => this.setExpanded(item, expanded));
+                branches.forEach((item) => this.setExpanded(item, expanded, { silent: true }));
 
                 return;
             }

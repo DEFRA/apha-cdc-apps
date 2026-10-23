@@ -116,18 +116,9 @@
                 <input type="hidden" name="LastUpdated" value="@Model.LastUpdated" />
 
                 <div class="govuk-form-group@(titleErrors.Count > 0 ? " govuk-form-group--error" : string.Empty)">
-                    <div class="app-edit-title-row">
+                    <div class="app-edit-title-row app-edit-title-row--message-below">
                         <label class="govuk-label app-edit-title-row__label app-edit-title-row__label--quarter" id="ProfileTitleLabel" for="ProfileTitleEditor">@Model.TitleLabel:</label>
                         <div class="app-edit-title-row__input-wrapper">
-                            @foreach (var error in titleErrors)
-                            {
-                                <p id="ProfileTitle-error" class="govuk-error-message">
-                                    <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
-                                </p>
-                            }
-                            <div aria-live="polite">
-                                <p id="ProfileTitle-required-error" class="govuk-error-message" data-app-title-required-error hidden><span class="govuk-visually-hidden">Error:</span> @Model.TitleRequiredMessage</p>
-                            </div>
                             <div class="app-title-floating">
                                 <div class="app-title-toolbar app-title-toolbar--floating" data-app-title-toolbar="ProfileTitleEditor" data-app-title-toolbar-on-focus role="toolbar" aria-label="@Model.TitleLabel formatting">
                                     <button type="button" class="app-title-toolbar__button" data-app-title-action="undo" aria-label="Undo" title="Undo">
@@ -152,6 +143,15 @@
                                      aria-labelledby="ProfileTitleLabel"
                                      aria-describedby="@(titleErrors.Count > 0 ? "ProfileTitle-error" : null)"
                                      data-app-title-hidden-input="ProfileTitle">@ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</div>
+                            </div>
+                            @foreach (var error in titleErrors)
+                            {
+                                <p id="ProfileTitle-error" class="govuk-error-message">
+                                    <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
+                                </p>
+                            }
+                            <div aria-live="polite">
+                                <p id="ProfileTitle-required-error" class="govuk-error-message" data-app-title-required-error hidden><span class="govuk-visually-hidden">Error:</span> @Model.TitleRequiredMessage</p>
                             </div>
                             <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="@Model.ProfileTitle" />
                         </div>

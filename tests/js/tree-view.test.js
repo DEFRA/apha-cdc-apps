@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/CDC.Web/wwwroot/js/tree-view.js';
 
 function buildTree() {
@@ -176,6 +176,25 @@ describe('tree-view', () => {
     expect(group('second').hidden).toBe(false);
     expect(label('second')).toBe('Close all');
     expect(toggleAll('second').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('announces a branch the user opens or closes, but not one that is unchanged or moved by Open all / Close all', () => {
+    const { tree, toggleAllButton } = buildTree();
+    const treeView = new window.TreeView(tree);
+    const item = tree.querySelector('.app-tree__item');
+    const announced = vi.fn();
+    tree.addEventListener('app-tree-toggle', (event) => announced(event.target, event.detail.expanded));
+
+    item.querySelector('.app-tree__toggle').click();
+
+    expect(announced).toHaveBeenCalledTimes(1);
+    expect(announced).toHaveBeenLastCalledWith(item, false);
+
+    treeView.setExpanded(item, false);
+    toggleAllButton.click();
+
+    expect(item.querySelector('.app-tree__group').hidden).toBe(false);
+    expect(announced).toHaveBeenCalledTimes(1);
   });
 
   it('shows the selected item and clears it on command', () => {
