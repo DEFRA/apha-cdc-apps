@@ -61,6 +61,50 @@ public class ReviewNotificationsJobTests
         message!.HtmlBody.Split("(Overdue)").Length.Should().Be(2);
     }
 
+    [Theory]
+    [InlineData("Policy reviewer")]
+    [InlineData("Veterinary advisor")]
+    public async Task RunAsync_SendsOnlyTheReviewTypeOfTheUsersGroup_ForPolicyAndVeterinaryAdvisor(string role)
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", role)]);
+        EmailMessage? message = null;
+        sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<EmailMessage, CancellationToken>((m, _) => message = m);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        message!.ToAddress.Should().Be("ann@example.test");
+        message.HtmlBody.Split("(Overdue)").Length.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task RunAsync_StillEmailsConfiguredGroups_AndFails_WhenOneGroupUnconfigured()
+    {
+        options.ReviewerGroups.Remove(ReviewerGroups.VeterinaryAdvisor);
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", "Veterinary advisor"), User("Bob", "bob@example.test", "Policy reviewer")]);
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "ann@example.test"), It.IsAny<CancellationToken>()), Times.Never);
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "bob@example.test"), It.IsAny<CancellationToken>()), Times.Once);
+        VerifyErrorLogged(Times.Once());
+    }
+
+    [Fact]
+    public async Task RunAsync_LogsReminderSentAndCompletion_WhenProcessingSucceeds()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        VerifyLogged(LogLevel.Information, Times.Exactly(3));
+        VerifyErrorLogged(Times.Never());
+    }
+
     [Fact]
     public async Task RunAsync_SkipsUser_WhenNotInAnyReviewerGroup()
     {
@@ -152,10 +196,12 @@ public class ReviewNotificationsJobTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
-    private void VerifyErrorLogged(Times times) =>
+    private void VerifyErrorLogged(Times times) => VerifyLogged(LogLevel.Error, times);
+
+    private void VerifyLogged(LogLevel level, Times times) =>
         logger.Verify(
             log => log.Log(
-                LogLevel.Error,
+                level,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
