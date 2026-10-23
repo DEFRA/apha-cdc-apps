@@ -19,7 +19,7 @@ public static class HeaderMenu
             new("Search disease profiles", "/SurveillanceProfiles/Search", AuthorizationPolicies.CanViewProfileSearch),
             new("Create profile", "/SurveillanceProfiles/ProfileProperties", AuthorizationPolicies.CanCreateProfile),
             new("Compare profile versions", "/DiseaseProfiles/CompareVersions", AuthorizationPolicies.CanViewProfileComparison),
-            new("Review Timings", "/DiseaseProfiles/ReviewTimings", AuthorizationPolicies.CanViewReviewTiming),
+            new("Review Timings", "/SurveillanceProfiles/DiseaseReviews", AuthorizationPolicies.CanViewReviewTiming),
         ]),
         new("Reports",
         [

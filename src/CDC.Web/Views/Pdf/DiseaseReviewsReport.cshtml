@@ -1,0 +1,40 @@
+@using CDC.Web.Infrastructure
+@model CDC.Web.Models.DiseaseReviewsReportViewModel
+@{
+    Layout = "/Views/Pdf/_PdfLayout.cshtml";
+    ViewData["Title"] = "Disease reviews report";
+}
+<p class="drr-line">@ProfileTitleHtmlFormatter.Format(Model.Description)</p>
+<p class="drr-line">@Model.DateRange</p>
+<hr class="drr-rule" />
+
+@foreach (var profile in Model.Profiles)
+{
+    <section class="drr-profile">
+        <h1 class="drr-profile-name">@ProfileTitleHtmlFormatter.Format(profile.Name)</h1>
+
+        <table class="drr-table">
+            <thead>
+                <tr>
+                    <th scope="col" class="drr-table__section">Section</th>
+                    <th scope="col">Policy Review Due Date</th>
+                    <th scope="col">Author Review Due Date</th>
+                    <th scope="col">VA Review Due Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in profile.Sections)
+                {
+                    <tr>
+                        <td>@ProfileTitleHtmlFormatter.Format(row.Section)</td>
+                        <td>@row.PolicyReviewDue</td>
+                        <td>@row.AuthorReviewDue</td>
+                        <td>@row.VaReviewDue</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <hr class="drr-rule" />
+    </section>
+}

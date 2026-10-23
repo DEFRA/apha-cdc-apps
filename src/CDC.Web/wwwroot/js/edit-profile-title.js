@@ -1,4 +1,5 @@
-// Formatting toolbar (undo/redo/italic) above the profile title editor on EditProfileTitle and ProfileProperties.
+// Formatting toolbar (undo/redo/italic) above the profile title editor on EditProfileTitle and ProfileProperties,
+// and above the description editor on DiseaseReviews, which edits one optional line the same way.
 // The title is edited in a contenteditable div (so HTML formatting renders as the user types)
 // and mirrored into a hidden input on every change, which is what actually gets posted.
 // The editor behaves as the legacy TinyMCE one did: italic only, one line, plain ASCII pasted text, and no more

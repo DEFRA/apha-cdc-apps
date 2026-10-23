@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace CDC.Web.Infrastructure;
 
@@ -31,6 +33,31 @@ public sealed class ProfileReportsApiService(HttpClient httpClient) : IProfileRe
             HttpStatusCode.Forbidden => new ContributionsReportResult(ContributionsReportOutcome.Forbidden),
             _ => new ContributionsReportResult(ContributionsReportOutcome.Error)
         };
+    }
+
+    /// <inheritdoc />
+    public async Task<DiseaseReviewsReportResult> GetDiseaseReviewsReportAsync(DateTime fromDate, DateTime toDate, Guid authorId, CancellationToken cancellationToken = default)
+    {
+        var url = QueryHelpers.AddQueryString($"{BasePath}/disease-reviews", new Dictionary<string, string?>
+        {
+            ["fromDate"] = fromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["toDate"] = toDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["authorId"] = authorId.ToString()
+        });
+
+        using var response = await httpClient.GetAsync(url, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var report = await response.Content.ReadFromJsonAsync<DiseaseReviewsReportDto>(cancellationToken);
+
+            return report is null
+                ? new DiseaseReviewsReportResult(DiseaseReviewsReportOutcome.Error)
+                : new DiseaseReviewsReportResult(DiseaseReviewsReportOutcome.Success, report);
+        }
+
+        return new DiseaseReviewsReportResult(
+            response.StatusCode == HttpStatusCode.Forbidden ? DiseaseReviewsReportOutcome.Forbidden : DiseaseReviewsReportOutcome.Error);
     }
 
     /// <inheritdoc />

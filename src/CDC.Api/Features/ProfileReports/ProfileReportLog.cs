@@ -41,4 +41,10 @@ internal static partial class ProfileReportLog
 
     [LoggerMessage(EventId = 6011, Level = LogLevel.Information, Message = "Read the guidance of {FoundCount} of {RequestedCount} requested questions")]
     public static partial void ReadQuestionGuidance(this ILogger logger, int requestedCount, int foundCount);
+
+    [LoggerMessage(EventId = 6012, Level = LogLevel.Information, Message = "Retrieved the disease reviews report for author {AuthorId} with {SectionCount} sections due")]
+    public static partial void RetrievedDiseaseReviewsReport(this ILogger logger, Guid authorId, int sectionCount);
+
+    [LoggerMessage(EventId = 6013, Level = LogLevel.Warning, Message = "The disease reviews report was refused: the user may not run it")]
+    public static partial void DiseaseReviewsReportRefused(this ILogger logger);
 }

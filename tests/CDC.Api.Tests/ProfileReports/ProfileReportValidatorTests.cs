@@ -32,6 +32,49 @@ public class ProfileReportValidatorTests
     }
 
     [Fact]
+    public void GetDiseaseReviewsReportQueryValidator_AcceptsAValidRangeAndAuthor()
+    {
+        var result = new GetDiseaseReviewsReportQueryValidator()
+            .Validate(new GetDiseaseReviewsReportQuery(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid()));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetDiseaseReviewsReportQueryValidator_AcceptsTheEdgesOfTheSupportedRange()
+    {
+        var result = new GetDiseaseReviewsReportQueryValidator()
+            .Validate(new GetDiseaseReviewsReportQuery(new DateTime(1900, 1, 1), new DateTime(2079, 6, 6), Guid.NewGuid()));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetDiseaseReviewsReportQueryValidator_EmptyAuthorId_ShouldFail()
+    {
+        var result = new GetDiseaseReviewsReportQueryValidator()
+            .Validate(new GetDiseaseReviewsReportQuery(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.Empty));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.PropertyName.Should().Be(nameof(GetDiseaseReviewsReportQuery.AuthorId));
+    }
+
+    [Theory]
+    [InlineData(1899, 12, 31)]
+    [InlineData(2079, 6, 7)]
+    public void GetDiseaseReviewsReportQueryValidator_DatesOutsideTheSupportedRange_ShouldFail(int year, int month, int day)
+    {
+        var outOfRange = new DateTime(year, month, day);
+        var validator = new GetDiseaseReviewsReportQueryValidator();
+
+        var fromResult = validator.Validate(new GetDiseaseReviewsReportQuery(outOfRange, new DateTime(2027, 12, 31), Guid.NewGuid()));
+        var toResult = validator.Validate(new GetDiseaseReviewsReportQuery(new DateTime(2027, 1, 1), outOfRange, Guid.NewGuid()));
+
+        fromResult.Errors.Should().ContainSingle().Which.PropertyName.Should().Be(nameof(GetDiseaseReviewsReportQuery.FromDate));
+        toResult.Errors.Should().ContainSingle().Which.PropertyName.Should().Be(nameof(GetDiseaseReviewsReportQuery.ToDate));
+    }
+
+    [Fact]
     public void GetProfilePrioritisationScoresQueryValidator_ValidatesTheProfileVersionId()
     {
         var validator = new GetProfilePrioritisationScoresQueryValidator();

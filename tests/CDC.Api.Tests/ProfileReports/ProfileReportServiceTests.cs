@@ -348,6 +348,89 @@ public class ProfileReportServiceTests
     }
 
     [Fact]
+    public async Task GetDiseaseReviewsReport_MapsEveryDueSection_PassingTheFiltersThrough()
+    {
+        var authorId = Guid.NewGuid();
+        var fromDate = new DateTime(2027, 1, 1);
+        var toDate = new DateTime(2027, 12, 31);
+        repository
+            .Setup(repo => repo.GetDiseaseReviewsAsync(fromDate, toDate, authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new DiseaseReviewSection
+                {
+                    ProfileVersionId = ProfileReportTestData.ProfileVersionId,
+                    Title = "Avian influenza",
+                    VersionMajor = 2,
+                    VersionMinor = 1,
+                    SectionNumber = 3,
+                    SectionName = "Surveillance",
+                    NextPolicyReview = new DateTime(2027, 2, 3),
+                    NextAuthorReview = new DateTime(2027, 4, 5),
+                    NextVaReview = new DateTime(2027, 6, 7)
+                },
+                new DiseaseReviewSection
+                {
+                    ProfileVersionId = ProfileReportTestData.ProfileVersionId,
+                    Title = "Avian influenza",
+                    VersionMajor = 2,
+                    VersionMinor = 1,
+                    SectionNumber = 4,
+                    SectionName = "Control"
+                }
+            ]);
+
+        var result = await CreateService().GetDiseaseReviewsReportAsync(fromDate, toDate, authorId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Sections.Should().HaveCount(2);
+        var first = result.Value.Sections[0];
+        first.ProfileVersionId.Should().Be(ProfileReportTestData.ProfileVersionId);
+        first.Title.Should().Be("Avian influenza");
+        first.VersionMajor.Should().Be(2);
+        first.VersionMinor.Should().Be(1);
+        first.SectionNumber.Should().Be(3);
+        first.SectionName.Should().Be("Surveillance");
+        first.NextPolicyReview.Should().Be(new DateTime(2027, 2, 3));
+        first.NextAuthorReview.Should().Be(new DateTime(2027, 4, 5));
+        first.NextVaReview.Should().Be(new DateTime(2027, 6, 7));
+        var second = result.Value.Sections[1];
+        second.NextPolicyReview.Should().BeNull();
+        second.NextAuthorReview.Should().BeNull();
+        second.NextVaReview.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsReport_ReturnsNoSections_WhenNoReviewIsDue()
+    {
+        repository
+            .Setup(repo => repo.GetDiseaseReviewsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await CreateService().GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 1), new DateTime(2027, 1, 31), Guid.NewGuid(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Sections.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task GetDiseaseReviewsReport_IsForbidden_UnlessAnEditorWhoIsNotUserManagement(bool isEditor, bool isUserManagement)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isEditor);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagement);
+
+        var result = await CreateService().GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 1), new DateTime(2027, 1, 31), Guid.NewGuid(), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(
+            repo => repo.GetDiseaseReviewsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task GetProfilePrintVersion_ReturnsUnavailableDescriptor()
     {
         var result = await CreateService().GetProfilePrintVersionAsync(

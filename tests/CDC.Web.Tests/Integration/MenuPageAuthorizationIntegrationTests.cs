@@ -56,7 +56,7 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     [Theory]
     [InlineData("/SurveillanceProfiles/ProfileProperties")]
     [InlineData("/DiseaseProfiles/CompareVersions")]
-    [InlineData("/DiseaseProfiles/ReviewTimings")]
+    [InlineData("/SurveillanceProfiles/DiseaseReviews")]
     [InlineData("/Reports/QuestionsGuidance")]
     [InlineData("/SpeciesData/Maintain")]
     [InlineData("/UserAdmin/GlobalUsers")]
@@ -108,7 +108,7 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     {
         var client = await _factory.SignedInClientWithRolesAsync(AuthorizationRoles.Reviewer);
 
-        var allowed = await client.GetAsync("/DiseaseProfiles/ReviewTimings");
+        var allowed = await client.GetAsync("/SurveillanceProfiles/DiseaseReviews");
         var refused = await client.GetAsync("/Reports/QuestionsGuidance");
 
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);

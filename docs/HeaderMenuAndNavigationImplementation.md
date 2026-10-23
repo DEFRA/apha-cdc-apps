@@ -111,7 +111,7 @@ requested here, via the `.aspx` pages already present in the repository:
 | `Search.aspx` | Disease Profiles &rarr; Search disease profiles |
 | `ManageProfile.aspx` (create flow) | Disease Profiles &rarr; Create profile |
 | `CompareProfileVersions.aspx` | Disease Profiles &rarr; Compare profile versions |
-| `ReviewEmail.aspx` / review timings report | Disease Profiles &rarr; Review Timings |
+| `DiseaseReviews.aspx` (review timings report) | Disease Profiles &rarr; Review Timings |
 | `StaticReports.aspx` | Reports &rarr; General reports |
 | `ProfileQuestionHelp.aspx` | Reports &rarr; Questions and guidance reports |
 | `ShowDiseaseRankingReport.aspx` | Reports &rarr; Disease ranking report |
@@ -180,7 +180,7 @@ Razor Pages (page + code-behind, 9 pairs):
 | Disease Profiles | `/DiseaseProfiles/Search` | `Pages/DiseaseProfiles/Search.cshtml`, `Search.cshtml.cs` |
 | Disease Profiles | `/DiseaseProfiles/Create` | `Pages/DiseaseProfiles/Create.cshtml`, `Create.cshtml.cs` |
 | Disease Profiles | `/DiseaseProfiles/CompareVersions` | `Pages/DiseaseProfiles/CompareVersions.cshtml`, `CompareVersions.cshtml.cs` |
-| Disease Profiles | `/DiseaseProfiles/ReviewTimings` | `Pages/DiseaseProfiles/ReviewTimings.cshtml`, `ReviewTimings.cshtml.cs` |
+| Disease Profiles | `/SurveillanceProfiles/DiseaseReviews` | `Pages/SurveillanceProfiles/DiseaseReviews.cshtml`, `DiseaseReviews.cshtml.cs` |
 | Reports | `/Reports/General` | `Pages/Reports/General.cshtml`, `General.cshtml.cs` |
 | Reports | `/Reports/QuestionsGuidance` | `Pages/Reports/QuestionsGuidance.cshtml`, `QuestionsGuidance.cshtml.cs` |
 | Reports | `/Reports/DiseaseRanking` | `Pages/Reports/DiseaseRanking.cshtml`, `DiseaseRanking.cshtml.cs` |

@@ -46,6 +46,46 @@ public class ProfileReportsApiServiceTests
         Assert.Equal(expected, result.Outcome);
     }
 
+    [Fact]
+    public async Task GetDiseaseReviewsReportAsync_ReturnsTheReport_AndSendsTheFiltersAsIsoDates()
+    {
+        var authorId = Guid.NewGuid();
+        var report = new DiseaseReviewsReportDto { Sections = [new DiseaseReviewsReportRowDto { SectionName = "Summary" }] };
+        var handler = new RecordingHandler(HttpStatusCode.OK, JsonContent.Create(report));
+
+        var result = await CreateService(handler).GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 5, 13, 30, 0), new DateTime(2027, 12, 31), authorId);
+
+        Assert.Equal(DiseaseReviewsReportOutcome.Success, result.Outcome);
+        Assert.Equal("Summary", Assert.Single(result.Report!.Sections).SectionName);
+        Assert.Equal("/api/profile-reports/disease-reviews", handler.RequestPath);
+        Assert.Equal($"?fromDate=2027-01-05&toDate=2027-12-31&authorId={authorId}", handler.RequestQuery);
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsReportAsync_ReturnsError_WhenTheBodyIsJsonNull()
+    {
+        var handler = new RecordingHandler(HttpStatusCode.OK, new StringContent("null", System.Text.Encoding.UTF8, "application/json"));
+
+        var result = await CreateService(handler).GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid());
+
+        Assert.Equal(DiseaseReviewsReportOutcome.Error, result.Outcome);
+        Assert.Null(result.Report);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden, DiseaseReviewsReportOutcome.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound, DiseaseReviewsReportOutcome.Error)]
+    [InlineData(HttpStatusCode.BadRequest, DiseaseReviewsReportOutcome.Error)]
+    [InlineData(HttpStatusCode.InternalServerError, DiseaseReviewsReportOutcome.Error)]
+    public async Task GetDiseaseReviewsReportAsync_MapsFailureStatusCodes(HttpStatusCode status, DiseaseReviewsReportOutcome expected)
+    {
+        var service = CreateService(new RecordingHandler(status, new StringContent(string.Empty)));
+
+        var result = await service.GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid());
+
+        Assert.Equal(expected, result.Outcome);
+    }
+
     private static ProfileReportsApiService CreateService(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://api.test") });
 
@@ -53,9 +93,12 @@ public class ProfileReportsApiServiceTests
     {
         public string? RequestPath { get; private set; }
 
+        public string? RequestQuery { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestPath = request.RequestUri!.AbsolutePath;
+            RequestQuery = request.RequestUri.Query;
 
             return Task.FromResult(new HttpResponseMessage(statusCode) { Content = content });
         }

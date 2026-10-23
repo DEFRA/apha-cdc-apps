@@ -11,6 +11,14 @@ public interface IProfileReportsApiService
     /// <returns>The report data, or why it is not available.</returns>
     Task<ContributionsReportResult> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>GET /api/profile-reports/disease-reviews</c> for the profile sections whose reviews fall due in a date range.</summary>
+    /// <param name="fromDate">The first day of the range.</param>
+    /// <param name="toDate">The last day of the range.</param>
+    /// <param name="authorId">The user the sections are assigned to.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The report data, or why it is not available.</returns>
+    Task<DiseaseReviewsReportResult> GetDiseaseReviewsReportAsync(DateTime fromDate, DateTime toDate, Guid authorId, CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/profile-reports/overview/{profileVersionId}</c>.</summary>
     /// <param name="profileVersionId">The profile version whose reports are listed.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
