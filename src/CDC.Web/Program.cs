@@ -81,6 +81,14 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IStaticReportDocumentApiService, StaticReportDocumentApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -298,6 +306,37 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Landing}/{action=Index}/{id?}")
     .WithStaticAssets();
+
+// Streams static report PDFs through this app: CDC.Api is private, so browsers cannot link to it directly.
+app.MapGet("/static-reports/versions/{staticReportVersionId:guid}/document", async (
+        Guid staticReportVersionId,
+        bool? download,
+        IStaticReportDocumentApiService documents,
+        HttpResponse response,
+        CancellationToken cancellationToken) =>
+    {
+        try
+        {
+            var document = await documents.GetDocumentAsync(staticReportVersionId, download ?? false, cancellationToken);
+
+            if (document is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (document.ContentDisposition is not null)
+            {
+                response.Headers.ContentDisposition = document.ContentDisposition;
+            }
+
+            return Results.File(document.Content, "application/pdf");
+        }
+        catch (HttpRequestException)
+        {
+            return Results.StatusCode(StatusCodes.Status502BadGateway);
+        }
+    })
+    .RequireAuthorization(CDC.Web.Authorization.Constants.AuthorizationPolicies.CanViewReports);
 
 // Ensure Razor Pages are available if any exist in the project
 app.MapRazorPages();
