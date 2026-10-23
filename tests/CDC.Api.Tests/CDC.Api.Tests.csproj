@@ -5,6 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- CDC.Graph is measured by its own CDC.Graph.Tests project; only CDC.Api counts here. -->
+    <Exclude>[CDC.Graph]*</Exclude>
+    <!-- CDC.Graph's resilience package brings in the Microsoft.Gen.Logging source generator (as it already does in
+         CDC.Web via CDC.Auth.Entra). Its generated Logging.g.cs has a "really log" branch that NullLogger never
+         reaches, so it is excluded, as in CDC.Auth.Entra.Tests. Comma-separated: coverlet's glob parser misreads
+         more than one semicolon-separated pattern. -->
+    <ExcludeByFile>**/Logging.g.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>

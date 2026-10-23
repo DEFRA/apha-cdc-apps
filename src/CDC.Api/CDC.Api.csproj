@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CDC.Common\CDC.Common.csproj" />
+    <ProjectReference Include="..\CDC.Graph\CDC.Graph.csproj" />
   </ItemGroup>
 
   <ItemGroup>

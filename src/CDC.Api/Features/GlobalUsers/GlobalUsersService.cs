@@ -6,6 +6,7 @@ using CDC.Api.Features.GlobalUsers.Commands;
 using CDC.Api.Features.GlobalUsers.Dtos;
 using CDC.Api.Features.GlobalUsers.Interfaces;
 using CDC.Common.Contracts;
+using CDC.Graph;
 using MediatR;
 
 namespace CDC.Api.Features.GlobalUsers;
@@ -15,8 +16,12 @@ namespace CDC.Api.Features.GlobalUsers;
 /// (it has no paging parameters) and replicates the legacy <c>GlobalUser</c> validation rules.
 /// </summary>
 /// <param name="repository">Global users data access.</param>
+/// <param name="graphClient">Directory lookup used to pre-fill a new user's name and organisation.</param>
 /// <param name="logger">Structured logger.</param>
-public sealed partial class GlobalUsersService(IGlobalUsersRepository repository, ILogger<GlobalUsersService> logger)
+public sealed partial class GlobalUsersService(
+    IGlobalUsersRepository repository,
+    IGraphClient graphClient,
+    ILogger<GlobalUsersService> logger)
     : IGlobalUsersService
 {
     private const int UserNameMaxLength = 50;
@@ -182,13 +187,46 @@ public sealed partial class GlobalUsersService(IGlobalUsersRepository repository
             return new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.InvalidFormat };
         }
 
+        var directoryUser = await FindInDirectoryAsync(userName, cancellationToken);
+
         return new GlobalUserLookupResult
         {
             Outcome = GlobalUserLookupOutcome.NewUser,
             Id = Guid.NewGuid(),
             UserName = userName,
+            FullName = Truncate(directoryUser?.DisplayName),
+            Organisation = Truncate(directoryUser?.Organisation),
             LastUpdated = new byte[RowVersionLength]
         };
+    }
+
+    /// <summary>Looks a not-yet-known user up in the directory. A failure is logged and treated as "not found" so adding a user by hand still works.</summary>
+    private async Task<GraphUser?> FindInDirectoryAsync(string userName, CancellationToken cancellationToken)
+    {
+        // The directory matches on the logon name alone; the legacy DOMAIN\ prefix is not a Graph property.
+        var samAccountName = userName[(userName.IndexOf('\\', StringComparison.Ordinal) + 1)..];
+
+        try
+        {
+            var user = await graphClient.FindUserBySamAccountNameAsync(samAccountName, cancellationToken);
+            logger.GraphLookupCompleted(user is not null);
+
+            return user;
+        }
+        catch (GraphException exception)
+        {
+            logger.GraphLookupFailed(exception);
+
+            return null;
+        }
+    }
+
+    // Keeps a directory value within the length the save step accepts.
+    private static string Truncate(string? value)
+    {
+        var trimmed = value?.Trim() ?? string.Empty;
+
+        return trimmed.Length > NameMaxLength ? trimmed[..NameMaxLength] : trimmed;
     }
 
     /// <summary>Returns the first validation failure message, or <see langword="null"/> when the change is valid.</summary>

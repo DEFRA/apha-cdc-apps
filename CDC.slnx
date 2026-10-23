@@ -7,12 +7,14 @@
     <Project Path="src/CDC.Auth.Cidm/CDC.Auth.Cidm.csproj" />
     <Project Path="src/CDC.Auth.Entra/CDC.Auth.Entra.csproj" />
     <Project Path="src/CDC.Common/CDC.Common.csproj" />
+    <Project Path="src/CDC.Graph/CDC.Graph.csproj" />
     <Project Path="src/CDC.Web/CDC.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CDC.Api.Tests/CDC.Api.Tests.csproj" />
     <Project Path="tests/CDC.Auth.Cidm.Tests/CDC.Auth.Cidm.Tests.csproj" />
     <Project Path="tests/CDC.Auth.Entra.Tests/CDC.Auth.Entra.Tests.csproj" />
+    <Project Path="tests/CDC.Graph.Tests/CDC.Graph.Tests.csproj" />
     <Project Path="tests/CDC.Web.Tests/CDC.Web.Tests.csproj" />
   </Folder>
 </Solution>

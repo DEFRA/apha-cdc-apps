@@ -92,6 +92,35 @@ dotnet user-secrets set "Entra:ClientSecret" "<client-secret>"
 ```
 
 
+## Microsoft Graph (CDC.Api)
+
+`CDC.Graph` is a shared client for Microsoft Graph using the app's own identity (client credentials, no
+signed-in user). It requests a token from `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token`
+once, caches it in memory, renews it shortly before it expires, and attaches it to every Graph call, so
+feature code only asks for data: inject `IGraphClient`. It is registered in `CDC.Api` with
+`AddGraphClient()`.
+
+Today it pre-fills the full name and organisation when adding a global user whose username is not yet in
+the system (`onPremisesSamAccountName` match, using `companyName`, falling back to `department`). If Graph
+is off, fails, or finds zero or several matches, the lookup behaves as before and the details are typed in.
+
+| Config key           | Purpose                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| `Graph:Enabled`      | `false` by default. When false, no other key is needed.          |
+| `Graph:TenantId`     | Entra ID tenant ID (required when enabled)                       |
+| `Graph:ClientId`     | App registration client ID (required when enabled)               |
+| `Graph:ClientSecret` | App registration client secret (required when enabled; a secret) |
+
+The app registration needs the **Application** permission `User.Read.All` with admin consent. Locally:
+
+```powershell
+cd src/CDC.Api
+dotnet user-secrets set "Graph:Enabled" "true"
+dotnet user-secrets set "Graph:TenantId" "<tenant-id>"
+dotnet user-secrets set "Graph:ClientId" "<client-id>"
+dotnet user-secrets set "Graph:ClientSecret" "<client-secret>"
+```
+
 ## Code style & pre-commit checks
 
 Formatting and code-style rules are defined in `.editorconfig`; Roslyn analyzers are enabled for every

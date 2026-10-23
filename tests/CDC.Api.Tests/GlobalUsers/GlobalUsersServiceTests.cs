@@ -5,6 +5,7 @@ using CDC.Api.Features.GlobalUsers;
 using CDC.Api.Features.GlobalUsers.Commands;
 using CDC.Api.Features.GlobalUsers.Interfaces;
 using CDC.Common.Contracts;
+using CDC.Graph;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -14,8 +15,9 @@ namespace CDC.Api.Tests.GlobalUsers;
 public class GlobalUsersServiceTests
 {
     private readonly Mock<IGlobalUsersRepository> repository = new(MockBehavior.Strict);
+    private readonly Mock<IGraphClient> graph = new();
 
-    private GlobalUsersService CreateService() => new(repository.Object, NullLogger<GlobalUsersService>.Instance);
+    private GlobalUsersService CreateService() => new(repository.Object, graph.Object, NullLogger<GlobalUsersService>.Instance);
 
     private static GlobalUser User(string userName, GlobalUserRole role = GlobalUserRole.ProfileEditor, bool isSso = false) => new()
     {
@@ -167,6 +169,62 @@ public class GlobalUsersServiceTests
         result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
         result.Id.Should().NotBeEmpty();
         result.UserName.Should().Be(@"DEFRA\new.user");
+        result.FullName.Should().BeEmpty();
+        result.Organisation.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_PrefillsANewUser_FromTheDirectory()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+        graph.Setup(client => client.FindUserBySamAccountNameAsync("new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GraphUser("id-1", "  New User  ", "APHA"));
+
+        var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
+
+        result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
+        result.FullName.Should().Be("New User");
+        result.Organisation.Should().Be("APHA");
+    }
+
+    [Fact]
+    public async Task LookupAsync_TruncatesDirectoryValuesToTheSavedLength()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+        graph.Setup(client => client.FindUserBySamAccountNameAsync("new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GraphUser("id-1", new string('n', 150), null));
+
+        var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
+
+        result.FullName.Should().HaveLength(100);
+        result.Organisation.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_StillReturnsANewUser_WhenTheDirectoryLookupFails()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+        graph.Setup(client => client.FindUserBySamAccountNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new GraphException("down"));
+
+        var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
+
+        result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
+        result.FullName.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_DoesNotAskTheDirectory_ForAnExistingOrMalformedUser()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync("nodomain", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+
+        await CreateService().LookupAsync("nodomain", CancellationToken.None);
+
+        graph.Verify(client => client.FindUserBySamAccountNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using CDC.Api.Infrastructure.Swagger;
 using CDC.Api.Middleware;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Graph;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +34,10 @@ StartupChecks.RequireReadinessKey(builder.Configuration);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+
+// Graph:Enabled/TenantId/ClientId/ClientSecret - same sourcing as Entra (ECS task definition secrets).
+// Disabled by default, in which case no credentials are needed and lookups skip Graph.
+builder.Services.AddGraphClient(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
