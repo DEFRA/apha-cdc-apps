@@ -23,6 +23,8 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     private const string PageRoute = "/UserAdmin/GlobalUsers";
     private const int NameMaxLength = 100;
     private const string UserNameField = "UserName";
+    private const string Ascending = "Ascending";
+    private const string Descending = "Descending";
 
     private static readonly Action<ILogger, Exception?> LogFailedToLoadUsersMessage =
         LoggerMessage.Define(LogLevel.Error, new EventId(1, nameof(LogFailedToLoadUsersMessage)), "Failed to load global users");
@@ -53,6 +55,17 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets or sets the current 1-based results page.</summary>
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
+
+    /// <summary>Gets or sets the column the list is sorted by. Legacy defaulted to full name.</summary>
+    [BindProperty(SupportsGet = true)]
+    public GlobalUserSortColumn SortColumn { get; set; } = GlobalUserSortColumn.FullName;
+
+    /// <summary>Gets or sets the sort direction: "Ascending" or "Descending".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string SortDirection { get; set; } = Ascending;
+
+    /// <summary>Gets a value indicating whether the list is sorted in descending order.</summary>
+    public bool IsSortDescending => string.Equals(SortDirection, Descending, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Gets or sets the user whose "Edit global user" panel is open, if any.</summary>
     [BindProperty(SupportsGet = true)]
@@ -93,6 +106,13 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets or sets a value indicating whether the form is adding a user rather than editing one. Hidden field.</summary>
     [BindProperty]
     public bool IsNewUser { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the lookup found a user already in the system, so the panel reads as an edit (as legacy did). Hidden field.</summary>
+    [BindProperty]
+    public bool IsExistingUser { get; set; }
+
+    /// <summary>Gets the add/edit panel heading.</summary>
+    public string PanelHeading => IsNewUser && !IsExistingUser ? "Add global user" : "Edit global user";
 
     /// <summary>Gets or sets the success message shown after a save or delete, carried across the redirect.</summary>
     [TempData]
@@ -211,6 +231,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
                 }
 
                 IsNewUser = true;
+                IsExistingUser = result.Outcome == GlobalUserLookupOutcome.ExistingUser;
                 UserId = result.Id;
                 UserName = result.UserName;
                 FullName = result.FullName;
@@ -274,7 +295,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         {
             SuccessMessage = "Your changes were successfully saved";
 
-            return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+            return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
         }
 
         GeneralErrors = [result.ErrorMessage ?? "We could not save your changes. Try again later."];
@@ -289,7 +310,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         {
             DeleteErrorMessage = "You cannot delete your own global user.";
 
-            return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+            return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
         }
 
         try
@@ -311,26 +332,50 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
             DeleteErrorMessage = "We could not delete this global user. Try again later.";
         }
 
-        return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+        return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
     }
 
-    /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/>.</summary>
+    /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/> and the sort.</summary>
     /// <param name="page">The 1-based page.</param>
     /// <returns>The page URL.</returns>
-    public string? BuildPageUrl(int page) => Url.Page(PageRoute, new { PageSize, PageNumber = page });
+    public string? BuildPageUrl(int page) => Url.Page(PageRoute, new { PageSize, PageNumber = page, SortColumn, SortDirection });
+
+    /// <summary>Builds the URL for a sortable column header: ascending for a new column, otherwise toggling the direction. Resets to page 1.</summary>
+    /// <param name="column">The column to sort by.</param>
+    /// <returns>The page URL.</returns>
+    public string? BuildSortUrl(GlobalUserSortColumn column) => Url.Page(PageRoute, new
+    {
+        PageSize,
+        PageNumber = 1,
+        SortColumn = column,
+        SortDirection = column == SortColumn && !IsSortDescending ? Descending : Ascending
+    });
+
+    /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
+    /// <param name="column">The column.</param>
+    /// <returns>"none" unless the list is sorted by <paramref name="column"/>.</returns>
+    public string GetAriaSort(GlobalUserSortColumn column)
+    {
+        if (column != SortColumn)
+        {
+            return "none";
+        }
+
+        return IsSortDescending ? "descending" : "ascending";
+    }
 
     /// <summary>Builds the URL that opens the "Add global user" panel.</summary>
     /// <returns>The page URL.</returns>
-    public string? BuildAddUrl() => Url.Page(PageRoute, null, new { PageSize, PageNumber, AddUser = true }, null, null, PanelId);
+    public string? BuildAddUrl() => Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, AddUser = true }, null, null, PanelId);
 
     /// <summary>Builds the URL that opens the "Edit global user" panel for one row.</summary>
     /// <param name="userId">The user to edit.</param>
     /// <returns>The page URL.</returns>
-    public string? BuildEditUrl(Guid userId) => Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = userId }, null, null, PanelId);
+    public string? BuildEditUrl(Guid userId) => Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = userId }, null, null, PanelId);
 
     /// <summary>Builds the URL that closes any open panel.</summary>
     /// <returns>The page URL.</returns>
-    public string? BuildCloseUrl() => Url.Page(PageRoute, new { PageSize, PageNumber });
+    public string? BuildCloseUrl() => Url.Page(PageRoute, new { PageSize, PageNumber, SortColumn, SortDirection });
 
     private Dictionary<string, string> ValidateForm()
     {
@@ -370,7 +415,8 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     {
         try
         {
-            var result = await globalUsersApiService.GetGlobalUsersAsync(PageNumber, ResolvePageSize(PageSize), cancellationToken);
+            var result = await globalUsersApiService.GetGlobalUsersAsync(
+                PageNumber, ResolvePageSize(PageSize), SortColumn, IsSortDescending, cancellationToken);
 
             TotalPages = result.TotalPages;
             PageNumber = Math.Clamp(PageNumber, 1, TotalPages);

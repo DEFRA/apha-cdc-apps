@@ -13,6 +13,22 @@ public enum GlobalUserRole
     PolicyProfileUser = 2
 }
 
+/// <summary>The column the global users list is sorted by. Legacy sorted by full name by default.</summary>
+public enum GlobalUserSortColumn
+{
+    /// <summary>Sort by full name (the default).</summary>
+    FullName = 0,
+
+    /// <summary>Sort by username.</summary>
+    UserName = 1,
+
+    /// <summary>Sort by organisation.</summary>
+    Organisation = 2,
+
+    /// <summary>Sort by role name.</summary>
+    Role = 3
+}
+
 /// <summary>
 /// A global user and their system role, as returned by <c>GET /api/global-users</c>. Shared by
 /// CDC.Api's response DTO and CDC.Web's view model so the wire shape can never drift between the two.

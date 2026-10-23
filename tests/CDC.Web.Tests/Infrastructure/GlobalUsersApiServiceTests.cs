@@ -17,9 +17,9 @@ public class GlobalUsersApiServiceTests
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
         var client = CreateClient(handler);
 
-        var result = await client.GetGlobalUsersAsync(2, 10);
+        var result = await client.GetGlobalUsersAsync(2, 10, GlobalUserSortColumn.Organisation, sortDescending: true);
 
-        Assert.Equal("/api/global-users?pageNumber=2&pageSize=10", handler.LastRequestUri!.PathAndQuery);
+        Assert.Equal("/api/global-users?pageNumber=2&pageSize=10&sortColumn=Organisation&sortDescending=true", handler.LastRequestUri!.PathAndQuery);
         Assert.Equal("Jo Smith", Assert.Single(result.Items).FullName);
     }
 
@@ -28,7 +28,7 @@ public class GlobalUsersApiServiceTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var result = await client.GetGlobalUsersAsync(3, 15);
+        var result = await client.GetGlobalUsersAsync(3, 15, GlobalUserSortColumn.FullName, sortDescending: false);
 
         Assert.Empty(result.Items);
         Assert.Equal(3, result.PageNumber);

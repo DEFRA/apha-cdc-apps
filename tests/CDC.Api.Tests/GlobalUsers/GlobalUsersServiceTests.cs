@@ -45,11 +45,61 @@ public class GlobalUsersServiceTests
             .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User(@"D\a"), User(@"D\b"), User(@"D\c")]);
 
-        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 2, pageSize: 2, CancellationToken.None);
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 2, pageSize: 2, GlobalUserSortColumn.UserName, sortDescending: false, CancellationToken.None);
 
         result.Items.Should().ContainSingle().Which.UserName.Should().Be(@"D\c");
         result.TotalRecords.Should().Be(3);
         result.TotalPages.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsByFullNameBeforePaging_ByDefault()
+    {
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\c"), User(@"D\a"), User(@"D\b")]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 2, GlobalUserSortColumn.FullName, sortDescending: false, CancellationToken.None);
+
+        result.Items.Select(user => user.UserName).Should().Equal(@"D\a", @"D\b");
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsDescending()
+    {
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\a"), User(@"D\c"), User(@"D\b")]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.UserName, sortDescending: true, CancellationToken.None);
+
+        result.Items.Select(user => user.UserName).Should().Equal(@"D\c", @"D\b", @"D\a");
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsRoleByName()
+    {
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\editor", GlobalUserRole.ProfileEditor), User(@"D\policy", GlobalUserRole.PolicyProfileUser)]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.Role, sortDescending: false, CancellationToken.None);
+
+        result.Items.Select(user => user.Role).Should().Equal(GlobalUserRole.PolicyProfileUser, GlobalUserRole.ProfileEditor);
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsByOrganisation()
+    {
+        var apha = User(@"D\a");
+        var defra = User(@"D\b") with { Organisation = "Defra" };
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([defra, apha]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.Organisation, sortDescending: false, CancellationToken.None);
+
+        result.Items.Select(user => user.Organisation).Should().Equal("APHA", "Defra");
     }
 
     [Fact]
@@ -59,7 +109,7 @@ public class GlobalUsersServiceTests
             .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User(@"D\a"), User(@"D\b"), User(@"D\c")]);
 
-        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, CancellationToken.None);
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.FullName, sortDescending: false, CancellationToken.None);
 
         result.Items.Should().HaveCount(3);
         result.TotalPages.Should().Be(1);

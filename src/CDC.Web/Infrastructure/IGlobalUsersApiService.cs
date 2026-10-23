@@ -9,9 +9,12 @@ public interface IGlobalUsersApiService
     /// <summary>Calls <c>GET /api/global-users</c>.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user on a single page.</param>
+    /// <param name="sortColumn">The column to sort by before paging.</param>
+    /// <param name="sortDescending">Whether to sort in descending order.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The requested page of global users.</returns>
-    Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
+        int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>GET /api/global-users/lookup</c>.</summary>
     /// <param name="userName">The username to look up.</param>

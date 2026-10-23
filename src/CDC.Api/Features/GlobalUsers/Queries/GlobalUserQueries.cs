@@ -9,7 +9,13 @@ namespace CDC.Api.Features.GlobalUsers.Queries;
 /// <summary>Retrieves one page of global users.</summary>
 /// <param name="PageNumber">The 1-based page to return.</param>
 /// <param name="PageSize">Items per page, or 0/negative for every user on a single page.</param>
-public sealed record GetGlobalUsersQuery(int PageNumber, int PageSize) : IRequest<Result<PagedResult<GlobalUserDto>>>;
+/// <param name="SortColumn">The column to sort by before paging.</param>
+/// <param name="SortDescending">Whether to sort in descending order.</param>
+public sealed record GetGlobalUsersQuery(
+    int PageNumber,
+    int PageSize,
+    GlobalUserSortColumn SortColumn = GlobalUserSortColumn.FullName,
+    bool SortDescending = false) : IRequest<Result<PagedResult<GlobalUserDto>>>;
 
 /// <summary>Handles <see cref="GetGlobalUsersQuery"/>.</summary>
 /// <param name="service">Global users application service.</param>
@@ -18,7 +24,8 @@ public sealed class GetGlobalUsersQueryHandler(IGlobalUsersService service)
 {
     /// <inheritdoc />
     public async Task<Result<PagedResult<GlobalUserDto>>> Handle(GetGlobalUsersQuery request, CancellationToken cancellationToken) =>
-        Result.Success(await service.GetGlobalUsersAsync(request.PageNumber, request.PageSize, cancellationToken));
+        Result.Success(await service.GetGlobalUsersAsync(
+            request.PageNumber, request.PageSize, request.SortColumn, request.SortDescending, cancellationToken));
 }
 
 /// <summary>Looks a username up for the "Add global user" step. Mirrors the legacy <c>btnLookup_Click</c>.</summary>

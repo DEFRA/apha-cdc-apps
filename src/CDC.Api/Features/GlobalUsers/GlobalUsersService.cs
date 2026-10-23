@@ -28,17 +28,19 @@ public sealed partial class GlobalUsersService(IGlobalUsersRepository repository
     private static partial Regex UsernameFormatRegex();
 
     /// <inheritdoc />
-    public async Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
+        int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken)
     {
         var users = await repository.GetGlobalUsersAsync(cancellationToken);
         logger.RetrievedGlobalUsers(users.Count);
 
         var effectivePageNumber = Math.Max(1, pageNumber);
         var effectivePageSize = Math.Max(0, pageSize);
+        var sorted = Sort(users, sortColumn, sortDescending);
 
         var page = effectivePageSize > 0
-            ? users.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize)
-            : users;
+            ? sorted.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize)
+            : sorted;
 
         return new PagedResult<GlobalUserDto>
         {
@@ -224,6 +226,22 @@ public sealed partial class GlobalUsersService(IGlobalUsersRepository repository
         }
 
         return null;
+    }
+
+    private static IEnumerable<GlobalUser> Sort(IEnumerable<GlobalUser> users, GlobalUserSortColumn column, bool descending)
+    {
+        Func<GlobalUser, string> key = column switch
+        {
+            GlobalUserSortColumn.UserName => user => user.UserName,
+            GlobalUserSortColumn.Organisation => user => user.Organisation,
+            // Legacy sorted on the role's name, not its numeric value.
+            GlobalUserSortColumn.Role => user => user.Role.ToString(),
+            _ => user => user.FullName
+        };
+
+        return descending
+            ? users.OrderByDescending(key, StringComparer.OrdinalIgnoreCase)
+            : users.OrderBy(key, StringComparer.OrdinalIgnoreCase);
     }
 
     private static GlobalUserDto ToDto(GlobalUser user) => new()

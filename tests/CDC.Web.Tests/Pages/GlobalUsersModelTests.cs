@@ -35,8 +35,14 @@ public class GlobalUsersModelTests
 
         public Guid? DeletedId { get; private set; }
 
-        public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
-            Throw
+        public (GlobalUserSortColumn Column, bool Descending)? RequestedSort { get; private set; }
+
+        public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
+            int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
+        {
+            RequestedSort = (sortColumn, sortDescending);
+
+            return Throw
                 ? Task.FromException<PagedResult<GlobalUserDto>>(new HttpRequestException("boom"))
                 : Task.FromResult(new PagedResult<GlobalUserDto>
                 {
@@ -45,6 +51,7 @@ public class GlobalUsersModelTests
                     PageSize = pageSize,
                     TotalRecords = Users.Count
                 });
+        }
 
         public Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken = default) =>
             ThrowOnActions ? Task.FromException<GlobalUserLookupResult>(new HttpRequestException("boom")) : Task.FromResult(Lookup);
@@ -119,6 +126,64 @@ public class GlobalUsersModelTests
 
         Assert.Equal(2, model.Users.Count);
         Assert.False(model.HasLoadError);
+    }
+
+    [Fact]
+    public async Task OnGet_SortsByFullNameAscending_ByDefault()
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api);
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal((GlobalUserSortColumn.FullName, false), api.RequestedSort);
+        Assert.Equal("ascending", model.GetAriaSort(GlobalUserSortColumn.FullName));
+        Assert.Equal("none", model.GetAriaSort(GlobalUserSortColumn.UserName));
+    }
+
+    [Fact]
+    public async Task OnGet_PassesTheRequestedSortToTheApi()
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api);
+        model.SortColumn = GlobalUserSortColumn.Organisation;
+        model.SortDirection = "Descending";
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal((GlobalUserSortColumn.Organisation, true), api.RequestedSort);
+        Assert.Equal("descending", model.GetAriaSort(GlobalUserSortColumn.Organisation));
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_ShowsEditHeading_ForAnExistingUser()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService
+        {
+            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.ExistingUser, Id = Guid.NewGuid(), UserName = @"DEFRA\jsmith" }
+        });
+        model.UserName = @"DEFRA\jsmith";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.True(model.IsNewUser);
+        Assert.True(model.IsExistingUser);
+        Assert.Equal("Edit global user", model.PanelHeading);
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_ShowsAddHeading_ForANewUser()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService
+        {
+            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NewUser, Id = Guid.NewGuid(), UserName = @"DEFRA\newuser" }
+        });
+        model.UserName = @"DEFRA\newuser";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.False(model.IsExistingUser);
+        Assert.Equal("Add global user", model.PanelHeading);
     }
 
     [Fact]

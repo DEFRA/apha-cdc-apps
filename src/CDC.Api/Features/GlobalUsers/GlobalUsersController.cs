@@ -23,6 +23,8 @@ public sealed class GlobalUsersController(ISender mediator) : ControllerBase
     /// <summary>Gets one page of global users.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user on a single page.</param>
+    /// <param name="sortColumn">The column to sort by. Defaults to full name, as legacy did.</param>
+    /// <param name="sortDescending">Whether to sort in descending order.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="200">The users were retrieved.</response>
     [HttpGet]
@@ -30,9 +32,11 @@ public sealed class GlobalUsersController(ISender mediator) : ControllerBase
     public async Task<ActionResult<PagedResult<GlobalUserDto>>> GetGlobalUsers(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
+        [FromQuery] GlobalUserSortColumn sortColumn = GlobalUserSortColumn.FullName,
+        [FromQuery] bool sortDescending = false,
         CancellationToken cancellationToken = default)
     {
-        var result = await mediator.Send(new GetGlobalUsersQuery(pageNumber, pageSize), cancellationToken);
+        var result = await mediator.Send(new GetGlobalUsersQuery(pageNumber, pageSize, sortColumn, sortDescending), cancellationToken);
 
         return result.ToActionResult(this);
     }
