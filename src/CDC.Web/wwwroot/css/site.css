@@ -237,6 +237,11 @@ html {
   margin-bottom: 8px;
 }
 
+/* Profile properties: the label takes the first quarter of the row, as the legacy table did. */
+.app-edit-title-row__label--quarter {
+  flex: 0 0 25%;
+}
+
 .app-edit-title-row__input-wrapper {
   flex: 1 1 auto;
   min-width: 0;
@@ -294,6 +299,24 @@ html {
   font-style: italic;
   font-weight: 700;
   min-width: 2.5rem;
+}
+
+/* A toolbar shown only while the title is being edited floats above it, as the legacy inline editor's did,
+   so the page does not move when it appears. */
+.app-title-floating {
+  position: relative;
+}
+
+.app-title-toolbar--floating {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(11, 12, 12, 0.2);
+}
+
+.app-title-toolbar[hidden] {
+  display: none;
 }
 
 /* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
@@ -876,8 +899,17 @@ body {
   min-width: 0;
 }
 
+/* Each species box keeps its "Open all"/"Close all" fixed above a tree that scrolls on its own, as in the legacy page. */
 .app-species-selector__panel {
+  max-height: none;
+  padding-right: 0;
+}
+
+.app-species-selector__tree {
+  position: relative;
   max-height: 400px;
+  padding: 2px 15px 0 0;
+  overflow-y: auto;
 }
 
 .app-species-selector__status {

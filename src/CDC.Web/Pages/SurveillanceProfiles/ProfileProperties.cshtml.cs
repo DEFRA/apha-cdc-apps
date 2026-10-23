@@ -105,6 +105,9 @@ public class ProfilePropertiesModel(
     /// <summary>Gets the label of the title field.</summary>
     public string TitleLabel => IsScenarioTitle ? "Scenario title" : "Profile title";
 
+    /// <summary>Gets the message shown while the title has no text, as the legacy required field validator did.</summary>
+    public string TitleRequiredMessage => $"You must enter a {TitleLabel.ToLowerInvariant()}";
+
     /// <summary>Gets the label of the button that saves the form.</summary>
     public string SubmitButtonText => Mode == ProfilePropertiesMode.Edit ? "Update" : "Create profile";
 
@@ -344,7 +347,7 @@ public class ProfilePropertiesModel(
     {
         if (ProfileTitleHtmlFormatter.ToPlainText(title).Length == 0)
         {
-            ModelState.AddModelError(nameof(ProfileTitle), $"You must enter a {TitleLabel.ToLowerInvariant()}");
+            ModelState.AddModelError(nameof(ProfileTitle), TitleRequiredMessage);
         }
         else if (title.Length > MaxTitleLength)
         {

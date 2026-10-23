@@ -3,6 +3,7 @@
 // and mirrored into a hidden input on every change, which is what actually gets posted.
 // The editor behaves as the legacy TinyMCE one did: italic only, one line, plain ASCII pasted text, and no more
 // than the title column holds. Where the page marks them, Save is hidden and a required message shown while the title has no text.
+// A toolbar marked data-app-title-toolbar-on-focus shows only while the title or the toolbar has focus, like legacy's inline editor.
 (function () {
     'use strict';
 
@@ -235,6 +236,38 @@
 
         syncHiddenInput();
         updateButtonStates();
+
+        // Only where the page asks: a page that opens with no title (creating a profile) must not offer to save it.
+        if (saveButton && saveButton.dataset.appTitleSave === 'on-load') {
+            updateSaveButton();
+        }
+
+        if (toolbar.hasAttribute('data-app-title-toolbar-on-focus')) {
+            showToolbarOnFocus();
+        }
+
+        function showToolbarOnFocus() {
+            toolbar.hidden = true;
+
+            // Clicking a button would otherwise take focus (and the selection to italicise) from the title.
+            toolbar.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+            });
+
+            [editor, toolbar].forEach(function (element) {
+                element.addEventListener('focusin', function () {
+                    toolbar.hidden = false;
+                });
+
+                element.addEventListener('focusout', function (event) {
+                    var next = event.relatedTarget;
+
+                    if (!next || (!editor.contains(next) && !toolbar.contains(next))) {
+                        toolbar.hidden = true;
+                    }
+                });
+            });
+        }
     });
 })();
 

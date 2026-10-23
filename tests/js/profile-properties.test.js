@@ -46,18 +46,28 @@ function tree(prefix, checked) {
     </ul>`;
 }
 
+// A species box as the page renders it: its own "Close all" above its tree.
+function panel(kind, checked) {
+  return `
+    <div class="app-tree__panel" data-species-tree="${kind}">
+      <div class="app-tree__controls">
+        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+          <span class="app-tree__toggle-all-text">Close all</span>
+        </button>
+      </div>
+      ${tree(kind, checked)}
+    </div>`;
+}
+
 function build({ profiled = [], other = [], warningEnabled = true } = {}) {
   document.body.innerHTML = `
     <form data-module="app-profile-properties">
       <div id="ProfileTitleEditor" contenteditable="true" data-app-title-hidden-input="ProfileTitle">Anthrax</div>
       <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="Anthrax">
-      <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
-        <span class="app-tree__toggle-all-text">Close all</span>
-      </button>
       <div data-module="app-species-selector" data-species-warning-enabled="${warningEnabled}">
-        <div data-species-tree="profiled">${tree('profiled', profiled)}</div>
+        ${panel('profiled', profiled)}
         <output data-species-status="profiled" hidden></output>
-        <div data-species-tree="other">${tree('other', other)}</div>
+        ${panel('other', other)}
         <output data-species-status="other" hidden></output>
         <div data-species-warning hidden>Removing profiled species removes their data.</div>
         <div data-species-announcement></div>
@@ -253,6 +263,42 @@ describe('profile-properties species selector', () => {
     await Promise.resolve();
 
     expect(toggle('profiled').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  // As in the legacy page, each box has its own control; either one opens or closes the branches of both trees, and both then read alike.
+  it('opens and closes every branch in both trees from the Open all / Close all in either box', async () => {
+    build();
+    const toggleAll = (kind) => document.querySelector(`[data-species-tree="${kind}"] .app-tree__toggle-all`);
+    const label = (kind) => toggleAll(kind).querySelector('.app-tree__toggle-all-text').textContent;
+    const hidden = (kind) => [...document.querySelectorAll(`[data-species-tree="${kind}"] .app-tree__group`)].map((group) => group.hidden);
+
+    toggleAll('profiled').click();
+    await Promise.resolve();
+
+    expect(hidden('profiled')).toEqual([true, true]);
+    expect(hidden('other')).toEqual([true, true]);
+    expect([label('profiled'), label('other')]).toEqual(['Open all', 'Open all']);
+    expect(toggleAll('other').getAttribute('aria-expanded')).toBe('false');
+
+    toggleAll('other').click();
+    await Promise.resolve();
+
+    expect(hidden('profiled')).toEqual([false, false]);
+    expect(hidden('other')).toEqual([false, false]);
+    expect([label('profiled'), label('other')]).toEqual(['Close all', 'Close all']);
+    expect(toggleAll('profiled').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('runs each box\'s Open all / Close all on its own tree only', () => {
+    build();
+    const [profiledList, otherList] = document.querySelectorAll('[data-module="app-tree-view"]');
+    const runProfiled = vi.spyOn(profiledList.treeView, 'runAction');
+    const runOther = vi.spyOn(otherList.treeView, 'runAction');
+
+    document.querySelector('[data-species-tree="profiled"] .app-tree__toggle-all').click();
+
+    expect(runProfiled).toHaveBeenCalledWith('toggle-all');
+    expect(runOther).not.toHaveBeenCalled();
   });
 });
 
