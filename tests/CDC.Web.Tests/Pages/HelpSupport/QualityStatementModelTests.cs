@@ -19,14 +19,12 @@ public class QualityStatementModelTests
 
     private static QualityStatementModel CreatePageModel(
         IReadOnlyList<StaticReportListItemDto>? staticReports = null,
-        Exception? throwOnGetCurrentStaticReports = null,
-        string? baseUrl = "https://api.example.test")
+        Exception? throwOnGetCurrentStaticReports = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
         return new QualityStatementModel(
             new FakeApiClient(staticReports: staticReports, throwOnGetCurrentStaticReports: throwOnGetCurrentStaticReports),
-            Options.Create(new ApiOptions { BaseUrl = baseUrl ?? string.Empty }),
             NullLogger<QualityStatementModel>.Instance)
         {
             PageContext = new PageContext
@@ -59,7 +57,7 @@ public class QualityStatementModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal($"https://api.example.test/api/static-reports/versions/{VersionId}/document?download=true", redirect.Url);
+        Assert.Equal($"/static-reports/versions/{VersionId}/document?download=true", redirect.Url);
         Assert.False(pageModel.HasError);
     }
 

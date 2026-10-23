@@ -51,7 +51,6 @@ public class GeneralModelTests
                 staticReportOperationResult: operationResult,
                 throwOnStaticReportOperation: throwOnOperation),
             new StubAuthorizationService(canManage),
-            Options.Create(new ApiOptions { BaseUrl = "https://api.example.test/" }),
             new AlwaysEnabledLogger<GeneralModel>())
         {
             PageContext = new PageContext
@@ -358,25 +357,13 @@ public class GeneralModelTests
     }
 
     [Fact]
-    public void GetDocumentUrl_TrimsTrailingSlashFromBaseUrl()
+    public void GetDocumentUrl_BuildsLinkThroughTheWebApp()
     {
         var model = CreatePageModel();
 
         Assert.Equal(
-            $"https://api.example.test/api/static-reports/versions/{VersionId}/document",
+            $"/static-reports/versions/{VersionId}/document",
             model.GetDocumentUrl(VersionId));
-    }
-
-    [Fact]
-    public void GetDocumentUrl_UsesRelativePath_WhenBaseUrlIsNull()
-    {
-        var model = new GeneralModel(
-            new FakeApiClient(),
-            new StubAuthorizationService(true),
-            Options.Create(new ApiOptions { BaseUrl = null! }),
-            new AlwaysEnabledLogger<GeneralModel>());
-
-        Assert.Equal($"/api/static-reports/versions/{VersionId}/document", model.GetDocumentUrl(VersionId));
     }
 
     [Theory]

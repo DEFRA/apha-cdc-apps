@@ -48,7 +48,6 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
     private readonly IApiClient apiClient;
     private readonly ILogger<StaticReportsModel> logger;
-    private readonly string apiBaseUrl;
 
     /// <summary>Set to 1 for the user manuals list ("Help Using D2R2"), matching the legacy
     /// <c>StaticReports.aspx?UserManual=1</c> querystring.</summary>
@@ -110,12 +109,11 @@ public class StaticReportsModel : BreadcrumbPageModelBase
     [TempData]
     public string? ErrorMessage { get; set; }
 
-    public StaticReportsModel(IApiClient apiClient, IOptions<ApiOptions> apiOptions, ILogger<StaticReportsModel> logger)
+    public StaticReportsModel(IApiClient apiClient, ILogger<StaticReportsModel> logger)
         : base("Static reports")
     {
         this.apiClient = apiClient;
         this.logger = logger;
-        apiBaseUrl = (apiOptions.Value.BaseUrl ?? string.Empty).TrimEnd('/');
     }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -194,7 +192,7 @@ public class StaticReportsModel : BreadcrumbPageModelBase
     }
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
-        $"{apiBaseUrl}/api/static-reports/versions/{staticReportVersionId}/document";
+        $"/static-reports/versions/{staticReportVersionId}/document";
 
     /// <summary>Builds the querystring URL for a results page link, preserving the current mode and page size.</summary>
     public string? BuildPageUrl(int page) =>

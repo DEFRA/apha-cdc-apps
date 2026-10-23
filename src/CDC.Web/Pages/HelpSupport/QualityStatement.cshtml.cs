@@ -2,13 +2,12 @@ using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace CDC.Web.Pages.HelpSupport;
 
 /// <summary>
-/// Redirects to the current "D2R2 Quality Statement" document, served directly by CDC.Api -
-/// matches the pattern <see cref="StaticReportsModel.GetDocumentUrl"/> uses for its links.
+/// Redirects to the current "D2R2 Quality Statement" document, streamed by this app's
+/// <c>/static-reports/versions/{id}/document</c> endpoint because CDC.Api is not browser-reachable.
 /// </summary>
 [Authorize(Policy = AuthorizationPolicies.CanViewReports)]
 public class QualityStatementModel : BreadcrumbPageModelBase
@@ -17,7 +16,6 @@ public class QualityStatementModel : BreadcrumbPageModelBase
     private const string ReportTitle = "D2R2 Quality Statement";
 
     private readonly IApiClient apiClient;
-    private readonly string apiBaseUrl;
     private readonly ILogger<QualityStatementModel> logger;
 
     /// <summary>Gets a value indicating whether the static reports API call failed.</summary>
@@ -26,12 +24,11 @@ public class QualityStatementModel : BreadcrumbPageModelBase
     /// <summary>Gets the message to show the user when <see cref="HasError"/> is <see langword="true"/>.</summary>
     public string? ErrorMessage { get; private set; }
 
-    public QualityStatementModel(IApiClient apiClient, IOptions<ApiOptions> apiOptions, ILogger<QualityStatementModel> logger)
+    public QualityStatementModel(IApiClient apiClient, ILogger<QualityStatementModel> logger)
         : base("D2R2 Quality Statement")
     {
         this.apiClient = apiClient;
         this.logger = logger;
-        apiBaseUrl = (apiOptions.Value.BaseUrl ?? string.Empty).TrimEnd('/');
     }
 
     /// <summary>Redirects to the current version's document, or renders an error banner on failure.</summary>
@@ -51,7 +48,7 @@ public class QualityStatementModel : BreadcrumbPageModelBase
                 return NotFound();
             }
 
-            return Redirect($"{apiBaseUrl}/api/static-reports/versions/{currentVersion.Id}/document?download=true");
+            return Redirect($"/static-reports/versions/{currentVersion.Id}/document?download=true");
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
