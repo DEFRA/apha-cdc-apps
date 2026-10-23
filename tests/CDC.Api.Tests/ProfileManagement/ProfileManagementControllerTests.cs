@@ -93,6 +93,22 @@ public class ProfileManagementControllerTests
     }
 
     [Fact]
+    public async Task UpdateProfileAttributes_ReturnsForbidden_WhenTheUserMayNotEditAProfile()
+    {
+        var command = new UpdateProfileAttributesCommand { Id = Guid.Empty, LastUpdated = ProfileManagementTestData.RowVersion };
+
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<UpdateProfileAttributesCommand>(c => c.Id == ProfileManagementTestData.ProfileId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<UpdateProfileAttributesResultDto>("You do not have permission to edit profile data."));
+
+        var response = await CreateController().UpdateProfileAttributes(ProfileManagementTestData.ProfileId, command, CancellationToken.None);
+
+        AssertProblem(response, StatusCodes.Status403Forbidden).Detail.Should().Be("You do not have permission to edit profile data.");
+    }
+
+    [Fact]
     public async Task UpdateProfileAttributes_ReturnsConflict()
     {
         var command = new UpdateProfileAttributesCommand { Id = Guid.Empty, LastUpdated = ProfileManagementTestData.RowVersion };
@@ -106,6 +122,22 @@ public class ProfileManagementControllerTests
         var response = await CreateController().UpdateProfileAttributes(ProfileManagementTestData.ProfileId, command, CancellationToken.None);
 
         AssertProblem(response, StatusCodes.Status409Conflict);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAttributes_ReturnsBadRequest_WithTheReason_WhenTheTitleIsRefused()
+    {
+        var command = new UpdateProfileAttributesCommand { Id = Guid.Empty, LastUpdated = ProfileManagementTestData.RowVersion };
+
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<UpdateProfileAttributesCommand>(c => c.Id == ProfileManagementTestData.ProfileId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.ValidationFailed<UpdateProfileAttributesResultDto>("The profile title is already in use for a different profile"));
+
+        var response = await CreateController().UpdateProfileAttributes(ProfileManagementTestData.ProfileId, command, CancellationToken.None);
+
+        AssertProblem(response, StatusCodes.Status400BadRequest).Detail.Should().Be("The profile title is already in use for a different profile");
     }
 
     [Fact]
@@ -141,22 +173,24 @@ public class ProfileManagementControllerTests
 
         var response = await CreateController().UpdateProfileStatus(
             ProfileManagementTestData.ProfileId,
-            new UpdateProfileStatusCommand(Guid.Empty, ProfileManagementTestData.ProfileStatusId),
+            new UpdateProfileStatusRequestDto { ProfileStatusId = ProfileManagementTestData.ProfileStatusId },
             CancellationToken.None);
 
         AssertProblem(response, StatusCodes.Status404NotFound);
     }
 
     [Fact]
-    public async Task UpdateProfileStatus_ReturnsNoContent_WhenStatusKnown()
+    public async Task UpdateProfileStatus_SendsTheRoutesProfileWithTheBodysStatus_AndReturnsNoContent()
     {
         mediator
-            .Setup(sender => sender.Send(It.IsAny<UpdateProfileStatusCommand>(), It.IsAny<CancellationToken>()))
+            .Setup(sender => sender.Send(
+                new UpdateProfileStatusCommand(ProfileManagementTestData.ProfileId, ProfileManagementTestData.ProfileStatusId),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Unit.Value));
 
         var response = await CreateController().UpdateProfileStatus(
             ProfileManagementTestData.ProfileId,
-            new UpdateProfileStatusCommand(Guid.Empty, ProfileManagementTestData.ProfileStatusId),
+            new UpdateProfileStatusRequestDto { ProfileStatusId = ProfileManagementTestData.ProfileStatusId },
             CancellationToken.None);
 
         response.Should().BeOfType<NoContentResult>();

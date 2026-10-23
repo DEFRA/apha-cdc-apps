@@ -53,6 +53,12 @@ public class EditProfileReviewCommentsModel(
     /// <inheritdoc />
     public override ProfileSectionTab ActiveTab => ProfileSectionTab.ReviewComments;
 
+    /// <inheritdoc />
+    public override int ListPageNumber => PageNumber;
+
+    /// <inheritdoc />
+    public override int ListTotalPages => TotalPages;
+
     /// <summary>Gets or sets the open panel's mode (<c>add</c>, <c>reply</c> or <c>edit</c>); with only a
     /// <see cref="CommentId"/> the read-only view panel opens.</summary>
     [BindProperty(SupportsGet = true)]

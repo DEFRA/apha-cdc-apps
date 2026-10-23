@@ -56,4 +56,10 @@ internal static partial class ProfileManagementLog
 
     [LoggerMessage(EventId = 3016, Level = LogLevel.Warning, Message = "Refused to publish profile {ProfileId}: {Reason}")]
     public static partial void PublishRefused(this ILogger logger, Guid profileId, string reason);
+
+    [LoggerMessage(EventId = 3017, Level = LogLevel.Information, Message = "Refused a title for profile {ProfileId}: it is already in use or does not apply to this kind of profile")]
+    public static partial void ProfileTitleRefused(this ILogger logger, Guid profileId);
+
+    [LoggerMessage(EventId = 3018, Level = LogLevel.Warning, Message = "Refused to edit profile {ProfileId}: the user is not a profile editor")]
+    public static partial void EditRefused(this ILogger logger, Guid profileId);
 }

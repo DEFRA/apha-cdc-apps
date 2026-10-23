@@ -52,13 +52,33 @@ public class ProfileManagementHandlerTests
 
         service
             .Setup(svc => svc.UpdateProfileAttributesAsync(command, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(resultDto);
+            .ReturnsAsync(Result.Success(resultDto));
 
         var result = await new UpdateProfileAttributesCommandHandler(service.Object, NullLogger<UpdateProfileAttributesCommandHandler>.Instance)
             .Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(resultDto);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAttributesCommandHandler_ReturnsForbidden_WhenTheServiceRefusesTheUser()
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        service
+            .Setup(svc => svc.UpdateProfileAttributesAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<UpdateProfileAttributesResultDto>("You do not have permission to edit profile data."));
+
+        var result = await new UpdateProfileAttributesCommandHandler(service.Object, NullLogger<UpdateProfileAttributesCommandHandler>.Instance)
+            .Handle(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        result.Error.Should().Be("You do not have permission to edit profile data.");
     }
 
     [Fact]
@@ -79,6 +99,27 @@ public class ProfileManagementHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.Conflict);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAttributesCommandHandler_ReturnsValidationFailed_WithTheReason_WhenTheTitleIsRefused()
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Anthrax",
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        service
+            .Setup(svc => svc.UpdateProfileAttributesAsync(command, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ProfileTitleRefusedException("The profile title is already in use for a different profile"));
+
+        var result = await new UpdateProfileAttributesCommandHandler(service.Object, NullLogger<UpdateProfileAttributesCommandHandler>.Instance)
+            .Handle(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+        result.Error.Should().Be("The profile title is already in use for a different profile");
     }
 
     [Fact]

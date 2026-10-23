@@ -16,6 +16,9 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>Profile.CanCreateProfile()</c>. Header: "Create profile".</summary>
     public const string CanCreateProfile = nameof(CanCreateProfile);
 
+    /// <summary>Legacy: <c>Profile.CanEditProfile()</c>. Search results: the "Edit Title" link and the Edit profile title page.</summary>
+    public const string CanEditProfile = nameof(CanEditProfile);
+
     /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. Header: "Compare
     /// profile versions".</summary>
     public const string CanViewProfileComparison = nameof(CanViewProfileComparison);

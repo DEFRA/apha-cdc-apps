@@ -19,6 +19,20 @@ public abstract record ProfileSearchResultContract<THistoryItem, TScenario>
     /// <summary>Gets the profile status (Draft, Published, Scenario).</summary>
     public required string Status { get; init; }
 
+    /// <summary>Gets the title of the profile's own (current-situation) lineage, which heads it when the scenarios are listed.</summary>
+    public string ScenarioTitle { get; init; } = string.Empty;
+
+    /// <summary>Gets the name of the profile status set on the profile's own lineage, or empty when none is set.</summary>
+    public string ProfileStatusName { get; init; } = string.Empty;
+
+    /// <summary>Gets the earliest next review date of the own lineage's current draft version, or
+    /// <see langword="null"/> when none is set. It is a plain local date, as stored.</summary>
+    public DateTime? NextReviewDate { get; init; }
+
+    /// <summary>Gets a value indicating whether the own lineage's current draft version has a review that is
+    /// not complete and has no next review date.</summary>
+    public bool ReviewIncomplete { get; init; }
+
     /// <summary>Gets the date the profile was created.</summary>
     public required DateTime CreatedAtUtc { get; init; }
 
@@ -55,6 +69,20 @@ public abstract record ProfileScenarioContract<THistoryItem>
 {
     /// <summary>Gets the scenario's identifier (its own root, distinct from the parent profile's).</summary>
     public required Guid ScenarioId { get; init; }
+
+    /// <summary>Gets the scenario's title.</summary>
+    public string ScenarioTitle { get; init; } = string.Empty;
+
+    /// <summary>Gets the name of the profile status set on this scenario, or empty when none is set.</summary>
+    public string ProfileStatusName { get; init; } = string.Empty;
+
+    /// <summary>Gets the earliest next review date of this scenario's current draft version, or
+    /// <see langword="null"/> when none is set. It is a plain local date, as stored.</summary>
+    public DateTime? NextReviewDate { get; init; }
+
+    /// <summary>Gets a value indicating whether this scenario's current draft version has a review that is
+    /// not complete and has no next review date.</summary>
+    public bool ReviewIncomplete { get; init; }
 
     /// <summary>Gets this scenario's own published versions.</summary>
     public required IReadOnlyList<THistoryItem> PublishedVersions { get; init; }

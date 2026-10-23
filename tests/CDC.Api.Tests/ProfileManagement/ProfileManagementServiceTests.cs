@@ -1,4 +1,5 @@
 using CDC.Api.Application;
+using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Commands;
@@ -194,7 +195,33 @@ public class ProfileManagementServiceTests
 
         var result = await CreateService().UpdateProfileAttributesAsync(command, CancellationToken.None);
 
-        result.NewLastUpdated.Should().BeEquivalentTo(ProfileManagementTestData.NewRowVersion);
+        result.IsSuccess.Should().BeTrue();
+        result.Value.NewLastUpdated.Should().BeEquivalentTo(ProfileManagementTestData.NewRowVersion);
+    }
+
+    // The legacy Profile.CanEditProfile(): a profile editor who is not a user management system account.
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, false)]
+    public async Task UpdateProfileAttributes_IsForbidden_WithoutTouchingTheProfile_WhenTheUserMayNotEditAProfile(
+        bool isProfileEditor, bool isUserManagementSystem, bool isPolicyProfileUser)
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Bovine tuberculosis",
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+        var userContext = new ManageProfileLinkVisibilityTests.TestUserContext(isProfileEditor, isUserManagementSystem, isPolicyProfileUser);
+
+        var result = await CreateService(userContext).UpdateProfileAttributesAsync(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        result.Error.Should().Be(CDC.Api.Features.ProfileManagement.ProfileManagementService.EditNotPermittedMessage);
+        repository.Verify(
+            repo => repo.UpdateProfileAttributesAsync(It.IsAny<UpdateProfileAttributesCommand>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

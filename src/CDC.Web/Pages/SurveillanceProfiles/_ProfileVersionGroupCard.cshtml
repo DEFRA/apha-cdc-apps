@@ -31,12 +31,21 @@
             <span aria-hidden="true"> | </span>
             <a class="govuk-link" href="#">Clone scenario</a>
         </p>
+    }
 
-        @if (Model.ProfileStatus is not null)
-        {
-            <p class="govuk-body govuk-!-margin-bottom-1">Profile Status: @Model.ProfileStatus</p>
-        }
+    @* Legacy lists these on a Draft card even when it has no current draft version. *@
+    @if (Model.ProfileStatus is not null)
+    {
+        <p class="govuk-body govuk-!-margin-bottom-1">Profile Status: @Model.ProfileStatus</p>
+    }
 
+    @if (Model.ReviewStatus is not null)
+    {
+        <p class="govuk-body govuk-!-margin-bottom-1">@Model.ReviewStatus</p>
+    }
+
+    @if (Model.NoVersionMessage is null)
+    {
         <div data-module="app-filters-toggle">
             <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link
                     data-app-filters-expanded-text="Hide previous versions"

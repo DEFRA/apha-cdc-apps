@@ -1,4 +1,7 @@
+using System.Security.Claims;
+using CDC.Auth.Cidm;
 using CDC.Common.Contracts;
+using CDC.Web.Features.Account;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;
@@ -69,6 +72,18 @@ public class ManageProfileModelTests
         new ProfileStatusTypeDto { Id = DraftStatusId, Name = "Draft" },
         new ProfileStatusTypeDto { Id = ValidationCompleteStatusId, Name = "Validation complete", IsValidationComplete = true }
     ];
+
+    private static ClaimsPrincipal SignedInUser(bool isExternalUser)
+    {
+        List<Claim> claims = [new(ClaimTypes.Name, "test-user")];
+
+        if (isExternalUser)
+        {
+            claims.Add(new Claim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme));
+        }
+
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType: "Test"));
+    }
 
     [Fact]
     public async Task OnGetAsync_PopulatesProfile_WhenTheProfileExists()
@@ -235,18 +250,25 @@ public class ManageProfileModelTests
         Assert.True(pageModel.HasError);
     }
 
-    [Fact]
-    public async Task OnPostDeleteCurrentVersionAsync_RedirectsToLandingIndex_WhenSuccessful()
+    // Whether the whole profile went with its only version makes no difference: legacy always went to the home page.
+    [Theory]
+    [InlineData(false, false, "Internal")]
+    [InlineData(false, true, "Internal")]
+    [InlineData(true, false, "External")]
+    [InlineData(true, true, "External")]
+    public async Task OnPostDeleteCurrentVersionAsync_RedirectsToTheUsersHomePage_WhenSuccessful(
+        bool isExternalUser, bool isProfileDeleted, string expectedAction)
     {
         var pageModel = CreatePageModel(
             Profile(),
             profileStatusTypes: StatusTypes(),
-            deleteProfileVersionResult: new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, false, null));
+            deleteProfileVersionResult: new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Success, isProfileDeleted, null));
+        pageModel.PageContext.HttpContext.User = SignedInUser(isExternalUser);
 
         var result = await pageModel.OnPostDeleteCurrentVersionAsync(CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal("Index", redirect.ActionName);
+        Assert.Equal(expectedAction, redirect.ActionName);
         Assert.Equal("Landing", redirect.ControllerName);
     }
 

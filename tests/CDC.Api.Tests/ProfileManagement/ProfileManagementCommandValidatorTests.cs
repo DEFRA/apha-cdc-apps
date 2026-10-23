@@ -147,6 +147,54 @@ public class ProfileManagementCommandValidatorTests
     }
 
     [Fact]
+    public void UpdateProfileAttributesCommandValidator_AcceptsTitlesOfExactly255Characters()
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = new string('a', 255),
+            ScenarioTitle = new string('b', 255),
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        var result = new UpdateProfileAttributesCommandValidator().Validate(command);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateProfileAttributesCommandValidator_RejectsATitleOver255Characters()
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = new string('a', 256),
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        var result = new UpdateProfileAttributesCommandValidator().Validate(command);
+
+        result.Errors.Should().ContainSingle(failure => failure.PropertyName == nameof(UpdateProfileAttributesCommand.Title))
+            .Which.ErrorMessage.Should().Be("The profile title cannot exceed 255 characters.");
+    }
+
+    [Fact]
+    public void UpdateProfileAttributesCommandValidator_RejectsAScenarioTitleOver255Characters()
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            ScenarioTitle = new string('b', 256),
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        var result = new UpdateProfileAttributesCommandValidator().Validate(command);
+
+        result.Errors.Should().ContainSingle(failure => failure.PropertyName == nameof(UpdateProfileAttributesCommand.ScenarioTitle))
+            .Which.ErrorMessage.Should().Be("The scenario title cannot exceed 255 characters.");
+    }
+
+    [Fact]
     public void DeleteProfileVersionCommandValidator_RequiresProfileVersionId()
     {
         var result = new DeleteProfileVersionCommandValidator().Validate(new DeleteProfileVersionCommand(Guid.Empty));

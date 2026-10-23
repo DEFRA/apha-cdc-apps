@@ -251,6 +251,11 @@ html {
   margin-bottom: 0;
 }
 
+/* .govuk-error-message sets display:block, which would otherwise override the hidden attribute. */
+.app-edit-title-row__input-wrapper .govuk-error-message[hidden] {
+  display: none;
+}
+
 /* Edit profile title: formatting toolbar shown above the title textbox. */
 .app-title-toolbar {
   display: inline-flex;
@@ -1096,15 +1101,6 @@ body {
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
   border-top: none;
   padding: 1rem;
-}
-
-/* Previous/Next section links below the accordion. */
-.app-species-pagination {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
 }
 
 .app-header__help-icon {

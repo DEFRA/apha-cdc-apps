@@ -191,6 +191,15 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains($"href=\"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}?section={EpidemiologySectionId}\"", body);
     }
 
+    // The pagination links reload this column in place, so it has to hold the reference type form, the table and the pagination.
+    [Fact]
+    public async Task Notes_MarksTheColumnBesideTheLeftNavigationAsAPagedRegion()
+    {
+        var body = await GetAsync("Notes", Profile());
+
+        PagedRegionAssert.IsMarked(body, "notes-region");
+    }
+
     [Fact]
     public async Task EditProfileFurtherInformation_RendersTheSourcesOfFurtherInformation()
     {
@@ -198,6 +207,7 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
 
         Assert.Contains("OIE Terrestrial Manual.", body);
         Assert.DoesNotContain("A relevant paper.", body);
+        PagedRegionAssert.IsMarked(body, "profile-further-information-panel");
     }
 
     [Fact]
@@ -342,6 +352,7 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains($"commentId={ReviewCommentId}", body);
         Assert.Contains("Add a review comment:", body);
         Assert.Contains("Items per page:", body);
+        PagedRegionAssert.IsMarked(body, "profile-review-comments-panel");
     }
 
     [Fact]

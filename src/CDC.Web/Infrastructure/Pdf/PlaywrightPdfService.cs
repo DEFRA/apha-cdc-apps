@@ -114,7 +114,7 @@ public sealed partial class PlaywrightPdfService(IConfiguration configuration, I
                 browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
                 {
                     Headless = true,
-                    Channel = configuration["PdfGeneration:BrowserChannel"]
+                    Channel = "chromium"
                 });
                 LogBrowserStarted();
             }

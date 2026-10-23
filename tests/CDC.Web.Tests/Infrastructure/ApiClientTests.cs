@@ -197,13 +197,17 @@ public class ApiClientTests
     public async Task UpdateProfileStatusAsync_ReturnsSuccess_OnNoContent()
     {
         var profileId = Guid.NewGuid();
+        var profileStatusId = Guid.NewGuid();
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
         var client = CreateClient(handler);
 
-        var result = await client.UpdateProfileStatusAsync(profileId, Guid.NewGuid());
+        var result = await client.UpdateProfileStatusAsync(profileId, profileStatusId);
 
         Assert.Equal(UpdateProfileStatusOutcome.Success, result.Outcome);
+        Assert.Equal(HttpMethod.Put, handler.LastRequestMethod);
         Assert.Equal($"/api/profiles/{profileId}/status", handler.LastRequestUri!.AbsolutePath);
+        // The profile is in the route, so the API must accept a body that carries only the status.
+        Assert.Equal($$"""{"profileStatusId":"{{profileStatusId}}"}""", handler.LastRequestBody);
     }
 
     [Fact]
@@ -276,6 +280,29 @@ public class ApiClientTests
     }
 
     [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsTheReason_WhenTheApiRefusesTheTitleWithoutAListOfErrors()
+    {
+        const string json = """{"title":"Validation failed","status":400,"detail":"The profile title is already in use for a different profile"}""";
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, json));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), "Anthrax", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("The profile title is already in use for a different profile", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsAGenericMessage_WhenTheBadRequestGivesNoReason()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, "{}"));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), "Anthrax", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("The profile title could not be saved.", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task UpdateProfileTitleAsync_ReturnsError_OnAnyOtherStatusCode()
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
@@ -284,6 +311,17 @@ public class ApiClientTests
 
         Assert.Equal(UpdateProfileTitleOutcome.Error, result.Outcome);
         Assert.Equal("The profile title could not be saved. Please try again.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateProfileTitleAsync_ReturnsAPermissionMessage_WhenTheApiForbidsTheUser()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Forbidden, "{}"));
+
+        var result = await client.UpdateProfileTitleAsync(Guid.NewGuid(), "New title", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Equal(UpdateProfileTitleOutcome.Error, result.Outcome);
+        Assert.Equal("You do not have permission to edit a profile title.", result.ErrorMessage);
     }
 
     [Fact]

@@ -9,8 +9,8 @@ using Dapper;
 namespace CDC.Api.Infrastructure.Repositories;
 
 /// <summary>
-/// Dapper implementation of <see cref="IProfileRepository"/>, reading the four result sets
-/// returned by the legacy <c>spgaProfile</c> stored procedure.
+/// Dapper implementation of <see cref="IProfileRepository"/>, reading the result sets returned by
+/// the legacy <c>spgaProfile</c> stored procedure.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,14 +20,16 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// filtering is applied afterwards in <c>ProfileSearchService</c>, exactly as it already was.
 /// </para>
 /// <para>
-/// Result set 2 (scenario titles/user roles/user-specific status) and result set 4 (affected
-/// species) are read positionally through a data reader, like <c>SpeciesRepository</c>, because
-/// they contain columns that are meaningless without a real user or that duplicate column names.
-/// Result set 2 is skipped entirely: everything it carries (which profile/scenario a version
-/// belongs to) is already present in result set 3. Result set 4 is read into
+/// Result sets 2 and 4 to 8 are read positionally through a data reader, like <c>SpeciesRepository</c>,
+/// because they contain columns that are meaningless without a real user or that duplicate column names.
+/// Result set 2 is read for each scenario's title and profile status name, and for the order the procedure
+/// lists the scenarios in (by title); its user role column means nothing without a real user.
+/// Which profile/scenario a version belongs to is already present in result set 3. Result set 4 is read into
 /// <see cref="CDC.Common.Contracts.ProfileSearchResultContract{THistoryItem,TScenario}.AffectedSpecies"/>
 /// as species id strings (not names), matching the values the Search page's species tree picker
-/// submits, so results can be filtered by species.
+/// submits, so results can be filtered by species. Result sets 5 to 8 describe the review of each
+/// scenario's current draft version: its earliest next technical or policy review date (5 and 6), and
+/// whether a review is incomplete with no date set (7 and 8).
 /// </para>
 /// </remarks>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
@@ -38,6 +40,9 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
     private const string PublishedStatus = "Published";
     private const string DraftStatus = "Draft";
     private const string ScenarioStatus = "Scenario";
+
+    /// <summary>What the procedure calls a profile's own lineage when it has no scenario title.</summary>
+    private const string CurrentSituationTitle = "Current situation";
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileSearchResultDto>> GetAllProfilesAsync(CancellationToken cancellationToken)
@@ -74,11 +79,14 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
                 orderedProfileIds.Add(id);
             }
 
-            // Result set 2 (scenario titles/user roles/user status) carries nothing this call
-            // needs - skip straight past it to result set 3.
-            await reader.NextResultAsync(cancellationToken);
-
+            // Result set 2: every scenario - the profile's own current-situation lineage and each
+            // "what-if" scenario - with its title, in the procedure's title order.
             var accumulator = new ProfileVersionAccumulator();
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                await ReadScenariosAsync(reader, titles, accumulator, cancellationToken);
+            }
 
             if (await reader.NextResultAsync(cancellationToken))
             {
@@ -92,6 +100,8 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
                 await ReadAffectedSpeciesAsync(reader, titles, accumulator, cancellationToken);
             }
 
+            await ReadReviewResultSetsAsync(reader, accumulator, cancellationToken);
+
             var profiles = BuildProfileResults(titles, orderedProfileIds, accumulator);
 
             logger.RetrievedAllProfiles(profiles.Count);
@@ -102,6 +112,32 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
         {
             logger.StoredProcedureFailed(exception, ProfileStoredProcedures.GetAllProfiles);
             throw;
+        }
+    }
+
+    /// <summary>Reads result set 2 (every scenario) and records each one's title and profile status
+    /// name, registering it in the order the procedure lists them so that is the order they are
+    /// returned in.</summary>
+    private static async Task ReadScenariosAsync(
+        DbDataReader reader,
+        Dictionary<Guid, string> titles,
+        ProfileVersionAccumulator accumulator,
+        CancellationToken cancellationToken)
+    {
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var scenarioId = reader.GetGuid(0);
+            var profileId = reader.GetGuid(1);
+
+            // A scenario whose root profile is not in result set 1 cannot be displayed.
+            if (!titles.ContainsKey(profileId))
+            {
+                continue;
+            }
+
+            RegisterScenario(accumulator, profileId, scenarioId);
+            accumulator.ScenarioTitles[scenarioId] = ReadString(reader, 2);
+            accumulator.ProfileStatusNames[scenarioId] = ReadString(reader, 4);
         }
     }
 
@@ -145,6 +181,62 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             }
 
             speciesIds.Add(speciesId);
+        }
+    }
+
+    /// <summary>Reads result sets 5 to 8, which describe the review of each scenario's current draft
+    /// version: the next technical and next policy review dates, then the scenarios whose technical
+    /// and policy reviews are incomplete with no date set. Any the procedure does not return are skipped.</summary>
+    private static async Task ReadReviewResultSetsAsync(
+        DbDataReader reader,
+        ProfileVersionAccumulator accumulator,
+        CancellationToken cancellationToken)
+    {
+        for (var resultSet = 5; resultSet <= 8 && await reader.NextResultAsync(cancellationToken); resultSet++)
+        {
+            if (resultSet <= 6)
+            {
+                await ReadNextReviewDatesAsync(reader, accumulator, cancellationToken);
+            }
+            else
+            {
+                await ReadIncompleteReviewsAsync(reader, accumulator, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>Reads a next-review-date result set (scenario id in column 1, date in column 4),
+    /// keeping the earliest date seen for each scenario across the technical and policy sets.</summary>
+    private static async Task ReadNextReviewDatesAsync(
+        DbDataReader reader,
+        ProfileVersionAccumulator accumulator,
+        CancellationToken cancellationToken)
+    {
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (ReadNullableDateTime(reader, 4) is not { } nextReviewDate)
+            {
+                continue;
+            }
+
+            var scenarioId = reader.GetGuid(1);
+
+            if (!accumulator.NextReviewDates.TryGetValue(scenarioId, out var earliest) || nextReviewDate < earliest)
+            {
+                accumulator.NextReviewDates[scenarioId] = nextReviewDate;
+            }
+        }
+    }
+
+    /// <summary>Reads an incomplete-review result set (scenario id in column 1), flagging each scenario in it.</summary>
+    private static async Task ReadIncompleteReviewsAsync(
+        DbDataReader reader,
+        ProfileVersionAccumulator accumulator,
+        CancellationToken cancellationToken)
+    {
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            accumulator.IncompleteReviews.Add(reader.GetGuid(1));
         }
     }
 
@@ -203,7 +295,7 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
 
     /// <summary>Records that <paramref name="scenarioId"/> is one of <paramref name="profileId"/>'s
     /// version lineages (the profile's own current-situation lineage, or a "what-if" scenario),
-    /// the first time a version belonging to it is seen.</summary>
+    /// the first time it is seen.</summary>
     private static void RegisterScenario(ProfileVersionAccumulator accumulator, Guid profileId, Guid scenarioId)
     {
         var scenarioIds = accumulator.ScenarioIdsByProfile.GetValueOrDefault(profileId);
@@ -279,6 +371,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             .Select(scenarioId => new ProfileScenarioDto
             {
                 ScenarioId = scenarioId,
+                ScenarioTitle = accumulator.ScenarioTitles.GetValueOrDefault(scenarioId, string.Empty),
+                ProfileStatusName = accumulator.ProfileStatusNames.GetValueOrDefault(scenarioId, string.Empty),
+                NextReviewDate = GetNextReviewDate(accumulator, scenarioId),
+                ReviewIncomplete = accumulator.IncompleteReviews.Contains(scenarioId),
                 PublishedVersions = accumulator.Published.GetValueOrDefault((profileId, scenarioId), []),
                 DraftVersions = accumulator.Draft.GetValueOrDefault((profileId, scenarioId), [])
             })
@@ -292,6 +388,10 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             Id = profileId,
             Title = titles[profileId],
             Status = DetermineOverallStatus(published.Count, draft.Count, scenarioVersionCount),
+            ScenarioTitle = accumulator.ScenarioTitles.GetValueOrDefault(profileId, CurrentSituationTitle),
+            ProfileStatusName = accumulator.ProfileStatusNames.GetValueOrDefault(profileId, string.Empty),
+            NextReviewDate = GetNextReviewDate(accumulator, profileId),
+            ReviewIncomplete = accumulator.IncompleteReviews.Contains(profileId),
             CreatedAtUtc = createdAtUtc,
             ModifiedAtUtc = accumulator.Latest.GetValueOrDefault(profileId, createdAtUtc),
             IsPublic = accumulator.IsPublic.GetValueOrDefault(profileId),
@@ -303,6 +403,9 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             WhatIfScenarios = whatIfScenarios
         };
     }
+
+    private static DateTime? GetNextReviewDate(ProfileVersionAccumulator accumulator, Guid scenarioId) =>
+        accumulator.NextReviewDates.TryGetValue(scenarioId, out var nextReviewDate) ? nextReviewDate : null;
 
     /// <summary>The profile-level status is the "best" version state it has: Published, else
     /// Draft, else Scenario, else Draft as a safe default for a profile with no versions.</summary>
@@ -401,8 +504,21 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
 
         public Dictionary<(Guid ProfileId, Guid ScenarioId), List<ProfileHistoryItemDto>> Draft { get; } = [];
 
-        /// <summary>Every scenario id seen for a profile, in first-seen order.</summary>
+        /// <summary>Every scenario id seen for a profile, in the order the procedure lists them
+        /// (result set 2), then any only seen on a version, in first-seen order.</summary>
         public Dictionary<Guid, List<Guid>> ScenarioIdsByProfile { get; } = [];
+
+        /// <summary>Each scenario's title (result set 2), keyed by scenario id.</summary>
+        public Dictionary<Guid, string> ScenarioTitles { get; } = [];
+
+        /// <summary>Each scenario's profile status name (result set 2), keyed by scenario id.</summary>
+        public Dictionary<Guid, string> ProfileStatusNames { get; } = [];
+
+        /// <summary>Each scenario's earliest next review date (result sets 5 and 6), keyed by scenario id.</summary>
+        public Dictionary<Guid, DateTime> NextReviewDates { get; } = [];
+
+        /// <summary>The scenarios with an incomplete review and no next review date (result sets 7 and 8).</summary>
+        public HashSet<Guid> IncompleteReviews { get; } = [];
 
         public Dictionary<Guid, DateTime> Earliest { get; } = [];
 

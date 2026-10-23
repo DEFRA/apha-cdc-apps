@@ -153,11 +153,13 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>No content.</returns>
     /// <response code="204">The profile was updated.</response>
-    /// <response code="400">The request failed validation.</response>
+    /// <response code="400">The request failed validation, or a title is too long or already in use.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">Another user has saved this profile since it was read.</response>
     [HttpPut("{profileId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateProfileAttributes(
         Guid profileId,
@@ -290,7 +292,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// Updates a profile's status.
     /// </summary>
     /// <param name="profileId">The profile to update.</param>
-    /// <param name="command">The status to set.</param>
+    /// <param name="request">The status to set.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>No content.</returns>
     /// <response code="204">The status was updated.</response>
@@ -302,10 +304,10 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateProfileStatus(
         Guid profileId,
-        [FromBody] UpdateProfileStatusCommand command,
+        [FromBody] UpdateProfileStatusRequestDto request,
         CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(command with { ProfileId = profileId }, cancellationToken);
+        var result = await mediator.Send(new UpdateProfileStatusCommand(profileId, request.ProfileStatusId), cancellationToken);
 
         return result.ToNoContentActionResult(this);
     }

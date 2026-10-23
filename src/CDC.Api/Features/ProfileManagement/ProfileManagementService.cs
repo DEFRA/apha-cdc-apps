@@ -1,4 +1,5 @@
 using CDC.Api.Application;
+using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
 using CDC.Api.Features.ProfileManagement.Interfaces;
@@ -21,6 +22,9 @@ public sealed class ProfileManagementService(
     ILogger<ProfileManagementService> logger)
     : IProfileManagementService
 {
+    /// <summary>The legacy <c>Profile.Save</c> message when the user may not edit a profile.</summary>
+    public const string EditNotPermittedMessage = "You do not have permission to edit profile data.";
+
     /// <inheritdoc />
     public async Task<CreateProfileResultDto> CreateProfileAsync(CreateProfileCommand command, CancellationToken cancellationToken)
     {
@@ -33,16 +37,24 @@ public sealed class ProfileManagementService(
     }
 
     /// <inheritdoc />
-    public async Task<UpdateProfileAttributesResultDto> UpdateProfileAttributesAsync(
+    public async Task<Result<UpdateProfileAttributesResultDto>> UpdateProfileAttributesAsync(
         UpdateProfileAttributesCommand command,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // The legacy Profile.CanEditProfile(): a profile editor who is not a user management system account.
+        if (!userContext.IsProfileEditor || userContext.IsUserManagementSystem)
+        {
+            logger.EditRefused(command.Id);
+
+            return Result.Forbidden<UpdateProfileAttributesResultDto>(EditNotPermittedMessage);
+        }
+
         var newLastUpdated = await repository.UpdateProfileAttributesAsync(command, cancellationToken);
         logger.UpdatedProfileAttributes(command.Id);
 
-        return new UpdateProfileAttributesResultDto { NewLastUpdated = newLastUpdated };
+        return Result.Success(new UpdateProfileAttributesResultDto { NewLastUpdated = newLastUpdated });
     }
 
     /// <inheritdoc />

@@ -105,6 +105,13 @@ public abstract class ProfileSectionTabPageModel(
     /// the start of the page title as the GOV.UK Design System requires. A page that has error messages overrides this.</summary>
     public virtual bool HasFormErrors => false;
 
+    /// <summary>Gets the page of a paginated list this page is showing, which goes in the page title as the GOV.UK Design System
+    /// asks. A page that paginates a list overrides this; otherwise it is 1.</summary>
+    public virtual int ListPageNumber => 1;
+
+    /// <summary>Gets how many pages the list this page shows has. A page that paginates a list overrides this; otherwise it is 1.</summary>
+    public virtual int ListTotalPages => 1;
+
     /// <summary>Gets the typed client for the profile sections endpoints.</summary>
     protected IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
 

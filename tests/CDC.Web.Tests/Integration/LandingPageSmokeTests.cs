@@ -195,6 +195,25 @@ public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    // Their pagination links reload a region in place (paged-region.js), so each page marks one even before it has rows to page.
+    [Theory]
+    [InlineData("/Reports/General", "general-reports-region")]
+    [InlineData("/HelpSupport/StaticReports", "static-reports-region")]
+    [InlineData("/UserAdmin/ExternalUsers", "external-users-region")]
+    [InlineData("/UserAdmin/GlobalUsers", "global-users-region")]
+    [InlineData("/SurveillanceProfiles/MaintainContributors/6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f", "contributors-region")]
+    public async Task PagedPages_MarkTheRegionTheirPaginationReloads(string url, string regionId)
+    {
+        var client = _factory.CreateClient();
+
+        var signIn = await client.GetAsync(CdcWebTestFactory.TestSignInPath);
+        Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
+
+        var body = await client.GetStringAsync(url);
+
+        PagedRegionAssert.IsMarked(body, regionId);
+    }
 }
 
 // LandingController.External() now requires authentication - an anonymous request must be
