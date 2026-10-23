@@ -26,8 +26,7 @@ public class StaticReportsModelTests
         Exception? throwOnGetStaticReportHistory = null,
         bool canUploadStaticReports = true,
         UploadStaticReportResult? uploadStaticReportResult = null,
-        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
-        string? baseUrl = "https://api.example.test")
+        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -40,7 +39,6 @@ public class StaticReportsModelTests
                 canUploadStaticReports: canUploadStaticReports,
                 uploadStaticReportResult: uploadStaticReportResult,
                 deleteStaticReportVersionResult: deleteStaticReportVersionResult),
-            Options.Create(new ApiOptions { BaseUrl = baseUrl ?? string.Empty }),
             new AlwaysEnabledLogger<StaticReportsModel>())
         {
             PageContext = new PageContext
@@ -166,13 +164,13 @@ public class StaticReportsModelTests
     }
 
     [Fact]
-    public void GetDocumentUrl_BuildsDownloadLink_FromApiBaseUrl()
+    public void GetDocumentUrl_BuildsDownloadLink_ThroughTheWebApp()
     {
-        var pageModel = CreatePageModel(baseUrl: "https://api.example.test/");
+        var pageModel = CreatePageModel();
 
         var url = pageModel.GetDocumentUrl(VersionId);
 
-        Assert.Equal($"https://api.example.test/api/static-reports/versions/{VersionId}/document", url);
+        Assert.Equal($"/static-reports/versions/{VersionId}/document", url);
     }
 
     [Fact]
