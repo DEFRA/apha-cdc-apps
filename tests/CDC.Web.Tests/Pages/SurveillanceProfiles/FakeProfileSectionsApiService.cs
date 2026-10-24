@@ -41,7 +41,8 @@ internal sealed class FakeProfileSectionsApiService(
     Exception? throwOnGetProfileVersionValidationStatus = null,
     Exception? throwOnValidateProfileVersionSection = null,
     ProfileSectionWriteResult? deleteAllReviewCommentsResult = null,
-    Exception? throwOnDeleteAllReviewComments = null)
+    Exception? throwOnDeleteAllReviewComments = null,
+    Exception? throwOnGetProfileQuestionnaireMetadata = null)
     : IProfileSectionsApiService
 {
     private bool sectionWritten;
@@ -107,7 +108,9 @@ internal sealed class FakeProfileSectionsApiService(
     public Guid? RequestedQuestionInfoSectionId { get; private set; }
 
     public Task<ProfileQuestionnaireMetadataDto> GetProfileQuestionnaireMetadataAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(metadata ?? new ProfileQuestionnaireMetadataDto());
+        throwOnGetProfileQuestionnaireMetadata is not null
+            ? Task.FromException<ProfileQuestionnaireMetadataDto>(throwOnGetProfileQuestionnaireMetadata)
+            : Task.FromResult(metadata ?? new ProfileQuestionnaireMetadataDto());
 
     public Task<ProfileSectionAnswersDto> GetProfileSectionAnswersAsync(
         Guid profileVersionId,

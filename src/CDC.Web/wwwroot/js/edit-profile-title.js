@@ -13,11 +13,11 @@
     var MAX_STORED_LENGTH = 255;
 
     document.addEventListener('DOMContentLoaded', function () {
-        var toolbar = document.querySelector('[data-app-title-toolbar]');
-        if (!toolbar) {
-            return;
-        }
+        document.querySelectorAll('[data-app-title-toolbar]').forEach(initialiseEditor);
+    });
 
+    // Sets up one toolbar and the editor it belongs to. EditUserGuidance has two editors on one page.
+    function initialiseEditor(toolbar) {
         var editor = document.getElementById(toolbar.dataset.appTitleToolbar);
         var hiddenInput = editor ? document.getElementById(editor.dataset.appTitleHiddenInput) : null;
         var undoButton = toolbar.querySelector('[data-app-title-action="undo"]');
@@ -269,6 +269,6 @@
                 });
             });
         }
-    });
+    }
 })();
 

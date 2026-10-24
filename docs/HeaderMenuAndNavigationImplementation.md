@@ -182,7 +182,7 @@ Razor Pages (page + code-behind, 9 pairs):
 | Disease Profiles | `/DiseaseProfiles/CompareVersions` | `Pages/DiseaseProfiles/CompareVersions.cshtml`, `CompareVersions.cshtml.cs` |
 | Disease Profiles | `/SurveillanceProfiles/DiseaseReviews` | `Pages/SurveillanceProfiles/DiseaseReviews.cshtml`, `DiseaseReviews.cshtml.cs` |
 | Reports | `/Reports/General` | `Pages/Reports/General.cshtml`, `General.cshtml.cs` |
-| Reports | `/Reports/QuestionsGuidance` | `Pages/Reports/QuestionsGuidance.cshtml`, `QuestionsGuidance.cshtml.cs` |
+| Reports | `/SurveillanceProfiles/EditUserGuidance` | `Pages/SurveillanceProfiles/EditUserGuidance.cshtml`, `EditUserGuidance.cshtml.cs` |
 | Reports | `/Reports/DiseaseRanking` | `Pages/Reports/DiseaseRanking.cshtml`, `DiseaseRanking.cshtml.cs` |
 | Species Data | `/ViewSpeciesData` | `Pages/ViewSpeciesData.cshtml`, `ViewSpeciesData.cshtml.cs` |
 | Species Data | `/SpeciesData/Maintain` | `Pages/SpeciesData/Maintain.cshtml`, `Maintain.cshtml.cs` |

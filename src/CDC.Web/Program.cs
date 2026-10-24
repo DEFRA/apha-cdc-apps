@@ -107,6 +107,23 @@ builder.Services.AddHttpClient<IProfilePropertiesApiService, ProfilePropertiesAp
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
 
+// Reads and saves question titles and guidance on the Edit user guidance page, and reads every question's guidance for the
+// guidance reports, which CDC.Api can take longer than the default 10-second attempt timeout to gather. A save is not retried: the
+// row version it carries would make a replay of one that already succeeded fail as a conflict.
+builder.Services.AddHttpClient<IProfileQuestionsApiService, ProfileQuestionsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.DisableForUnsafeHttpMethods();
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(90);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(180);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
+    });
+
 // Reference data is served from an in-process store until the reference data endpoints exist on
 // CDC.Api; swap this registration for a typed HttpClient when they do.
 builder.Services.TryAddSingleton(TimeProvider.System);

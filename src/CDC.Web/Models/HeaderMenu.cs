@@ -24,7 +24,7 @@ public static class HeaderMenu
         new("Reports",
         [
             new("General reports", "/Reports/General", AuthorizationPolicies.CanViewReports),
-            new("Questions and guidance reports", "/Reports/QuestionsGuidance", AuthorizationPolicies.CanEditUserGuidance),
+            new("Questions and guidance reports", "/SurveillanceProfiles/EditUserGuidance", AuthorizationPolicies.CanEditUserGuidance),
             new("Disease ranking report", "/Reports/DiseaseRanking", AuthorizationPolicies.CanViewDiseaseRankingReport),
         ]),
         new("Species Data",

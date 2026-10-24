@@ -57,7 +57,7 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     [InlineData("/SurveillanceProfiles/ProfileProperties")]
     [InlineData("/DiseaseProfiles/CompareVersions")]
     [InlineData("/SurveillanceProfiles/DiseaseReviews")]
-    [InlineData("/Reports/QuestionsGuidance")]
+    [InlineData("/SurveillanceProfiles/EditUserGuidance")]
     [InlineData("/SpeciesData/Maintain")]
     [InlineData("/UserAdmin/GlobalUsers")]
     [InlineData("/UserAdmin/ExternalUsers")]
@@ -98,7 +98,7 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     {
         var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: true, isPolicyProfileUser: false);
 
-        var response = await client.GetAsync("/Reports/QuestionsGuidance");
+        var response = await client.GetAsync("/SurveillanceProfiles/EditUserGuidance");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -109,7 +109,7 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
         var client = await _factory.SignedInClientWithRolesAsync(AuthorizationRoles.Reviewer);
 
         var allowed = await client.GetAsync("/SurveillanceProfiles/DiseaseReviews");
-        var refused = await client.GetAsync("/Reports/QuestionsGuidance");
+        var refused = await client.GetAsync("/SurveillanceProfiles/EditUserGuidance");
 
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);

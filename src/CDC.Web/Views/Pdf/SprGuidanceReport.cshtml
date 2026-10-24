@@ -1,0 +1,84 @@
+@using CDC.Web.Infrastructure
+@using CDC.Web.Infrastructure.Reports
+@using CDC.Web.Models
+@model SprGuidanceReportViewModel
+@{
+    Layout = "/Views/Pdf/_PdfLayout.cshtml";
+    ViewData["Title"] = Model.Title;
+}
+<h1 class="gr-title">@Model.Title</h1>
+
+@foreach (var part in Model.StandardSections)
+{
+    <h2 class="sp-std-title">@part.Title</h2>
+
+    await Html.RenderPartialAsync("/Views/Pdf/_SprStandardText.cshtml", part.Before);
+
+    if (part.HasExample)
+    {
+        <table class="sp-example">
+            <thead>
+                <tr>
+                    @foreach (var heading in SprGuidanceReportLayout.ExampleHeadings)
+                    {
+                        <th scope="col">@heading</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.ExampleRows)
+                {
+                    <tr>
+                        @foreach (var cell in row.Cells)
+                        {
+                            <td>@cell</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <table class="sp-example sp-example--total">
+            <tbody>
+                <tr>
+                    <td class="sp-example__total-text">@Model.ExampleTotalText</td>
+                    <td class="sp-example__total-value">@Model.ExampleTotalValue</td>
+                </tr>
+                <tr>
+                    <td colspan="2">@Model.ExampleTotalNote</td>
+                </tr>
+            </tbody>
+        </table>
+
+        await Html.RenderPartialAsync("/Views/Pdf/_SprStandardText.cshtml", part.After);
+    }
+}
+
+@foreach (var question in Model.Questions)
+{
+    <h2 class="gr-heading">@question.Heading</h2>
+    <div class="sp-guidance">@ReportRichText.ToHtml(question.Guidance)</div>
+}
+
+<h2 class="sp-criteria-title">@Model.CriteriaTitle</h2>
+
+@foreach (var category in Model.Categories)
+{
+    var colours = $"background-color:{category.BackgroundColour};color:{category.ForegroundColour};";
+
+    <h3 class="sp-category" style="@colours">@category.Heading</h3>
+
+    if (category.Note is not null)
+    {
+        <div class="sp-guidance">@category.Note</div>
+    }
+
+    foreach (var criterion in category.Criteria)
+    {
+        <p class="sp-criterion" style="@colours">@ProfileTitleHtmlFormatter.ToPlainText(criterion.Name)</p>
+
+        foreach (var guidance in criterion.Guidance)
+        {
+            <div class="sp-guidance">@ReportRichText.ToHtml(guidance)</div>
+        }
+    }
+}

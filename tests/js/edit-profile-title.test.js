@@ -510,4 +510,52 @@ describe('edit-profile-title', () => {
       expect(editor.hasAttribute('aria-describedby')).toBe(false);
     });
   });
+
+  describe('with more than one editor on a page', () => {
+    function buildTwoEditors() {
+      const group = (name, html) => `
+        <div class="govuk-form-group">
+          <div class="app-title-toolbar" data-app-title-toolbar="${name}Editor" role="toolbar">
+            <button type="button" data-app-title-action="undo">Undo</button>
+            <button type="button" data-app-title-action="redo">Redo</button>
+            <button type="button" data-app-title-action="italic">I</button>
+          </div>
+          <div id="${name}Editor" contenteditable="true" data-app-title-hidden-input="${name}">${html}</div>
+          <input id="${name}" type="hidden" value="" />
+        </div>`;
+
+      document.body.innerHTML = group('Name', 'First') + group('Plain', 'Second');
+      document.dispatchEvent(new Event('DOMContentLoaded'));
+    }
+
+    it('keeps each editor in step with its own hidden input', () => {
+      buildTwoEditors();
+
+      expect(document.getElementById('Name').value).toBe('First');
+      expect(document.getElementById('Plain').value).toBe('Second');
+
+      typeInto(document.getElementById('PlainEditor'), 'Changed');
+
+      expect(document.getElementById('Name').value).toBe('First');
+      expect(document.getElementById('Plain').value).toBe('Changed');
+    });
+
+    it('gives each editor its own undo history', () => {
+      buildTwoEditors();
+      const nameEditor = document.getElementById('NameEditor');
+      const plainEditor = document.getElementById('PlainEditor');
+      const [nameUndo, plainUndo] = document.querySelectorAll('[data-app-title-action="undo"]');
+
+      typeInto(nameEditor, 'First edited');
+      vi.advanceTimersByTime(400);
+
+      expect(nameUndo.disabled).toBe(false);
+      expect(plainUndo.disabled).toBe(true);
+
+      nameUndo.click();
+
+      expect(nameEditor.innerHTML).toBe('First');
+      expect(plainEditor.innerHTML).toBe('Second');
+    });
+  });
 });
