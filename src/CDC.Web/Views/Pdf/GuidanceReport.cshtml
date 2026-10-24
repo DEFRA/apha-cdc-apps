@@ -6,7 +6,7 @@
     Layout = "/Views/Pdf/_PdfLayout.cshtml";
     ViewData["Title"] = Model.Title;
 }
-<h1 class="gr-title">@Model.Title</h1>
+@await Html.PartialAsync("/Views/Pdf/_GuidanceReportHeader.cshtml", Model.Title)
 
 @foreach (var block in Model.Blocks)
 {

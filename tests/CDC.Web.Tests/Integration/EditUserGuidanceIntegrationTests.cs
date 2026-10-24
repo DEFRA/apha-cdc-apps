@@ -32,6 +32,9 @@ public partial class EditUserGuidanceIntegrationTests
 
         Assert.Contains("<title>Edit questions and guidance - D2R2</title>", page);
         Assert.Contains("<h1 class=\"govuk-heading-l\">Edit questions and guidance</h1>", page);
+        Assert.Contains(">D2R2 Home</a>", page);
+        Assert.Contains("<li class=\"govuk-breadcrumbs__list-item\" aria-current=\"page\">Questions and guidance</li>", page);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(page, "govuk-breadcrumbs__list-item"));
         Assert.Contains("Use the buttons below to generate the user guidance reports.", page);
         Assert.Contains("Full profile guidance report", page);
         Assert.Contains("Summary profile guidance report", page);

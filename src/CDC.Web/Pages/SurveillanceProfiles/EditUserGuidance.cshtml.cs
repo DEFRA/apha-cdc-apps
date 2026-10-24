@@ -20,7 +20,7 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 public class EditUserGuidanceModel(
     IProfileSectionsApiService sectionsApiService,
     IProfileQuestionsApiService questionsApiService,
-    ILogger<EditUserGuidanceModel> logger) : BreadcrumbPageModelBase("Edit questions and guidance")
+    ILogger<EditUserGuidanceModel> logger) : BreadcrumbPageModelBase("Questions and guidance")
 {
     /// <summary>The prefix of the message shown when a save fails.</summary>
     public const string SaveFailedPrefix = "User guidance save failed: ";

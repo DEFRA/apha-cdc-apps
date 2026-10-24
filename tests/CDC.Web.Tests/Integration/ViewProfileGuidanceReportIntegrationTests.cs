@@ -32,7 +32,7 @@ public class ViewProfileGuidanceReportIntegrationTests
         Assert.Equal(PdfBytes, await response.Content.ReadAsByteArrayAsync());
         Assert.StartsWith("Profile Guidance_", response.Content.Headers.ContentDisposition!.FileNameStar ?? response.Content.Headers.ContentDisposition.FileName!.Trim('"'), StringComparison.Ordinal);
         var html = pdf.Html!;
-        Assert.Contains("<h1 class=\"gr-title\">Full profile guidance report</h1>", html);
+        AssertHasLogoHeaderOnce(html, "Full profile guidance report");
         Assert.Contains("<h2 class=\"gr-heading\">1 - Section 1</h2>", html);
         Assert.Contains("<th scope=\"col\" class=\"gr-no\">No.</th>", html);
         Assert.Contains("<th scope=\"col\">User Guidance</th>", html);
@@ -53,6 +53,7 @@ public class ViewProfileGuidanceReportIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = pdf.Html!;
+        AssertHasLogoHeaderOnce(html, "Summary profile guidance report");
         Assert.Contains("<h2 class=\"gr-heading\">1. Description</h2>", html);
         Assert.Contains("<h2 class=\"gr-heading\">10. Compensation</h2>", html);
         Assert.Contains("<td>5.1 (1)</td>", html);
@@ -71,7 +72,7 @@ public class ViewProfileGuidanceReportIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = pdf.Html!;
-        Assert.Contains("<h1 class=\"gr-title\">Q&amp;A sheet guidance report</h1>", html);
+        AssertHasLogoHeaderOnce(html, "Q&amp;A sheet guidance report");
         Assert.DoesNotContain("<h2 class=\"gr-heading\">", html);
         Assert.Contains("<td>Plain 6.14</td>", html);
         Assert.Contains("<td>16 1a</td>", html);
@@ -89,7 +90,7 @@ public class ViewProfileGuidanceReportIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = pdf.Html!;
-        Assert.Contains("Guidance for questions in the summary prioritisation report (SPR)", html);
+        AssertHasLogoHeaderOnce(html, "Guidance for questions in the summary prioritisation report (SPR)");
         Assert.Contains("<h2 class=\"sp-std-title\">D2R2 Scoring: Overall Approach</h2>", html);
         Assert.Contains("<li>&#x27;to protect public health&#x27; (colour-coded pink on D2R2 outputs)</li>", html);
         Assert.Contains("<th scope=\"col\">Weighted Highest Possible Score</th>", html);
@@ -153,6 +154,18 @@ public class ViewProfileGuidanceReportIntegrationTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(0, questions.GuidanceContentCallCount);
+    }
+
+    // The legacy header is in the body, ahead of everything else, so it prints on the first page only.
+    private static void AssertHasLogoHeaderOnce(string html, string encodedTitle)
+    {
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(html, "<header class=\"gr-header\">"));
+        Assert.Contains($"<h1 class=\"gr-header__title\">{encodedTitle}</h1>", html);
+        Assert.Contains("alt=\"Animal and Plant Health Agency\"", html);
+        Assert.Contains("alt=\"D2R2\"", html);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(html, "src=\"data:image/png;base64,iVBORw0KGgo"));
+        Assert.True(html.IndexOf("<header class=\"gr-header\">", StringComparison.Ordinal) < html.IndexOf("<table", StringComparison.Ordinal));
+        Assert.DoesNotContain("gr-title", html);
     }
 
     private static Task<HttpClient> EditorAsync(WebApplicationFactory<Program> factory) =>

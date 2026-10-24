@@ -27,4 +27,9 @@
     <InternalsVisibleTo Include="CDC.Web.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Infrastructure\Pdf\Assets\aphalogo.png" LogicalName="CDC.Web.Pdf.aphalogo.png" />
+    <EmbeddedResource Include="Infrastructure\Pdf\Assets\D2R2LogoSmall.png" LogicalName="CDC.Web.Pdf.D2R2LogoSmall.png" />
+  </ItemGroup>
+
 </Project>

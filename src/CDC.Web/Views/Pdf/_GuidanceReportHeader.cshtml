@@ -1,0 +1,8 @@
+@using CDC.Web.Infrastructure.Pdf
+@model string
+@* The legacy first-page header: the APHA logo, the report title and the D2R2 logo over a rule. It sits in the document body, so only the first page has it. *@
+<header class="gr-header">
+    <img class="gr-header__apha" src="@Html.Raw(ReportLogos.AphaLogoDataUri)" alt="Animal and Plant Health Agency" />
+    <h1 class="gr-header__title">@Model</h1>
+    <img class="gr-header__d2r2" src="@Html.Raw(ReportLogos.D2R2LogoDataUri)" alt="D2R2" />
+</header>
