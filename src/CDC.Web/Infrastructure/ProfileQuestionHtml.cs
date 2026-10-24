@@ -82,6 +82,7 @@ public static partial class ProfileQuestionHtml
     private static partial Regex LineBreakPattern();
 
     // The sanitiser keeps the text of a tag it removes, which suits a stray bold tag but not a script's body.
-    [GeneratedRegex(@"<(script|style)\b.*?</\1\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline, matchTimeoutMilliseconds: 2000)]
+    // Each element is spelled out because the source generator cannot emit a case-insensitive backreference.
+    [GeneratedRegex(@"<script\b.*?</script\s*>|<style\b.*?</style\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline, matchTimeoutMilliseconds: 2000)]
     private static partial Regex ActiveContentPattern();
 }

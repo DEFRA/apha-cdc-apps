@@ -94,7 +94,7 @@ public class ViewProfileGuidanceReportIntegrationTests
         Assert.Contains("<h2 class=\"sp-std-title\">D2R2 Scoring: Overall Approach</h2>", html);
         Assert.Contains("<li>&#x27;to protect public health&#x27; (colour-coded pink on D2R2 outputs)</li>", html);
         Assert.Contains("<th scope=\"col\">Weighted Highest Possible Score</th>", html);
-        Assert.Contains("Overall maximum score for this reason for Government intervention (RFI) =", html);
+        Assert.Contains("<th scope=\"row\" class=\"sp-example__total-text\">Overall maximum score for this reason for Government intervention (RFI) =</th>", html);
         Assert.Contains("<td class=\"sp-example__total-value\">875</td>", html);
         Assert.Contains("<h2 class=\"gr-heading\">RFI 3 Protect interests of wider economy, environment &amp; society</h2>", html);
         Assert.Contains("<h2 class=\"sp-criteria-title\">Detailed criteria scores</h2>", html);

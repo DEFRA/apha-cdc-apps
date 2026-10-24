@@ -27,6 +27,8 @@ public class ProfileQuestionHtmlTests
     [InlineData("<p>One</p><p>Two</p>", "<p>One</p><p>Two</p>")]
     [InlineData("<ul><li>A</li></ul><b>x</b><u>y</u>", "<ul><li>A</li></ul>xy")]
     [InlineData("a<script>alert(1)</script>b", "ab")]
+    [InlineData("a<style>p { color: red }</style>b", "ab")]
+    [InlineData("a<SCRIPT type=\"text/javascript\">alert(1)</SCRIPT >b", "ab")]
     [InlineData("<a href=\"javascript:alert(1)\">x</a>", "<a>x</a>")]
     [InlineData("<a href=\"mailto:a@example.test\" onclick=\"x()\" title=\"t\">m</a>", "<a href=\"mailto:a@example.test\" title=\"t\">m</a>")]
     [InlineData("  <i>Hello</i>  ", "<i>Hello</i>")]

@@ -95,8 +95,8 @@ public sealed class ProfileQuestionService(
                     Questions =
                     [
                         .. section.Questions
-                            .OrderBy(question => question.QuestionNumber)
                             .Where(question => questions.ContainsKey(question.Id))
+                            .OrderBy(question => question.QuestionNumber)
                             .Select(question => new ProfileGuidanceQuestionDto
                             {
                                 Id = question.Id,
