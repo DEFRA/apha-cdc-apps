@@ -69,19 +69,33 @@ public partial class DiseaseReviewsIntegrationTests
         var report = ReportOf(
             new DiseaseReviewsReportRowDto
             {
-                ProfileVersionId = versionId, Title = "Avian <em>influenza</em>", VersionMajor = 2, VersionMinor = 1,
-                SectionNumber = 2, SectionName = "Control", NextAuthorReview = new DateTime(2027, 3, 9)
+                ProfileVersionId = versionId,
+                Title = "Avian <em>influenza</em>",
+                VersionMajor = 2,
+                VersionMinor = 1,
+                SectionNumber = 2,
+                SectionName = "Control",
+                NextAuthorReview = new DateTime(2027, 3, 9)
             },
             new DiseaseReviewsReportRowDto
             {
-                ProfileVersionId = versionId, Title = "Avian <em>influenza</em>", VersionMajor = 2, VersionMinor = 1,
-                SectionNumber = 1, SectionName = "Summary & overview",
-                NextPolicyReview = new DateTime(2027, 2, 3), NextVaReview = new DateTime(2027, 6, 7)
+                ProfileVersionId = versionId,
+                Title = "Avian <em>influenza</em>",
+                VersionMajor = 2,
+                VersionMinor = 1,
+                SectionNumber = 1,
+                SectionName = "Summary & overview",
+                NextPolicyReview = new DateTime(2027, 2, 3),
+                NextVaReview = new DateTime(2027, 6, 7)
             },
             new DiseaseReviewsReportRowDto
             {
-                ProfileVersionId = otherVersionId, Title = "<script>alert(1)</script>Anthrax", VersionMajor = 1, VersionMinor = 0,
-                SectionNumber = 1, SectionName = "Summary"
+                ProfileVersionId = otherVersionId,
+                Title = "<script>alert(1)</script>Anthrax",
+                VersionMajor = 1,
+                VersionMinor = 0,
+                SectionNumber = 1,
+                SectionName = "Summary"
             });
         var pdf = new CapturingPdfService();
         using var factory = CreateFactory(report, pdf);
