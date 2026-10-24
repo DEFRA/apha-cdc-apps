@@ -96,6 +96,8 @@ public partial class DiseaseReviewsIntegrationTests
         Assert.Equal(PdfBytes, await response.Content.ReadAsByteArrayAsync());
 
         var html = pdf.Html!;
+        LogoHeaderAssertions.AssertOnce(html);
+        Assert.True(html.IndexOf("<header class=\"logo-header", StringComparison.Ordinal) < html.IndexOf("<p class=\"drr-line\">", StringComparison.Ordinal));
         Assert.Contains("<p class=\"drr-line\"><i>Quarterly</i> <b>check</b></p>", html);
         Assert.Contains("<p class=\"drr-line\">Jane Doe due between 01-02-2027 and 28-02-2027</p>", html);
         Assert.Contains("<h1 class=\"drr-profile-name\">Avian <em>influenza</em> v2.1</h1>", html);
@@ -123,6 +125,7 @@ public partial class DiseaseReviewsIntegrationTests
 
         Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
         Assert.Contains("Jane Doe due between 01-02-2027 and 28-02-2027", pdf.Html);
+        LogoHeaderAssertions.AssertOnce(pdf.Html!);
         Assert.DoesNotContain("<h1 class=\"drr-profile-name\">", pdf.Html);
     }
 

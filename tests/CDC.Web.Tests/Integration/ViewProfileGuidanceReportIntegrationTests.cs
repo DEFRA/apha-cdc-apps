@@ -156,15 +156,11 @@ public class ViewProfileGuidanceReportIntegrationTests
         Assert.Equal(0, questions.GuidanceContentCallCount);
     }
 
-    // The legacy header is in the body, ahead of everything else, so it prints on the first page only.
+    // The header is in the body, ahead of everything else, so it prints on the first page only.
     private static void AssertHasLogoHeaderOnce(string html, string encodedTitle)
     {
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(html, "<header class=\"gr-header\">"));
-        Assert.Contains($"<h1 class=\"gr-header__title\">{encodedTitle}</h1>", html);
-        Assert.Contains("alt=\"Animal and Plant Health Agency\"", html);
-        Assert.Contains("alt=\"D2R2\"", html);
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(html, "src=\"data:image/png;base64,iVBORw0KGgo"));
-        Assert.True(html.IndexOf("<header class=\"gr-header\">", StringComparison.Ordinal) < html.IndexOf("<table", StringComparison.Ordinal));
+        LogoHeaderAssertions.AssertOnce(html, encodedTitle);
+        Assert.True(html.IndexOf("<header class=\"logo-header", StringComparison.Ordinal) < html.IndexOf("<table", StringComparison.Ordinal));
         Assert.DoesNotContain("gr-title", html);
     }
 

@@ -4,6 +4,7 @@
     Layout = "/Views/Pdf/_PdfLayout.cshtml";
     ViewData["Title"] = "Disease reviews report";
 }
+@await Html.PartialAsync("/Views/Pdf/_ReportLogoHeader.cshtml", string.Empty)
 <p class="drr-line">@ProfileTitleHtmlFormatter.Format(Model.Description)</p>
 <p class="drr-line">@Model.DateRange</p>
 <hr class="drr-rule" />
