@@ -163,6 +163,27 @@ public sealed class ProfileReportService(
     }
 
     /// <inheritdoc />
+    public async Task<Result<DiseaseReviewsReportDto>> GetDiseaseReviewsReportAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        Guid authorId,
+        CancellationToken cancellationToken)
+    {
+        // Legacy GetProfileDiseaseReviewsReportCommand.CanGetReport().
+        if (!userContext.IsProfileEditor || userContext.IsUserManagementSystem)
+        {
+            logger.DiseaseReviewsReportRefused();
+
+            return Result.Forbidden<DiseaseReviewsReportDto>("You do not have permission to get the disease reviews report.");
+        }
+
+        var sections = await repository.GetDiseaseReviewsAsync(fromDate, toDate, authorId, cancellationToken);
+        logger.RetrievedDiseaseReviewsReport(authorId, sections.Count);
+
+        return Result.Success(new DiseaseReviewsReportDto { Sections = [.. sections.Select(section => section.ToDto())] });
+    }
+
+    /// <inheritdoc />
     public async Task<Result<ProfileReportsOverviewDto>> GetProfileReportsOverviewAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
         var header = await repository.GetProfileVersionHeaderAsync(profileVersionId, cancellationToken);

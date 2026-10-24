@@ -1,6 +1,7 @@
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileQuestions.Commands;
 using CDC.Api.Features.ProfileQuestions.Dtos;
+using CDC.Common.Contracts;
 
 namespace CDC.Api.Features.ProfileQuestions.Interfaces;
 
@@ -27,6 +28,11 @@ public interface IProfileQuestionService
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The report descriptor.</returns>
     Task<ProfileGuidanceReportDto> GetProfileGuidanceReportAsync(ProfileGuidanceReportType reportType, CancellationToken cancellationToken);
+
+    /// <summary>Gets every section's questions with their titles and guidance, and the criteria behind the summary prioritisation report.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The content the four user guidance reports print.</returns>
+    Task<ProfileGuidanceContentDto> GetProfileGuidanceContentAsync(CancellationToken cancellationToken);
 
     /// <summary>Updates a question's guidance text and display names.</summary>
     /// <param name="command">The changes to apply.</param>

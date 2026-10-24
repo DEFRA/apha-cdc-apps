@@ -1,8 +1,10 @@
-// Formatting toolbar (undo/redo/italic) above the profile title editor on EditProfileTitle and ProfileProperties.
+// Formatting toolbar (undo/redo/italic) above the profile title editor on EditProfileTitle and ProfileProperties,
+// and above the description editor on DiseaseReviews, which edits one optional line the same way.
 // The title is edited in a contenteditable div (so HTML formatting renders as the user types)
 // and mirrored into a hidden input on every change, which is what actually gets posted.
 // The editor behaves as the legacy TinyMCE one did: italic only, one line, plain ASCII pasted text, and no more
 // than the title column holds. Where the page marks them, Save is hidden and a required message shown while the title has no text.
+// A toolbar marked data-app-title-toolbar-on-focus shows only while the title or the toolbar has focus, like legacy's inline editor.
 (function () {
     'use strict';
 
@@ -11,11 +13,11 @@
     var MAX_STORED_LENGTH = 255;
 
     document.addEventListener('DOMContentLoaded', function () {
-        var toolbar = document.querySelector('[data-app-title-toolbar]');
-        if (!toolbar) {
-            return;
-        }
+        document.querySelectorAll('[data-app-title-toolbar]').forEach(initialiseEditor);
+    });
 
+    // Sets up one toolbar and the editor it belongs to. EditUserGuidance has two editors on one page.
+    function initialiseEditor(toolbar) {
         var editor = document.getElementById(toolbar.dataset.appTitleToolbar);
         var hiddenInput = editor ? document.getElementById(editor.dataset.appTitleHiddenInput) : null;
         var undoButton = toolbar.querySelector('[data-app-title-action="undo"]');
@@ -235,6 +237,38 @@
 
         syncHiddenInput();
         updateButtonStates();
-    });
+
+        // Only where the page asks: a page that opens with no title (creating a profile) must not offer to save it.
+        if (saveButton && saveButton.dataset.appTitleSave === 'on-load') {
+            updateSaveButton();
+        }
+
+        if (toolbar.hasAttribute('data-app-title-toolbar-on-focus')) {
+            showToolbarOnFocus();
+        }
+
+        function showToolbarOnFocus() {
+            toolbar.hidden = true;
+
+            // Clicking a button would otherwise take focus (and the selection to italicise) from the title.
+            toolbar.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+            });
+
+            [editor, toolbar].forEach(function (element) {
+                element.addEventListener('focusin', function () {
+                    toolbar.hidden = false;
+                });
+
+                element.addEventListener('focusout', function (event) {
+                    var next = event.relatedTarget;
+
+                    if (!next || (!editor.contains(next) && !toolbar.contains(next))) {
+                        toolbar.hidden = true;
+                    }
+                });
+            });
+        }
+    }
 })();
 

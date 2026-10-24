@@ -14,6 +14,7 @@
 @if (Model.ShowFrontPage)
 {
     <section class="rpt-front">
+        @await Html.PartialAsync("/Views/Pdf/_ReportLogoHeader.cshtml", string.Empty)
         <h1 class="rpt-title">@Model.ReportTitle for: @ProfileTitleHtmlFormatter.Format(Model.ProfileTitle)</h1>
         <p>Version: @Model.VersionLabel</p>
         @if (Model.PublishedDate is not null)

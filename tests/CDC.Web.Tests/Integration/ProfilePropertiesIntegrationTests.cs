@@ -86,6 +86,82 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("href=\"/SurveillanceProfiles/ProfileProperties\"", page);
     }
 
+    // As the legacy table did, the title box sits to the right of its label; its formatting toolbar shows only while editing,
+    // and the button is hidden while there is no title, with the legacy required message ready for when the title is emptied.
+    [Fact]
+    public async Task CreatePage_PutsTheTitleBoxBesideItsLabel_WithTheEditingAidsTheScriptsUse()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
+
+        Assert.Matches(
+            "<div class=\"app-edit-title-row app-edit-title-row--message-below\">\\s*<label class=\"govuk-label app-edit-title-row__label app-edit-title-row__label--quarter\" id=\"ProfileTitleLabel\" for=\"ProfileTitleEditor\">Profile title:</label>\\s*<div class=\"app-edit-title-row__input-wrapper\">",
+            page);
+        Assert.Contains("data-app-title-toolbar=\"ProfileTitleEditor\" data-app-title-toolbar-on-focus role=\"toolbar\"", page);
+        Assert.Contains(
+            "<p id=\"ProfileTitle-required-error\" class=\"govuk-error-message\" data-app-title-required-error hidden><span class=\"govuk-visually-hidden\">Error:</span> You must enter a profile title</p>",
+            page);
+        Assert.Contains("data-app-title-save=\"on-load\">Create profile</button>", page);
+    }
+
+    // As the legacy page showed its validation message under the title box, the required message comes after the textbox, not before it.
+    [Fact]
+    public async Task CreatePage_PutsTheRequiredMessageBelowTheTitleBox()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
+
+        Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-required-error\"", page);
+    }
+
+    [Fact]
+    public async Task CloneScenarioPage_NamesTheScenarioTitleInTheLabelAndTheRequiredMessage()
+    {
+        var properties = new FakeProfilePropertiesApiService(defaults: new NewProfileDefaultsDto { ScenarioTitle = "Outbreak", ParentTitle = "Anthrax" });
+        using var factory = CreateFactory(properties);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={CloneVersionId}&scenario=true");
+
+        Assert.Contains("for=\"ProfileTitleEditor\">Scenario title:</label>", page);
+        Assert.Contains("Error:</span> You must enter a scenario title</p>", page);
+        Assert.Contains("Outbreak</div>", page);
+    }
+
+    [Fact]
+    public async Task EditPage_HidesTheUpdateButtonOnlyWhileThereIsNoTitle()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
+
+        Assert.Contains("data-app-title-save=\"on-load\">Update</button>", page);
+    }
+
+    // As the legacy page did, each species box holds its own "Close all" above its tree, rather than one control above both boxes.
+    [Fact]
+    public async Task EditPage_PutsACloseAllToggleInsideEachSpeciesBox_AboveItsTree()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
+
+        foreach (var box in new[] { "profiled", "other" })
+        {
+            Assert.Matches(
+                $"data-species-tree=\"{box}\">\\s*<div class=\"app-tree__controls\">\\s*<button type=\"button\" class=\"app-tree__toggle-all\" data-app-tree-action=\"toggle-all\" aria-expanded=\"true\">[\\s\\S]*?Close all</span>\\s*</button>\\s*</div>\\s*<div class=\"app-species-selector__tree\">\\s*<ul class=\"app-tree\"",
+                page);
+        }
+
+        Assert.Equal(2, Regex.Count(page, "data-app-tree-action=\"toggle-all\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+    }
+
     [Fact]
     public async Task ClonePage_ShowsWhereTheProfileIsClonedFrom()
     {
@@ -160,6 +236,7 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("<a href=\"#ProfileTitleEditor\">You must enter a profile title</a>", body);
         Assert.Contains("<a href=\"#profiled-species-group\">You must specify at least one profiled species</a>", body);
         Assert.Contains("<title>Error: Create new profile", body);
+        Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-error\"", body);
         Assert.Matches(CheckedBoxRegex("other-species", Sheep), body);
     }
 

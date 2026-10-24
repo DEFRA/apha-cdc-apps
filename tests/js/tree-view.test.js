@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/CDC.Web/wwwroot/js/tree-view.js';
 
 function buildTree() {
@@ -104,6 +104,48 @@ function check(input) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// Two trees in one form, each in a panel with its own "Open all"/"Close all" - the profile properties page.
+function buildTwoPanels() {
+  const panel = (name) => `
+    <div class="app-tree__panel" id="${name}-panel">
+      <div class="app-tree__controls">
+        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+          <span class="app-tree__toggle-all-text">Close all</span>
+        </button>
+      </div>
+      <ul class="app-tree" data-module="app-tree-view" data-app-tree-multiple="true">
+        <li class="app-tree__item" data-app-tree-expanded="true">
+          <div class="app-tree__row">
+            <div class="govuk-checkboxes__item app-tree__radio">
+              <input class="govuk-checkboxes__input" id="${name}-animals" name="${name}" type="checkbox" value="animals">
+              <label class="govuk-label govuk-checkboxes__label" for="${name}-animals">Animals</label>
+            </div>
+          </div>
+          <ul class="app-tree__group">
+            <li class="app-tree__item">
+              <div class="app-tree__row">
+                <div class="govuk-checkboxes__item app-tree__radio">
+                  <input class="govuk-checkboxes__input" id="${name}-cattle" name="${name}" type="checkbox" value="cattle">
+                  <label class="govuk-label govuk-checkboxes__label" for="${name}-cattle">Cattle</label>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>`;
+
+  document.body.innerHTML = `<form>${panel('first')}${panel('second')}</form>`;
+
+  document.querySelectorAll('[data-module="app-tree-view"]').forEach((list) => new window.TreeView(list));
+
+  const toggleAll = (name) => document.querySelector(`#${name}-panel .app-tree__toggle-all`);
+  const label = (name) => toggleAll(name).querySelector('.app-tree__toggle-all-text').textContent;
+  const group = (name) => document.querySelector(`#${name}-panel .app-tree__group`);
+
+  return { toggleAll, label, group };
+}
+
 
 describe('tree-view', () => {
   beforeEach(() => {
@@ -122,6 +164,37 @@ describe('tree-view', () => {
     expect(toggleAllButton.getAttribute('aria-expanded')).toBe('false');
     expect(toggleAllButton.querySelector('.app-tree__toggle-all-text').textContent).toBe('Open all');
     expect(tree.querySelector('.app-tree__group').hidden).toBe(true);
+  });
+
+  it('gives each tree in a form the Open all / Close all in its own panel, not the other tree\'s', () => {
+    const { toggleAll, label, group } = buildTwoPanels();
+
+    toggleAll('first').click();
+
+    expect(group('first').hidden).toBe(true);
+    expect(label('first')).toBe('Open all');
+    expect(group('second').hidden).toBe(false);
+    expect(label('second')).toBe('Close all');
+    expect(toggleAll('second').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('announces a branch the user opens or closes, but not one that is unchanged or moved by Open all / Close all', () => {
+    const { tree, toggleAllButton } = buildTree();
+    const treeView = new window.TreeView(tree);
+    const item = tree.querySelector('.app-tree__item');
+    const announced = vi.fn();
+    tree.addEventListener('app-tree-toggle', (event) => announced(event.target, event.detail.expanded));
+
+    item.querySelector('.app-tree__toggle').click();
+
+    expect(announced).toHaveBeenCalledTimes(1);
+    expect(announced).toHaveBeenLastCalledWith(item, false);
+
+    treeView.setExpanded(item, false);
+    toggleAllButton.click();
+
+    expect(item.querySelector('.app-tree__group').hidden).toBe(false);
+    expect(announced).toHaveBeenCalledTimes(1);
   });
 
   it('shows the selected item and clears it on command', () => {

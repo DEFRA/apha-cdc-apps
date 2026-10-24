@@ -206,8 +206,30 @@ public class ProfileReportDocumentRenderingTests : IClassFixture<CdcWebTestFacto
         var html = await RenderAsync(ProfileReportDocuments.BuildFullProfile(content, content.Sections[1].Id, []));
 
         Assert.DoesNotContain("<section class=\"rpt-front\">", html);
+        LogoHeaderAssertions.AssertNone(html);
         Assert.Contains("2. Two", html);
         Assert.DoesNotContain("1. One", html);
+    }
+
+    [Fact]
+    public async Task PrintsTheLogosAtTheTopOfTheFrontPage_AheadOfTheTitle()
+    {
+        var html = await RenderAsync(ProfileReportDocuments.BuildFullProfile(ReportContent.Create([ReportContent.Section(1, "One")]), Guid.Empty, []));
+
+        LogoHeaderAssertions.AssertOnce(html);
+        var front = html.IndexOf("<section class=\"rpt-front\">", StringComparison.Ordinal);
+        var logos = html.IndexOf("<header class=\"logo-header", StringComparison.Ordinal);
+        Assert.True(front >= 0 && front < logos);
+        Assert.True(logos < html.IndexOf("<h1 class=\"rpt-title\">", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PrintsTheLogosOnTheFrontPageOfTheSummaryProfile_AndTheQABrief_AsTheLegacyReportsDid()
+    {
+        var content = ReportContent.Create([]);
+
+        LogoHeaderAssertions.AssertOnce(await RenderAsync(ProfileReportDocuments.BuildSummaryProfile(content)));
+        LogoHeaderAssertions.AssertOnce(await RenderAsync(ProfileReportDocuments.BuildQABrief(content)));
     }
 
     private async Task<string> RenderAsync(ProfileReportDocumentViewModel document)

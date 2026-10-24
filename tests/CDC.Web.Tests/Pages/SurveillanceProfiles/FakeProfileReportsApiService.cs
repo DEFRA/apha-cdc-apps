@@ -18,8 +18,13 @@ internal sealed class FakeProfileReportsApiService(
     ProfilePrioritisationScoresResult? prioritisationScores = null,
     Exception? throwOnPrioritisationScores = null,
     ProfileQuestionGuidanceResult? guidance = null,
-    Exception? throwOnGuidance = null) : IProfileReportsApiService
+    Exception? throwOnGuidance = null,
+    DiseaseReviewsReportResult? diseaseReviews = null,
+    Exception? throwOnDiseaseReviews = null) : IProfileReportsApiService
 {
+    /// <summary>Gets the dates and author passed to the disease reviews call.</summary>
+    public (DateTime FromDate, DateTime ToDate, Guid AuthorId)? RequestedDiseaseReviews { get; private set; }
+
     /// <summary>Gets the question ids passed to the guidance call.</summary>
     public IReadOnlyList<Guid>? RequestedGuidanceIds { get; private set; }
 
@@ -37,6 +42,13 @@ internal sealed class FakeProfileReportsApiService(
         RequestedProfileId = profileId;
 
         return throwOnContributions is not null ? throw throwOnContributions : Task.FromResult(contributions!);
+    }
+
+    public Task<DiseaseReviewsReportResult> GetDiseaseReviewsReportAsync(DateTime fromDate, DateTime toDate, Guid authorId, CancellationToken cancellationToken = default)
+    {
+        RequestedDiseaseReviews = (fromDate, toDate, authorId);
+
+        return throwOnDiseaseReviews is not null ? throw throwOnDiseaseReviews : Task.FromResult(diseaseReviews!);
     }
 
     public Task<ProfileReportsOverviewResult> GetOverviewAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>

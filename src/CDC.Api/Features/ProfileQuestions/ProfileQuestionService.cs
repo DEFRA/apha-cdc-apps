@@ -3,6 +3,8 @@ using CDC.Api.Features.ProfileQuestions.Commands;
 using CDC.Api.Features.ProfileQuestions.Dtos;
 using CDC.Api.Features.ProfileQuestions.Interfaces;
 using CDC.Api.Features.ProfileQuestions.Mapping;
+using CDC.Api.Features.ProfileSections.Interfaces;
+using CDC.Common.Contracts;
 
 namespace CDC.Api.Features.ProfileQuestions;
 
@@ -12,8 +14,12 @@ namespace CDC.Api.Features.ProfileQuestions;
 /// returns.
 /// </summary>
 /// <param name="repository">Profile question data access.</param>
+/// <param name="sectionRepository">Profile section data access, which lists the sections and their questions.</param>
 /// <param name="logger">Structured logger.</param>
-public sealed class ProfileQuestionService(IProfileQuestionRepository repository, ILogger<ProfileQuestionService> logger)
+public sealed class ProfileQuestionService(
+    IProfileQuestionRepository repository,
+    IProfileSectionRepository sectionRepository,
+    ILogger<ProfileQuestionService> logger)
     : IProfileQuestionService
 {
     /// <summary>Report titles shown alongside <see cref="ProfileGuidanceReportDto"/>.</summary>
@@ -67,6 +73,64 @@ public sealed class ProfileQuestionService(IProfileQuestionRepository repository
         };
 
         return Task.FromResult(report.ToDto());
+    }
+
+    /// <inheritdoc />
+    public async Task<ProfileGuidanceContentDto> GetProfileGuidanceContentAsync(CancellationToken cancellationToken)
+    {
+        var metadata = await sectionRepository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
+        var questionIds = metadata.Sections.SelectMany(section => section.Questions).Select(question => question.Id).ToList();
+        var questions = (await repository.GetProfileQuestionsAsync(questionIds, cancellationToken)).ToDictionary(question => question.Id);
+        var categories = await repository.GetPrioritisationGuidanceAsync(cancellationToken);
+
+        var content = new ProfileGuidanceContentDto
+        {
+            Sections =
+            [
+                .. metadata.Sections.OrderBy(section => section.SectionNumber).Select(section => new ProfileGuidanceSectionDto
+                {
+                    Id = section.Id,
+                    SectionNumber = section.SectionNumber,
+                    Name = section.Name,
+                    Questions =
+                    [
+                        .. section.Questions
+                            .Where(question => questions.ContainsKey(question.Id))
+                            .OrderBy(question => question.QuestionNumber)
+                            .Select(question => new ProfileGuidanceQuestionDto
+                            {
+                                Id = question.Id,
+                                QuestionNumber = question.QuestionNumber,
+                                Name = questions[question.Id].Name,
+                                NonTechnicalName = questions[question.Id].NonTechnicalName,
+                                UserGuidance = questions[question.Id].UserGuidance
+                            })
+                    ]
+                })
+            ],
+            PrioritisationCategories =
+            [
+                .. categories.Select(category => new PrioritisationGuidanceCategoryDto
+                {
+                    Id = category.Id,
+                    DisplayName = category.DisplayName,
+                    Criteria =
+                    [
+                        .. category.Criteria.Select(criterion => new PrioritisationGuidanceCriterionDto
+                        {
+                            ProfileQuestionId = criterion.ProfileQuestionId,
+                            CriterionCode = criterion.CriterionCode,
+                            CriterionName = criterion.CriterionName
+                        })
+                    ]
+                })
+            ]
+        };
+
+        var criterionCount = categories.Sum(category => category.Criteria.Count);
+        logger.RetrievedGuidanceContent(questions.Count, criterionCount);
+
+        return content;
     }
 
     /// <inheritdoc />

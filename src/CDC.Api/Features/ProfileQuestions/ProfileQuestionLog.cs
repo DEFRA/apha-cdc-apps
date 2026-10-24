@@ -21,6 +21,15 @@ internal static partial class ProfileQuestionLog
     [LoggerMessage(EventId = 5004, Level = LogLevel.Warning, Message = "Rejected a concurrent update to profile question {ProfileQuestionId}")]
     public static partial void ConcurrencyConflict(this ILogger logger, Guid profileQuestionId);
 
+    [LoggerMessage(EventId = 5006, Level = LogLevel.Warning, Message = "Refused an update to profile question {ProfileQuestionId}: the user cannot edit user guidance")]
+    public static partial void UpdateRefused(this ILogger logger, Guid profileQuestionId);
+
+    [LoggerMessage(EventId = 5007, Level = LogLevel.Information, Message = "Retrieved the guidance for {QuestionCount} questions and {CriterionCount} prioritisation criteria")]
+    public static partial void RetrievedGuidanceContent(this ILogger logger, int questionCount, int criterionCount);
+
+    [LoggerMessage(EventId = 5008, Level = LogLevel.Warning, Message = "Refused the guidance report data: the user cannot edit user guidance")]
+    public static partial void GuidanceContentRefused(this ILogger logger);
+
     [LoggerMessage(EventId = 5005, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
 }

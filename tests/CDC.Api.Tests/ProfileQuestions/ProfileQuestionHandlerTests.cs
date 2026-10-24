@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Domain.Exceptions;
@@ -90,7 +91,7 @@ public class ProfileQuestionHandlerTests
 
         service.Setup(svc => svc.UpdateProfileQuestionAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync(dto);
 
-        var result = await new UpdateProfileQuestionCommandHandler(service.Object, NullLogger<UpdateProfileQuestionCommandHandler>.Instance)
+        var result = await CreateUpdateHandler(isProfileEditor: true)
             .Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -111,7 +112,7 @@ public class ProfileQuestionHandlerTests
 
         service.Setup(svc => svc.UpdateProfileQuestionAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync((ProfileQuestionDto?)null);
 
-        var result = await new UpdateProfileQuestionCommandHandler(service.Object, NullLogger<UpdateProfileQuestionCommandHandler>.Instance)
+        var result = await CreateUpdateHandler(isProfileEditor: true)
             .Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
@@ -134,10 +135,74 @@ public class ProfileQuestionHandlerTests
             .Setup(svc => svc.UpdateProfileQuestionAsync(command, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ConcurrencyException("edited by another user"));
 
-        var result = await new UpdateProfileQuestionCommandHandler(service.Object, NullLogger<UpdateProfileQuestionCommandHandler>.Instance)
+        var result = await CreateUpdateHandler(isProfileEditor: true)
             .Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.Conflict);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task UpdateProfileQuestionCommandHandler_ReturnsForbidden_WhenUserCannotEditGuidance(bool isProfileEditor, bool isUserManagementSystem)
+    {
+        var command = new UpdateProfileQuestionCommand
+        {
+            Id = ProfileQuestionTestData.QuestionId,
+            Name = "Name",
+            NonTechnicalName = "Non-technical name",
+            UserGuidance = "Guidance",
+            LastUpdated = ProfileQuestionTestData.RowVersion
+        };
+
+        // The strict service mock has no setup, so any call to it would fail the test.
+        var result = await CreateUpdateHandler(isProfileEditor, isUserManagementSystem)
+            .Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetProfileGuidanceContentQueryHandler_ReturnsTheContent_ForAProfileEditor()
+    {
+        var content = new CDC.Common.Contracts.ProfileGuidanceContentDto();
+        service.Setup(svc => svc.GetProfileGuidanceContentAsync(It.IsAny<CancellationToken>())).ReturnsAsync(content);
+
+        var result = await CreateContentHandler(isProfileEditor: true).Handle(new GetProfileGuidanceContentQuery(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(content);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task GetProfileGuidanceContentQueryHandler_ReturnsForbidden_WhenUserCannotEditGuidance(bool isProfileEditor, bool isUserManagementSystem)
+    {
+        // The strict service mock has no setup, so any call to it would fail the test.
+        var result = await CreateContentHandler(isProfileEditor, isUserManagementSystem).Handle(new GetProfileGuidanceContentQuery(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    private GetProfileGuidanceContentQueryHandler CreateContentHandler(bool isProfileEditor, bool isUserManagementSystem = false)
+    {
+        var userContext = new Mock<IUserContext>();
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isProfileEditor);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagementSystem);
+
+        return new GetProfileGuidanceContentQueryHandler(service.Object, userContext.Object, NullLogger<GetProfileGuidanceContentQueryHandler>.Instance);
+    }
+
+    private UpdateProfileQuestionCommandHandler CreateUpdateHandler(bool isProfileEditor, bool isUserManagementSystem = false)
+    {
+        var userContext = new Mock<IUserContext>();
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isProfileEditor);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagementSystem);
+
+        return new UpdateProfileQuestionCommandHandler(service.Object, userContext.Object, NullLogger<UpdateProfileQuestionCommandHandler>.Instance);
     }
 }

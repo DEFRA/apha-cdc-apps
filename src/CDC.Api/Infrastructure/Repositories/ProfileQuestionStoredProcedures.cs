@@ -17,4 +17,10 @@ public static class ProfileQuestionStoredProcedures
     /// <c>ShortName</c> or <c>QuestionNumber</c> - neither did the legacy caller.
     /// </summary>
     public const string UpdateProfileQuestion = "spuProfileQuestion";
+
+    /// <summary>
+    /// Reads the prioritisation categories shown on the summary prioritisation report (first result set) and the
+    /// criteria scored within them, with the question that explains each (second result set).
+    /// </summary>
+    public const string GetPrioritisationGuidanceData = "spgaPrioritisationGuidanceData";
 }
