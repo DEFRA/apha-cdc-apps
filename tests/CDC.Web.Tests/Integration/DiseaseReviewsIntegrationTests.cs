@@ -44,6 +44,9 @@ public partial class DiseaseReviewsIntegrationTests
         Assert.Contains("contenteditable=\"true\"", page);
         Assert.Contains("Generate report</button>", page);
         Assert.Contains("/js/edit-profile-title.js", page);
+        Assert.Contains("/js/date-picker.js", page);
+        Assert.Contains("data-module=\"app-date-picker\" data-date-picker-label=\"Choose from date\"", page);
+        Assert.Contains("data-module=\"app-date-picker\" data-date-picker-label=\"Choose to date\"", page);
         Assert.DoesNotContain("govuk-error-summary", page);
         Assert.DoesNotContain("govuk-form-group--error", page);
     }

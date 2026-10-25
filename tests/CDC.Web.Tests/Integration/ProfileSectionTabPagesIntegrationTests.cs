@@ -60,7 +60,11 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
                         SectionId = SummarySectionId,
                         ShortName = "Overview",
                         QuestionNumber = 1,
-                        Fields = [new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean" }]
+                        Fields =
+                        [
+                            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean" },
+                            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Date of onset", FieldNumber = 2, DataTypeName = "Date" }
+                        ]
                     }
                 ]
             },
@@ -164,6 +168,18 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("name=\"tab\" value=\"Contributions\"", body);
         Assert.Contains("handler=NavigateTab", body);
         Assert.Contains("govuk-tabs__list-item--selected", body);
+    }
+
+    [Fact]
+    public async Task EditProfileQuestions_OffersTheCalendarOnADateField_ForItsThreeBoxes()
+    {
+        var body = await GetAsync("EditProfileQuestions", Profile());
+
+        Assert.Contains("data-module=\"app-date-picker\" data-date-picker-label=\"Choose date for Date of onset\"", body);
+        Assert.Contains("data-date-picker-part=\"day\"", body);
+        Assert.Contains("data-date-picker-part=\"month\"", body);
+        Assert.Contains("data-date-picker-part=\"year\"", body);
+        Assert.Contains("/js/date-picker.js", body);
     }
 
     [Fact]
@@ -442,6 +458,10 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("value=\"1 January 2027\"", body);
         Assert.Equal(2, CountOf(body, "handler=SaveRevisionDates"));
         Assert.Contains("revision-dates.js", body);
+        Assert.Contains("/js/date-picker.js", body);
+        Assert.Equal(6, CountOf(body, "data-module=\"app-date-picker\""));
+        Assert.Contains("data-module=\"app-date-picker\" data-date-picker-label=\"Choose next author review date for all sections\"", body);
+        Assert.Contains("data-module=\"app-date-picker\" data-date-picker-label=\"Choose next VA review date for 1. Summary\"", body);
     }
 
     [Fact]
@@ -455,6 +475,7 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("Every year", body);
         Assert.Contains("Complete", body);
         Assert.Contains("1 January 2027", body);
+        Assert.DoesNotContain("data-module=\"app-date-picker\"", body);
         Assert.DoesNotContain("<select", body);
     }
 

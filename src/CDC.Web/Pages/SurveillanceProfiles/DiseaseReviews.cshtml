@@ -75,7 +75,8 @@
             </p>
         }
         <input class="govuk-input govuk-input--width-10 @(fromError is null ? null : "govuk-input--error")" id="FromDate" name="FromDate" type="text"
-               value="@Model.FromDate" autocomplete="off" aria-describedby="FromDate-hint@(fromError is null ? null : " FromDate-error")" />
+               value="@Model.FromDate" autocomplete="off" aria-describedby="FromDate-hint@(fromError is null ? null : " FromDate-error")"
+               data-module="app-date-picker" data-date-picker-label="Choose from date" />
     </div>
 
     <div class="govuk-form-group @(toError is null ? null : "govuk-form-group--error")">
@@ -88,7 +89,8 @@
             </p>
         }
         <input class="govuk-input govuk-input--width-10 @(toError is null ? null : "govuk-input--error")" id="ToDate" name="ToDate" type="text"
-               value="@Model.ToDate" autocomplete="off" aria-describedby="ToDate-hint@(toError is null ? null : " ToDate-error")" />
+               value="@Model.ToDate" autocomplete="off" aria-describedby="ToDate-hint@(toError is null ? null : " ToDate-error")"
+               data-module="app-date-picker" data-date-picker-label="Choose to date" />
     </div>
 
     <div class="govuk-form-group @(authorError is null ? null : "govuk-form-group--error")">

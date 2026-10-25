@@ -196,7 +196,7 @@ public partial class ProfilePropertiesIntegrationTests
     }
 
     [Fact]
-    public async Task Create_RedirectsToTheNewProfilesQuestions_WithTheSpeciesTheUserTicked()
+    public async Task Create_ReloadsTheNewProfilesProperties_WithTheSpeciesTheUserTicked_AndShowsTheSuccessMessageOnce()
     {
         var properties = new FakeProfilePropertiesApiService();
         using var factory = CreateFactory(properties);
@@ -211,9 +211,17 @@ public partial class ProfilePropertiesIntegrationTests
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         var request = properties.LastCreateRequest!;
-        Assert.Equal($"/SurveillanceProfiles/EditProfileQuestions/{request.Id}", response.Headers.Location?.OriginalString);
+        var url = $"/SurveillanceProfiles/ProfileProperties/{request.Id}";
+        Assert.Equal(url, response.Headers.Location?.OriginalString);
         Assert.Equal("Anthrax", request.Title);
         Assert.Equal(["Profiled", "Other"], request.AffectedSpeciesInsertList.Select(species => species.Type));
+
+        var reloaded = await client.GetStringAsync(url);
+        Assert.Contains("govuk-notification-banner--success", reloaded);
+        Assert.Contains("Your changes are successfully saved", reloaded);
+        Assert.Contains("data-app-title-save=\"on-load\">Update</button>", reloaded);
+        Assert.DoesNotContain("Use this function to create a brand new Surveillance Profile", reloaded);
+        Assert.DoesNotContain("Your changes are successfully saved", await client.GetStringAsync(url));
     }
 
     [Fact]
