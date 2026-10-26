@@ -30,20 +30,19 @@ public class ReviewEmailComposerTests
         message.ToAddress.Should().Be("reviewer@example.test");
         message.ToName.Should().Be("Ann Reviewer");
         message.Subject.Should().Be("D2R2 - Profile review request");
-        message.HtmlBody.Should().Contain("Dear Ann Reviewer,")
-            .And.Contain("Anthrax - v 2.1 (Draft)")
+        message.Body.Should().Contain("Anthrax - v 2.1 (Draft)")
             .And.Contain("3 Transmission");
     }
 
     [Fact]
-    public void Compose_LinksProfileHeadingToItsReviewPage()
+    public void Compose_LinksProfileToItsReviewPage()
     {
         var profileId = Guid.NewGuid();
         var user = new ReviewDueUser(Guid.NewGuid(), "Ann", "a@example.test",
             [new ReviewDueProfile(profileId, "Anthrax", null, "2.1", [Section(new ReviewItem(Today, "Active"))])]);
 
-        ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody
-            .Should().Contain($"href=\"https://d2r2.example.test/SurveillanceProfiles/EditProfileAllRevisionDates/{profileId}\"");
+        ReviewEmailComposer.Compose(user, Today, Options()).Body
+            .Should().Contain($"https://d2r2.example.test/SurveillanceProfiles/EditProfileAllRevisionDates/{profileId}");
     }
 
     [Fact]
@@ -51,7 +50,7 @@ public class ReviewEmailComposerTests
     {
         var user = UserWith("Ann", "Scenario A", Section(new ReviewItem(Today, "Active")));
 
-        ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody.Should().Contain("Anthrax (Scenario A) - v 2.1 (Draft)");
+        ReviewEmailComposer.Compose(user, Today, Options()).Body.Should().Contain("Anthrax (Scenario A) - v 2.1 (Draft)");
     }
 
     [Theory]
@@ -63,7 +62,7 @@ public class ReviewEmailComposerTests
     {
         var user = UserWith("Ann", null, Section(new ReviewItem(Today.AddDays(daysFromToday), status)));
 
-        ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody.Should().Contain(expected);
+        ReviewEmailComposer.Compose(user, Today, Options()).Body.Should().Contain(expected);
     }
 
     [Fact]
@@ -71,7 +70,7 @@ public class ReviewEmailComposerTests
     {
         var user = UserWith("Ann", null, Section(new ReviewItem(Today.AddDays(2), null)));
 
-        var body = ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody;
+        var body = ReviewEmailComposer.Compose(user, Today, Options()).Body;
 
         body.Should().Contain("22/10/2026").And.NotContain("(Due soon)");
     }
@@ -81,19 +80,19 @@ public class ReviewEmailComposerTests
     {
         var user = UserWith("Ann", null, Section(new ReviewItem(Today.AddDays(30), "Active"), new ReviewItem(null, "Active")));
 
-        var body = ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody;
+        var body = ReviewEmailComposer.Compose(user, Today, Options()).Body;
 
         body.Should().NotContain("(Due soon)").And.NotContain("(Overdue)").And.NotContain("(Completed)");
     }
 
     [Fact]
-    public void Compose_HtmlEncodesUserSuppliedText()
+    public void Compose_StripsMarkupFromUserSuppliedText()
     {
-        var user = UserWith("<script>x</script>", null, Section(new ReviewItem(Today, "Active")));
+        var user = UserWith("<b>Ann</b> [x](http://evil.test)", null, Section(new ReviewItem(Today, "Active")));
 
-        var body = ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody;
+        var message = ReviewEmailComposer.Compose(user, Today, Options());
 
-        body.Should().NotContain("<script>").And.Contain("&lt;script&gt;");
+        message.ToName.Should().NotContainAny("<", ">", "[", "]");
     }
 
     [Fact]
@@ -101,9 +100,9 @@ public class ReviewEmailComposerTests
     {
         var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
 
-        var body = ReviewEmailComposer.Compose(user, Today, Options()).HtmlBody;
+        var body = ReviewEmailComposer.Compose(user, Today, Options()).Body;
 
-        body.Should().Contain("href=\"https://d2r2.example.test/\"").And.Contain("support@example.test");
+        body.Should().Contain("following link: https://d2r2.example.test/").And.Contain("support@example.test");
     }
 
     [Theory]
@@ -114,6 +113,6 @@ public class ReviewEmailComposerTests
     {
         var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
 
-        ReviewEmailComposer.Compose(user, Today, Options(url)).HtmlBody.Should().NotContain("href=");
+        ReviewEmailComposer.Compose(user, Today, Options(url)).Body.Should().NotContain("following link").And.NotContain("http");
     }
 }

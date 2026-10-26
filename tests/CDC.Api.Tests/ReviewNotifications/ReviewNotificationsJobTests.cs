@@ -58,7 +58,7 @@ public class ReviewNotificationsJobTests
         await CreateJob().RunAsync(CancellationToken.None);
 
         // One due cell (Author) of the three types.
-        message!.HtmlBody.Split("(Overdue)").Length.Should().Be(2);
+        message!.Body.Split("(Overdue)").Length.Should().Be(2);
     }
 
     [Theory]
@@ -75,7 +75,7 @@ public class ReviewNotificationsJobTests
         await CreateJob().RunAsync(CancellationToken.None);
 
         message!.ToAddress.Should().Be("ann@example.test");
-        message.HtmlBody.Split("(Overdue)").Length.Should().Be(2);
+        message.Body.Split("(Overdue)").Length.Should().Be(2);
     }
 
     [Fact]
