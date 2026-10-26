@@ -11,16 +11,15 @@
 //   submitted, as disabled boxes are not.
 // - An inactive species cannot be newly picked, but one that is already ticked can be unticked.
 // - Unticking a profiled species warns that its data will be removed (when the page is editing a profile).
-// - Opening or closing a branch in one tree does the same in the other, so the two stay level.
+// - Opening or closing a branch in one tree does the same in the other, so the two stay level; each box's
+//   "Open all"/"Close all" works on its own tree only.
 (function () {
     'use strict';
 
     const ITEM = '.app-tree__item';
     const ROW_INPUT = ':scope > .app-tree__row input[type="checkbox"]';
     const ROW_LABEL = ':scope > .app-tree__row label';
-    const ROW_TOGGLE = ':scope > .app-tree__row .app-tree__toggle';
     const INACTIVE_LABEL = ':scope > .app-tree__row .app-tree__label--inactive';
-    const EXPANDED = 'aria-expanded';
     const ANNOUNCEMENT_DELAY_MS = 100;
 
     // Reads a rendered tree into nodes that know their ancestors. querySelectorAll returns items in
@@ -201,21 +200,15 @@
             }, ANNOUNCEMENT_DELAY_MS);
         }
 
-        // Opening or closing a branch in one tree does the same to the matching branch in the other.
-        // Watching the toggles' aria-expanded covers the mouse, the keyboard and "Open all" alike.
+        // A branch the user opens or closes is mirrored in the other tree; each box's "Open all"/"Close all" is not, as in the legacy page.
         keepBranchesLevel(source, target) {
-            new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    const $item = mutation.target.closest(ITEM);
-                    const counterpart = $item && target.byValue.get($item.querySelector(ROW_INPUT).value);
-                    const $toggle = counterpart && counterpart.$item.querySelector(ROW_TOGGLE);
-                    const expanded = mutation.target.getAttribute(EXPANDED) === 'true';
+            source.$list.addEventListener('app-tree-toggle', (event) => {
+                const counterpart = target.byValue.get(event.target.querySelector(ROW_INPUT).value);
 
-                    if ($toggle && target.$list.treeView && ($toggle.getAttribute(EXPANDED) === 'true') !== expanded) {
-                        target.$list.treeView.setExpanded(counterpart.$item, expanded);
-                    }
-                });
-            }).observe(source.$list, { attributes: true, attributeFilter: [EXPANDED], subtree: true });
+                if (counterpart && target.$list.treeView) {
+                    target.$list.treeView.setExpanded(counterpart.$item, event.detail.expanded, { silent: true });
+                }
+            });
         }
     }
 

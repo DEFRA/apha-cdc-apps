@@ -115,6 +115,25 @@ public class ProfileQuestionValidatorTests
         result.IsValid.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData(400, true)]
+    [InlineData(401, false)]
+    public void UpdateProfileQuestionCommandValidator_NameLengths_AreCappedAt400(int length, bool expectedValid)
+    {
+        var command = new UpdateProfileQuestionCommand
+        {
+            Id = ProfileQuestionTestData.QuestionId,
+            Name = new string('a', length),
+            NonTechnicalName = new string('b', length),
+            UserGuidance = "Guidance",
+            LastUpdated = ProfileQuestionTestData.RowVersion
+        };
+
+        var result = new UpdateProfileQuestionCommandValidator().Validate(command);
+
+        result.IsValid.Should().Be(expectedValid);
+    }
+
     [Fact]
     public void UpdateProfileQuestionCommandValidator_ValidRequest_ShouldPass()
     {

@@ -28,6 +28,13 @@ public static class ProfileRevisionDatesForm
         "d MMMM yyyy", "d MMM yyyy", "d/M/yyyy", "dd/MM/yyyy", "d-M-yyyy", "yyyy-MM-dd"
     ];
 
+    /// <summary>Reads a date typed into a date field, in any of the formats the field accepts.</summary>
+    /// <param name="value">The text typed.</param>
+    /// <param name="date">The date read, when <see langword="true"/> is returned.</param>
+    /// <returns><see langword="true"/> when <paramref name="value"/> is a date in one of the accepted formats.</returns>
+    public static bool TryParseDate(string? value, out DateTime date) =>
+        DateTime.TryParseExact(value?.Trim(), AcceptedDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+
     /// <summary>Builds the drop-down options from a lookup list, led by the legacy "Please select..." blank option.</summary>
     /// <param name="items">The lookup items from CDC.Api.</param>
     /// <returns>The options, with a leading blank option.</returns>
@@ -253,7 +260,7 @@ public static class ProfileRevisionDatesForm
             return null;
         }
 
-        if (!DateTime.TryParseExact(value, AcceptedDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        if (!TryParseDate(value, out var date))
         {
             errors.Add($"{label} must be a valid date");
 

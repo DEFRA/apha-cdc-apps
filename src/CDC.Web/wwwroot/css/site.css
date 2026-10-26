@@ -237,6 +237,11 @@ html {
   margin-bottom: 8px;
 }
 
+/* Profile properties: the label takes the first quarter of the row, as the legacy table did. */
+.app-edit-title-row__label--quarter {
+  flex: 0 0 25%;
+}
+
 .app-edit-title-row__input-wrapper {
   flex: 1 1 auto;
   min-width: 0;
@@ -254,6 +259,19 @@ html {
 /* .govuk-error-message sets display:block, which would otherwise override the hidden attribute. */
 .app-edit-title-row__input-wrapper .govuk-error-message[hidden] {
   display: none;
+}
+
+/* Profile properties: the validation message sits below the textbox, so the label lines up with its first line (7px = its border and padding), not the row's bottom. */
+.app-edit-title-row--message-below {
+  align-items: flex-start;
+}
+
+.app-edit-title-row--message-below .app-edit-title-row__label {
+  margin: 7px 0 0;
+}
+
+.app-edit-title-row--message-below .govuk-error-message {
+  margin: 5px 0 0;
 }
 
 /* Edit profile title: formatting toolbar shown above the title textbox. */
@@ -294,6 +312,24 @@ html {
   font-style: italic;
   font-weight: 700;
   min-width: 2.5rem;
+}
+
+/* A toolbar shown only while the title is being edited floats above it, as the legacy inline editor's did,
+   so the page does not move when it appears. */
+.app-title-floating {
+  position: relative;
+}
+
+.app-title-toolbar--floating {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(11, 12, 12, 0.2);
+}
+
+.app-title-toolbar[hidden] {
+  display: none;
 }
 
 /* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
@@ -876,8 +912,17 @@ body {
   min-width: 0;
 }
 
+/* Each species box keeps its "Open all"/"Close all" fixed above a tree that scrolls on its own, as in the legacy page. */
 .app-species-selector__panel {
+  max-height: none;
+  padding-right: 0;
+}
+
+.app-species-selector__tree {
+  position: relative;
   max-height: 400px;
+  padding: 2px 15px 0 0;
+  overflow-y: auto;
 }
 
 .app-species-selector__status {
@@ -1544,5 +1589,195 @@ body {
   .app-legacy-form__field--wide,
   .app-legacy-form__actions {
     grid-column: auto;
+  }
+}
+
+/* Date picker (js/date-picker.js): a calendar icon beside a date box, and the month grid it opens just below the box.
+   The Design System has no date picker, so this is custom. It follows the MoJ date picker's structure and reuses the
+   Design System's colours, focus style and type. */
+.app-date-picker {
+  position: relative;
+}
+
+.app-date-picker--single {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The icon is copied from the legacy Calendar.gif. The button is the height of a text box, so it is easy to hit. */
+.app-date-picker__toggle {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent url("../assets/images/calendar.png") center / 16px 16px no-repeat;
+  cursor: pointer;
+}
+
+.app-date-picker--parts .app-date-picker__toggle-item {
+  margin-right: 0;
+}
+
+.app-date-picker__calendar {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 30px);
+  margin-top: 2px;
+  padding: 10px;
+  border: 2px solid var(--govuk-input-border-colour, #0b0c0c);
+  background-color: #fff;
+  box-shadow: 0 2px 6px rgba(11, 12, 12, 0.3);
+  color: var(--govuk-text-colour, #0b0c0c);
+  font-family: "GDS Transport", arial, sans-serif;
+  /* The GOV.UK date input sets font-size: 0 to close the gaps between its boxes; the grid must not inherit that. */
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.app-date-picker__calendar[hidden] {
+  display: none;
+}
+
+.app-date-picker__calendar--right {
+  right: 0;
+  left: auto;
+}
+
+.app-date-picker__header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 5px;
+}
+
+.app-date-picker__title {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.app-date-picker__nav {
+  flex: none;
+  width: 34px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-date-picker__grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.app-date-picker__grid th {
+  padding: 5px 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.app-date-picker__grid td {
+  padding: 0;
+  text-align: center;
+}
+
+.app-date-picker__day {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-date-picker__day--today {
+  border-color: var(--govuk-secondary-text-colour, #505a5f);
+  font-weight: 700;
+}
+
+.app-date-picker__day--selected {
+  border-color: var(--govuk-brand-colour, #1d70b8);
+  background-color: var(--govuk-brand-colour, #1d70b8);
+  color: #fff;
+  font-weight: 700;
+}
+
+.app-date-picker__footer {
+  margin-top: 5px;
+  text-align: center;
+}
+
+.app-date-picker__today {
+  margin: 0;
+  padding: 4px 10px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--govuk-link-colour, #1d70b8);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.app-date-picker__toggle:hover,
+.app-date-picker__nav:hover,
+.app-date-picker__day:hover,
+.app-date-picker__today:hover {
+  background-color: #f3f2f1;
+}
+
+.app-date-picker__day--selected:hover {
+  background-color: var(--govuk-link-hover-colour, #003078);
+}
+
+/* Last, so the focus indicator wins over a day's selected and hover colours. */
+.app-date-picker__toggle:focus-visible,
+.app-date-picker__nav:focus-visible,
+.app-date-picker__day:focus-visible,
+.app-date-picker__today:focus-visible {
+  outline: 3px solid transparent;
+  color: var(--govuk-focus-text-colour, #0b0c0c);
+  background-color: var(--govuk-focus-colour, #fd0);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px var(--govuk-focus-text-colour, #0b0c0c);
+}
+
+@media (forced-colors: active) {
+  .app-date-picker__day--selected {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+}
+
+@media print {
+  .app-date-picker__toggle,
+  .app-date-picker__calendar {
+    display: none;
   }
 }

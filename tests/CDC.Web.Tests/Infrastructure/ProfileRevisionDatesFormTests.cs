@@ -111,6 +111,30 @@ public class ProfileRevisionDatesFormTests
     [InlineData("1 Jan 2027", 2027, 1, 1)]
     [InlineData("01/02/2027", 2027, 2, 1)]
     [InlineData("1/2/2027", 2027, 2, 1)]
+    [InlineData("1-2-2027", 2027, 2, 1)]
+    [InlineData("2027-03-04", 2027, 3, 4)]
+    [InlineData("  5 May 2030  ", 2030, 5, 5)]
+    public void TryParseDate_ReadsTheSupportedDateFormats(string text, int year, int month, int day)
+    {
+        Assert.True(ProfileRevisionDatesForm.TryParseDate(text, out var date));
+        Assert.Equal(new DateTime(year, month, day), date);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("soon")]
+    [InlineData("31 February 2027")]
+    [InlineData("2027/01/01")]
+    public void TryParseDate_RefusesTextThatIsNotADateInASupportedFormat(string? text) =>
+        Assert.False(ProfileRevisionDatesForm.TryParseDate(text, out _));
+
+    [Theory]
+    [InlineData("1 January 2027", 2027, 1, 1)]
+    [InlineData("1 Jan 2027", 2027, 1, 1)]
+    [InlineData("01/02/2027", 2027, 2, 1)]
+    [InlineData("1/2/2027", 2027, 2, 1)]
     [InlineData("2027-03-04", 2027, 3, 4)]
     [InlineData("  5 May 2030  ", 2030, 5, 5)]
     public void Parse_AcceptsTheSupportedDateFormats(string text, int year, int month, int day)

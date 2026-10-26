@@ -1,0 +1,153 @@
+@page
+@model CDC.Web.Pages.SurveillanceProfiles.DiseaseReviewsModel
+@using CDC.Web.Infrastructure
+@using CDC.Web.Pages.SurveillanceProfiles
+@{
+    var hasErrors = !ViewData.ModelState.IsValid;
+
+    ViewData["Title"] = (hasErrors ? "Error: " : string.Empty) + "Review timings";
+
+    // The error summary lists errors in the order the fields appear, with any that belong to no field first.
+    var summaryKeys = new[] { string.Empty, nameof(Model.FromDate), nameof(Model.ToDate), nameof(Model.AuthorId), nameof(Model.Description) };
+
+    IEnumerable<string> ErrorsFor(string key) =>
+        ViewData.ModelState.TryGetValue(key, out var entry) ? entry.Errors.Select(error => error.ErrorMessage) : [];
+
+    var fromError = ErrorsFor(nameof(Model.FromDate)).FirstOrDefault();
+    var toError = ErrorsFor(nameof(Model.ToDate)).FirstOrDefault();
+    var authorError = ErrorsFor(nameof(Model.AuthorId)).FirstOrDefault();
+    var descriptionError = ErrorsFor(nameof(Model.Description)).FirstOrDefault();
+
+    static string? AnchorFor(string key) => key switch
+    {
+        nameof(DiseaseReviewsModel.FromDate) => "#FromDate",
+        nameof(DiseaseReviewsModel.ToDate) => "#ToDate",
+        nameof(DiseaseReviewsModel.AuthorId) => "#AuthorId",
+        nameof(DiseaseReviewsModel.Description) => "#DescriptionEditor",
+        _ => null
+    };
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+@if (hasErrors)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <ul class="govuk-list govuk-error-summary__list">
+                    @foreach (var key in summaryKeys)
+                    {
+                        var anchor = AnchorFor(key);
+
+                        foreach (var message in ErrorsFor(key))
+                        {
+                            <li>
+                                @if (anchor is not null)
+                                {
+                                    <a href="@anchor">@message</a>
+                                }
+                                else
+                                {
+                                    @message
+                                }
+                            </li>
+                        }
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+<h1 class="govuk-heading-l">Review timings</h1>
+
+<form method="post" autocomplete="off" novalidate>
+    <div class="govuk-form-group @(fromError is null ? null : "govuk-form-group--error")">
+        <label class="govuk-label govuk-label--s" for="FromDate">From</label>
+        <div id="FromDate-hint" class="govuk-hint">For example, 1 January 2027</div>
+        @if (fromError is not null)
+        {
+            <p id="FromDate-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> @fromError
+            </p>
+        }
+        <input class="govuk-input govuk-input--width-10 @(fromError is null ? null : "govuk-input--error")" id="FromDate" name="FromDate" type="text"
+               value="@Model.FromDate" autocomplete="off" aria-describedby="FromDate-hint@(fromError is null ? null : " FromDate-error")"
+               data-module="app-date-picker" data-date-picker-label="Choose from date" />
+    </div>
+
+    <div class="govuk-form-group @(toError is null ? null : "govuk-form-group--error")">
+        <label class="govuk-label govuk-label--s" for="ToDate">To</label>
+        <div id="ToDate-hint" class="govuk-hint">For example, 31 December 2027</div>
+        @if (toError is not null)
+        {
+            <p id="ToDate-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> @toError
+            </p>
+        }
+        <input class="govuk-input govuk-input--width-10 @(toError is null ? null : "govuk-input--error")" id="ToDate" name="ToDate" type="text"
+               value="@Model.ToDate" autocomplete="off" aria-describedby="ToDate-hint@(toError is null ? null : " ToDate-error")"
+               data-module="app-date-picker" data-date-picker-label="Choose to date" />
+    </div>
+
+    <div class="govuk-form-group @(authorError is null ? null : "govuk-form-group--error")">
+        <label class="govuk-label govuk-label--s" for="AuthorId">Author</label>
+        @if (authorError is not null)
+        {
+            <p id="AuthorId-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> @authorError
+            </p>
+        }
+        <select class="govuk-select @(authorError is null ? null : "govuk-select--error")" id="AuthorId" name="AuthorId"
+                aria-describedby="@(authorError is null ? null : "AuthorId-error")">
+            @foreach (var author in Model.Authors)
+            {
+                <option value="@author.Id" selected="@(author.Id == Model.AuthorId)">@author.FullName</option>
+            }
+        </select>
+    </div>
+
+    <div class="govuk-form-group @(descriptionError is null ? null : "govuk-form-group--error")">
+        <label class="govuk-label govuk-label--s" id="DescriptionLabel" for="DescriptionEditor">Description (optional)</label>
+        <div id="Description-hint" class="govuk-hint">Printed at the top of the report. You can make text italic.</div>
+        @if (descriptionError is not null)
+        {
+            <p id="Description-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> @descriptionError
+            </p>
+        }
+        <div class="app-title-toolbar" data-app-title-toolbar="DescriptionEditor" role="toolbar" aria-label="Description formatting">
+            <button type="button" class="app-title-toolbar__button" data-app-title-action="undo" aria-label="Undo" title="Undo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M6 8H3V5" />
+                    <path d="M3 8a7 7 0 1 1 2 5" />
+                </svg>
+            </button>
+            <button type="button" class="app-title-toolbar__button" data-app-title-action="redo" aria-label="Redo" title="Redo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M14 8h3V5" />
+                    <path d="M17 8a7 7 0 1 0-2 5" />
+                </svg>
+            </button>
+            <button type="button" class="app-title-toolbar__button app-title-toolbar__button--italic" data-app-title-action="italic" aria-label="Italic" title="Italic">
+                <em>I</em>
+            </button>
+        </div>
+        <div id="DescriptionEditor"
+             class="govuk-input app-title-editor@(descriptionError is null ? null : " govuk-input--error")"
+             contenteditable="true"
+             aria-labelledby="DescriptionLabel"
+             aria-describedby="Description-hint@(descriptionError is null ? null : " Description-error")"
+             data-app-title-hidden-input="Description">@ProfileTitleHtmlFormatter.Format(Model.Description)</div>
+        <input type="hidden" id="Description" name="Description" value="@Model.Description" />
+    </div>
+
+    <button type="submit" class="govuk-button" data-module="govuk-button">Generate report</button>
+</form>
+
+@section Scripts {
+    <script src="~/js/edit-profile-title.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,50 @@
+@using CDC.Web.Infrastructure
+@using CDC.Web.Infrastructure.Reports
+@using CDC.Web.Models
+@model GuidanceReportViewModel
+@{
+    Layout = "/Views/Pdf/_PdfLayout.cshtml";
+    ViewData["Title"] = Model.Title;
+}
+@await Html.PartialAsync("/Views/Pdf/_ReportLogoHeader.cshtml", Model.Title)
+
+@foreach (var block in Model.Blocks)
+{
+    <section class="gr-block">
+        @if (block.Heading is not null)
+        {
+            <h2 class="gr-heading">@block.Heading</h2>
+        }
+
+        <table class="gr-table">
+            <thead>
+                <tr>
+                    <th scope="col" class="gr-no">No.</th>
+                    <th scope="col" class="gr-name">Question Name</th>
+                    <th scope="col">User Guidance</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in block.Rows)
+                {
+                    if (row.Kind == GuidanceRowKind.Question)
+                    {
+                        <tr>
+                            <td>@row.Number</td>
+                            <td>@ProfileTitleHtmlFormatter.Format(row.Name)</td>
+                            <td>@ReportRichText.ToHtml(row.Guidance)</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td class="@(row.Kind == GuidanceRowKind.HighlightedNote ? "gr-note gr-note--red" : "gr-note")">@row.Guidance</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </section>
+}

@@ -70,7 +70,8 @@ else
                         <td><label class="govuk-label" for="@nextId">Next @review.Lower review:</label></td>
                         <td>
                             <input class="govuk-input app-revision-dates-date" id="@nextId" name="@ProfileRevisionDatesForm.SetForAllFieldName(review.Next)" type="text" autocomplete="off"
-                                   value="@SetForAllValue(Model.SetForAll, review.Next)" data-revision-setall="@review.Next" aria-describedby="revision-date-hint" />
+                                   value="@SetForAllValue(Model.SetForAll, review.Next)" data-revision-setall="@review.Next" aria-describedby="revision-date-hint"
+                                   data-module="app-date-picker" data-date-picker-label="Choose next @review.Lower review date for all sections" />
                         </td>
                     </tr>
                 }
@@ -115,7 +116,8 @@ else
                         @if (Model.IsEditable)
                         {
                             <input class="govuk-input app-revision-dates-date" id="@nextId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Next)" type="text" autocomplete="off"
-                                   value="@ValueOf(row, review.Next)" data-revision-field="@review.Next" aria-describedby="revision-date-hint" />
+                                   value="@ValueOf(row, review.Next)" data-revision-field="@review.Next" aria-describedby="revision-date-hint"
+                                   data-module="app-date-picker" data-date-picker-label="Choose next @review.Lower review date for @row.SectionDisplay" />
                         }
                         else
                         {

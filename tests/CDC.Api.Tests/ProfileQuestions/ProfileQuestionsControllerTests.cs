@@ -91,6 +91,32 @@ public class ProfileQuestionsControllerTests
     }
 
     [Fact]
+    public async Task GetProfileGuidanceContent_ReturnsOk()
+    {
+        var content = new CDC.Common.Contracts.ProfileGuidanceContentDto();
+
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfileGuidanceContentQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(content));
+
+        var response = await CreateController().GetProfileGuidanceContent(CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(content);
+    }
+
+    [Fact]
+    public async Task GetProfileGuidanceContent_ReturnsForbidden()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetProfileGuidanceContentQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<CDC.Common.Contracts.ProfileGuidanceContentDto>("no"));
+
+        var response = await CreateController().GetProfileGuidanceContent(CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
     public async Task UpdateProfileQuestion_ReturnsOk()
     {
         var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };

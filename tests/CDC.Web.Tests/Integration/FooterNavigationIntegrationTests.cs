@@ -105,6 +105,37 @@ public partial class FooterNavigationIntegrationTests : IClassFixture<CdcWebTest
         Assert.Empty(footer.Links);
     }
 
+    // The pre-login Landing page drops the back-to-top link and the footer navigation, which are needed only after sign-in;
+    // the standard support links, licence and copyright stay.
+    [Fact]
+    public async Task LandingPage_ForASignedOutVisitor_HasNoBackToTopLinkOrFooterNavigation()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+
+        var footer = await GetFooterAsync(client, "/");
+
+        Assert.Empty(footer.Groups);
+        Assert.Empty(footer.Links);
+        Assert.DoesNotContain("govuk-back-to-top-link", footer.Page);
+        Assert.DoesNotContain("Back to top", footer.Page);
+        Assert.Contains("Support links", footer.Page);
+        Assert.Contains("Open Government Licence", footer.Page);
+    }
+
+    // The page itself opts out, not the visitor being signed out: a signed-in user opening the Landing page sees the same footer.
+    [Fact]
+    public async Task LandingPage_ForASignedInUser_HasNoBackToTopLinkOrFooterNavigation()
+    {
+        var client = await _factory.SignedInClientWithRolesAsync(AuthorizationRoles.ProfileEditor);
+
+        var footer = await GetFooterAsync(client, "/");
+
+        Assert.Empty(footer.Groups);
+        Assert.Empty(footer.Links);
+        Assert.DoesNotContain("govuk-back-to-top-link", footer.Page);
+        Assert.Contains("Open Government Licence", footer.Page);
+    }
+
     private static async Task<(string Page, List<string> Groups, List<(string Text, string Href)> Links)> GetFooterAsync(HttpClient client, string path)
     {
         var page = await client.GetStringAsync(path);

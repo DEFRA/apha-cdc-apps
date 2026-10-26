@@ -40,6 +40,14 @@ public interface IProfileReportService
     /// <returns>The report data; forbidden when the user may not run the report; not found when the profile has no draft versions.</returns>
     Task<Result<ContributionsReportDto>> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken);
 
+    /// <summary>Gets the data behind the disease reviews report: the profile sections whose author, VA or policy review falls due in a date range for one user.</summary>
+    /// <param name="fromDate">The first day of the range.</param>
+    /// <param name="toDate">The last day of the range.</param>
+    /// <param name="authorId">The user the sections are assigned to.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The report data, empty when no review is due; forbidden when the user may not run the report.</returns>
+    Task<Result<DiseaseReviewsReportDto>> GetDiseaseReviewsReportAsync(DateTime fromDate, DateTime toDate, Guid authorId, CancellationToken cancellationToken);
+
     /// <summary>Gets what the "Profile reports" page shows for a profile version: its title, number, whether the user may regenerate reports, and the reports.</summary>
     /// <param name="profileVersionId">The profile version to read.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>

@@ -98,13 +98,17 @@
 
     <footer class="govuk-footer">
         <div class="govuk-width-container">
-            <a class="govuk-back-to-top-link" href="#top">
-                <svg class="govuk-back-to-top-link__icon" xmlns="http://www.w3.org/2000/svg" width="13" height="17" viewBox="0 0 13 17" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" d="M6.5 0l6.5 6.5-1.4 1.4-4.1-4.1v13.2h-2V3.8l-4.1 4.1L0 6.5z"></path>
-                </svg>
-                Back to top
-            </a>
-            <partial name="_FooterNavigation" />
+            @* The back-to-top link and footer navigation are needed only after sign-in, so a page such as the pre-login Landing page can opt out. *@
+            @if (!(ViewData["HideFooterNavigation"] as bool? ?? false))
+            {
+                <a class="govuk-back-to-top-link" href="#top">
+                    <svg class="govuk-back-to-top-link__icon" xmlns="http://www.w3.org/2000/svg" width="13" height="17" viewBox="0 0 13 17" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M6.5 0l6.5 6.5-1.4 1.4-4.1-4.1v13.2h-2V3.8l-4.1 4.1L0 6.5z"></path>
+                    </svg>
+                    Back to top
+                </a>
+                <partial name="_FooterNavigation" />
+            }
             <div class="govuk-footer__meta">
                 <div class="govuk-footer__meta-item govuk-footer__meta-item--grow">
                     <h2 class="govuk-visually-hidden">Support links</h2>
@@ -130,6 +134,7 @@
     <script src="~/js/header-menu.js" asp-append-version="true"></script>
     <script src="~/js/confirm-modal.js" asp-append-version="true"></script>
     <script src="~/js/paged-region.js" asp-append-version="true"></script>
+    <script src="~/js/date-picker.js" asp-append-version="true"></script>
     <script type="module" src="~/js/govuk-frontend-6.5.0.min.js"></script>
     <script type="module">
         import { initAll } from '/js/govuk-frontend-6.5.0.min.js'

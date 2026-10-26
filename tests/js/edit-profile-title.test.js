@@ -3,12 +3,12 @@ import '../../src/CDC.Web/wwwroot/js/edit-profile-title.js';
 
 const SERVER_ERROR = 'The profile title is already in use for a different profile';
 
-function buildEditor({ html = 'Initial title', withSaveButton = true, withRequiredError = true, serverError = null } = {}) {
+function buildEditor({ html = 'Initial title', withSaveButton = true, withRequiredError = true, serverError = null, toolbarOnFocus = false, saveOnLoad = false } = {}) {
   document.body.innerHTML = `
     <div class="govuk-form-group${serverError ? ' govuk-form-group--error' : ''}">
       ${serverError ? `<p id="ProfileTitle-error" class="govuk-error-message">${serverError}</p>` : ''}
       ${withRequiredError ? '<div aria-live="polite"><p id="ProfileTitle-required-error" class="govuk-error-message" data-app-title-required-error hidden>You must enter a profile title</p></div>' : ''}
-      <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor" role="toolbar" aria-label="Profile title formatting">
+      <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor"${toolbarOnFocus ? ' data-app-title-toolbar-on-focus' : ''} role="toolbar" aria-label="Profile title formatting">
         <button type="button" data-app-title-action="undo" aria-label="Undo">Undo</button>
         <button type="button" data-app-title-action="redo" aria-label="Redo">Redo</button>
         <button type="button" data-app-title-action="italic" aria-label="Italic">I</button>
@@ -16,7 +16,8 @@ function buildEditor({ html = 'Initial title', withSaveButton = true, withRequir
       <div id="ProfileTitleEditor" class="govuk-input${serverError ? ' govuk-input--error' : ''}" contenteditable="true"${serverError ? ' aria-describedby="ProfileTitle-error"' : ''} data-app-title-hidden-input="ProfileTitle">${html}</div>
       <input id="ProfileTitle" type="hidden" value="" />
     </div>
-    ${withSaveButton ? '<button type="submit" data-app-title-save>Save</button>' : ''}
+    ${withSaveButton ? `<button type="submit" data-app-title-save${saveOnLoad ? '="on-load"' : ''}>Save</button>` : ''}
+    <a id="elsewhere" href="#">Elsewhere</a>
   `;
 
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -323,6 +324,107 @@ describe('edit-profile-title', () => {
 
       expect(hiddenInput.value).toBe('');
     });
+
+    // Profile properties: creating a profile starts with no title, so there is nothing to create yet.
+    it('is hidden when the page loads with no title, where the page asks for that', () => {
+      const { saveButton } = buildEditor({ html: '', saveOnLoad: true });
+
+      expect(saveButton.style.visibility).toBe('hidden');
+    });
+
+    it('is shown when the page loads with a title, where the page asks for that', () => {
+      const { saveButton } = buildEditor({ html: 'Anthrax', saveOnLoad: true });
+
+      expect(saveButton.style.visibility).toBe('visible');
+    });
+
+    it('appears once a title is typed into a page that loaded with none', () => {
+      const { editor, saveButton } = buildEditor({ html: '', saveOnLoad: true });
+
+      typeInto(editor, 'Anthrax');
+
+      expect(saveButton.style.visibility).toBe('visible');
+    });
+  });
+
+  describe('a toolbar shown only while editing', () => {
+    function focus(element, relatedTarget = null) {
+      element.dispatchEvent(new FocusEvent('focusin', { bubbles: true, relatedTarget }));
+    }
+
+    function blur(element, relatedTarget = null) {
+      element.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget }));
+    }
+
+    it('is hidden until the title is clicked into', () => {
+      const { editor } = buildEditor({ toolbarOnFocus: true });
+      const toolbar = document.querySelector('[data-app-title-toolbar]');
+
+      expect(toolbar.hidden).toBe(true);
+
+      focus(editor);
+
+      expect(toolbar.hidden).toBe(false);
+    });
+
+    it('goes when the user clicks or tabs away from the title', () => {
+      const { editor } = buildEditor({ toolbarOnFocus: true });
+      const toolbar = document.querySelector('[data-app-title-toolbar]');
+      focus(editor);
+
+      blur(editor, document.getElementById('elsewhere'));
+
+      expect(toolbar.hidden).toBe(true);
+    });
+
+    it('goes when the user clicks somewhere that cannot take focus', () => {
+      const { editor } = buildEditor({ toolbarOnFocus: true });
+      const toolbar = document.querySelector('[data-app-title-toolbar]');
+      focus(editor);
+
+      blur(editor);
+
+      expect(toolbar.hidden).toBe(true);
+    });
+
+    it('stays while focus moves between the title and its buttons', () => {
+      const { editor, italicButton } = buildEditor({ toolbarOnFocus: true });
+      const toolbar = document.querySelector('[data-app-title-toolbar]');
+      focus(editor);
+
+      blur(editor, italicButton);
+      focus(italicButton, editor);
+      expect(toolbar.hidden).toBe(false);
+
+      blur(italicButton, editor);
+      expect(toolbar.hidden).toBe(false);
+    });
+
+    it('goes when focus leaves one of its buttons for somewhere else', () => {
+      const { editor, italicButton } = buildEditor({ toolbarOnFocus: true });
+      const toolbar = document.querySelector('[data-app-title-toolbar]');
+      focus(editor);
+      focus(italicButton, editor);
+
+      blur(italicButton, document.getElementById('elsewhere'));
+
+      expect(toolbar.hidden).toBe(true);
+    });
+
+    it('keeps focus and the selection in the title when one of its buttons is pressed', () => {
+      const { italicButton } = buildEditor({ toolbarOnFocus: true });
+      const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+
+      italicButton.dispatchEvent(press);
+
+      expect(press.defaultPrevented).toBe(true);
+    });
+
+    it('is always shown where the page does not ask for this', () => {
+      buildEditor();
+
+      expect(document.querySelector('[data-app-title-toolbar]').hidden).toBe(false);
+    });
   });
 
   describe('the required message', () => {
@@ -406,6 +508,54 @@ describe('edit-profile-title', () => {
       expect(hiddenInput.value).toBe('');
       expect(group.classList.contains('govuk-form-group--error')).toBe(false);
       expect(editor.hasAttribute('aria-describedby')).toBe(false);
+    });
+  });
+
+  describe('with more than one editor on a page', () => {
+    function buildTwoEditors() {
+      const group = (name, html) => `
+        <div class="govuk-form-group">
+          <div class="app-title-toolbar" data-app-title-toolbar="${name}Editor" role="toolbar">
+            <button type="button" data-app-title-action="undo">Undo</button>
+            <button type="button" data-app-title-action="redo">Redo</button>
+            <button type="button" data-app-title-action="italic">I</button>
+          </div>
+          <div id="${name}Editor" contenteditable="true" data-app-title-hidden-input="${name}">${html}</div>
+          <input id="${name}" type="hidden" value="" />
+        </div>`;
+
+      document.body.innerHTML = group('Name', 'First') + group('Plain', 'Second');
+      document.dispatchEvent(new Event('DOMContentLoaded'));
+    }
+
+    it('keeps each editor in step with its own hidden input', () => {
+      buildTwoEditors();
+
+      expect(document.getElementById('Name').value).toBe('First');
+      expect(document.getElementById('Plain').value).toBe('Second');
+
+      typeInto(document.getElementById('PlainEditor'), 'Changed');
+
+      expect(document.getElementById('Name').value).toBe('First');
+      expect(document.getElementById('Plain').value).toBe('Changed');
+    });
+
+    it('gives each editor its own undo history', () => {
+      buildTwoEditors();
+      const nameEditor = document.getElementById('NameEditor');
+      const plainEditor = document.getElementById('PlainEditor');
+      const [nameUndo, plainUndo] = document.querySelectorAll('[data-app-title-action="undo"]');
+
+      typeInto(nameEditor, 'First edited');
+      vi.advanceTimersByTime(400);
+
+      expect(nameUndo.disabled).toBe(false);
+      expect(plainUndo.disabled).toBe(true);
+
+      nameUndo.click();
+
+      expect(nameEditor.innerHTML).toBe('First');
+      expect(plainEditor.innerHTML).toBe('Second');
     });
   });
 });
