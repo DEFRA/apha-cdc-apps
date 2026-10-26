@@ -171,6 +171,29 @@ public class PlaywrightPdfServiceTests
         Assert.True(chromium.IsClosed);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BuildLaunchOptions_UsesThePlaywrightHeadlessShell_WhenNoChannelIsConfigured(string? channel)
+    {
+        var options = PlaywrightPdfService.BuildLaunchOptions(channel);
+
+        Assert.True(options.Headless);
+        Assert.Null(options.Channel);
+    }
+
+    [Theory]
+    [InlineData("msedge", "msedge")]
+    [InlineData(" chrome ", "chrome")]
+    public void BuildLaunchOptions_UsesTheConfiguredChannel(string channel, string expected)
+    {
+        var options = PlaywrightPdfService.BuildLaunchOptions(channel);
+
+        Assert.True(options.Headless);
+        Assert.Equal(expected, options.Channel);
+    }
+
     private const string Html = "<html><body><p>Hello</p></body></html>";
 
     private static readonly byte[] Pdf = "%PDF-1.7"u8.ToArray();

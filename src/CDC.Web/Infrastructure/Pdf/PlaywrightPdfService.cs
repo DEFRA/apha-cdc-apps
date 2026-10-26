@@ -14,13 +14,15 @@ public sealed partial class PlaywrightPdfService : IPlaywrightPdfService, IAsync
 
     private readonly ILogger<PlaywrightPdfService> logger;
     private readonly Func<CancellationToken, Task<IBrowser>> launchBrowser;
+    private readonly string? browserChannel;
     private readonly SemaphoreSlim renderSlots;
     private readonly SemaphoreSlim browserLock = new(1, 1);
     private IPlaywright? playwright;
     private IBrowser? browser;
 
     /// <summary>Initialises a new instance of the <see cref="PlaywrightPdfService"/> class.</summary>
-    /// <param name="configuration">Supplies <c>PdfGeneration:MaxConcurrentRenders</c> (default 2).</param>
+    /// <param name="configuration">Supplies <c>PdfGeneration:MaxConcurrentRenders</c> (default 2) and
+    /// <c>PdfGeneration:BrowserChannel</c> (default: Playwright's headless shell).</param>
     /// <param name="logger">Structured logger.</param>
     public PlaywrightPdfService(IConfiguration configuration, ILogger<PlaywrightPdfService> logger)
         : this(configuration, logger, launchBrowser: null)
@@ -37,6 +39,7 @@ public sealed partial class PlaywrightPdfService : IPlaywrightPdfService, IAsync
         ArgumentNullException.ThrowIfNull(configuration);
 
         this.logger = logger;
+        browserChannel = configuration["PdfGeneration:BrowserChannel"];
         this.launchBrowser = launchBrowser ?? (_ => LaunchChromiumAsync());
         renderSlots = new(Math.Max(1, configuration.GetValue("PdfGeneration:MaxConcurrentRenders", 2)));
     }
@@ -134,6 +137,14 @@ public sealed partial class PlaywrightPdfService : IPlaywrightPdfService, IAsync
 
     private static string Millimetres(double value) => string.Create(CultureInfo.InvariantCulture, $"{value}mm");
 
+    // No channel runs Playwright's headless shell. Channel "chromium" (the full browser) closed as soon as it opened a
+    // page in the Windows Server Core image, so set a channel only to use a browser that is installed on the host.
+    internal static BrowserTypeLaunchOptions BuildLaunchOptions(string? browserChannel) => new()
+    {
+        Headless = true,
+        Channel = string.IsNullOrWhiteSpace(browserChannel) ? null : browserChannel.Trim()
+    };
+
     private async Task<IBrowser> GetBrowserAsync(CancellationToken cancellationToken)
     {
         if (browser is { IsConnected: true } running)
@@ -203,11 +214,7 @@ public sealed partial class PlaywrightPdfService : IPlaywrightPdfService, IAsync
     {
         playwright ??= await Playwright.CreateAsync();
 
-        return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-        {
-            Headless = true,
-            Channel = "chromium"
-        });
+        return await playwright.Chromium.LaunchAsync(BuildLaunchOptions(browserChannel));
     }
 
     [LoggerMessage(EventId = 2600, Level = LogLevel.Information, Message = "Playwright Chromium started for PDF rendering")]
