@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Application.Extensions;
 using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
@@ -131,7 +132,9 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <returns>The new profile's identifier and row version.</returns>
     /// <response code="201">The profile was created.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     [HttpPost]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(CreateProfileResultDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CreateProfileResultDto>> CreateProfile(
@@ -187,8 +190,10 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <returns>The new profile version's identifier.</returns>
     /// <response code="201">The profile version was created.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">The source version is not eligible for a new version.</response>
     [HttpPost("versions")]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(NewProfileVersionResultDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -257,8 +262,10 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>Which version is now latest.</returns>
     /// <response code="200">The profile version was deleted.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     /// <response code="404">No profile version exists with the supplied identifier.</response>
     [HttpDelete("versions/{profileVersionId:guid}")]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(DeleteProfileVersionResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DeleteProfileVersionResultDto>> DeleteProfileVersion(
@@ -278,7 +285,9 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <returns>No content.</returns>
     /// <response code="204">The public access flag was toggled.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     [HttpPut("versions/{profileVersionId:guid}/public-access")]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SetProfileVersionPublicAccess(Guid profileVersionId, CancellationToken cancellationToken)
@@ -297,8 +306,10 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <returns>No content.</returns>
     /// <response code="204">The status was updated.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     /// <response code="404">No profile status exists with the supplied identifier.</response>
     [HttpPut("{profileId:guid}/status")]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

@@ -1,5 +1,6 @@
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 
@@ -262,5 +263,57 @@ public class ProfileRevisionDatesFormTests
     public void FieldName_UsesTheCompactSectionId()
     {
         Assert.Equal($"rev_{SectionId:N}_AuthorFreq", ProfileRevisionDatesForm.FieldName(SectionId, ProfileRevisionDatesForm.FieldAuthorFrequency));
+    }
+
+    // An author may change only the review their role owns; the other two keep what CDC.Api holds, whatever the form posts.
+    [Fact]
+    public void Parse_KeepsTheStoredValuesOfAReviewTheUserMayNotChange_WhateverTheFormPosts()
+    {
+        var form = Form(
+            (ProfileRevisionDatesForm.FieldAuthorFrequency, Guid.NewGuid().ToString()),
+            (ProfileRevisionDatesForm.FieldNextPolicy, "1 January 2030"),
+            (ProfileRevisionDatesForm.FieldVaStatus, string.Empty),
+            (ProfileRevisionDatesForm.FieldNextVa, "3 March 2028"),
+            (ProfileRevisionDatesForm.FieldVaFrequency, YearlyId.ToString()));
+
+        var result = ProfileRevisionDatesForm.Parse(form, Source(), new EditableReviews(Author: false, Va: true, Policy: false));
+
+        Assert.True(result.IsValid);
+        var input = Assert.Single(result.Inputs);
+        Assert.Equal(YearlyId, input.AuthorReviewFrequencyId);
+        Assert.Equal(new DateTime(2027, 6, 1), input.NextPolicyReview);
+        Assert.Null(input.VaReviewStatusId);
+        Assert.Equal(new DateTime(2028, 3, 3), input.NextVaReview);
+        Assert.Equal(YearlyId, input.VaReviewFrequencyId);
+    }
+
+    [Fact]
+    public void Parse_TakesTheStoredStatusOfAReviewTheUserMayNotChange()
+    {
+        var result = ProfileRevisionDatesForm.Parse(Form(), Source(), new EditableReviews(Author: true, Va: false, Policy: true));
+
+        var input = Assert.Single(result.Inputs);
+        Assert.Equal(ProposedId, input.VaReviewStatusId);
+        Assert.Equal(ProposedId.ToString(), Assert.Single(result.Rows).VaStatus);
+    }
+
+    [Fact]
+    public void Parse_DoesNotValidateWhatAReviewTheUserMayNotChangeHolds()
+    {
+        var source = Source();
+        var section = source.Sections[0] with { NextVaReview = new DateTime(1800, 1, 1) };
+
+        var result = ProfileRevisionDatesForm.Parse(Form(), source with { Sections = [section] }, new EditableReviews(Author: true, Va: false, Policy: true));
+
+        Assert.True(result.IsValid);
+        Assert.Equal(new DateTime(1800, 1, 1), Assert.Single(result.Inputs).NextVaReview);
+    }
+
+    [Fact]
+    public void EditableReviews_AreEditableAsAWhole_ByDefault_AndNoneWhenTheTabIsReadOnly()
+    {
+        Assert.True(EditableReviews.All.Any);
+        Assert.False(default(EditableReviews).Any);
+        Assert.True(new EditableReviews(Author: false, Va: true, Policy: false).Any);
     }
 }

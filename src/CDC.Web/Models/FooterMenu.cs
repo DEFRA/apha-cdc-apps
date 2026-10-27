@@ -28,8 +28,8 @@ public static class FooterMenu
         ]),
         new("Help and Support",
         [
-            new("Help using D2R2", "/HelpSupport/StaticReports", AuthorizationPolicies.CanViewReports, new { UserManual = 1 }),
-            new("D2R2 Quality Statement", "/HelpSupport/QualityStatement", AuthorizationPolicies.CanViewReports),
+            new("Help using D2R2", "/HelpSupport/StaticReports", AuthorizationPolicies.CanViewHelp, new { UserManual = 1 }),
+            new("D2R2 Quality Statement", "/HelpSupport/QualityStatement", AuthorizationPolicies.CanViewHelp),
         ]),
     ];
 }

@@ -413,6 +413,67 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_LetsAnAuthorEditOnlyTheSectionsAssignedToThem()
+    {
+        var author = Profile() with { CanEditProfileSection = true, EditableSectionIds = [SummarySectionId] };
+        var assigned = CreatePageModel(author, metadata: TwoSectionMetadata(), section: SummarySectionId);
+        var notAssigned = CreatePageModel(author, metadata: TwoSectionMetadata(), section: EpidemiologySectionId);
+
+        await assigned.OnGetAsync(CancellationToken.None);
+        await notAssigned.OnGetAsync(CancellationToken.None);
+
+        Assert.True(assigned.CanEditProfileSection);
+        Assert.False(notAssigned.CanEditProfileSection);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_LetsAProfileEditorEditEverySection()
+    {
+        var editor = Profile() with { CanEditProfileSection = true, CanEditAllSections = true };
+        var summary = CreatePageModel(editor, metadata: TwoSectionMetadata(), section: SummarySectionId);
+        var epidemiology = CreatePageModel(editor, metadata: TwoSectionMetadata(), section: EpidemiologySectionId);
+
+        await summary.OnGetAsync(CancellationToken.None);
+        await epidemiology.OnGetAsync(CancellationToken.None);
+
+        Assert.True(summary.CanEditProfileSection);
+        Assert.True(epidemiology.CanEditProfileSection);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_LetsNoSectionBeEdited_WhenTheUserCannotEditAnySection()
+    {
+        var reviewer = Profile() with { CanEditProfileSection = false, EditableSectionIds = [SummarySectionId] };
+        var pageModel = CreatePageModel(reviewer, metadata: TwoSectionMetadata(), section: SummarySectionId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.CanEditProfileSection);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ExposesWhichReviewsTheUserMayEdit_AndWhetherTheyMayAddReviewCommentsOrSeeTheNotes()
+    {
+        var author = Profile() with
+        {
+            CanEditProfileSection = true,
+            CanEditVaReviewDates = true,
+            CanAddReviewComments = false,
+            CanViewNotes = true
+        };
+        var pageModel = CreatePageModel(author, metadata: TwoSectionMetadata());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.CanEditAuthorReviewDates);
+        Assert.True(pageModel.CanEditVaReviewDates);
+        Assert.False(pageModel.CanEditPolicyReviewDates);
+        Assert.True(pageModel.CanEditAnyReviewDates);
+        Assert.False(pageModel.CanAddReviewComments);
+        Assert.True(pageModel.CanViewNotes);
+    }
+
+    [Fact]
     public async Task OnGetAsync_MarksFieldsEditable_ForAStandardQuestion_WhenUserCanEditProfileSection()
     {
         var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), section: StandardSectionId);

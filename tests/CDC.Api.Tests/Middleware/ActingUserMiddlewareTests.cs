@@ -23,7 +23,7 @@ public class ActingUserMiddlewareTests
     {
         users
             .Setup(repo => repo.GetActingUserAsync(UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ActingUser { Id = UserId, IsProfileEditor = true, IsPolicyProfileUser = false });
+            .ReturnsAsync(new ActingUser { Id = UserId, IsProfileEditor = true, IsPolicyProfileUser = false, SsoUserIdInt = Guid.NewGuid() });
         var nextCalled = false;
 
         await CreateMiddleware(_ =>
@@ -44,7 +44,7 @@ public class ActingUserMiddlewareTests
     {
         users
             .Setup(repo => repo.GetActingUserAsync(UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ActingUser { Id = UserId, IsProfileEditor = false, IsPolicyProfileUser = true });
+            .ReturnsAsync(new ActingUser { Id = UserId, IsProfileEditor = false, IsPolicyProfileUser = true, SsoUserIdInt = Guid.NewGuid() });
         var context = CreateContext(UserId.ToString());
         context.Request.Headers["X-Is-Profile-Editor"] = "true";
 

@@ -37,6 +37,12 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         ProfileTitle = "Bovine tuberculosis",
         CurrentProfileVersionId = Guid.NewGuid(),
         CanEditProfileSection = canEdit,
+        CanEditAllSections = canEdit,
+        CanEditAuthorReviewDates = canEdit,
+        CanEditVaReviewDates = canEdit,
+        CanEditPolicyReviewDates = canEdit,
+        CanAddReviewComments = canEdit,
+        CanViewNotes = canViewTabs,
         CanViewReviewComments = canViewTabs,
         CanViewContributions = canViewTabs,
         CanViewAllRevisionDates = canViewTabs

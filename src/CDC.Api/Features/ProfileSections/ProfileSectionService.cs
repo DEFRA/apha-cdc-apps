@@ -16,12 +16,14 @@ namespace CDC.Api.Features.ProfileSections;
 /// <param name="repository">Profile section data access.</param>
 /// <param name="contentRepository">Reads the questionnaire, every section's answers and the reference lists the validation needs.</param>
 /// <param name="userContext">The signed-in user, recorded as the contributor of every section they change.</param>
+/// <param name="versions">Reads a version's state and refuses what the signed-in user's role does not allow.</param>
 /// <param name="logger">Structured logger.</param>
 /// <param name="timeProvider">Supplies the current time for review completed dates and the future-date rule; defaults to the system clock.</param>
 public sealed class ProfileSectionService(
     IProfileSectionRepository repository,
     IProfileReportContentRepository contentRepository,
     IUserContext userContext,
+    IProfileVersionGuard versions,
     ILogger<ProfileSectionService> logger,
     TimeProvider? timeProvider = null)
     : IProfileSectionService
@@ -45,6 +47,8 @@ public sealed class ProfileSectionService(
         Guid profileSectionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var answers = await repository.GetProfileSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
         logger.RetrievedProfileSectionAnswers(profileVersionId, profileSectionId, answers.FieldValues.Count);
 
@@ -56,6 +60,8 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var validation = await LoadValidationAsync(profileVersionId, cancellationToken);
         var sections = new List<ProfileSectionValidationStatusDto>();
 
@@ -85,6 +91,13 @@ public sealed class ProfileSectionService(
         CancellationToken cancellationToken)
     {
         var userId = userContext.RequireUserId();
+        var version = await versions.RequireAsync(profileVersionId, cancellationToken);
+
+        if (!ProfileAccess.CanClearSection(userContext, version))
+        {
+            throw new UnauthorizedAccessException("Only a profile editor can clear a section of the current draft.");
+        }
+
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
         var section = questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
@@ -94,8 +107,8 @@ public sealed class ProfileSectionService(
         }
 
         var answers = await contentRepository.GetSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
-        var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
-        var change = ProfileSectionChangePlanner.PlanClear(section, answers, version.IsWhatIfScenario, lastUpdated);
+        var versionContext = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
+        var change = ProfileSectionChangePlanner.PlanClear(section, answers, versionContext.IsWhatIfScenario, lastUpdated);
 
         // The contribution is logged against the signed-in user (a real [User] row, as
         // spiProfileVersionSectionUser has a foreign key to it).
@@ -113,6 +126,8 @@ public sealed class ProfileSectionService(
         Guid profileSectionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var validation = await LoadValidationAsync(profileVersionId, cancellationToken);
         var section = validation.Questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
@@ -133,6 +148,8 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var validation = await LoadValidationAsync(profileVersionId, cancellationToken);
         var reasons = new List<ProfileSectionInvalidReasonDto>();
 
@@ -159,15 +176,22 @@ public sealed class ProfileSectionService(
         CancellationToken cancellationToken)
     {
         var userId = userContext.RequireUserId();
-        var version = await LoadVersionAnswersAsync(profileVersionId, cancellationToken);
-        var section = version.Questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
+        var version = await versions.RequireAsync(profileVersionId, cancellationToken);
+
+        if (!ProfileAccess.CanEditSection(userContext, version, profileSectionId))
+        {
+            throw new UnauthorizedAccessException("Only a profile editor, or an author assigned to the section, can change a section of the current draft.");
+        }
+
+        var versionAnswers = await LoadVersionAnswersAsync(profileVersionId, cancellationToken);
+        var section = versionAnswers.Questionnaire.Sections.FirstOrDefault(candidate => candidate.Id == profileSectionId);
 
         if (section is null)
         {
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
-        var change = ProfileSectionChangePlanner.PlanSave(section, version.Answers, version.Context.IsWhatIfScenario, answers, lastUpdated);
+        var change = ProfileSectionChangePlanner.PlanSave(section, versionAnswers.Answers, versionAnswers.Context.IsWhatIfScenario, answers, lastUpdated);
 
         // The legacy page saved nothing, and so did not touch the section, when no answer had changed.
         if (change.ValueChangeCount == 0)
@@ -190,6 +214,8 @@ public sealed class ProfileSectionService(
         Guid profileSectionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var contributions = await repository.GetProfileVersionSectionContributionsAsync(profileVersionId, profileSectionId, cancellationToken);
 
         return [.. contributions.Select(contribution => new ProfileSectionContributionDto
@@ -207,6 +233,8 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var metadata = await repository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
 
         var sections = new List<ProfileSectionRevisionDatesDto>();
@@ -251,6 +279,16 @@ public sealed class ProfileSectionService(
         CancellationToken cancellationToken)
     {
         var userId = userContext.RequireUserId();
+        var version = await versions.RequireAsync(profileVersionId, cancellationToken);
+        var editableReviews = Enum.GetValues<ReviewType>()
+            .Where(reviewType => ProfileAccess.CanEditReviewDates(userContext, version, reviewType))
+            .ToHashSet();
+
+        if (editableReviews.Count == 0)
+        {
+            throw new UnauthorizedAccessException("Only a profile editor, or an author, can change the review dates of the current draft.");
+        }
+
         var frequencies = await repository.GetReviewFrequenciesAsync(cancellationToken);
         var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
         var validFrequencyIds = frequencies.Select(item => item.Id).ToHashSet();
@@ -270,6 +308,11 @@ public sealed class ProfileSectionService(
             {
                 failures.Add(new ValidationFailure($"Sections[{index}].ProfileSectionId", "The section does not exist in this profile version."));
                 continue;
+            }
+
+            if (Enum.GetValues<ReviewType>().Any(reviewType => !editableReviews.Contains(reviewType) && ChangesReview(input, existing, reviewType)))
+            {
+                throw new UnauthorizedAccessException("An author can only change the dates of the review type they own.");
             }
 
             var sectionFailureCount = failures.Count;
@@ -329,15 +372,21 @@ public sealed class ProfileSectionService(
     /// <summary>Compares dates by calendar day: the page only edits the date, so a stored time of
     /// day must not make an untouched section look changed.</summary>
     private static bool HasRevisionChanges(ProfileSectionRevisionDatesInputDto input, ProfileSectionRevisionInfo existing) =>
-        input.AuthorReviewFrequencyId != existing.AuthorReviewFrequencyId
-        || input.VaReviewFrequencyId != existing.VaReviewFrequencyId
-        || input.PolicyReviewFrequencyId != existing.PolicyReviewFrequencyId
-        || input.AuthorReviewStatusId != existing.AuthorReviewStatusId
-        || input.VaReviewStatusId != existing.VaReviewStatusId
-        || input.PolicyReviewStatusId != existing.PolicyReviewStatusId
-        || input.NextAuthorReview?.Date != existing.NextAuthorReview?.Date
-        || input.NextVaReview?.Date != existing.NextVaReview?.Date
-        || input.NextPolicyReview?.Date != existing.NextPolicyReview?.Date;
+        Enum.GetValues<ReviewType>().Any(reviewType => ChangesReview(input, existing, reviewType));
+
+    private static bool ChangesReview(ProfileSectionRevisionDatesInputDto input, ProfileSectionRevisionInfo existing, ReviewType reviewType) =>
+        reviewType switch
+        {
+            ReviewType.Author => input.AuthorReviewFrequencyId != existing.AuthorReviewFrequencyId
+                || input.AuthorReviewStatusId != existing.AuthorReviewStatusId
+                || input.NextAuthorReview?.Date != existing.NextAuthorReview?.Date,
+            ReviewType.Va => input.VaReviewFrequencyId != existing.VaReviewFrequencyId
+                || input.VaReviewStatusId != existing.VaReviewStatusId
+                || input.NextVaReview?.Date != existing.NextVaReview?.Date,
+            _ => input.PolicyReviewFrequencyId != existing.PolicyReviewFrequencyId
+                || input.PolicyReviewStatusId != existing.PolicyReviewStatusId
+                || input.NextPolicyReview?.Date != existing.NextPolicyReview?.Date
+        };
 
     private ProfileSectionRevisionUpdate BuildRevisionUpdate(
         ProfileSectionRevisionDatesInputDto input,

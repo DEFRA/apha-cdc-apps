@@ -29,7 +29,14 @@ else
 }
 
 <h2 class="govuk-heading-s">
-    <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline app-subnav__item @(Model.IsNotesActive ? "app-subnav__item--current" : string.Empty)"
-       href="@Model.NotesUrl" aria-current="@(Model.IsNotesActive ? "page" : null)">Profile references</a>
+    @if (Model.NotesUrl is not null)
+    {
+        <a class="govuk-link govuk-link--no-visited-state govuk-link--no-underline app-subnav__item @(Model.IsNotesActive ? "app-subnav__item--current" : string.Empty)"
+           href="@Model.NotesUrl" aria-current="@(Model.IsNotesActive ? "page" : null)">Profile references</a>
+    }
+    else
+    {
+        <span>Profile references</span>
+    }
 </h2>
 <partial name="_SectionSubnav" model="Model.Subnav" />

@@ -12,7 +12,7 @@ namespace CDC.Web.Pages.HelpSupport;
 /// user manuals list (<see cref="StaticReportId"/> absent), or one report's version history
 /// (<see cref="StaticReportId"/> present) - matching the legacy page's dual-mode behaviour.
 /// </summary>
-[Authorize(Policy = AuthorizationPolicies.CanViewReports)]
+[Authorize(Policy = AuthorizationPolicies.CanViewHelp)]
 public class StaticReportsModel : BreadcrumbPageModelBase
 {
     private static readonly Action<ILogger, bool, Exception?> LogFailedToLoadStaticReportsMessage =

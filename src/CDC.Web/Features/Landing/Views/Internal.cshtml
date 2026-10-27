@@ -1,7 +1,12 @@
+@using CDC.Web.Authorization.Constants
+@using CDC.Web.Authorization.Services
+@inject INavigationAuthorizationService NavigationAuthorizationService
 @{
     ViewData["Title"] = "D2R2";
     var fullName = User.FindFirst(ExternalUserClaimTypes.FullName)?.Value;
     var firstName = string.IsNullOrEmpty(fullName) ? null : fullName.Split(' ')[0];
+    var canCompareVersions = await NavigationAuthorizationService.CanViewProfileComparisonAsync(User);
+    var canManageFilters = await NavigationAuthorizationService.CanAccessAsync(User, AuthorizationPolicies.CanManageDiseaseRankingFilters);
 }
 
 <span class="govuk-caption-l">D2R2 Home</span>
@@ -17,8 +22,14 @@
         <h2 class="govuk-heading-m">Quick links</h2>
         <ul class="govuk-list">
             <li><a class="govuk-link" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="1">Help using D2R2</a></li>
-            <li><a class="govuk-link" asp-page="/DiseaseProfiles/CompareVersions">Compare profile versions</a></li>
-            <li><a class="govuk-link" asp-page="/DiseaseRanking/EditFilters">Create disease ranking filter</a></li>
+            @if (canCompareVersions)
+            {
+                <li><a class="govuk-link" asp-page="/DiseaseProfiles/CompareVersions">Compare profile versions</a></li>
+            }
+            @if (canManageFilters)
+            {
+                <li><a class="govuk-link" asp-page="/DiseaseRanking/EditFilters">Create disease ranking filter</a></li>
+            }
         </ul>
     </div>
 </div>

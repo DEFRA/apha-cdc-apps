@@ -1,4 +1,5 @@
 using System.Data;
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileReports;
 using CDC.Api.Features.ProfileReports.Interfaces;
@@ -114,7 +115,7 @@ public class ProfileReportGuidanceFeatureTests
         contentRepository
             .Setup(repo => repo.GetQuestionGuidanceAsync(It.Is<IReadOnlyList<Guid>>(ids => ids.SequenceEqual(new[] { first, second })), It.IsAny<CancellationToken>()))
             .ReturnsAsync(found);
-        var service = new ProfileReportContentService(Mock.Of<IProfileReportRepository>(), contentRepository.Object, NullLogger<ProfileReportContentService>.Instance);
+        var service = new ProfileReportContentService(Mock.Of<IProfileReportRepository>(), contentRepository.Object, Mock.Of<IUserContext>(), NullLogger<ProfileReportContentService>.Instance);
 
         var result = await service.GetQuestionGuidanceAsync([first, second, first], CancellationToken.None);
 

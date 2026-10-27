@@ -244,7 +244,7 @@ public class EditProfileReviewCommentsModelTests
     [Fact]
     public async Task OnGetAsync_DoesNotOpenTheAddPanel_WhenTheUserCannotEdit()
     {
-        var (pageModel, _) = CreatePage(DraftProfile() with { CanEditProfileSection = false });
+        var (pageModel, _) = CreatePage(ReadOnlyDraftProfile());
         pageModel.Mode = "add";
 
         await pageModel.OnGetAsync(CancellationToken.None);
@@ -463,7 +463,7 @@ public class EditProfileReviewCommentsModelTests
     [Fact]
     public async Task OnPostSaveAsync_DoesNotCallTheApi_WhenTheUserCannotEdit()
     {
-        var (pageModel, api) = CreatePage(DraftProfile() with { CanEditProfileSection = false });
+        var (pageModel, api) = CreatePage(ReadOnlyDraftProfile());
         pageModel.Input = new ReviewCommentInput { Subject = "S", Reference = "R", CommentText = "Body" };
 
         var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
@@ -524,7 +524,7 @@ public class EditProfileReviewCommentsModelTests
     [Fact]
     public async Task OnPostDeleteAsync_DoesNotCallTheApi_WhenTheUserCannotEdit()
     {
-        var (pageModel, api) = CreatePage(DraftProfile() with { CanEditProfileSection = false });
+        var (pageModel, api) = CreatePage(ReadOnlyDraftProfile());
 
         var result = await pageModel.OnPostDeleteAsync(Guid.NewGuid(), CancellationToken.None);
 

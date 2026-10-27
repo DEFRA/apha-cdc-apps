@@ -124,16 +124,19 @@ public static class ProfileRevisionDatesForm
 
     /// <summary>
     /// Reads every section's submitted values and validates them against the options CDC.Api
-    /// offered.
+    /// offered. A review the user may not change keeps the value CDC.Api holds, whatever the form posted, so a hand-made
+    /// post cannot change it and a tab that shows it read-only does not have to post it.
     /// </summary>
     /// <param name="form">The submitted form.</param>
     /// <param name="source">The revision dates freshly read from CDC.Api (section list and option lists).</param>
+    /// <param name="editable">The reviews the user may change; every review when omitted.</param>
     /// <returns>The submitted rows (with their errors), every error message, and the save request.</returns>
-    public static RevisionDatesParseResult Parse(IFormCollection form, ProfileVersionAllRevisionDatesDto source)
+    public static RevisionDatesParseResult Parse(IFormCollection form, ProfileVersionAllRevisionDatesDto source, EditableReviews? editable = null)
     {
         ArgumentNullException.ThrowIfNull(form);
         ArgumentNullException.ThrowIfNull(source);
 
+        var changeable = editable ?? EditableReviews.All;
         var validFrequencies = source.ReviewFrequencies.Select(item => item.Id).ToHashSet();
         var validStatuses = source.ReviewStatuses.Select(item => item.Id).ToHashSet();
 
@@ -150,15 +153,15 @@ public static class ProfileRevisionDatesForm
             {
                 ProfileSectionId = section.ProfileSectionId,
                 SectionDisplay = display,
-                AuthorFrequency = ReadField(form, section, FieldAuthorFrequency),
-                VaFrequency = ReadField(form, section, FieldVaFrequency),
-                PolicyFrequency = ReadField(form, section, FieldPolicyFrequency),
-                NextAuthorReview = ReadField(form, section, FieldNextAuthor),
-                NextVaReview = ReadField(form, section, FieldNextVa),
-                NextPolicyReview = ReadField(form, section, FieldNextPolicy),
-                AuthorStatus = ReadField(form, section, FieldAuthorStatus),
-                VaStatus = ReadField(form, section, FieldVaStatus),
-                PolicyStatus = ReadField(form, section, FieldPolicyStatus),
+                AuthorFrequency = changeable.Author ? ReadField(form, section, FieldAuthorFrequency) : IdText(section.AuthorReviewFrequencyId),
+                VaFrequency = changeable.Va ? ReadField(form, section, FieldVaFrequency) : IdText(section.VaReviewFrequencyId),
+                PolicyFrequency = changeable.Policy ? ReadField(form, section, FieldPolicyFrequency) : IdText(section.PolicyReviewFrequencyId),
+                NextAuthorReview = changeable.Author ? ReadField(form, section, FieldNextAuthor) : DateText(section.NextAuthorReview),
+                NextVaReview = changeable.Va ? ReadField(form, section, FieldNextVa) : DateText(section.NextVaReview),
+                NextPolicyReview = changeable.Policy ? ReadField(form, section, FieldNextPolicy) : DateText(section.NextPolicyReview),
+                AuthorStatus = changeable.Author ? ReadField(form, section, FieldAuthorStatus) : IdText(section.AuthorReviewStatusId),
+                VaStatus = changeable.Va ? ReadField(form, section, FieldVaStatus) : IdText(section.VaReviewStatusId),
+                PolicyStatus = changeable.Policy ? ReadField(form, section, FieldPolicyStatus) : IdText(section.PolicyReviewStatusId),
                 LastUpdated = ReadField(form, section, FieldLastUpdated)
             };
 
@@ -168,15 +171,15 @@ public static class ProfileRevisionDatesForm
                 errors.Add($"{display}: the section's revision data could not be read. Reload the page and try again.");
             }
 
-            var authorFrequency = ParseOption(row.AuthorFrequency, validFrequencies, "Author review frequency", errors);
-            var vaFrequency = ParseOption(row.VaFrequency, validFrequencies, "VA review frequency", errors);
-            var policyFrequency = ParseOption(row.PolicyFrequency, validFrequencies, "Policy review frequency", errors);
-            var authorStatus = ParseOption(row.AuthorStatus, validStatuses, "Author review status", errors);
-            var vaStatus = ParseOption(row.VaStatus, validStatuses, "VA review status", errors);
-            var policyStatus = ParseOption(row.PolicyStatus, validStatuses, "Policy review status", errors);
-            var nextAuthor = ParseDate(row.NextAuthorReview, "Next author review date", errors);
-            var nextVa = ParseDate(row.NextVaReview, "Next VA review date", errors);
-            var nextPolicy = ParseDate(row.NextPolicyReview, "Next policy review date", errors);
+            var authorFrequency = changeable.Author ? ParseOption(row.AuthorFrequency, validFrequencies, "Author review frequency", errors) : section.AuthorReviewFrequencyId;
+            var vaFrequency = changeable.Va ? ParseOption(row.VaFrequency, validFrequencies, "VA review frequency", errors) : section.VaReviewFrequencyId;
+            var policyFrequency = changeable.Policy ? ParseOption(row.PolicyFrequency, validFrequencies, "Policy review frequency", errors) : section.PolicyReviewFrequencyId;
+            var authorStatus = changeable.Author ? ParseOption(row.AuthorStatus, validStatuses, "Author review status", errors) : section.AuthorReviewStatusId;
+            var vaStatus = changeable.Va ? ParseOption(row.VaStatus, validStatuses, "VA review status", errors) : section.VaReviewStatusId;
+            var policyStatus = changeable.Policy ? ParseOption(row.PolicyStatus, validStatuses, "Policy review status", errors) : section.PolicyReviewStatusId;
+            var nextAuthor = changeable.Author ? ParseDate(row.NextAuthorReview, "Next author review date", errors) : section.NextAuthorReview;
+            var nextVa = changeable.Va ? ParseDate(row.NextVaReview, "Next VA review date", errors) : section.NextVaReview;
+            var nextPolicy = changeable.Policy ? ParseDate(row.NextPolicyReview, "Next policy review date", errors) : section.NextPolicyReview;
 
             var prefixedErrors = errors.Select(error => error.StartsWith(display, StringComparison.Ordinal) ? error : $"{display}: {error}").ToList();
             allErrors.AddRange(prefixedErrors);
