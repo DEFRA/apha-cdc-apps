@@ -50,6 +50,36 @@ public class NotifyEmailSenderTests
     }
 
     [Fact]
+    public async Task SendAsync_AddsFileLinkAndUsesTheAttachmentTemplate_WhenAttachmentGiven()
+    {
+        var handler = new RecordingHandler();
+        var settings = Settings();
+        settings.AttachmentTemplateId = "attachment-template";
+        var message = Message with { Attachment = new EmailAttachment("c.pdf", [1, 2, 3]) };
+
+        await CreateSender(handler, settings).SendAsync(message, CancellationToken.None);
+
+        using var json = JsonDocument.Parse(handler.Body);
+        json.RootElement.GetProperty("template_id").GetString().Should().Be("attachment-template");
+        var file = json.RootElement.GetProperty("personalisation").GetProperty("link_to_file");
+        file.GetProperty("file").GetString().Should().Be(Convert.ToBase64String([1, 2, 3]));
+        file.GetProperty("filename").GetString().Should().Be("c.pdf");
+    }
+
+    [Fact]
+    public async Task SendAsync_IgnoresTheAttachment_WhenNoAttachmentTemplateIsConfigured()
+    {
+        var handler = new RecordingHandler();
+        var message = Message with { Attachment = new EmailAttachment("c.pdf", [1]) };
+
+        await CreateSender(handler, Settings()).SendAsync(message, CancellationToken.None);
+
+        using var json = JsonDocument.Parse(handler.Body);
+        json.RootElement.GetProperty("template_id").GetString().Should().Be("template-id");
+        json.RootElement.GetProperty("personalisation").TryGetProperty("link_to_file", out _).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task SendAsync_Throws_WhenDisabled()
     {
         var handler = new RecordingHandler();
@@ -78,6 +108,27 @@ public class NotifyEmailSenderTests
         await act.Should().ThrowAsync<HttpRequestException>();
     }
 
+    [Fact]
+    public async Task SendAsync_IncludesNotifyErrorText_WhenRejected()
+    {
+        var handler = new RecordingHandler { Status = HttpStatusCode.BadRequest, ResponseBody = "{\"errors\":[{\"error\":\"BadRequestError\",\"message\":\"Missing personalisation: body\"}]}" };
+
+        var act = () => CreateSender(handler, Settings()).SendAsync(Message, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<HttpRequestException>())
+            .Which.Message.Should().Contain("400").And.Contain("BadRequestError: Missing personalisation: body");
+    }
+
+    [Fact]
+    public async Task SendAsync_Throws_WhenNotifyErrorBodyIsNotJson()
+    {
+        var handler = new RecordingHandler { Status = HttpStatusCode.InternalServerError, ResponseBody = "oops" };
+
+        var act = () => CreateSender(handler, Settings()).SendAsync(Message, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<HttpRequestException>()).Which.Message.Should().Contain("500");
+    }
+
     private static string Decode(string segment)
     {
         var padded = segment.Replace('-', '+').Replace('_', '/');
@@ -95,13 +146,15 @@ public class NotifyEmailSenderTests
 
         public HttpStatusCode Status { get; init; } = HttpStatusCode.Created;
 
+        public string ResponseBody { get; init; } = string.Empty;
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Uri = request.RequestUri!.OriginalString;
             Body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
             Token = request.Headers.Authorization?.Parameter;
 
-            return new HttpResponseMessage(Status);
+            return new HttpResponseMessage(Status) { Content = new StringContent(ResponseBody) };
         }
     }
 }

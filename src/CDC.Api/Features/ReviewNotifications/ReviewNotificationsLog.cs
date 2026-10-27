@@ -29,4 +29,10 @@ internal static partial class ReviewNotificationsLog
 
     [LoggerMessage(EventId = 7007, Level = LogLevel.Critical, Message = "Review notification job terminated unexpectedly")]
     public static partial void JobTerminated(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 7008, Level = LogLevel.Error, Message = "Failed to build the comparison report for user {UserId}; the reminder is sent without it")]
+    public static partial void ComparisonReportFailed(this ILogger logger, Exception exception, Guid userId);
+
+    [LoggerMessage(EventId = 7009, Level = LogLevel.Warning, Message = "The comparison report for user {UserId} is {SizeBytes} bytes, over the Notify limit; the reminder is sent without it")]
+    public static partial void ComparisonReportTooLarge(this ILogger logger, Guid userId, int sizeBytes);
 }

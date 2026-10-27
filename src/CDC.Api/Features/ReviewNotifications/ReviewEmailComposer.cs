@@ -28,12 +28,16 @@ public static class ReviewEmailComposer
         body.Append("This can be achieved by locating the profile on the search page, clicking the browse link and then selecting the revision dates tab. ");
         body.Append("Set the status to complete by using the drop down list.\n\n");
 
-        var hasHomePage = Uri.TryCreate(options.InternalHomePageUrl, UriKind.Absolute, out var homePage)
-            && (homePage.Scheme == Uri.UriSchemeHttps || homePage.Scheme == Uri.UriSchemeHttp);
+        var hasHomePage = TryGetWebUri(options.InternalHomePageUrl, out var homePage);
 
         foreach (var profile in user.Profiles)
         {
             AppendProfile(body, profile, today, hasHomePage ? homePage : null);
+        }
+
+        if (TryGetWebUri(options.ExternalHomePageUrl, out var externalHomePage))
+        {
+            body.Append("The D2R2 system can be accessed via the internet using the following link: ").Append(externalHomePage.AbsoluteUri).Append("\n\n");
         }
 
         if (hasHomePage)
@@ -108,6 +112,9 @@ public static class ReviewEmailComposer
             _ => date
         };
     }
+
+    private static bool TryGetWebUri(string value, out Uri uri) =>
+        Uri.TryCreate(value, UriKind.Absolute, out uri!) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
 
     // Strips characters that Notify would treat as markup, links or HTML.
     private static string Clean(string value) =>

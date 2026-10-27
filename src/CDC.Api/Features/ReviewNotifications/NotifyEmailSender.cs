@@ -11,7 +11,7 @@ namespace CDC.Api.Features.ReviewNotifications;
 
 /// <summary>
 /// Sends mail through the GOV.UK Notify <c>v2/notifications/email</c> endpoint using a template
-/// with <c>((subject))</c>, <c>((name))</c> and <c>((body))</c> personalisation.
+/// with <c>((subject))</c>, <c>((name))</c> and <c>((body))</c> personalisation, plus <c>((link_to_file))</c> for the attachment template.
 /// </summary>
 /// <param name="httpClient">Client used for the Notify call.</param>
 /// <param name="options">Notify settings.</param>
@@ -30,11 +30,26 @@ public sealed class NotifyEmailSender(HttpClient httpClient, IOptions<NotifyOpti
             throw new InvalidOperationException("Email sending is disabled: Notify:Enabled is false.");
         }
 
+        var personalisation = new Dictionary<string, object>
+        {
+            ["name"] = message.ToName,
+            ["subject"] = message.Subject,
+            ["body"] = message.Body
+        };
+
+        // A file only goes out through the template that has the link_to_file placeholder.
+        var attach = message.Attachment is not null && !string.IsNullOrWhiteSpace(settings.AttachmentTemplateId);
+
+        if (attach)
+        {
+            personalisation["link_to_file"] = new { file = Convert.ToBase64String(message.Attachment!.Content), filename = message.Attachment.FileName };
+        }
+
         var payload = new
         {
             email_address = message.ToAddress,
-            template_id = settings.TemplateId,
-            personalisation = new { name = message.ToName, subject = message.Subject, body = message.Body }
+            template_id = attach ? settings.AttachmentTemplateId : settings.TemplateId,
+            personalisation
         };
 
         var url = $"{settings.BaseUrl.TrimEnd('/')}/v2/notifications/email";
@@ -42,8 +57,32 @@ public sealed class NotifyEmailSender(HttpClient httpClient, IOptions<NotifyOpti
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken());
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await ReadErrorAsync(response, cancellationToken);
+            throw new HttpRequestException($"Notify rejected the email: {(int)response.StatusCode} {response.ReasonPhrase}. {detail}".TrimEnd(), null, response.StatusCode);
+        }
     }
+
+    // Notify returns {"errors":[{"error":"...","message":"..."}]}; the messages never echo the recipient address.
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = await response.Content.ReadFromJsonAsync<NotifyErrorResponse>(cancellationToken);
+
+            return string.Join(" ", body?.Errors?.Select(e => $"{e.Error}: {e.Message}") ?? []);
+        }
+        catch (JsonException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private sealed record NotifyErrorResponse(List<NotifyError>? Errors);
+
+    private sealed record NotifyError(string? Error, string? Message);
 
     // Notify keys are "{name}-{service id}-{secret}", the last two parts being GUIDs; the token is an HS256 JWT.
     private string CreateToken()

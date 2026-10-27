@@ -49,6 +49,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<ReviewNotificationsOptions>(builder.Configuration.GetSection(ReviewNotificationsOptions.SectionName));
 builder.Services.Configure<NotifyOptions>(builder.Configuration.GetSection(NotifyOptions.SectionName));
 builder.Services.AddHttpClient<IEmailSender, NotifyEmailSender>();
+builder.Services.AddScoped<CDC.Common.Comparison.IComparisonDataSource, ComparisonDataSource>();
+builder.Services.AddSingleton<CDC.Api.Infrastructure.Pdf.IPdfRenderer, CDC.Api.Infrastructure.Pdf.PlaywrightPdfRenderer>();
+builder.Services.AddScoped<IComparisonAttachmentBuilder, ComparisonAttachmentBuilder>();
 
 var app = builder.Build();
 

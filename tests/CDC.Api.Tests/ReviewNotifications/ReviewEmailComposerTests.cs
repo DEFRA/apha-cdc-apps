@@ -105,6 +105,17 @@ public class ReviewEmailComposerTests
         body.Should().Contain("following link: https://d2r2.example.test/").And.Contain("support@example.test");
     }
 
+    [Fact]
+    public void Compose_IncludesExternalHomePageLink_WhenConfigured()
+    {
+        var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
+        var options = Options();
+        options.ExternalHomePageUrl = "https://external.example.test/";
+
+        ReviewEmailComposer.Compose(user, Today, options).Body
+            .Should().Contain("via the internet using the following link: https://external.example.test/");
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not a url")]

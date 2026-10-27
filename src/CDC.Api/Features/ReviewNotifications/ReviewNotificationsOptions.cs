@@ -9,6 +9,9 @@ public sealed class ReviewNotificationsOptions
     /// <summary>Internal home page URL linked from the email; the link is omitted when empty.</summary>
     public string InternalHomePageUrl { get; set; } = string.Empty;
 
+    /// <summary>Internet-facing home page URL linked from the email; the link is omitted when empty.</summary>
+    public string ExternalHomePageUrl { get; set; } = string.Empty;
+
     /// <summary>Mailbox users are told to contact for access problems.</summary>
     public string SupportMailbox { get; set; } = "D2R2@defra.gov.uk";
 
@@ -36,4 +39,10 @@ public sealed class NotifyOptions
 
     /// <summary>Id of the email template that takes <c>name</c>, <c>subject</c> and <c>body</c> personalisation.</summary>
     public string TemplateId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Id of the template that also has a <c>((link_to_file))</c> placeholder, used for emails with an attachment.
+    /// Leave empty to send reminders without the comparison report.
+    /// </summary>
+    public string AttachmentTemplateId { get; set; } = string.Empty;
 }
