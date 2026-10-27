@@ -12,6 +12,7 @@ public sealed record ReviewDueUser(
     IReadOnlyList<ReviewDueProfile> Profiles);
 
 /// <summary>A draft profile version containing sections due for review.</summary>
+/// <param name="ProfileId">The profile identifier used by the profile page route.</param>
 /// <param name="ProfileVersionId">The profile version identifier.</param>
 /// <param name="Title">Profile title.</param>
 /// <param name="ScenarioTitle">Optional scenario title.</param>
@@ -19,6 +20,7 @@ public sealed record ReviewDueUser(
 /// <param name="Sections">Sections assigned to the user for this version, in section order.</param>
 /// <param name="UserRoles">Names of the roles the user holds on the profile; they decide which reviewer groups the user belongs to.</param>
 public sealed record ReviewDueProfile(
+    Guid ProfileId,
     Guid ProfileVersionId,
     string Title,
     string? ScenarioTitle,

@@ -59,10 +59,10 @@ public static class ReviewEmailComposer
 
         body.Append("## ").Append(title).Append("\n\n");
 
-        if (baseUri is not null)
+        if (baseUri is not null && profile.ProfileId != Guid.Empty)
         {
-            // The target page enforces sign-in and profile authorisation.
-            var link = new Uri(baseUri, $"/SurveillanceProfiles/EditProfileAllRevisionDates/{profile.ProfileVersionId}");
+            // The page binds profileId from the querystring and opens the all-revision-dates tab for that profile.
+            var link = new Uri(baseUri, $"/SurveillanceProfiles/EditProfileAllRevisionDates?profileId={profile.ProfileId}");
             body.Append(link.AbsoluteUri).Append("\n\n");
         }
 

@@ -31,6 +31,8 @@ public sealed class ComparisonAttachmentBuilder(
 
         if (string.IsNullOrWhiteSpace(notifyOptions.Value.AttachmentTemplateId))
         {
+            logger.AttachmentsNotConfigured();
+
             return null;
         }
 
@@ -65,6 +67,8 @@ public sealed class ComparisonAttachmentBuilder(
             ? $"{comparisons[0].Published} - {comparisons[0].Draft} Comparison.pdf"
             : "Profile version comparisons.pdf";
 
+        logger.ComparisonAttached(comparisons.Count, user.Id);
+
         return new EmailAttachment(SafeFileName(fileName), pdf);
     }
 
@@ -76,6 +80,8 @@ public sealed class ComparisonAttachmentBuilder(
 
         if (draft is null)
         {
+            logger.ComparisonSkipped(draftVersionId, "the draft version was not found");
+
             return null;
         }
 
@@ -83,6 +89,8 @@ public sealed class ComparisonAttachmentBuilder(
 
         if (profile is null || profile.CurrentPublishedProfileVersionId == Guid.Empty)
         {
+            logger.ComparisonSkipped(draftVersionId, "the profile has no current published version");
+
             return null;
         }
 
@@ -90,6 +98,8 @@ public sealed class ComparisonAttachmentBuilder(
 
         if (published is null)
         {
+            logger.ComparisonSkipped(draftVersionId, "the published version was not found");
+
             return null;
         }
 

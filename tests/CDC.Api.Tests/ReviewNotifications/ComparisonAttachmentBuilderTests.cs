@@ -95,7 +95,7 @@ public class ComparisonAttachmentBuilderTests
         Guid.NewGuid(),
         "Ann",
         "ann@example.test",
-        [.. versionIds.Select(id => new ReviewDueProfile(id, "Anthrax", null, "2.1", []))]);
+        [.. versionIds.Select(id => new ReviewDueProfile(ProfileId, id, "Anthrax", null, "2.1", []))]);
 
     [Fact]
     public async Task BuildAsync_RendersThePublishedToDraftComparison()

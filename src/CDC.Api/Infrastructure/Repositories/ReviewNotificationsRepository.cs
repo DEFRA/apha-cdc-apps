@@ -15,7 +15,9 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
     internal const string UsersQuery = "SELECT Id, FullName, EmailAddress FROM dbo.vwReviewEmailUsers";
 
     internal const string ProfilesQuery =
-        "SELECT UserId, ProfileVersionId, ProfileTitle, ScenarioTitle, VersionMajor, VersionMinor FROM dbo.vwReviewEmailProfiles";
+        "SELECT p.UserId, pv.ProfileId, p.ProfileVersionId, p.ProfileTitle, p.ScenarioTitle, p.VersionMajor, p.VersionMinor " +
+        "FROM dbo.vwReviewEmailProfiles p " +
+        "INNER JOIN dbo.ProfileVersion pv ON pv.Id = p.ProfileVersionId";
 
     internal const string SectionsQuery =
         "SELECT UserId, ProfileVersionId, ShortName, SectionNumber, TechnicalReviewStatus, PolicyReviewStatus, " +
@@ -44,6 +46,7 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
             var userProfiles = profiles
                 .Where(p => p.UserId == user.Id)
                 .Select(p => new ReviewDueProfile(
+                    p.ProfileId,
                     p.ProfileVersionId,
                     p.ProfileTitle,
                     p.ScenarioTitle,
@@ -89,6 +92,8 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
     private sealed class ProfileRow
     {
         public Guid UserId { get; set; }
+
+        public Guid ProfileId { get; set; }
 
         public Guid ProfileVersionId { get; set; }
 

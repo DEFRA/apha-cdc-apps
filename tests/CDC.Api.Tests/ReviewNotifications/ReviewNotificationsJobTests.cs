@@ -45,7 +45,7 @@ public class ReviewNotificationsJobTests
             Guid.NewGuid(),
             name,
             email,
-            [new ReviewDueProfile(Guid.NewGuid(), "Anthrax", null, "1.0", [new ReviewDueSection(1, "Intro", due, due, due)], roles.Length == 0 ? ["Policy reviewer"] : roles)]);
+            [new ReviewDueProfile(Guid.NewGuid(), Guid.NewGuid(), "Anthrax", null, "1.0", [new ReviewDueSection(1, "Intro", due, due, due)], roles.Length == 0 ? ["Policy reviewer"] : roles)]);
     }
 
     [Fact]
