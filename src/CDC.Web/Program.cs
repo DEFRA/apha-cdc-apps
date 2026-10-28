@@ -324,7 +324,9 @@ app.MapControllerRoute(
     pattern: "{controller=Landing}/{action=Index}/{id?}")
     .WithStaticAssets();
 
-// Streams static report PDFs through this app: CDC.Api is private, so browsers cannot link to it directly.
+// Streams static report PDFs through this app: CDC.Api is private, so browsers cannot link to it directly. The user manuals behind
+// the Help and Support footer links are open to every signed-in user, and the general reports are listed only to those allowed
+// them, by CDC.Api, so a signed-in user is let through here.
 app.MapGet("/static-reports/versions/{staticReportVersionId:guid}/document", async (
         Guid staticReportVersionId,
         bool? download,
@@ -353,7 +355,7 @@ app.MapGet("/static-reports/versions/{staticReportVersionId:guid}/document", asy
             return Results.StatusCode(StatusCodes.Status502BadGateway);
         }
     })
-    .RequireAuthorization(CDC.Web.Authorization.Constants.AuthorizationPolicies.CanViewReports);
+    .RequireAuthorization(CDC.Web.Authorization.Constants.AuthorizationPolicies.CanViewHelp);
 
 // Ensure Razor Pages are available if any exist in the project
 app.MapRazorPages();

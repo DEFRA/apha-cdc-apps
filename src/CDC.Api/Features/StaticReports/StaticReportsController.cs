@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -99,7 +100,9 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
     /// <param name="staticReportVersionId">The version to make public.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <response code="204">The report version was marked public.</response>
+    /// <response code="403">The user is not a profile editor.</response>
     [HttpPut("versions/{staticReportVersionId:guid}/public")]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SetStaticReportPublicAccess(
         Guid staticReportVersionId,

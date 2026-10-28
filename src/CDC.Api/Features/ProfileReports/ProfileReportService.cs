@@ -19,12 +19,14 @@ namespace CDC.Api.Features.ProfileReports;
 /// </summary>
 /// <param name="repository">Profile report data access.</param>
 /// <param name="sectionRepository">Profile section data access, for section names and contributions.</param>
-/// <param name="userContext">The current user's profile-authoring role flags.</param>
+/// <param name="userContext">The current user, and the roles they hold.</param>
+/// <param name="versionGuard">Refuses a request to read a draft the current user may not view.</param>
 /// <param name="logger">Structured logger.</param>
 public sealed class ProfileReportService(
     IProfileReportRepository repository,
     IProfileSectionRepository sectionRepository,
     IUserContext userContext,
+    IProfileVersionGuard versionGuard,
     ILogger<ProfileReportService> logger)
     : IProfileReportService
 {
@@ -40,6 +42,8 @@ public sealed class ProfileReportService(
         bool isAuthenticated,
         CancellationToken cancellationToken)
     {
+        await versionGuard.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var reports = await repository.GetProfileVersionReportsAsync(profileVersionId, isAuthenticated, cancellationToken);
         logger.RetrievedProfileVersionReports(reports.Count, profileVersionId);
 
@@ -52,6 +56,8 @@ public sealed class ProfileReportService(
         Guid profileReportId,
         CancellationToken cancellationToken)
     {
+        await versionGuard.EnsureCanViewAsync(profileVersionId, cancellationToken);
+
         var reportData = await repository.GetProfileReportDataAsync(profileVersionId, profileReportId, cancellationToken);
 
         if (reportData is null)
@@ -79,7 +85,7 @@ public sealed class ProfileReportService(
             return Result.NotFound<CreateProfileReportResultDto>("The profile version does not exist.");
         }
 
-        if (!CanCreateReports(header))
+        if (!ProfileAccess.CanCreateReports(userContext, ProfileVersionFacts.From(header)))
         {
             logger.CreateProfileReportRefused(command.ProfileVersionId);
 
@@ -95,8 +101,8 @@ public sealed class ProfileReportService(
     /// <inheritdoc />
     public async Task<Result<ContributionsReportDto>> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken)
     {
-        // Legacy GetContributionsReportCommand.CanGetReport().
-        if (!(userContext.IsProfileEditor || userContext.IsPolicyProfileUser) || userContext.IsUserManagementSystem)
+        // Legacy GetContributionsReportCommand.CanGetReport(): a global user.
+        if (!ProfileAccess.IsGlobalUser(userContext))
         {
             logger.ContributionsReportRefused(profileId);
 
@@ -169,8 +175,8 @@ public sealed class ProfileReportService(
         Guid authorId,
         CancellationToken cancellationToken)
     {
-        // Legacy GetProfileDiseaseReviewsReportCommand.CanGetReport().
-        if (!userContext.IsProfileEditor || userContext.IsUserManagementSystem)
+        // Legacy GetProfileDiseaseReviewsReportCommand.CanGetReport(): a profile editor.
+        if (!ProfileAccess.IsEditor(userContext))
         {
             logger.DiseaseReviewsReportRefused();
 
@@ -193,6 +199,13 @@ public sealed class ProfileReportService(
             return Result.NotFound<ProfileReportsOverviewDto>("The profile version does not exist.");
         }
 
+        var facts = ProfileVersionFacts.From(header);
+
+        if (!ProfileAccess.CanView(userContext, facts))
+        {
+            return Result.Forbidden<ProfileReportsOverviewDto>("You do not have permission to view the reports of this draft profile version.");
+        }
+
         var reports = await repository.GetProfileVersionReportsAsync(profileVersionId, true, cancellationToken);
         var listed = reports.Where(report => !string.Equals(report.ReportName, FullProfileReportName, StringComparison.Ordinal)).ToList();
 
@@ -206,7 +219,7 @@ public sealed class ProfileReportService(
             VersionLabel = header.VersionLabel,
             IsPublished = header.IsPublished,
             IsCurrent = header.IsCurrent,
-            CanCreateReports = CanCreateReports(header),
+            CanCreateReports = ProfileAccess.CanCreateReports(userContext, facts),
             Reports = [.. listed.Select(report => new ProfileReportListItemDto
             {
                 Id = report.Id,
@@ -323,19 +336,6 @@ public sealed class ProfileReportService(
     // No database call and no TallPDF dependency: the PDF payload is produced by the separate
     // Razor + Playwright pipeline once that lands. See PendingReport's remarks for why this is
     // deliberately not a byte-array response.
-    // Legacy CreateProfileReportCommand.CanCreateProfileReport; contributor/reviewer access is not modelled by IUserContext yet.
-    private bool CanCreateReports(ProfileVersionHeader header)
-    {
-        if (userContext.IsUserManagementSystem || !header.IsCurrent)
-        {
-            return false;
-        }
-
-        return header.IsPublished
-            ? userContext.IsProfileEditor
-            : userContext.IsProfileEditor || userContext.IsPolicyProfileUser;
-    }
-
     private static PendingReport CreatePendingReport(string title) => new()
     {
         Title = title,

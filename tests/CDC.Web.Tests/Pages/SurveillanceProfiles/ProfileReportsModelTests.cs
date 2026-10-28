@@ -66,7 +66,7 @@ public class ProfileReportsModelTests
     [Fact]
     public async Task OnGetAsync_OffersNoRegeneration_WhenTheUserMayNotCreateReports()
     {
-        var model = CreatePageModel(CreateApi(canCreate: false), new FakeGenerator(Summary), AuthorizationRoles.Contributor);
+        var model = CreatePageModel(CreateApi(canCreate: false), new FakeGenerator(Summary), "SomeCidmRole");
 
         await model.OnGetAsync(CancellationToken.None);
 

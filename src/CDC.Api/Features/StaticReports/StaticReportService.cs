@@ -6,7 +6,8 @@ namespace CDC.Api.Features.StaticReports;
 
 /// <summary>
 /// Default <see cref="IStaticReportService"/>. Applies the ordering and delete rule the legacy
-/// <c>StaticReports.aspx</c> page applied in its business layer.
+/// <c>StaticReports.aspx</c> page applied in its business layer. The general static reports are open only to a profile editor
+/// or a policy profile user; the user manuals are open to everyone signed in, and the public ones to everyone.
 /// </summary>
 /// <param name="repository">Static report data access.</param>
 /// <param name="userContext">The current user's authoring role flags.</param>
@@ -20,6 +21,8 @@ public sealed class StaticReportService(IStaticReportRepository repository, IUse
         bool publicOnly,
         CancellationToken cancellationToken)
     {
+        EnsureMayReadGeneralReports(isUserManual, publicOnly);
+
         var reports = await repository.GetCurrentStaticReportsAsync(isUserManual, publicOnly, cancellationToken);
 
         logger.RetrievedCurrentStaticReports(reports.Count, isUserManual);
@@ -35,6 +38,11 @@ public sealed class StaticReportService(IStaticReportRepository repository, IUse
         CancellationToken cancellationToken)
     {
         var versions = await repository.GetStaticReportHistoryAsync(staticReportId, publicOnly, cancellationToken);
+
+        if (versions.Any(version => !version.IsUserManual))
+        {
+            EnsureMayReadGeneralReports(isUserManual: false, publicOnly);
+        }
 
         logger.RetrievedStaticReportHistory(versions.Count, staticReportId);
 
@@ -105,4 +113,14 @@ public sealed class StaticReportService(IStaticReportRepository repository, IUse
 
     private StaticReportDto ApplyCanDelete(StaticReportDto report) =>
         report with { CanDelete = report.IsCurrent && userContext.IsProfileEditor };
+
+    /// <summary>The role matrix gives the general static reports to a profile editor and a policy profile user only; a user manual
+    /// or a public report is not one of them.</summary>
+    private void EnsureMayReadGeneralReports(bool isUserManual, bool publicOnly)
+    {
+        if (!isUserManual && !publicOnly && !ProfileAccess.IsGlobalUser(userContext))
+        {
+            throw new UnauthorizedAccessException("The general static reports are open only to a profile editor or a policy profile user.");
+        }
+    }
 }

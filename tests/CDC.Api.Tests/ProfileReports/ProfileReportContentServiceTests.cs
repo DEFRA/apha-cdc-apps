@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports;
@@ -20,9 +21,13 @@ public class ProfileReportContentServiceTests
 
     private readonly Mock<IProfileReportRepository> reportRepository = new();
     private readonly Mock<IProfileReportContentRepository> contentRepository = new();
+    private readonly Mock<IUserContext> userContext = new();
+
+    public ProfileReportContentServiceTests() =>
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(true);
 
     private ProfileReportContentService CreateService() =>
-        new(reportRepository.Object, contentRepository.Object, NullLogger<ProfileReportContentService>.Instance);
+        new(reportRepository.Object, contentRepository.Object, userContext.Object, NullLogger<ProfileReportContentService>.Instance);
 
     [Fact]
     public async Task GetProfileReportContentAsync_ReturnsNotFound_WhenTheVersionDoesNotExist()
@@ -509,6 +514,72 @@ public class ProfileReportContentServiceTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(scores);
+    }
+
+    [Fact]
+    public async Task GetProfileReportContentAsync_ReturnsForbidden_ForADraftOfAProfileTheUserHasNoRoleOn()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        GivenHeader(isPublished: false);
+
+        var result = await CreateService().GetProfileReportContentAsync(VersionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        contentRepository.Verify(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetProfileReportContentAsync_ReturnsAPublishedVersion_ToAUserWithNoRoleOnTheProfile()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        GivenHeader(isPublished: true);
+        GivenQuestionnaire();
+
+        var result = await CreateService().GetProfileReportContentAsync(VersionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetProfileReportContentAsync_ReturnsADraft_ToAnExternalUserWhoHoldsARoleOnTheProfile(bool isContributor)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext
+            .Setup(context => context.GetProfileRole(ProfileReportTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileReportTestData.ProfileId, Guid.NewGuid(), "Policy author", isContributor));
+        GivenHeader(isPublished: false);
+        GivenQuestionnaire();
+
+        var result = await CreateService().GetProfileReportContentAsync(VersionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetProfileReportContentAsync_ReturnsADraft_ToAPolicyProfileUser()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
+        GivenHeader(isPublished: false);
+        GivenQuestionnaire();
+
+        var result = await CreateService().GetProfileReportContentAsync(VersionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetProfilePrioritisationScoresAsync_ReturnsForbidden_ForADraftOfAProfileTheUserHasNoRoleOn()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        GivenHeader(isPublished: false);
+
+        var result = await CreateService().GetProfilePrioritisationScoresAsync(VersionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        contentRepository.Verify(repo => repo.GetPrioritisationScoresAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private void GivenHeader(bool isPublished = false, DateTime? effectiveDateTo = null, string statusName = "Validation complete") =>

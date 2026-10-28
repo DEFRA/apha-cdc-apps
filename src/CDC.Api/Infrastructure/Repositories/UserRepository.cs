@@ -206,19 +206,60 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
 
         try
         {
-            var row = await connection.QuerySingleOrDefaultAsync<ActingUserRow>(new CommandDefinition(
-                UserStoredProcedures.GetUser,
+            await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+                UserStoredProcedures.GetActingUser,
                 new { UserId = userId },
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
 
-            return row is null
-                ? null
-                : new ActingUser { Id = row.Id, IsProfileEditor = row.IsProfileEditor, IsPolicyProfileUser = row.IsPolicyProfileUser };
+            // Result set 1: Id, IsProfileEditor, IsPolicyProfileUser, SsoUserIdInt, SsoUserIdExt.
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            var id = reader.ReadGuid(0);
+            var isProfileEditor = reader.ReadBoolean(1);
+            var isPolicyProfileUser = reader.ReadBoolean(2);
+            var ssoUserIdInt = reader.ReadNullableGuid(3);
+            var ssoUserIdExt = reader.ReadNullableGuid(4);
+
+            // Result set 2: ProfileId, RoleId, RoleName, IsContributor.
+            var roles = new List<ProfileRoleAssignment>();
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    roles.Add(new ProfileRoleAssignment(reader.ReadGuid(0), reader.ReadGuid(1), reader.ReadString(2), reader.ReadBoolean(3)));
+                }
+            }
+
+            // Result set 3: ProfileId, ProfileSectionId.
+            var sections = new List<ProfileSectionAssignment>();
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    sections.Add(new ProfileSectionAssignment(reader.ReadGuid(0), reader.ReadGuid(1)));
+                }
+            }
+
+            return new ActingUser
+            {
+                Id = id,
+                IsProfileEditor = isProfileEditor,
+                IsPolicyProfileUser = isPolicyProfileUser,
+                SsoUserIdInt = ssoUserIdInt,
+                SsoUserIdExt = ssoUserIdExt,
+                ProfileRoles = roles,
+                SectionAssignments = sections
+            };
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetUser);
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetActingUser);
             throw;
         }
     }
@@ -300,14 +341,6 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         public string? UserName { get; init; } // NOSONAR
         public string? FullName { get; init; } // NOSONAR
         public Guid? SsoUserIdInt { get; init; } // NOSONAR
-        public bool IsProfileEditor { get; init; } // NOSONAR
-        public bool IsPolicyProfileUser { get; init; } // NOSONAR
-    }
-
-    // spgUser returns more columns than the acting user needs; Dapper ignores the ones with no property.
-    private sealed record ActingUserRow
-    {
-        public Guid Id { get; init; } // NOSONAR
         public bool IsProfileEditor { get; init; } // NOSONAR
         public bool IsPolicyProfileUser { get; init; } // NOSONAR
     }

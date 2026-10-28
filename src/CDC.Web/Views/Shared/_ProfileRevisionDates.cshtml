@@ -2,13 +2,14 @@
 @using CDC.Web.Infrastructure
 @using CDC.Web.Models
 @* Layout of legacy EditProfileAllRevisionDates.aspx: "Set For All Sections:" first, then one block per section with
-   the three frequency / next review rows followed by the three status rows. Read-only users see the values as text. *@
+   the three frequency / next review rows followed by the three status rows. Read-only users see the values as text, and so
+   does anyone for a review they may not change: an author can change only the review their role owns. *@
 @{
     var reviews = new[]
     {
-        new { Name = "Author", Lower = "author", Frequency = ProfileRevisionDatesForm.FieldAuthorFrequency, Next = ProfileRevisionDatesForm.FieldNextAuthor, Status = ProfileRevisionDatesForm.FieldAuthorStatus },
-        new { Name = "VA", Lower = "VA", Frequency = ProfileRevisionDatesForm.FieldVaFrequency, Next = ProfileRevisionDatesForm.FieldNextVa, Status = ProfileRevisionDatesForm.FieldVaStatus },
-        new { Name = "Policy", Lower = "policy", Frequency = ProfileRevisionDatesForm.FieldPolicyFrequency, Next = ProfileRevisionDatesForm.FieldNextPolicy, Status = ProfileRevisionDatesForm.FieldPolicyStatus }
+        new { Name = "Author", Lower = "author", Frequency = ProfileRevisionDatesForm.FieldAuthorFrequency, Next = ProfileRevisionDatesForm.FieldNextAuthor, Status = ProfileRevisionDatesForm.FieldAuthorStatus, Editable = Model.Editable.Author },
+        new { Name = "VA", Lower = "VA", Frequency = ProfileRevisionDatesForm.FieldVaFrequency, Next = ProfileRevisionDatesForm.FieldNextVa, Status = ProfileRevisionDatesForm.FieldVaStatus, Editable = Model.Editable.Va },
+        new { Name = "Policy", Lower = "policy", Frequency = ProfileRevisionDatesForm.FieldPolicyFrequency, Next = ProfileRevisionDatesForm.FieldNextPolicy, Status = ProfileRevisionDatesForm.FieldPolicyStatus, Editable = Model.Editable.Policy }
     };
 
     static string ValueOf(RevisionDatesRowView row, string field) => field switch
@@ -52,7 +53,7 @@ else
         <div class="app-revision-set-all" id="revision-dates-set-all">
             <h3 class="govuk-heading-s">Set For All Sections:</h3>
             <table class="app-revision-dates-layout" role="presentation">
-                @foreach (var review in reviews)
+                @foreach (var review in reviews.Where(review => review.Editable))
                 {
                     var statusId = $"revall-{review.Status}";
                     var nextId = $"revall-{review.Next}";
@@ -96,7 +97,7 @@ else
                 <tr>
                     <td><label class="govuk-label" for="@frequencyId">@review.Name review frequency:</label></td>
                     <td>
-                        @if (Model.IsEditable)
+                        @if (review.Editable)
                         {
                             <select class="govuk-select" id="@frequencyId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Frequency)">
                                 @foreach (var option in Model.FrequencyOptions)
@@ -113,7 +114,7 @@ else
                     <td class="app-revision-dates-layout__gap"></td>
                     <td><label class="govuk-label" for="@nextId">Next @review.Lower review:</label></td>
                     <td>
-                        @if (Model.IsEditable)
+                        @if (review.Editable)
                         {
                             <input class="govuk-input app-revision-dates-date" id="@nextId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Next)" type="text" autocomplete="off"
                                    value="@ValueOf(row, review.Next)" data-revision-field="@review.Next" aria-describedby="revision-date-hint"
@@ -132,7 +133,7 @@ else
                 <tr>
                     <td><label class="govuk-label" for="@statusId">@review.Name review status:</label></td>
                     <td>
-                        @if (Model.IsEditable)
+                        @if (review.Editable)
                         {
                             <select class="govuk-select" id="@statusId" name="@ProfileRevisionDatesForm.FieldName(row.ProfileSectionId, review.Status)" data-revision-field="@review.Status">
                                 @foreach (var option in Model.StatusOptions)

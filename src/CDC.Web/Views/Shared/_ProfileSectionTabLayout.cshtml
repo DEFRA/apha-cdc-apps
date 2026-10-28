@@ -66,7 +66,7 @@ else
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-one-quarter">
-            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(Model.CanPrintProfileSection, Model.CanViewProfileReports, Model.BuildNotesUrl(Model.ProfileId), false, subnavModel, Model.BuildPrintUrl())" />
+            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(Model.CanPrintProfileSection, Model.CanViewProfileReports, Model.CanViewNotes ? Model.BuildNotesUrl(Model.ProfileId) : null, false, subnavModel, Model.BuildPrintUrl())" />
         </div>
         <div class="govuk-grid-column-three-quarters">
             @if (Model.CurrentSection is null)

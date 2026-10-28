@@ -45,9 +45,33 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets a value indicating whether the summary report links are shown (legacy <c>CanGetSummaryReport()</c>).</summary>
     public bool CanViewProfileReports { get; private set; }
 
-    /// <summary>Gets a value indicating whether the section's answers and revision dates are editable (legacy
-    /// <c>ProfileVersionSection.CanEditProfileVersionSection()</c>).</summary>
+    /// <summary>Gets a value indicating whether the selected section's answers, references and further information are
+    /// editable (legacy <c>ProfileVersionSection.CanEditProfileVersionSection()</c>): the current draft, for a profile editor
+    /// or an author assigned to this section.</summary>
     public bool CanEditProfileSection { get; private set; }
+
+    /// <summary>Gets a value indicating whether the user can change the author (technical) review's frequency, next date
+    /// and status on the All Revision dates tab.</summary>
+    public bool CanEditAuthorReviewDates { get; private set; }
+
+    /// <summary>Gets a value indicating whether the user can change the VA review's frequency, next date and status on the
+    /// All Revision dates tab.</summary>
+    public bool CanEditVaReviewDates { get; private set; }
+
+    /// <summary>Gets a value indicating whether the user can change the policy review's frequency, next date and status on
+    /// the All Revision dates tab.</summary>
+    public bool CanEditPolicyReviewDates { get; private set; }
+
+    /// <summary>Gets a value indicating whether the user can change any review's dates, which makes the All Revision
+    /// dates tab editable.</summary>
+    public bool CanEditAnyReviewDates => CanEditAuthorReviewDates || CanEditVaReviewDates || CanEditPolicyReviewDates;
+
+    /// <summary>Gets a value indicating whether the user can add review comments, and edit or delete their own.</summary>
+    public bool CanAddReviewComments { get; private set; }
+
+    /// <summary>Gets a value indicating whether the user can read the profile's notes, which decides whether the "Profile
+    /// references" link is shown.</summary>
+    public bool CanViewNotes { get; private set; }
 
     /// <summary>Gets a value indicating whether the "Clear" button is shown (legacy <c>CanClearProfileVersionSection()</c>).</summary>
     public bool CanClearProfileSection { get; private set; }
@@ -211,6 +235,7 @@ public abstract class ProfileSectionTabPageModel(
             }
 
             CurrentSection = (Section.HasValue ? Sections.FirstOrDefault(s => s.Id == Section.Value) : null) ?? Sections[0];
+            CanEditProfileSection = CanEditSection(profile, CurrentSection.Id);
             var currentIndex = Sections.ToList().IndexOf(CurrentSection);
             PreviousSection = currentIndex > 0 ? Sections[currentIndex - 1] : null;
             NextSection = currentIndex < Sections.Count - 1 ? Sections[currentIndex + 1] : null;
@@ -242,12 +267,24 @@ public abstract class ProfileSectionTabPageModel(
         CanPrintProfileSection = profile.CanPrintProfileSection;
         CanViewProfileReports = profile.CanViewProfileReports;
         CanEditProfileSection = profile.CanEditProfileSection;
+        CanEditAuthorReviewDates = profile.CanEditAuthorReviewDates;
+        CanEditVaReviewDates = profile.CanEditVaReviewDates;
+        CanEditPolicyReviewDates = profile.CanEditPolicyReviewDates;
+        CanAddReviewComments = profile.CanAddReviewComments;
+        CanViewNotes = profile.CanViewNotes;
         CanClearProfileSection = profile.CanClearProfileSection;
         IsWhatIfScenario = profile.IsWhatIfScenario;
         CanViewReviewComments = profile.CanViewReviewComments;
         CanViewContributions = profile.CanViewContributions;
         CanViewAllRevisionDates = profile.CanViewAllRevisionDates;
     }
+
+    /// <summary>Whether the user may edit one section. A profile editor may edit every section; an author only the sections
+    /// assigned to them, which CDC.Api lists in <see cref="ManageProfileContract.EditableSectionIds"/>. A list that is empty
+    /// places no limit on the sections, as for the editor.</summary>
+    private static bool CanEditSection(ManageProfileViewModel profile, Guid sectionId) =>
+        profile.CanEditProfileSection
+        && (profile.CanEditAllSections || profile.EditableSectionIds.Count == 0 || profile.EditableSectionIds.Contains(sectionId));
 
     /// <summary>Loads every section's validation status, resiliently: a failure degrades to no icons rather than
     /// failing the page. Pages call it again after saving or clearing, so the icons never show a stale result.</summary>

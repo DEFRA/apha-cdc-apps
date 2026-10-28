@@ -265,18 +265,26 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Contains("<title>D2R2</title>", body);
         Assert.True(body.IndexOf("Welcome", StringComparison.Ordinal) < body.IndexOf("Popular on D2R2", StringComparison.Ordinal));
         Assert.Contains("href=\"/SurveillanceProfiles/Search\">Search disease profiles</a>", body);
-        Assert.Contains("href=\"/Reports/DiseaseRanking\">Disease ranking report</a>", body);
-        Assert.Contains("href=\"/Reports/General\">General reports</a>", body);
         Assert.Contains("href=\"/ViewSpeciesData\">View species data</a>", body);
         Assert.Contains("href=\"/HelpSupport/StaticReports?UserManual=1\">Help using D2R2</a>", body);
+    }
+
+    // An external user holds no global role, so the disease ranking report and the general reports are not offered to them.
+    [Fact]
+    public async Task External_IsNotOfferedTheDiseaseRankingReportOrTheGeneralReports()
+    {
+        var client = await _factory.SignedInExternalClientAsync();
+
+        var body = await client.GetStringAsync("/Landing/External");
+
+        Assert.DoesNotContain("Disease ranking report", body);
+        Assert.DoesNotContain("General reports", body);
     }
 
     // Every link on the External page, plus the footer's Help and Support, must open for a CIDM-only session
     // rather than sending the user to the internal (Entra ID) sign-in.
     [Theory]
     [InlineData("/SurveillanceProfiles/Search")]
-    [InlineData("/Reports/DiseaseRanking")]
-    [InlineData("/Reports/General")]
     [InlineData("/ViewSpeciesData")]
     [InlineData("/HelpSupport/StaticReports?UserManual=1")]
     public async Task ExternalUser_CanOpenThePagesLinkedFromTheExternalPage(string url)

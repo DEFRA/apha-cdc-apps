@@ -111,8 +111,8 @@ public class EditProfileReviewCommentsModel(
     /// <summary>Gets a value indicating whether <see cref="ActionMessage"/> reports a failure.</summary>
     public bool ActionMessageIsError { get; private set; }
 
-    /// <summary>Gets a value indicating whether the user may add a comment (legacy <c>CanAddReviewComment</c>).</summary>
-    public bool CanAdd => CanEditProfileSection;
+    /// <summary>Gets a value indicating whether the user may add a comment: a profile editor, on the current draft.</summary>
+    public bool CanAdd => CanAddReviewComments;
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {

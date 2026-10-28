@@ -9,7 +9,7 @@ namespace CDC.Web.Pages.HelpSupport;
 /// Redirects to the current "D2R2 Quality Statement" document, streamed by this app's
 /// <c>/static-reports/versions/{id}/document</c> endpoint because CDC.Api is not browser-reachable.
 /// </summary>
-[Authorize(Policy = AuthorizationPolicies.CanViewReports)]
+[Authorize(Policy = AuthorizationPolicies.CanViewHelp)]
 public class QualityStatementModel : BreadcrumbPageModelBase
 {
     /// <summary>Matches the title legacy uploads this report under - see <c>Footer.ascx.vb</c>.</summary>

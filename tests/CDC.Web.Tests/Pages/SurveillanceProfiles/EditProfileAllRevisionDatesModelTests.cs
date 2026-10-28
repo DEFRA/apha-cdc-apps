@@ -95,7 +95,7 @@ public class EditProfileAllRevisionDatesModelTests
     [Fact]
     public async Task OnGetAsync_ShowsTheRevisionDatesReadOnly_WhenTheUserCannotEdit()
     {
-        var (pageModel, _) = CreatePageModel(DraftProfile() with { CanEditProfileSection = false });
+        var (pageModel, _) = CreatePageModel(ReadOnlyDraftProfile());
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
@@ -206,7 +206,7 @@ public class EditProfileAllRevisionDatesModelTests
     [Fact]
     public async Task OnPostSaveRevisionDatesAsync_DoesNotSave_WhenTheUserCannotEdit()
     {
-        var (pageModel, service) = CreatePageModel(DraftProfile() with { CanEditProfileSection = false }, RevisionForm());
+        var (pageModel, service) = CreatePageModel(ReadOnlyDraftProfile(), RevisionForm());
 
         await pageModel.OnPostSaveRevisionDatesAsync(ProfileVersionId, CancellationToken.None);
 
@@ -223,5 +223,54 @@ public class EditProfileAllRevisionDatesModelTests
 
         Assert.IsType<NotFoundResult>(result);
         Assert.Null(service.SavedRevisionDates);
+    }
+
+    // An author can change only the review their role owns, so the tab is editable for the one review and shows the rest as text.
+    [Fact]
+    public async Task OnGetAsync_OffersOnlyTheReviewTheUsersRoleOwnsForEditing()
+    {
+        var (pageModel, _) = CreatePageModel(ReadOnlyDraftProfile() with { CanEditProfileSection = true, CanEditVaReviewDates = true });
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var tab = Assert.IsType<RevisionDatesTabView>(pageModel.RevisionDatesTab);
+        Assert.True(tab.IsEditable);
+        Assert.Equal(new EditableReviews(Author: false, Va: true, Policy: false), tab.Editable);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsEveryReviewEditable_ForAProfileEditor()
+    {
+        var (pageModel, _) = CreatePageModel(DraftProfile());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(EditableReviews.All, Assert.IsType<RevisionDatesTabView>(pageModel.RevisionDatesTab).Editable);
+    }
+
+    [Fact]
+    public async Task OnPostSaveRevisionDatesAsync_KeepsTheStoredValuesOfTheReviewsTheUsersRoleDoesNotOwn()
+    {
+        var policyAuthor = ReadOnlyDraftProfile() with { CanEditProfileSection = true, CanEditPolicyReviewDates = true };
+        var (pageModel, service) = CreatePageModel(policyAuthor, RevisionForm(vaNext: "2 February 2028"));
+
+        await pageModel.OnPostSaveRevisionDatesAsync(ProfileVersionId, CancellationToken.None);
+
+        var saved = Assert.Single(service.SavedRevisionDates!);
+        Assert.Equal(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), saved.NextVaReview);
+        Assert.Equal(YearlyFrequencyId, saved.VaReviewFrequencyId);
+        Assert.Equal(CompleteStatusId, saved.AuthorReviewStatusId);
+    }
+
+    [Fact]
+    public async Task OnPostSaveRevisionDatesAsync_DoesNotSave_WhenTheUserMayChangeNoReview()
+    {
+        var reviewer = ReadOnlyDraftProfile() with { CanEditProfileSection = true };
+        var (pageModel, service) = CreatePageModel(reviewer, RevisionForm());
+
+        await pageModel.OnPostSaveRevisionDatesAsync(ProfileVersionId, CancellationToken.None);
+
+        Assert.Null(service.SavedRevisionDates);
+        Assert.NotNull(pageModel.RevisionDatesSaveError);
     }
 }

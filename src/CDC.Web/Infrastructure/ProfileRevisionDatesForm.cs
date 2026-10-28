@@ -45,23 +45,7 @@ public static class ProfileRevisionDatesForm
     /// <param name="source">The revision dates read from CDC.Api.</param>
     /// <returns>The rows, in the order CDC.Api returned the sections.</returns>
     public static IReadOnlyList<RevisionDatesRowView> BuildRows(ProfileVersionAllRevisionDatesDto source) =>
-    [
-        .. source.Sections.Select(section => new RevisionDatesRowView
-        {
-            ProfileSectionId = section.ProfileSectionId,
-            SectionDisplay = SectionDisplay(section),
-            AuthorFrequency = IdText(section.AuthorReviewFrequencyId),
-            VaFrequency = IdText(section.VaReviewFrequencyId),
-            PolicyFrequency = IdText(section.PolicyReviewFrequencyId),
-            NextAuthorReview = DateText(section.NextAuthorReview),
-            NextVaReview = DateText(section.NextVaReview),
-            NextPolicyReview = DateText(section.NextPolicyReview),
-            AuthorStatus = IdText(section.AuthorReviewStatusId),
-            VaStatus = IdText(section.VaReviewStatusId),
-            PolicyStatus = IdText(section.PolicyReviewStatusId),
-            LastUpdated = Convert.ToBase64String(section.LastUpdated)
-        })
-    ];
+        [.. source.Sections.Select(section => StoredRow(section, Convert.ToBase64String(section.LastUpdated)))];
 
     /// <summary>Gets the posted field name for one control of one section's row.</summary>
     /// <param name="sectionId">The section.</param>
@@ -124,16 +108,19 @@ public static class ProfileRevisionDatesForm
 
     /// <summary>
     /// Reads every section's submitted values and validates them against the options CDC.Api
-    /// offered.
+    /// offered. A review the user may not change keeps the value CDC.Api holds, whatever the form posted, so a hand-made
+    /// post cannot change it and a tab that shows it read-only does not have to post it.
     /// </summary>
     /// <param name="form">The submitted form.</param>
     /// <param name="source">The revision dates freshly read from CDC.Api (section list and option lists).</param>
+    /// <param name="editable">The reviews the user may change; every review when omitted.</param>
     /// <returns>The submitted rows (with their errors), every error message, and the save request.</returns>
-    public static RevisionDatesParseResult Parse(IFormCollection form, ProfileVersionAllRevisionDatesDto source)
+    public static RevisionDatesParseResult Parse(IFormCollection form, ProfileVersionAllRevisionDatesDto source, EditableReviews? editable = null)
     {
         ArgumentNullException.ThrowIfNull(form);
         ArgumentNullException.ThrowIfNull(source);
 
+        var changeable = editable ?? EditableReviews.All;
         var validFrequencies = source.ReviewFrequencies.Select(item => item.Id).ToHashSet();
         var validStatuses = source.ReviewStatuses.Select(item => item.Id).ToHashSet();
 
@@ -143,65 +130,162 @@ public static class ProfileRevisionDatesForm
 
         foreach (var section in source.Sections)
         {
-            var display = SectionDisplay(section);
-            var errors = new List<string>();
+            var (row, input) = ParseSection(form, section, changeable, validFrequencies, validStatuses);
+            rows.Add(row);
+            allErrors.AddRange(row.Errors);
 
-            var row = new RevisionDatesRowView
+            if (input is not null)
             {
-                ProfileSectionId = section.ProfileSectionId,
-                SectionDisplay = display,
-                AuthorFrequency = ReadField(form, section, FieldAuthorFrequency),
-                VaFrequency = ReadField(form, section, FieldVaFrequency),
-                PolicyFrequency = ReadField(form, section, FieldPolicyFrequency),
-                NextAuthorReview = ReadField(form, section, FieldNextAuthor),
-                NextVaReview = ReadField(form, section, FieldNextVa),
-                NextPolicyReview = ReadField(form, section, FieldNextPolicy),
-                AuthorStatus = ReadField(form, section, FieldAuthorStatus),
-                VaStatus = ReadField(form, section, FieldVaStatus),
-                PolicyStatus = ReadField(form, section, FieldPolicyStatus),
-                LastUpdated = ReadField(form, section, FieldLastUpdated)
-            };
-
-            var lastUpdated = ParseRowVersion(row.LastUpdated);
-            if (lastUpdated is null)
-            {
-                errors.Add($"{display}: the section's revision data could not be read. Reload the page and try again.");
-            }
-
-            var authorFrequency = ParseOption(row.AuthorFrequency, validFrequencies, "Author review frequency", errors);
-            var vaFrequency = ParseOption(row.VaFrequency, validFrequencies, "VA review frequency", errors);
-            var policyFrequency = ParseOption(row.PolicyFrequency, validFrequencies, "Policy review frequency", errors);
-            var authorStatus = ParseOption(row.AuthorStatus, validStatuses, "Author review status", errors);
-            var vaStatus = ParseOption(row.VaStatus, validStatuses, "VA review status", errors);
-            var policyStatus = ParseOption(row.PolicyStatus, validStatuses, "Policy review status", errors);
-            var nextAuthor = ParseDate(row.NextAuthorReview, "Next author review date", errors);
-            var nextVa = ParseDate(row.NextVaReview, "Next VA review date", errors);
-            var nextPolicy = ParseDate(row.NextPolicyReview, "Next policy review date", errors);
-
-            var prefixedErrors = errors.Select(error => error.StartsWith(display, StringComparison.Ordinal) ? error : $"{display}: {error}").ToList();
-            allErrors.AddRange(prefixedErrors);
-            rows.Add(row with { Errors = prefixedErrors });
-
-            if (prefixedErrors.Count == 0 && lastUpdated is not null)
-            {
-                inputs.Add(new ProfileSectionRevisionDatesInputDto
-                {
-                    ProfileSectionId = section.ProfileSectionId,
-                    AuthorReviewFrequencyId = authorFrequency,
-                    VaReviewFrequencyId = vaFrequency,
-                    PolicyReviewFrequencyId = policyFrequency,
-                    NextAuthorReview = nextAuthor,
-                    NextVaReview = nextVa,
-                    NextPolicyReview = nextPolicy,
-                    AuthorReviewStatusId = authorStatus,
-                    VaReviewStatusId = vaStatus,
-                    PolicyReviewStatusId = policyStatus,
-                    LastUpdated = lastUpdated
-                });
+                inputs.Add(input);
             }
         }
 
         return new RevisionDatesParseResult(rows, allErrors, inputs);
+    }
+
+    private static (RevisionDatesRowView Row, ProfileSectionRevisionDatesInputDto? Input) ParseSection(
+        IFormCollection form,
+        ProfileSectionRevisionDatesDto section,
+        EditableReviews changeable,
+        HashSet<Guid> validFrequencies,
+        HashSet<Guid> validStatuses)
+    {
+        var row = ReadRow(form, section, changeable);
+        var errors = new List<string>();
+
+        var lastUpdated = ParseRowVersion(row.LastUpdated);
+        if (lastUpdated is null)
+        {
+            errors.Add("the section's revision data could not be read. Reload the page and try again.");
+        }
+
+        // Frequencies, then statuses, then dates: the order a section's messages are reported in.
+        var input = ParseFrequencies(StoredInput(section), row, changeable, validFrequencies, errors);
+        input = ParseStatuses(input, row, changeable, validStatuses, errors);
+        input = ParseDates(input, row, changeable, errors);
+
+        var prefixedErrors = errors.Select(error => $"{row.SectionDisplay}: {error}").ToList();
+        var rowWithErrors = row with { Errors = prefixedErrors };
+
+        if (prefixedErrors.Count > 0 || lastUpdated is null)
+        {
+            return (rowWithErrors, null);
+        }
+
+        return (rowWithErrors, input with { LastUpdated = lastUpdated });
+    }
+
+    private static RevisionDatesRowView ReadRow(IFormCollection form, ProfileSectionRevisionDatesDto section, EditableReviews changeable)
+    {
+        var row = StoredRow(section, ReadField(form, section, FieldLastUpdated));
+
+        if (changeable.Author)
+        {
+            row = row with
+            {
+                AuthorFrequency = ReadField(form, section, FieldAuthorFrequency),
+                NextAuthorReview = ReadField(form, section, FieldNextAuthor),
+                AuthorStatus = ReadField(form, section, FieldAuthorStatus)
+            };
+        }
+
+        if (changeable.Va)
+        {
+            row = row with
+            {
+                VaFrequency = ReadField(form, section, FieldVaFrequency),
+                NextVaReview = ReadField(form, section, FieldNextVa),
+                VaStatus = ReadField(form, section, FieldVaStatus)
+            };
+        }
+
+        if (changeable.Policy)
+        {
+            row = row with
+            {
+                PolicyFrequency = ReadField(form, section, FieldPolicyFrequency),
+                NextPolicyReview = ReadField(form, section, FieldNextPolicy),
+                PolicyStatus = ReadField(form, section, FieldPolicyStatus)
+            };
+        }
+
+        return row;
+    }
+
+    private static RevisionDatesRowView StoredRow(ProfileSectionRevisionDatesDto section, string lastUpdated) => new()
+    {
+        ProfileSectionId = section.ProfileSectionId,
+        SectionDisplay = SectionDisplay(section),
+        AuthorFrequency = IdText(section.AuthorReviewFrequencyId),
+        VaFrequency = IdText(section.VaReviewFrequencyId),
+        PolicyFrequency = IdText(section.PolicyReviewFrequencyId),
+        NextAuthorReview = DateText(section.NextAuthorReview),
+        NextVaReview = DateText(section.NextVaReview),
+        NextPolicyReview = DateText(section.NextPolicyReview),
+        AuthorStatus = IdText(section.AuthorReviewStatusId),
+        VaStatus = IdText(section.VaReviewStatusId),
+        PolicyStatus = IdText(section.PolicyReviewStatusId),
+        LastUpdated = lastUpdated
+    };
+
+    // The save request that leaves the section as CDC.Api holds it; what the user may change replaces the values it covers.
+    private static ProfileSectionRevisionDatesInputDto StoredInput(ProfileSectionRevisionDatesDto section) => new()
+    {
+        ProfileSectionId = section.ProfileSectionId,
+        AuthorReviewFrequencyId = section.AuthorReviewFrequencyId,
+        VaReviewFrequencyId = section.VaReviewFrequencyId,
+        PolicyReviewFrequencyId = section.PolicyReviewFrequencyId,
+        NextAuthorReview = section.NextAuthorReview,
+        NextVaReview = section.NextVaReview,
+        NextPolicyReview = section.NextPolicyReview,
+        AuthorReviewStatusId = section.AuthorReviewStatusId,
+        VaReviewStatusId = section.VaReviewStatusId,
+        PolicyReviewStatusId = section.PolicyReviewStatusId,
+        LastUpdated = section.LastUpdated
+    };
+
+    private static ProfileSectionRevisionDatesInputDto ParseFrequencies(
+        ProfileSectionRevisionDatesInputDto input,
+        RevisionDatesRowView row,
+        EditableReviews changeable,
+        HashSet<Guid> validIds,
+        List<string> errors)
+    {
+        return input with
+        {
+            AuthorReviewFrequencyId = changeable.Author ? ParseOption(row.AuthorFrequency, validIds, "Author review frequency", errors) : input.AuthorReviewFrequencyId,
+            VaReviewFrequencyId = changeable.Va ? ParseOption(row.VaFrequency, validIds, "VA review frequency", errors) : input.VaReviewFrequencyId,
+            PolicyReviewFrequencyId = changeable.Policy ? ParseOption(row.PolicyFrequency, validIds, "Policy review frequency", errors) : input.PolicyReviewFrequencyId
+        };
+    }
+
+    private static ProfileSectionRevisionDatesInputDto ParseStatuses(
+        ProfileSectionRevisionDatesInputDto input,
+        RevisionDatesRowView row,
+        EditableReviews changeable,
+        HashSet<Guid> validIds,
+        List<string> errors)
+    {
+        return input with
+        {
+            AuthorReviewStatusId = changeable.Author ? ParseOption(row.AuthorStatus, validIds, "Author review status", errors) : input.AuthorReviewStatusId,
+            VaReviewStatusId = changeable.Va ? ParseOption(row.VaStatus, validIds, "VA review status", errors) : input.VaReviewStatusId,
+            PolicyReviewStatusId = changeable.Policy ? ParseOption(row.PolicyStatus, validIds, "Policy review status", errors) : input.PolicyReviewStatusId
+        };
+    }
+
+    private static ProfileSectionRevisionDatesInputDto ParseDates(
+        ProfileSectionRevisionDatesInputDto input,
+        RevisionDatesRowView row,
+        EditableReviews changeable,
+        List<string> errors)
+    {
+        return input with
+        {
+            NextAuthorReview = changeable.Author ? ParseDate(row.NextAuthorReview, "Next author review date", errors) : input.NextAuthorReview,
+            NextVaReview = changeable.Va ? ParseDate(row.NextVaReview, "Next VA review date", errors) : input.NextVaReview,
+            NextPolicyReview = changeable.Policy ? ParseDate(row.NextPolicyReview, "Next policy review date", errors) : input.NextPolicyReview
+        };
     }
 
     private static string SectionDisplay(ProfileSectionRevisionDatesDto section) => $"{section.SectionNumber}. {section.SectionName}";

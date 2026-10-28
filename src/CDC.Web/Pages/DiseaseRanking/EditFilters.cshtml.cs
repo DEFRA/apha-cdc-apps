@@ -1,5 +1,7 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -13,6 +15,7 @@ namespace CDC.Web.Pages.DiseaseRanking;
 /// <param name="diseaseRankingFiltersApiService">Typed client for the disease ranking filter endpoints on CDC.Api.</param>
 /// <param name="speciesApiService">Typed client for the species endpoints on CDC.Api.</param>
 /// <param name="logger">Structured logger.</param>
+[Authorize(Policy = AuthorizationPolicies.CanManageDiseaseRankingFilters)]
 public class EditFiltersModel(
     IDiseaseRankingFiltersApiService diseaseRankingFiltersApiService,
     ISpeciesApiService speciesApiService,
