@@ -1,7 +1,6 @@
 using CDC.Common.Comparison;
-using FluentAssertions;
 
-namespace CDC.Api.Tests.ReviewNotifications;
+namespace CDC.Web.Tests.Infrastructure;
 
 public class ProfileVersionComparisonHtmlTests
 {
@@ -18,9 +17,13 @@ public class ProfileVersionComparisonHtmlTests
 
         var html = ProfileVersionComparisonHtml.Render([Report(new ComparisonSection("1. Intro", [question]))]);
 
-        html.Should().Contain("Left &lt;1&gt;").And.Contain("Is it &lt;here&gt;?")
-            .And.Contain("<span class=\"removed\">old</span>").And.Contain("<span class=\"added\">new</span>")
-            .And.Contain(" &lt;b&gt;").And.Contain("Row 1").And.NotContain("<b>");
+        Assert.Contains("Left &lt;1&gt;", html, StringComparison.Ordinal);
+        Assert.Contains("Is it &lt;here&gt;?", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"removed\">old</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"added\">new</span>", html, StringComparison.Ordinal);
+        Assert.Contains(" &lt;b&gt;", html, StringComparison.Ordinal);
+        Assert.Contains("Row 1", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<b>", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -28,7 +31,8 @@ public class ProfileVersionComparisonHtmlTests
     {
         var html = ProfileVersionComparisonHtml.Render([Report(new ComparisonSection("1. Intro", []))]);
 
-        html.Should().Contain("- Sections are identical -").And.Contain("The two profile versions are identical.");
+        Assert.Contains("- Sections are identical -", html, StringComparison.Ordinal);
+        Assert.Contains("The two profile versions are identical.", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -36,6 +40,8 @@ public class ProfileVersionComparisonHtmlTests
     {
         var html = ProfileVersionComparisonHtml.Render([Report(), Report()]);
 
-        html.Split("<div class=\"report\">").Length.Should().Be(3);
+        Assert.Equal(3, html.Split("<div class=\"report\">").Length);
     }
 }
+
+

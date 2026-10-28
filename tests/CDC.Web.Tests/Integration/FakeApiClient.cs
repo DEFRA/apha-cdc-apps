@@ -7,8 +7,13 @@ namespace CDC.Web.Tests.Integration;
 // CDC.Api. Only SearchProfilesAsync is exercised by these tests.
 internal sealed class FakeApiClient(
     IReadOnlyList<ProfileSearchResultDto>? searchResults = null,
-    ProfileAttributesDto? profileAttributes = null) : IApiClient
+    ProfileAttributesDto? profileAttributes = null,
+    Exception? searchFailure = null,
+    Exception? attributesFailure = null,
+    int searchesBeforeFailure = 0) : IApiClient
 {
+    private int searchCalls;
+
     private readonly IReadOnlyList<ProfileSearchResultDto> results = searchResults ?? [];
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
@@ -21,10 +26,12 @@ internal sealed class FakeApiClient(
         bool displayScenarios,
         SearchForType searchForType,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(results);
+        searchFailure is null || searchCalls++ < searchesBeforeFailure ? Task.FromResult(results) : Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(searchFailure);
 
     public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(profileAttributes?.Id == profileId ? profileAttributes : null);
+        attributesFailure is null
+            ? Task.FromResult(profileAttributes?.Id == profileId ? profileAttributes : null)
+            : Task.FromException<ProfileAttributesDto?>(attributesFailure);
 
     public Task<UpdateProfileTitleResult> UpdateProfileTitleAsync(
         Guid profileId,

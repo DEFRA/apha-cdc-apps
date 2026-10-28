@@ -43,12 +43,17 @@ public class CompareVersionsIntegrationTests
         }
     ];
 
-    private static WebApplicationFactory<Program> CreateFactory(CapturingPdfRenderer pdf, ProfileAttributesDto? attributes = null) =>
+    private static WebApplicationFactory<Program> CreateFactory(
+        CapturingPdfRenderer pdf,
+        ProfileAttributesDto? attributes = null,
+        Exception? searchFailure = null,
+        Exception? attributesFailure = null,
+        int searchesBeforeFailure = 0) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(Profiles, attributes));
+                services.AddSingleton<IApiClient>(new FakeApiClient(Profiles, attributes, searchFailure, attributesFailure, searchesBeforeFailure));
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(
                     metadata: new ProfileQuestionnaireMetadataDto
@@ -208,6 +213,39 @@ public class CompareVersionsIntegrationTests
         Assert.Contains("There is a problem", body, StringComparison.Ordinal);
         Assert.Contains("There is no draft and published version of this profile to compare", body, StringComparison.Ordinal);
         Assert.Empty(pdf.Html);
+    }
+
+    [Fact]
+    public async Task ReviewLink_ShowsError_WhenTheProfilesCannotBeLoaded()
+    {
+        using var factory = CreateFactory(new CapturingPdfRenderer(), searchFailure: new HttpRequestException("down"));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"{PagePath}?handler=Review&profileId={ProfileId}");
+
+        Assert.Contains("Unable to retrieve profiles", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReviewLink_ShowsError_WhenTheProfileCannotBeLoaded()
+    {
+        using var factory = CreateFactory(new CapturingPdfRenderer(), attributesFailure: new HttpRequestException("down"));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"{PagePath}?handler=Review&profileId={ProfileId}");
+
+        Assert.Contains("Unable to retrieve the profile.", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Post_ShowsError_WhenTheProfilesCannotBeLoaded()
+    {
+        using var factory = CreateFactory(new CapturingPdfRenderer(), searchFailure: new HttpRequestException("down"), searchesBeforeFailure: 1);
+        var client = await factory.SignedInClientAsync();
+
+        var body = await (await Post(client, EarlierId, LaterId)).Content.ReadAsStringAsync();
+
+        Assert.Contains("Unable to retrieve profiles", body, StringComparison.Ordinal);
     }
 
     private static ProfileAttributesDto Attributes(Guid publishedId, Guid draftId) => new()

@@ -86,7 +86,7 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         new ReviewItem(row.NextTechnicalReview, row.TechnicalReviewStatus),
         new ReviewItem(row.NextPolicyReview, row.PolicyReviewStatus));
 
-    private sealed class UserRow
+    internal sealed class UserRow
     {
         public Guid Id { get; set; }
 
@@ -95,7 +95,7 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         public string EmailAddress { get; set; } = string.Empty;
     }
 
-    private sealed class ProfileRow
+    internal sealed class ProfileRow
     {
         public Guid UserId { get; set; }
 
@@ -114,7 +114,7 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         public bool HasPublishedVersion { get; set; }
     }
 
-    private sealed class RoleRow
+    internal sealed class RoleRow
     {
         public Guid UserId { get; set; }
 
@@ -123,7 +123,7 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         public string RoleName { get; set; } = string.Empty;
     }
 
-    private sealed class SectionRow
+    internal sealed class SectionRow
     {
         public Guid UserId { get; set; }
 
