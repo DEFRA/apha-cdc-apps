@@ -90,7 +90,7 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("Bovine tuberculosis", body);
         Assert.DoesNotContain("Edit Title", body);
         Assert.DoesNotContain("EditProfileTitle", body);
-        Assert.Contains(">Manage</a>", body);
+        Assert.DoesNotContain(">Manage</a>", body);
     }
 
     // The script submits the form for these links, so the address they carry cannot bring back a keyword cleared since the last search.

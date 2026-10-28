@@ -81,11 +81,14 @@
                                         @if (canEditProfile)
                                         {
                                             <span aria-hidden="true"> | </span>
+                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
                                         }
-                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
                                         @if (canViewContributionsReport)
                                         {
-                                            <span aria-hidden="true"> | </span>
+                                            @if (canEditProfile)
+                                            {
+                                                <span aria-hidden="true"> | </span>
+                                            }
                                             <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
                                         }
                                     }
@@ -101,10 +104,16 @@
                                     <div class="app-profile-card__header govuk-!-margin-bottom-2">
                                         <h4 class="govuk-heading-s govuk-!-margin-bottom-0">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(scenario.Title)</h4>
                                         <p class="govuk-body govuk-!-margin-bottom-0">
-                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@scenario.ScenarioId">Manage<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            @if (canEditProfile)
+                                            {
+                                                <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@scenario.ScenarioId">Manage<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            }
                                             @if (canViewContributionsReport)
                                             {
-                                                <span aria-hidden="true"> | </span>
+                                                @if (canEditProfile)
+                                                {
+                                                    <span aria-hidden="true"> | </span>
+                                                }
                                                 <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@scenario.ScenarioId">Contributions<span class="govuk-visually-hidden"> @scenarioName</span></a>
                                             }
                                         </p>

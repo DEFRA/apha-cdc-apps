@@ -280,13 +280,10 @@ public sealed class ProfileSectionService(
     {
         var userId = userContext.RequireUserId();
         var version = await versions.RequireAsync(profileVersionId, cancellationToken);
-        var editableReviews = Enum.GetValues<ReviewType>()
-            .Where(reviewType => ProfileAccess.CanEditReviewDates(userContext, version, reviewType))
-            .ToHashSet();
 
-        if (editableReviews.Count == 0)
+        if (!ProfileAccess.CanEditReviewDates(userContext, version))
         {
-            throw new UnauthorizedAccessException("Only a profile editor, or an author, can change the review dates of the current draft.");
+            throw new UnauthorizedAccessException("Only a profile editor can change the review dates of the current draft.");
         }
 
         var frequencies = await repository.GetReviewFrequenciesAsync(cancellationToken);
@@ -308,11 +305,6 @@ public sealed class ProfileSectionService(
             {
                 failures.Add(new ValidationFailure($"Sections[{index}].ProfileSectionId", "The section does not exist in this profile version."));
                 continue;
-            }
-
-            if (Enum.GetValues<ReviewType>().Any(reviewType => !editableReviews.Contains(reviewType) && ChangesReview(input, existing, reviewType)))
-            {
-                throw new UnauthorizedAccessException("An author can only change the dates of the review type they own.");
             }
 
             var sectionFailureCount = failures.Count;

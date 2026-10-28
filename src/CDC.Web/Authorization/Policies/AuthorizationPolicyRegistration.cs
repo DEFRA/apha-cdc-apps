@@ -7,11 +7,9 @@ namespace CDC.Web.Authorization.Policies;
 /// <summary>
 /// Registers every named policy from <see cref="AuthorizationPolicies"/>, with the allowed roles for each
 /// role-based policy (an <see cref="AllowedRolesRequirement"/>) centralized here - the single place to change a
-/// role mapping. Each list follows the legacy <c>CanXxx()</c> method it replaces, except where the role matrix says
-/// otherwise: the policy profile user (an internal, global user) may also compare profile versions, run the disease ranking
-/// report and open the general reports, and an external user holds no global role at all, so none of those is open to
-/// one. Searching disease profiles, viewing species data and the Help and Support footer links are open to every signed-in
-/// user. What an external user may do with a particular profile is decided by CDC.Api, from their role on that profile.
+/// role mapping. Each list follows the legacy <c>CanXxx()</c> method it replaces. Searching disease profiles, viewing species
+/// data, the general reports and the Help and Support footer links are open to every signed-in user, as in legacy. What a
+/// contributor or reviewer may do with a particular profile is decided by CDC.Api, from their role on that profile.
 /// </summary>
 public static class AuthorizationPolicyRegistration
 {
@@ -27,13 +25,12 @@ public static class AuthorizationPolicyRegistration
             AuthorizationRoles.ProfileEditor);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewProfileComparison,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+            AuthorizationRoles.ProfileEditor);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewDiseaseRankingReport,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+            AuthorizationRoles.ProfileEditor);
 
-        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReports,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewReports);
 
         AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewHelp);
 

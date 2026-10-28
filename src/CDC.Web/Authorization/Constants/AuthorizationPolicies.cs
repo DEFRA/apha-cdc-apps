@@ -19,17 +19,15 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>Profile.CanEditProfile()</c>. Search results: the "Edit Title" link and the Edit profile title page.</summary>
     public const string CanEditProfile = nameof(CanEditProfile);
 
-    /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. Header: "Compare
-    /// profile versions". Profile editor or policy profile user; an external user cannot compare versions.</summary>
+    /// <summary>Legacy: <c>GetProfileVersionComparisonReportCommand.CanGetReport()</c>. Header: "Compare
+    /// profile versions". Profile editor only.</summary>
     public const string CanViewProfileComparison = nameof(CanViewProfileComparison);
 
-    /// <summary>Legacy: <c>NavigationLinks.ascx.vb</c> shows the "Disease ranking report" link to every
-    /// user (editors open the interactive report, everyone else the pre-generated static one). Header: "Disease
-    /// ranking report". Profile editor or policy profile user; an external user cannot open it.</summary>
+    /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. Header: "Disease ranking report". Profile
+    /// editor only (legacy gave everyone else a pre-generated static report, which is among the general reports).</summary>
     public const string CanViewDiseaseRankingReport = nameof(CanViewDiseaseRankingReport);
 
-    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Profile editor or policy profile
-    /// user; an external user cannot open the static reports.</summary>
+    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Open to every signed-in user.</summary>
     public const string CanViewReports = nameof(CanViewReports);
 
     /// <summary>Footer: "Help using D2R2" and "D2R2 Quality Statement", and the document download behind them. Open to every

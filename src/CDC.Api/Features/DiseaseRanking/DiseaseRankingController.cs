@@ -12,7 +12,7 @@ namespace CDC.Api.Features.DiseaseRanking;
 /// <param name="diseaseRankingService">Disease ranking report service.</param>
 [ApiController]
 [Route("api/disease-ranking")]
-[RequireGlobalRole(GlobalRole.ProfileEditor, GlobalRole.PolicyProfileUser)]
+[RequireGlobalRole(GlobalRole.ProfileEditor)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class DiseaseRankingController(IDiseaseRankingService diseaseRankingService) : ControllerBase

@@ -235,12 +235,30 @@ public class ProfileReviewCommentServiceTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task AddAsync_ReturnsForbidden_ForAnExternalAuthorOrReviewer(bool isContributor)
+    public async Task AddAsync_InsertsTheComment_ForAContributorOrReviewerOfTheProfile(bool isContributor)
     {
         userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
         userContext
             .Setup(context => context.GetProfileRole(ProfileSectionTestData.ProfileId))
             .Returns(new ProfileRoleAssignment(ProfileSectionTestData.ProfileId, Guid.NewGuid(), "Policy author", isContributor));
+        GivenVersion();
+        GivenActingUser();
+        repository
+            .Setup(repo => repo.InsertReviewCommentAsync(It.IsAny<NewProfileReviewComment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RowVersion);
+
+        var result = await CreateService().AddAsync(VersionId, SectionId, null, "S", "R", "T", CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public async Task AddAsync_ReturnsForbidden_ForAUserWithNoRoleOnTheProfile_IncludingAPolicyProfileUser(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isProfileEditor);
+        userContext.SetupGet(context => context.IsPolicyProfileUser).Returns(isPolicyProfileUser);
         GivenVersion();
 
         var result = await CreateService().AddAsync(VersionId, SectionId, null, "S", "R", "T", CancellationToken.None);
@@ -350,7 +368,7 @@ public class ProfileReviewCommentServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_ReturnsForbidden_WhenTheUserIsNotAProfileEditor()
+    public async Task DeleteAsync_ReturnsForbidden_WhenTheUserHasNoRoleOnTheProfile()
     {
         userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
         GivenVersion();
@@ -360,6 +378,31 @@ public class ProfileReviewCommentServiceTests
         var result = await CreateService().DeleteAsync(VersionId, SectionId, comment.Id, CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UpdateAsyncAndDeleteAsync_ChangeAContributorOrReviewersOwnReplyFreeComment(bool isContributor)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext
+            .Setup(context => context.GetProfileRole(ProfileSectionTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileSectionTestData.ProfileId, Guid.NewGuid(), "Technical reviewer", isContributor));
+        GivenVersion();
+        GivenActingUser();
+        var comment = Comment();
+        GivenComments(comment);
+        repository
+            .Setup(repo => repo.UpdateReviewCommentAsync(comment.Id, "S", "R", "T", RowVersion, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RowVersion);
+        repository.Setup(repo => repo.DeleteReviewCommentAsync(comment.Id, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var updated = await CreateService().UpdateAsync(VersionId, SectionId, comment.Id, new ReviewCommentContent("S", "R", "T"), RowVersion, CancellationToken.None);
+        var deleted = await CreateService().DeleteAsync(VersionId, SectionId, comment.Id, CancellationToken.None);
+
+        updated.IsSuccess.Should().BeTrue();
+        deleted.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
@@ -389,15 +432,21 @@ public class ProfileReviewCommentServiceTests
         repository.Verify(repo => repo.DeleteAllReviewCommentsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task DeleteAllAsync_ReturnsForbidden_WhenTheUserIsNotAProfileEditor()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DeleteAllAsync_ReturnsForbidden_WhenTheUserIsNotAProfileEditor_EvenForAContributorOrReviewer(bool isContributor)
     {
         userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext
+            .Setup(context => context.GetProfileRole(ProfileSectionTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileSectionTestData.ProfileId, Guid.NewGuid(), "Technical author", isContributor));
         GivenVersion();
 
         var result = await CreateService().DeleteAllAsync(VersionId, SectionId, CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.DeleteAllReviewCommentsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private sealed class FixedTimeProvider(DateTime localNow) : TimeProvider

@@ -5,8 +5,8 @@ namespace CDC.Api.Application;
 /// <summary>
 /// The signed-in user making the request: their <c>[User].Id</c>, which kind of user they are, and the roles that
 /// kind of user can hold. An internal user (<c>SsoUserIdInt</c>) holds the global profile editor or policy profile
-/// user role and nothing at profile level; an external user (<c>SsoUserIdExt</c>) holds roles on individual profiles
-/// and no global role. This keeps the legacy <c>ProfilesIdentity</c> flags (<c>IsProfileEditor</c>,
+/// user role or, when it holds neither, roles on individual profiles; an external user (<c>SsoUserIdExt</c>) holds roles
+/// on individual profiles and never a global role. This keeps the legacy <c>ProfilesIdentity</c> flags (<c>IsProfileEditor</c>,
 /// <c>IsUserManagementSystem</c>, <c>IsPolicyProfileUser</c>) that <c>Profile.vb</c> and
 /// <c>ProfileContributorList.vb</c> used to gate actions, and adds what <c>ProfileAccess</c> needs to apply the
 /// profile-level rules.
@@ -33,9 +33,12 @@ public interface IUserContext
     /// <summary>Gets which kind of user this is, from the sign-on identifier held on their row.</summary>
     UserKind Kind { get; }
 
-    /// <summary>Gets the role an external user holds on a profile.</summary>
+    /// <summary>Gets the role a user holds on a profile.</summary>
     /// <param name="profileId">The profile.</param>
-    /// <returns>The role, or <see langword="null"/> when the user is not an external user or holds no role on the profile.</returns>
+    /// <returns>
+    /// The role, or <see langword="null"/> when the user holds no role on the profile or cannot hold one: an unclassified user, or
+    /// an internal user who holds a global role.
+    /// </returns>
     ProfileRoleAssignment? GetProfileRole(Guid profileId);
 
     /// <summary>Gets whether an external author is assigned to a profile section.</summary>
@@ -79,7 +82,15 @@ public sealed class RequestUserContext : IUserContext
 
     /// <inheritdoc />
     public ProfileRoleAssignment? GetProfileRole(Guid profileId) =>
-        Kind == UserKind.External ? actingUser!.ProfileRoles.FirstOrDefault(role => role.ProfileId == profileId) : null;
+        HoldsProfileRoles ? actingUser!.ProfileRoles.FirstOrDefault(role => role.ProfileId == profileId) : null;
+
+    // An external user, or an internal user with no global role; a global role makes the profile-level rows irrelevant.
+    private bool HoldsProfileRoles => Kind switch
+    {
+        UserKind.External => true,
+        UserKind.Internal => !IsProfileEditor && !IsPolicyProfileUser,
+        _ => false
+    };
 
     /// <inheritdoc />
     public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) =>

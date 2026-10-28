@@ -7,7 +7,7 @@ namespace CDC.Api.Features.ProfileSearch;
 /// <summary>
 /// Default <see cref="IProfileSearchService"/>: reads through <see cref="IProfileRepository"/>
 /// and applies the text/status/letter filtering the legacy UI expects. A draft version appears in the results only for a
-/// user who may read it: a profile editor or policy profile user, or an external user who holds a role on the profile.
+/// user who may read it: a profile editor or policy profile user, or a user who holds a role on the profile.
 /// </summary>
 /// <param name="repository">Profile data access.</param>
 /// <param name="userContext">The current user, whose drafts are listed.</param>

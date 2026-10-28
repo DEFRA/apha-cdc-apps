@@ -1,7 +1,9 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.ViewContributionsReportModel
+@inject CDC.Web.Authorization.Services.INavigationAuthorizationService NavigationAuthorization
 @{
     ViewData["Title"] = "Contributions report";
+    var canEditProfile = await NavigationAuthorization.CanEditProfileAsync(User);
 }
 
 <div class="govuk-grid-row">
@@ -18,6 +20,13 @@
             </div>
         }
 
-        <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@Model.ProfileId">Back to manage profile</a>
+        @if (canEditProfile)
+        {
+            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@Model.ProfileId">Back to manage profile</a>
+        }
+        else
+        {
+            <a class="govuk-link" asp-page="/SurveillanceProfiles/Search">Back to search</a>
+        }
     </div>
 </div>

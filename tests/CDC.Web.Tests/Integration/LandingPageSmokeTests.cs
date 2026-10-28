@@ -269,16 +269,16 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Contains("href=\"/HelpSupport/StaticReports?UserManual=1\">Help using D2R2</a>", body);
     }
 
-    // An external user holds no global role, so the disease ranking report and the general reports are not offered to them.
+    // An external user holds no global role, so the disease ranking report is not offered to them; the general reports are open to every signed-in user.
     [Fact]
-    public async Task External_IsNotOfferedTheDiseaseRankingReportOrTheGeneralReports()
+    public async Task External_IsNotOfferedTheDiseaseRankingReport_ButIsOfferedTheGeneralReports()
     {
         var client = await _factory.SignedInExternalClientAsync();
 
         var body = await client.GetStringAsync("/Landing/External");
 
         Assert.DoesNotContain("Disease ranking report", body);
-        Assert.DoesNotContain("General reports", body);
+        Assert.Contains("General reports", body);
     }
 
     // Every link on the External page, plus the footer's Help and Support, must open for a CIDM-only session

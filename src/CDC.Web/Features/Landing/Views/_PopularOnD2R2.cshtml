@@ -2,8 +2,7 @@
 @using CDC.Web.Authorization.Services
 @inject INavigationAuthorizationService NavigationAuthorizationService
 @{
-    // The disease ranking report and the general reports are for a profile editor or a policy profile user; an external user holds no
-    // global role, so is not offered either.
+    // The disease ranking report is for a profile editor; the general reports are open to every signed-in user.
     var canViewDiseaseRanking = await NavigationAuthorizationService.CanAccessAsync(User, AuthorizationPolicies.CanViewDiseaseRankingReport);
     var canViewReports = await NavigationAuthorizationService.CanAccessAsync(User, AuthorizationPolicies.CanViewReports);
 }

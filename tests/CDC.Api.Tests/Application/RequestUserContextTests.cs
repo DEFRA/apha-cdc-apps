@@ -41,12 +41,15 @@ public class RequestUserContextTests
         context.IsUserManagementSystem.Should().BeFalse();
     }
 
-    [Fact]
-    public void AnInternalUser_HoldsNoProfileLevelRole_EvenWhenTheirRecordHasProfileGrants()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void AnInternalUserWithAGlobalRole_HoldsNoProfileLevelRole_EvenWhenTheirRecordHasProfileGrants(bool isProfileEditor, bool isPolicyProfileUser)
     {
         var context = new RequestUserContext();
 
-        context.SetActingUser(Internal(isProfileEditor: false, isPolicyProfileUser: true) with
+        context.SetActingUser(Internal(isProfileEditor, isPolicyProfileUser) with
         {
             ProfileRoles = [new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "Technical author", true)],
             SectionAssignments = [new ProfileSectionAssignment(ProfileId, SectionId)]
@@ -55,6 +58,26 @@ public class RequestUserContextTests
         context.GetProfileRole(ProfileId).Should().BeNull();
         context.IsAssignedToSection(ProfileId, SectionId).Should().BeFalse();
         context.GetAssignedSectionIds(ProfileId).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AnInternalUserWithNoGlobalRole_HoldsTheirProfileLevelRoles()
+    {
+        var role = new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "Technical author", true);
+        var context = new RequestUserContext();
+
+        context.SetActingUser(Internal(isProfileEditor: false, isPolicyProfileUser: false) with
+        {
+            ProfileRoles = [role],
+            SectionAssignments = [new ProfileSectionAssignment(ProfileId, SectionId), new ProfileSectionAssignment(OtherProfileId, OtherSectionId)]
+        });
+
+        context.IsProfileEditor.Should().BeFalse();
+        context.IsPolicyProfileUser.Should().BeFalse();
+        context.GetProfileRole(ProfileId).Should().Be(role);
+        context.GetProfileRole(OtherProfileId).Should().BeNull();
+        context.IsAssignedToSection(ProfileId, SectionId).Should().BeTrue();
+        context.GetAssignedSectionIds(ProfileId).Should().Equal(SectionId);
     }
 
     [Fact]

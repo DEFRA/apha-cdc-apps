@@ -675,7 +675,7 @@ public class ProfileManagementServiceTests
     }
 
     [Fact]
-    public async Task GetManageProfile_LetsAnAuthorEditOnlyTheirSectionsAndTheReviewTheirRoleOwns()
+    public async Task GetManageProfile_LetsAnAuthorEditOnlyTheirSectionsAndWriteCommentsButNotChangeTheReviewDates()
     {
         GivenACurrentDraft();
         var sectionId = Guid.NewGuid();
@@ -688,10 +688,10 @@ public class ProfileManagementServiceTests
         result.CanEditAllSections.Should().BeFalse();
         result.EditableSectionIds.Should().Equal(sectionId);
         result.CanEditAuthorReviewDates.Should().BeFalse();
-        result.CanEditVaReviewDates.Should().BeTrue();
+        result.CanEditVaReviewDates.Should().BeFalse();
         result.CanEditPolicyReviewDates.Should().BeFalse();
         result.CanClearProfileSection.Should().BeFalse();
-        result.CanAddReviewComments.Should().BeFalse();
+        result.CanAddReviewComments.Should().BeTrue();
         AssertTheDraftCanBeReadAndReportedOn(result);
     }
 
@@ -706,12 +706,12 @@ public class ProfileManagementServiceTests
         result.Should().NotBeNull();
         result.CanEditProfileSection.Should().BeFalse();
         result.EditableSectionIds.Should().BeEmpty();
-        result.CanEditAuthorReviewDates.Should().BeTrue();
+        result.CanEditAuthorReviewDates.Should().BeFalse();
         AssertTheDraftCanBeReadAndReportedOn(result);
     }
 
     [Fact]
-    public async Task GetManageProfile_LetsAReviewerReadTheDraftButChangeNothing()
+    public async Task GetManageProfile_LetsAReviewerReadTheDraftAndWriteCommentsButChangeNothingElse()
     {
         GivenACurrentDraft();
 
@@ -726,7 +726,7 @@ public class ProfileManagementServiceTests
         result.CanEditVaReviewDates.Should().BeFalse();
         result.CanEditPolicyReviewDates.Should().BeFalse();
         result.CanClearProfileSection.Should().BeFalse();
-        result.CanAddReviewComments.Should().BeFalse();
+        result.CanAddReviewComments.Should().BeTrue();
         AssertTheDraftCanBeReadAndReportedOn(result);
     }
 

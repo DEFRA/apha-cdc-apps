@@ -182,6 +182,7 @@ public sealed class ProfileManagementService(
         var currentVersionSummary = await repository.GetProfileVersionSummaryAsync(currentProfileVersionId, cancellationToken);
         var version = currentVersionSummary is null ? (ProfileVersionFacts?)null : ProfileVersionFacts.From(profile.Id, currentVersionSummary);
         var canEditAllSections = Allows(version, current => current.IsCurrentDraft && ProfileAccess.IsEditor(userContext));
+        var canEditReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current));
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -211,9 +212,9 @@ public sealed class ProfileManagementService(
             CanEditProfileSection = Allows(version, current => ProfileAccess.CanEditAnySection(userContext, current)),
             CanEditAllSections = canEditAllSections,
             EditableSectionIds = version is { IsCurrentDraft: true } && !canEditAllSections ? [.. userContext.GetAssignedSectionIds(profile.Id)] : [],
-            CanEditAuthorReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current, ReviewType.Author)),
-            CanEditVaReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current, ReviewType.Va)),
-            CanEditPolicyReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current, ReviewType.Policy)),
+            CanEditAuthorReviewDates = canEditReviewDates,
+            CanEditVaReviewDates = canEditReviewDates,
+            CanEditPolicyReviewDates = canEditReviewDates,
             CanClearProfileSection = Allows(version, current => ProfileAccess.CanClearSection(userContext, current)),
             CanAddReviewComments = Allows(version, current => ProfileAccess.CanWriteReviewComments(userContext, current)),
             CanViewNotes = ProfileAccess.CanViewDraft(userContext, storedProfile.Id),
