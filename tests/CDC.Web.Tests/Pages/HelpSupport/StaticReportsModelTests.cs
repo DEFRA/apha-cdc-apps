@@ -170,7 +170,7 @@ public class StaticReportsModelTests
 
         var url = pageModel.GetDocumentUrl(VersionId);
 
-        Assert.Equal($"/static-reports/versions/{VersionId}/document", url);
+        Assert.Equal($"/static-reports/versions/{VersionId}/document?download=true", url);
     }
 
     [Fact]

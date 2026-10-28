@@ -362,7 +362,7 @@ public class GeneralModelTests
         var model = CreatePageModel();
 
         Assert.Equal(
-            $"/static-reports/versions/{VersionId}/document",
+            $"/static-reports/versions/{VersionId}/document?download=true",
             model.GetDocumentUrl(VersionId));
     }
 

@@ -63,6 +63,12 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
     public bool IsHistoryMode => StaticReportId.HasValue;
 
+    /// <summary>Gets or sets the Title sort direction, "Ascending" (the legacy default) or "Descending". Only the list is sortable, by Title.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? SortDirection { get; set; }
+
+    public bool IsTitleSortDescending => string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Gets or sets the number of rows shown per page, or "All" for no paging.</summary>
     [BindProperty(SupportsGet = true)]
     public string PageSize { get; set; } = PageSizeOptions[0];
@@ -192,11 +198,18 @@ public class StaticReportsModel : BreadcrumbPageModelBase
     }
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
-        $"/static-reports/versions/{staticReportVersionId}/document";
+        $"/static-reports/versions/{staticReportVersionId}/document?download=true";
 
     /// <summary>Builds the querystring URL for a results page link, preserving the current mode and page size.</summary>
     public string? BuildPageUrl(int page) =>
-        Url.Page("/HelpSupport/StaticReports", new { UserManual, StaticReportId, PageSize, PageNumber = page });
+        Url.Page("/HelpSupport/StaticReports", new { UserManual, StaticReportId, PageSize, PageNumber = page, SortDirection });
+
+    /// <summary>Builds the Title header link URL, toggling the direction and resetting to page 1.</summary>
+    public string? BuildTitleSortUrl() =>
+        Url.Page("/HelpSupport/StaticReports", new { UserManual, PageSize, PageNumber = 1, SortDirection = IsTitleSortDescending ? "Ascending" : "Descending" });
+
+    /// <summary>Gets the <c>aria-sort</c> value for the Title header.</summary>
+    public string TitleAriaSort => IsTitleSortDescending ? "descending" : "ascending";
 
     /// <summary>Builds the "History" link URL for a report row, matching legacy's
     /// <c>StaticReports.aspx?StaticReportId=...&amp;UserManual=...</c>.</summary>
@@ -222,6 +235,11 @@ public class StaticReportsModel : BreadcrumbPageModelBase
         }
 
         TotalResultCount = Reports.Count;
+
+        if (!IsHistoryMode)
+        {
+            Reports = SortByTitle(Reports);
+        }
 
         var pageSize = ResolvePageSize(PageSize);
         TotalPages = pageSize > 0 ? Math.Max(1, (int)Math.Ceiling(TotalResultCount / (double)pageSize)) : 1;
@@ -272,6 +290,11 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
         Breadcrumb = new BreadcrumbViewModel(pageName, parentPageName, parentUrl);
     }
+
+    private IReadOnlyList<StaticReportListItemDto> SortByTitle(IReadOnlyList<StaticReportListItemDto> reports) =>
+        [.. IsTitleSortDescending
+            ? reports.OrderByDescending(report => report.Title, StringComparer.OrdinalIgnoreCase)
+            : reports.OrderBy(report => report.Title, StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>Resolves the "Items per page" selection to a page size, where 0 means "All" (no paging).</summary>
     private static int ResolvePageSize(string pageSize)
