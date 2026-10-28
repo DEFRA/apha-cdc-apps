@@ -46,7 +46,7 @@ public static class ReviewEmailComposer
 
         if (hasHomePage)
         {
-            body.Append("Internal users can access [D2R2 on the Defra network](").Append(homePage!.AbsoluteUri).Append(").\n\n");
+            body.Append("Internal users can access [D2R2 on the Defra network](").Append(homePage.AbsoluteUri).Append(").\n\n");
         }
 
         return new EmailMessage(user.EmailAddress, Clean(user.FullName), Subject, body.ToString().TrimEnd());
@@ -106,9 +106,19 @@ public static class ReviewEmailComposer
             return string.Empty;
         }
 
-        var state = item.Status == "Complete" ? "completed"
-            : date.Date < now.Date ? "overdue"
-            : "due soon";
+        string state;
+        if (item.Status == "Complete")
+        {
+            state = "completed";
+        }
+        else if (date.Date < now.Date)
+        {
+            state = "overdue";
+        }
+        else
+        {
+            state = "due soon";
+        }
 
         return $"{type} review {date.ToString(DateFormat, CultureInfo.InvariantCulture)} ({state})";
     }
