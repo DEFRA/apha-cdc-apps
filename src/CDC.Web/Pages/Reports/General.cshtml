@@ -98,7 +98,7 @@ else
             {
                 <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
-                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" target="_blank" rel="noopener noreferrer">@report.Title<span class="govuk-visually-hidden"> version @($"{report.VersionMajor}.0") (opens in new tab)</span></a>
+                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" download>@report.Title<span class="govuk-visually-hidden"> version @($"{report.VersionMajor}.0") (PDF download)</span></a>
                     </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
                     <td class="govuk-table__cell">@(report.IsPublic ? "Public" : "Not public")</td>
@@ -142,7 +142,7 @@ else
             {
                 <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
-                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" target="_blank" rel="noopener noreferrer">@report.Title</a>
+                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" download>@report.Title</a>
                     </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
                     <td class="govuk-table__cell">@(report.IsPublic ? "Public" : "Not public")</td>
