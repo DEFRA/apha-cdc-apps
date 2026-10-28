@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Features.Landing;

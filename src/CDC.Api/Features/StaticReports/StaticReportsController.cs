@@ -1,10 +1,10 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using CDC.Api.Application;
 using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
-using System.Globalization;
-using System.Text.RegularExpressions;
 
 namespace CDC.Api.Features.StaticReports;
 
