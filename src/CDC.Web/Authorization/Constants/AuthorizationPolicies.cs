@@ -23,11 +23,13 @@ public static class AuthorizationPolicies
     /// profile versions". Profile editor only.</summary>
     public const string CanViewProfileComparison = nameof(CanViewProfileComparison);
 
-    /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. Header: "Disease ranking report". Profile
-    /// editor only (legacy gave everyone else a pre-generated static report, which is among the general reports).</summary>
+    /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. The interactive Disease ranking report: profile
+    /// editor only. The header link is open to everyone (<see cref="CanViewReports"/>); anyone else is sent to the stored
+    /// "DiseaseRankingReport" static report, as legacy <c>SetupDiseaseRankingLink</c> did.</summary>
     public const string CanViewDiseaseRankingReport = nameof(CanViewDiseaseRankingReport);
 
-    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Open to every signed-in user.</summary>
+    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports" and "Disease ranking report" (the
+    /// stored report). Open to every signed-in user.</summary>
     public const string CanViewReports = nameof(CanViewReports);
 
     /// <summary>Footer: "Help using D2R2" and "D2R2 Quality Statement", and the document download behind them. Open to every

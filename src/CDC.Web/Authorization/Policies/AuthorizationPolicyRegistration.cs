@@ -8,8 +8,9 @@ namespace CDC.Web.Authorization.Policies;
 /// Registers every named policy from <see cref="AuthorizationPolicies"/>, with the allowed roles for each
 /// role-based policy (an <see cref="AllowedRolesRequirement"/>) centralized here - the single place to change a
 /// role mapping. Each list follows the legacy <c>CanXxx()</c> method it replaces. Searching disease profiles, viewing species
-/// data, the general reports and the Help and Support footer links are open to every signed-in user, as in legacy. What a
-/// contributor or reviewer may do with a particular profile is decided by CDC.Api, from their role on that profile.
+/// data, the general reports, the Disease ranking report link (a profile editor gets the interactive report, anyone else the
+/// stored one) and the Help and Support footer links are open to every signed-in user, as in legacy. What a contributor or
+/// reviewer may do with a particular profile is decided by CDC.Api, from their role on that profile.
 /// </summary>
 public static class AuthorizationPolicyRegistration
 {

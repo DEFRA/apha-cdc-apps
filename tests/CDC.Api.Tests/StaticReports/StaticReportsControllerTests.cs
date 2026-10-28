@@ -15,7 +15,7 @@ public sealed class StaticReportsControllerTests
 
     private readonly Mock<IStaticReportService> service = new(MockBehavior.Strict);
 
-    private StaticReportsController CreateController() => new(service.Object)
+    private StaticReportsController CreateController(TimeProvider? timeProvider = null) => new(service.Object, timeProvider)
     {
         ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
     };
@@ -66,19 +66,38 @@ public sealed class StaticReportsControllerTests
         controller.Response.Headers.ContentDisposition.ToString().Should().Be("inline; filename=\"Help using D2R2.pdf\"");
     }
 
-    [Fact]
-    public async Task GetStaticReportDocument_SendsAnAttachment_WhenDownloadRequested()
+    [Theory]
+    [InlineData(2026, 10, 28, 16, 28, 28, "10_28_2026_4_28_28_PM")]
+    [InlineData(2026, 1, 5, 9, 5, 7, "1_5_2026_9_05_07_AM")]
+    [InlineData(2026, 12, 1, 0, 0, 0, "12_1_2026_12_00_00_AM")]
+    public async Task GetStaticReportDocument_SendsAnAttachmentNamedWithTheDownloadDateAndTime_WhenDownloadRequested(
+        int year, int month, int day, int hour, int minute, int second, string expectedTimestamp)
     {
-        var document = new StaticReportDataDto { Title = "D2R2 Quality Statement", PdfData = [1, 2, 3] };
+        var document = new StaticReportDataDto { Title = "DiseaseRankingReport", PdfData = [1, 2, 3] };
 
         service
             .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(document);
 
-        var controller = CreateController();
+        var controller = CreateController(new FixedTimeProvider(new DateTime(year, month, day, hour, minute, second)));
         await controller.GetStaticReportDocument(VersionId, download: true, CancellationToken.None);
 
-        controller.Response.Headers.ContentDisposition.ToString().Should().Be("attachment; filename=\"D2R2 Quality Statement.pdf\"");
+        controller.Response.Headers.ContentDisposition.ToString().Should().Be($"attachment; filename=\"DiseaseRankingReport_{expectedTimestamp}.pdf\"");
+    }
+
+    [Fact]
+    public async Task GetStaticReportDocument_KeepsTheTitleAsTheFileName_WhenShownInline()
+    {
+        var document = new StaticReportDataDto { Title = "Help using D2R2", PdfData = [1, 2, 3] };
+
+        service
+            .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(document);
+
+        var controller = CreateController(new FixedTimeProvider(new DateTime(2026, 10, 28, 16, 28, 28)));
+        await controller.GetStaticReportDocument(VersionId, download: false, CancellationToken.None);
+
+        controller.Response.Headers.ContentDisposition.ToString().Should().Be("inline; filename=\"Help using D2R2.pdf\"");
     }
 
     [Fact]
@@ -192,5 +211,12 @@ public sealed class StaticReportsControllerTests
         var response = await CreateController().UploadStaticReport(request, CancellationToken.None);
 
         response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    private sealed class FixedTimeProvider(DateTime localNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(localNow, TimeSpan.Zero);
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using CDC.Api.Application;
 using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
@@ -10,12 +11,18 @@ namespace CDC.Api.Features.StaticReports;
 /// page ("Help using D2R2" when <c>UserManual=1</c>).
 /// </summary>
 /// <param name="staticReportService">Static report data service.</param>
+/// <param name="timeProvider">Supplies the time stamped into a downloaded file's name; defaults to the system clock.</param>
 [ApiController]
 [Route("api/static-reports")]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-public sealed class StaticReportsController(IStaticReportService staticReportService) : ControllerBase
+public sealed class StaticReportsController(IStaticReportService staticReportService, TimeProvider? timeProvider = null) : ControllerBase
 {
+    /// <summary>Legacy named every download "{title}_{date and time}", for example "DiseaseRankingReport_10_28_2026_4_28_28_PM.pdf".</summary>
+    private const string DownloadTimestampFormat = "M_d_yyyy_h_mm_ss_tt";
+
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     /// <summary>
     /// Gets the current version of every static report, or of every user manual.
     /// </summary>
@@ -87,7 +94,8 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
         }
 
         // Set via the header directly, not File()'s fileDownloadName parameter, which always forces "attachment".
-        var fileName = document.Title.Replace("\"", string.Empty, StringComparison.Ordinal);
+        var title = document.Title.Replace("\"", string.Empty, StringComparison.Ordinal);
+        var fileName = download ? $"{title}_{clock.GetLocalNow().ToString(DownloadTimestampFormat, CultureInfo.InvariantCulture)}" : title;
         var disposition = download ? "attachment" : "inline";
         Response.Headers.ContentDisposition = $"{disposition}; filename=\"{fileName}.pdf\"";
 

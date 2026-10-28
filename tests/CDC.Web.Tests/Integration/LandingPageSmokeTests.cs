@@ -107,7 +107,7 @@ public class LandingPageSmokeTests : IClassFixture<CdcWebTestFactory>
 
 // These pages are business/admin functionality with no anonymous exemption - the app's default
 // authorization policy (RequireAuthenticatedUser) must redirect anonymous requests to Entra ID
-// (the app-wide fallback scheme) rather than rendering them.
+// (where a request with no session cookie is sent) rather than rendering them.
 public class ProtectedPagesSmokeTests : IClassFixture<CdcWebTestFactory>
 {
     private readonly CdcWebTestFactory _factory;
@@ -269,15 +269,15 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Contains("href=\"/HelpSupport/StaticReports?UserManual=1\">Help using D2R2</a>", body);
     }
 
-    // An external user holds no global role, so the disease ranking report is not offered to them; the general reports are open to every signed-in user.
+    // Legacy showed every user the disease ranking link, and gave anyone but a profile editor the stored report; the general reports are open to all too.
     [Fact]
-    public async Task External_IsNotOfferedTheDiseaseRankingReport_ButIsOfferedTheGeneralReports()
+    public async Task External_IsOfferedTheDiseaseRankingReportAndTheGeneralReports()
     {
         var client = await _factory.SignedInExternalClientAsync();
 
         var body = await client.GetStringAsync("/Landing/External");
 
-        Assert.DoesNotContain("Disease ranking report", body);
+        Assert.Contains("href=\"/Reports/DiseaseRanking\">Disease ranking report</a>", body);
         Assert.Contains("General reports", body);
     }
 
@@ -296,20 +296,47 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // An external user's session is CIDM's alone, so a page their role does not open refuses them; it does not send them to the internal sign-in.
     [Fact]
-    public async Task ExternalUser_IsStillSentToTheInternalSignIn_ForAPageNotOpenToEveryUser()
+    public async Task ExternalUser_IsRefusedNotSentToTheInternalSignIn_ForAPageNotOpenToEveryUser()
     {
         var client = await _factory.SignedInExternalClientAsync();
 
         var response = await client.GetAsync("/DiseaseProfiles/CompareVersions");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Account/AccessDenied", response.Headers.Location!.ToString());
+        Assert.DoesNotContain(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location.ToString());
+    }
+
+    // Every page authenticates with the session cookie the request carries, so a page with no policy of its own
+    // does not send an external user to Entra ID either; "D2R2 Home" for them is the external landing page.
+    [Fact]
+    public async Task ExternalUser_IsAuthenticatedWithCidm_OnAPageWithNoPolicyOfItsOwn_AndSentToTheExternalLandingPage()
+    {
+        var client = await _factory.SignedInExternalClientAsync();
+
+        var response = await client.GetAsync("/Landing/Internal");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Landing/External", response.Headers.Location!.ToString());
+    }
+
+    // Choosing to sign in as an internal user goes to Entra ID even when an external session exists.
+    [Fact]
+    public async Task ExternalUser_ChoosingToSignInAsAnInternalUser_IsSentToEntraId()
+    {
+        var client = await _factory.SignedInExternalClientAsync();
+
+        var response = await client.GetAsync("/Account/LoginInternal");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
     }
 }
 
-// LandingController.Internal() requires authentication via the app's fallback policy, which
-// resolves to Entra ID's cookie scheme (this app is predominantly used by internal staff).
+// LandingController.Internal() requires authentication via the app's fallback policy, which accepts
+// whichever sign-in cookie the request carries (an Entra ID one for an internal user).
 public class LandingInternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
 {
     private readonly CdcWebTestFactory _factory;
@@ -341,6 +368,40 @@ public class LandingInternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         var response = await client.GetAsync("/Landing/Internal");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Internal_EntraOnlySession_RendersSignedInView()
+    {
+        var client = await _factory.SignedInInternalClientAsync();
+
+        var response = await client.GetAsync("/Landing/Internal");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // The external landing page accepts CIDM alone, so an internal user who opens it is sent to CIDM.
+    [Fact]
+    public async Task External_EntraOnlySession_IsSentToCidm()
+    {
+        var client = await _factory.SignedInInternalClientAsync();
+
+        var response = await client.GetAsync("/Landing/External");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(CdcWebTestFactory.FakeAuthorizationEndpoint, response.Headers.Location!.ToString());
+    }
+
+    // Choosing to sign in as an external user goes to CIDM even when an internal session exists.
+    [Fact]
+    public async Task InternalUser_ChoosingToSignInAsAnExternalUser_IsSentToCidm()
+    {
+        var client = await _factory.SignedInInternalClientAsync();
+
+        var response = await client.GetAsync("/Account/Login");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith(CdcWebTestFactory.FakeAuthorizationEndpoint, response.Headers.Location!.ToString());
     }
 }
 

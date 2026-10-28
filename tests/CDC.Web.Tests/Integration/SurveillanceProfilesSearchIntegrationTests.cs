@@ -93,6 +93,48 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.DoesNotContain(">Manage</a>", body);
     }
 
+    // Legacy showed Clone profile and Clone scenario only to a user who may create a profile, on the card and on every version row.
+    [Fact]
+    public async Task Search_ShowsTheCloneLinks_ToAProfileEditor()
+    {
+        var body = await GetResultsPartialAsync(isProfileEditor: true, isPolicyProfileUser: false);
+
+        Assert.Equal(2, Regex.Count(body, ">Clone profile</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.Equal(2, Regex.Count(body, ">Clone scenario</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task Search_HidesTheCloneLinks_FromAUserWhoMayNotCreateAProfile(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        var body = await GetResultsPartialAsync(isProfileEditor, isPolicyProfileUser);
+
+        AssertNoCloneLinksButBrowseProfileRemains(body);
+    }
+
+    [Fact]
+    public async Task Search_HidesTheCloneLinks_FromAnExternalUser()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInExternalClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(request);
+
+        Assert.True(response.IsSuccessStatusCode);
+        AssertNoCloneLinksButBrowseProfileRemains(await response.Content.ReadAsStringAsync());
+    }
+
+    private static void AssertNoCloneLinksButBrowseProfileRemains(string body)
+    {
+        Assert.Contains("Bovine tuberculosis", body);
+        Assert.DoesNotContain("Clone profile", body);
+        Assert.DoesNotContain("Clone scenario", body);
+        Assert.Contains(">Browse profile</a>", body);
+    }
+
     // The script submits the form for these links, so the address they carry cannot bring back a keyword cleared since the last search.
     [Fact]
     public async Task Search_MarksEveryLetterLinkAndPageLink_ForTheScriptToSubmitTheFilters()

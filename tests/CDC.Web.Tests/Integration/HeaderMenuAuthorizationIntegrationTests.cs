@@ -69,12 +69,12 @@ public partial class HeaderMenuAuthorizationIntegrationTests : IClassFixture<Cdc
 
         Assert.Equal(["Disease Profiles", "Reports", "Species Data"], menu.Sections);
         Assert.Equal(
-            ["Search disease profiles", "General reports", "View species data"],
+            ["Search disease profiles", "General reports", "Disease ranking report", "View species data"],
             menu.Links);
     }
 
-    // A user whose record holds no permission holds no global role: they can search, run the general reports and view species data
-    // and nothing else.
+    // A user whose record holds no permission holds no global role: they can search, run the general reports, open the stored
+    // disease ranking report and view species data, and nothing else.
     [Fact]
     public async Task UserWithNoPermissionsOnTheirRecord_ListsOnlyTheLinksOpenToEveryUser()
     {
@@ -83,7 +83,7 @@ public partial class HeaderMenuAuthorizationIntegrationTests : IClassFixture<Cdc
         var menu = await GetMenuAsync(client);
 
         Assert.Equal(["Disease Profiles", "Reports", "Species Data"], menu.Sections);
-        Assert.Equal(["Search disease profiles", "General reports", "View species data"], menu.Links);
+        Assert.Equal(["Search disease profiles", "General reports", "Disease ranking report", "View species data"], menu.Links);
     }
 
     // An external user's role comes from CIDM and need not be one the app names; it never grants a global role.
@@ -95,7 +95,7 @@ public partial class HeaderMenuAuthorizationIntegrationTests : IClassFixture<Cdc
         var menu = await GetMenuAsync(client);
 
         Assert.Equal(["Disease Profiles", "Reports", "Species Data"], menu.Sections);
-        Assert.Equal(["Search disease profiles", "General reports", "View species data"], menu.Links);
+        Assert.Equal(["Search disease profiles", "General reports", "Disease ranking report", "View species data"], menu.Links);
     }
 
     private static async Task<(List<string> Sections, List<string> Links)> GetMenuAsync(HttpClient client)

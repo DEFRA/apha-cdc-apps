@@ -51,11 +51,10 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
         }
     }
 
-    // Pages a Policy Profile user's role does not include. Reading profiles and running the general reports are theirs;
-    // comparing versions, the disease ranking report and the Manage Profile page are the profile editor's.
+    // Pages a Policy Profile user's role does not include. Reading profiles, running the general reports and the stored disease
+    // ranking report are theirs; comparing versions and the Manage Profile page are the profile editor's.
     [Theory]
     [InlineData("/DiseaseProfiles/CompareVersions")]
-    [InlineData("/Reports/DiseaseRanking")]
     [InlineData("/SurveillanceProfiles/ManageProfile/6f1c2a3b-0000-4000-8000-000000000001")]
     [InlineData("/SurveillanceProfiles/ProfileProperties")]
     [InlineData("/SurveillanceProfiles/DiseaseReviews")]
@@ -86,7 +85,6 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     [Theory]
     [InlineData("/DiseaseProfiles/CompareVersions")]
     [InlineData("/SurveillanceProfiles/DiseaseReviews")]
-    [InlineData("/Reports/DiseaseRanking")]
     [InlineData("/SurveillanceProfiles/ProfileProperties")]
     [InlineData("/SurveillanceProfiles/EditUserGuidance")]
     [InlineData("/SurveillanceProfiles/ViewContributionsReport/6f1c2a3b-0000-4000-8000-000000000001")]

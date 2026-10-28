@@ -249,10 +249,9 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
 });
 
 // External-user auth (CIDM OIDC) and internal-user auth (Entra ID OIDC) each register their own
-// Cookie + OIDC scheme pair additively, so they coexist without conflicting. AddEntraAuthentication
-// must run AFTER AddCidmAuthentication - whichever call registers last wins the app-wide default
-// scheme, and this app is predominantly used by internal (Entra-authenticated) staff, so Entra's
-// cookie should be the fallback for every page that doesn't explicitly request CIDM.
+// Cookie + OIDC scheme pair additively, so they coexist without conflicting. Neither is the app's default scheme:
+// AddCdcWebAuthorization makes InternalOrExternalAuthenticationScheme the default, so every request is authenticated
+// with whichever session cookie it carries and a signed-in user is never sent to the other provider's sign-in.
 builder.AddCidmAuthentication();
 builder.AddEntraAuthentication();
 
@@ -270,9 +269,8 @@ builder.Services.AddSingleton<IUserDisplayNameService, UserDisplayNameService>()
 
 // Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
 // page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
-// the only pages so far explicitly marked anonymous. The CIDM-specific external-user journey
-// (LandingController.External) overrides this with its own explicit [Authorize(AuthenticationSchemes = ...)]
-// attribute, since the fallback below resolves to Entra's cookie scheme.
+// the only pages so far explicitly marked anonymous. The external landing page (LandingController.External) names the
+// CIDM cookie in its own [Authorize(AuthenticationSchemes = ...)], so a user signed in only with Entra ID is sent to CIDM.
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()

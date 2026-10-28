@@ -14,15 +14,11 @@ namespace CDC.Web.Tests.Features.Account;
 public class AccountControllerTests
 {
     [Fact]
-    public void Login_WhenAnonymous_ChallengesCidmSchemeWithRedirectToLandingExternal()
+    public async Task Login_WhenAnonymous_ChallengesCidmSchemeWithRedirectToLandingExternal()
     {
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out _);
 
-        var result = controller.Login();
+        var result = await controller.Login();
 
         var challenge = Assert.IsType<ChallengeResult>(result);
         Assert.Equal([CidmAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
@@ -30,23 +26,29 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public void Login_WhenAlreadyAuthenticated_RedirectsToLandingExternal()
+    public async Task Login_WhenACidmSessionExists_RedirectsToLandingExternal()
     {
-        var identity = new ClaimsIdentity(authenticationType: CookieAuthenticationDefaults.AuthenticationScheme);
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
-            },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
 
-        var result = controller.Login();
+        var result = await controller.Login();
 
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal("External", redirect.ActionName);
         Assert.Equal("Landing", redirect.ControllerName);
+    }
+
+    // Choosing to sign in as an external user while signed in as an internal one goes to CIDM; the internal session is not mistaken for it.
+    [Fact]
+    public async Task Login_WhenOnlyAnEntraSessionExists_StillChallengesCidm()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+        var result = await controller.Login();
+
+        var challenge = Assert.IsType<ChallengeResult>(result);
+        Assert.Equal([CidmAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
     }
 
     [Fact]
@@ -128,15 +130,11 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public void LoginInternal_WhenAnonymous_ChallengesEntraSchemeWithRedirectToLandingInternal()
+    public async Task LoginInternal_WhenAnonymous_ChallengesEntraSchemeWithRedirectToLandingInternal()
     {
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out _);
 
-        var result = controller.LoginInternal();
+        var result = await controller.LoginInternal();
 
         var challenge = Assert.IsType<ChallengeResult>(result);
         Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
@@ -144,23 +142,29 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public void LoginInternal_WhenAlreadyAuthenticated_RedirectsToLandingInternal()
+    public async Task LoginInternal_WhenAnEntraSessionExists_RedirectsToLandingInternal()
     {
-        var identity = new ClaimsIdentity(authenticationType: EntraAuthenticationDefaults.CookieAuthenticationScheme);
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
-            },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
-        var result = controller.LoginInternal();
+        var result = await controller.LoginInternal();
 
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal("Internal", redirect.ActionName);
         Assert.Equal("Landing", redirect.ControllerName);
+    }
+
+    // Choosing to sign in as an internal user while signed in as an external one goes to Entra ID; the external session is not mistaken for it.
+    [Fact]
+    public async Task LoginInternal_WhenOnlyACidmSessionExists_StillChallengesEntra()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var result = await controller.LoginInternal();
+
+        var challenge = Assert.IsType<ChallengeResult>(result);
+        Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
     }
 
     [Fact]
@@ -203,6 +207,15 @@ public class AccountControllerTests
         var signOut = Assert.IsType<SignOutResult>(result);
         Assert.Equal("captured-id-token", signOut.Properties!.GetTokenValue("id_token"));
     }
+
+    private static AccountController CreateController(out FakeAuthenticationService authService) => new()
+    {
+        ControllerContext = new ControllerContext { HttpContext = CreateHttpContextWithFakeAuth(out authService) },
+        Url = new FakeUrlHelper()
+    };
+
+    private static AuthenticateResult SignedIn(string scheme) =>
+        AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(authenticationType: scheme)), scheme));
 
     private static DefaultHttpContext CreateHttpContextWithFakeAuth(out FakeAuthenticationService authService)
     {

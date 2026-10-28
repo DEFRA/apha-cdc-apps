@@ -651,6 +651,9 @@ public sealed record ProfileVersionGroupViewModel
 
     /// <summary>Whether the "View reports" link is shown - Draft cards have no report to view.</summary>
     public bool ShowViewReportsLink { get; init; } = true;
+
+    /// <summary>Whether the "Clone profile" and "Clone scenario" links are shown - only to a user who may create a profile.</summary>
+    public bool CanClone { get; init; }
 }
 
 /// <summary>One scenario listed under a profile - its own current situation or a "what-if" - with

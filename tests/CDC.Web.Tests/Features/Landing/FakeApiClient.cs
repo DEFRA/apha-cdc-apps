@@ -115,13 +115,20 @@ internal sealed class FakeApiClient( // NOSONAR
         return Task.FromResult(_updateProfileStatusResult);
     }
 
+    /// <summary>Gets the arguments most recently sent to <see cref="GetCurrentStaticReportsAsync"/>, or <see langword="null"/> when there was no call.</summary>
+    public (bool IsUserManual, bool PublicOnly)? LastStaticReportsRequest { get; private set; }
+
     public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
         bool isUserManual = false,
         bool publicOnly = true,
-        CancellationToken cancellationToken = default) =>
-        throwOnGetCurrentStaticReports is not null
+        CancellationToken cancellationToken = default)
+    {
+        LastStaticReportsRequest = (isUserManual, publicOnly);
+
+        return throwOnGetCurrentStaticReports is not null
             ? Task.FromException<IReadOnlyList<StaticReportListItemDto>>(throwOnGetCurrentStaticReports)
             : Task.FromResult(_staticReports);
+    }
 
     public Task<IReadOnlyList<StaticReportListItemDto>> GetStaticReportHistoryAsync(
         Guid staticReportId,
