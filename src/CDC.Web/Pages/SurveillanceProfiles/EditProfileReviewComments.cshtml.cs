@@ -53,6 +53,12 @@ public class EditProfileReviewCommentsModel(
     /// <inheritdoc />
     public override ProfileSectionTab ActiveTab => ProfileSectionTab.ReviewComments;
 
+    /// <inheritdoc />
+    public override int ListPageNumber => PageNumber;
+
+    /// <inheritdoc />
+    public override int ListTotalPages => TotalPages;
+
     /// <summary>Gets or sets the open panel's mode (<c>add</c>, <c>reply</c> or <c>edit</c>); with only a
     /// <see cref="CommentId"/> the read-only view panel opens.</summary>
     [BindProperty(SupportsGet = true)]
@@ -105,8 +111,8 @@ public class EditProfileReviewCommentsModel(
     /// <summary>Gets a value indicating whether <see cref="ActionMessage"/> reports a failure.</summary>
     public bool ActionMessageIsError { get; private set; }
 
-    /// <summary>Gets a value indicating whether the user may add a comment (legacy <c>CanAddReviewComment</c>).</summary>
-    public bool CanAdd => CanEditProfileSection;
+    /// <summary>Gets a value indicating whether the user may add a comment: a profile editor, on the current draft.</summary>
+    public bool CanAdd => CanAddReviewComments;
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {

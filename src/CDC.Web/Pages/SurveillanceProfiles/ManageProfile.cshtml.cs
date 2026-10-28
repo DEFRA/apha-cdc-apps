@@ -1,4 +1,6 @@
+using CDC.Auth.Cidm;
 using CDC.Common.Contracts;
+using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -171,7 +173,8 @@ public class ManageProfileModel : PageModel
 
     /// <summary>
     /// Deletes the profile's current draft version (<c>LatestVersionId</c>) and redirects to the
-    /// home page, matching the legacy <c>lnkDelete_Click</c> handler (<c>profileData.DeleteLatestDraft()</c>
+    /// signed-in user's home page - the Internal landing page, or the External one for an external
+    /// (CIDM) user - matching the legacy <c>lnkDelete_Click</c> handler (<c>profileData.DeleteLatestDraft()</c>
     /// then an unconditional <c>Response.Redirect("~/Home.aspx")</c> - regardless of whether the
     /// whole profile was also deleted as a result). On failure, redisplays Manage profile with an
     /// inline error, matching the legacy page.
@@ -190,7 +193,10 @@ public class ManageProfileModel : PageModel
         if (result.Outcome == DeleteProfileVersionOutcome.Success)
         {
             LogDeletedProfileVersionMessage(logger, ProfileId, result.IsProfileDeleted, null);
-            return RedirectToAction("Index", "Landing");
+
+            var isExternalUser = User.HasClaim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme);
+
+            return RedirectToAction(isExternalUser ? "External" : "Internal", "Landing");
         }
 
         LogFailedToDeleteProfileVersionMessage(logger, ProfileId, result.ErrorMessage ?? string.Empty, null);

@@ -1,5 +1,7 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Pages.CrossProfileAdmin;
@@ -9,6 +11,7 @@ namespace CDC.Web.Pages.CrossProfileAdmin;
 /// spgReferenceTableAudit.
 /// </summary>
 /// <param name="referenceDataService">Reads the audit trail.</param>
+[Authorize(Policy = AuthorizationPolicies.CanManageReferenceData)]
 public class ReferenceDataAuditModel(IReferenceDataService referenceDataService)
     : BreadcrumbPageModelBase("Reference data audit trail")
 {

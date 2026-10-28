@@ -188,6 +188,17 @@ public class ProfilePropertiesApiServiceTests
     }
 
     [Fact]
+    public async Task UpdateProfileAttributesAsync_ReportsAValidationFailure_WithTheReasonTheApiGives()
+    {
+        const string json = """{ "title": "Validation failed", "status": 400, "detail": "The profile title is already in use for a different profile" }""";
+
+        var result = await CreateService(new CapturingHandler(HttpStatusCode.BadRequest, json)).UpdateProfileAttributesAsync(ProfileId, UpdateRequest());
+
+        Assert.Equal(SaveProfileOutcome.ValidationFailed, result.Outcome);
+        Assert.Equal("The profile title is already in use for a different profile", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task UpdateProfileAttributesAsync_ReportsAnError_OnAServerError()
     {
         var result = await CreateService(new CapturingHandler(HttpStatusCode.InternalServerError, "{}")).UpdateProfileAttributesAsync(ProfileId, UpdateRequest());

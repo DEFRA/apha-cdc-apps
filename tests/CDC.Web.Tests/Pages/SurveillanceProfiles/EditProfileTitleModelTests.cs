@@ -19,15 +19,16 @@ public class EditProfileTitleModelTests
     private static EditProfileTitleModel CreatePageModel(
         ProfileAttributesDto? profileAttributes = null,
         Exception? throwOnGetProfileAttributes = null,
-        UpdateProfileTitleResult? updateProfileTitleResult = null)
+        UpdateProfileTitleResult? updateProfileTitleResult = null) =>
+        CreatePageModel(new FakeApiClient(
+            profileAttributes: profileAttributes,
+            throwOnGetProfileAttributes: throwOnGetProfileAttributes,
+            updateProfileTitleResult: updateProfileTitleResult));
+
+    private static EditProfileTitleModel CreatePageModel(FakeApiClient apiClient)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
-        var pageModel = new EditProfileTitleModel(
-            new FakeApiClient(
-                profileAttributes: profileAttributes,
-                throwOnGetProfileAttributes: throwOnGetProfileAttributes,
-                updateProfileTitleResult: updateProfileTitleResult),
-            new AlwaysEnabledLogger<EditProfileTitleModel>())
+        var pageModel = new EditProfileTitleModel(apiClient, new AlwaysEnabledLogger<EditProfileTitleModel>())
         {
             ProfileId = ProfileId,
             PageContext = new PageContext
@@ -129,9 +130,8 @@ public class EditProfileTitleModelTests
 
     [Theory]
     [InlineData(UpdateProfileTitleOutcome.Conflict)]
-    [InlineData(UpdateProfileTitleOutcome.ValidationFailed)]
     [InlineData(UpdateProfileTitleOutcome.Error)]
-    public async Task OnPostAsync_ReturnsPageWithModelError_WhenTheApiCallDoesNotSucceed(UpdateProfileTitleOutcome outcome)
+    public async Task OnPostAsync_ReturnsPageWithGeneralModelError_WhenTheApiCallFailsForAnotherReason(UpdateProfileTitleOutcome outcome)
     {
         var pageModel = CreatePageModel(
             updateProfileTitleResult: new UpdateProfileTitleResult(outcome, "Something went wrong"));
@@ -145,5 +145,124 @@ public class EditProfileTitleModelTests
         Assert.Contains(
             pageModel.ModelState[string.Empty]!.Errors,
             error => error.ErrorMessage == "Profile save failed: Something went wrong");
+    }
+
+    [Fact]
+    public async Task OnPostAsync_ShowsAnApiRefusalAgainstTheTitle_SoTheUserCanSeeWhichFieldToChange()
+    {
+        var pageModel = CreatePageModel(
+            updateProfileTitleResult: new UpdateProfileTitleResult(
+                UpdateProfileTitleOutcome.ValidationFailed, "The profile title is already in use for a different profile"));
+        pageModel.ProfileTitle = "Bovine tuberculosis";
+        pageModel.LastUpdated = Convert.ToBase64String(RowVersion);
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal(
+            "The profile title is already in use for a different profile",
+            Assert.Single(pageModel.ModelState[nameof(EditProfileTitleModel.ProfileTitle)]!.Errors).ErrorMessage);
+        Assert.False(pageModel.ModelState.ContainsKey(string.Empty));
+    }
+
+    // Markup alone shows nothing, so it is not a title - the editor leaves a <br> or &nbsp; behind when its text is deleted.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("<br>")]
+    [InlineData("&nbsp;&nbsp;")]
+    [InlineData("<i> </i>")]
+    [InlineData("<em></em>")]
+    public async Task OnPostAsync_RejectsATitleWithNoText_AndDoesNotSaveIt(string? title)
+    {
+        var apiClient = new FakeApiClient(updateProfileTitleResult: new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null));
+        var pageModel = CreatePageModel(apiClient);
+        pageModel.ProfileTitle = title;
+        pageModel.LastUpdated = Convert.ToBase64String(RowVersion);
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(apiClient.LastUpdatedProfileTitle);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal(string.Empty, pageModel.ProfileTitle);
+        Assert.Equal(
+            "You must enter a profile title",
+            Assert.Single(pageModel.ModelState[nameof(EditProfileTitleModel.ProfileTitle)]!.Errors).ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_RejectsATitleOver255Characters_AndDoesNotSaveIt()
+    {
+        var apiClient = new FakeApiClient(updateProfileTitleResult: new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null));
+        var pageModel = CreatePageModel(apiClient);
+        pageModel.ProfileTitle = new string('a', 256);
+        pageModel.LastUpdated = Convert.ToBase64String(RowVersion);
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(apiClient.LastUpdatedProfileTitle);
+        Assert.Equal(
+            "Profile title cannot exceed 255 characters",
+            Assert.Single(pageModel.ModelState[nameof(EditProfileTitleModel.ProfileTitle)]!.Errors).ErrorMessage);
+    }
+
+    // The limit applies to the title as stored, formatting included, as in the legacy page.
+    [Fact]
+    public async Task OnPostAsync_CountsTheFormattingMarkupTowardsTheLimit()
+    {
+        var pageModel = CreatePageModel();
+        pageModel.ProfileTitle = $"<i>{new string('a', 250)}</i>";
+        pageModel.LastUpdated = Convert.ToBase64String(RowVersion);
+
+        await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.Contains(
+            pageModel.ModelState[nameof(EditProfileTitleModel.ProfileTitle)]!.Errors,
+            error => error.ErrorMessage == "Profile title cannot exceed 255 characters");
+    }
+
+    [Fact]
+    public async Task OnPostAsync_TrimsTheTitleBeforeMeasuringItAndBeforeSavingIt()
+    {
+        var apiClient = new FakeApiClient(
+            profileAttributes: Attributes(new string('a', 255)),
+            updateProfileTitleResult: new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Success, null));
+        var pageModel = CreatePageModel(apiClient);
+        pageModel.ProfileTitle = $"  {new string('a', 255)}  ";
+        pageModel.LastUpdated = Convert.ToBase64String(RowVersion);
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(new string('a', 255), apiClient.LastUpdatedProfileTitle);
+        Assert.Equal("The profile title was successfully updated", pageModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsTheForm_ForACurrentSituationProfile()
+    {
+        var pageModel = CreatePageModel(Attributes("Bovine tuberculosis"));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.True(pageModel.ShowForm);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_RefusesAWhatIfScenario_WhoseTitleCannotBeEdited()
+    {
+        var pageModel = CreatePageModel(Attributes("Bovine tuberculosis") with { ParentId = Guid.NewGuid() });
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(pageModel.ShowForm);
+        Assert.Contains(
+            pageModel.ModelState[string.Empty]!.Errors,
+            error => error.ErrorMessage == "You cannot edit the profile title of a \"what-if\" scenario.");
     }
 }

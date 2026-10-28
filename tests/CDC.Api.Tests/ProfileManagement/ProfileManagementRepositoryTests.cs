@@ -164,6 +164,52 @@ public class ProfileManagementRepositoryTests : IDisposable
         exception.Which.Message.Should().Contain(ProfileManagementTestData.ProfileId.ToString());
     }
 
+    [Theory]
+    [InlineData("The profile title is already in use for a different profile")]
+    [InlineData("The scenario title is already in use for a different scenario belonging to the same profile")]
+    [InlineData("The profile title of a \"what-if\" scenario cannot be edited")]
+    [InlineData("The scenario title of a \"current situation\" profile cannot be edited")]
+    public async Task UpdateProfileAttributesAsync_ThrowsProfileTitleRefused_WithTheProceduresMessage_WhenATitleIsRefused(string message)
+    {
+        connection.Script(ProfileManagementStoredProcedures.UpdateProfile, new FakeCommandScript
+        {
+            Throws = new FakeDbException(message)
+        });
+
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Anthrax",
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        var act = () => CreateRepository().UpdateProfileAttributesAsync(command, CancellationToken.None);
+
+        var exception = await act.Should().ThrowAsync<ProfileTitleRefusedException>();
+        exception.Which.Message.Should().Be(message);
+        connection.Transactions.Should().ContainSingle().Which.Committed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateProfileAttributesAsync_RethrowsOtherDatabaseFailures()
+    {
+        connection.Script(ProfileManagementStoredProcedures.UpdateProfile, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Anthrax",
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+
+        var act = () => CreateRepository().UpdateProfileAttributesAsync(command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
     [Fact]
     public async Task DeleteProfileVersionAsync_ReturnsNull_WhenVersionDoesNotExist()
     {

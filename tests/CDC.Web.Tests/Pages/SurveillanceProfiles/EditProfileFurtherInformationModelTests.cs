@@ -176,6 +176,8 @@ public class EditProfileFurtherInformationModelTests
         Assert.Equal(12, pageModel.TotalRecords);
         Assert.Equal(2, pageModel.TotalPages);
         Assert.Equal(2, pageModel.PageNumber);
+        Assert.Equal(2, pageModel.ListPageNumber);
+        Assert.Equal(2, pageModel.ListTotalPages);
         Assert.Equal(["Note 11", "Note 12"], pageModel.Rows.Select(row => row.PlainText));
     }
 

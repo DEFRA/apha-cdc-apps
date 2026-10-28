@@ -16,6 +16,7 @@ public class ProfileReportServiceTests
     private readonly Mock<IProfileReportRepository> repository = new(MockBehavior.Strict);
     private readonly Mock<IProfileSectionRepository> sectionRepository = new(MockBehavior.Strict);
     private readonly Mock<IUserContext> userContext = new();
+    private readonly Mock<IProfileVersionGuard> versions = new();
 
     public ProfileReportServiceTests()
     {
@@ -23,7 +24,36 @@ public class ProfileReportServiceTests
     }
 
     private CDC.Api.Features.ProfileReports.ProfileReportService CreateService() =>
-        new(repository.Object, sectionRepository.Object, userContext.Object, NullLogger<CDC.Api.Features.ProfileReports.ProfileReportService>.Instance);
+        new(repository.Object, sectionRepository.Object, userContext.Object, versions.Object, NullLogger<CDC.Api.Features.ProfileReports.ProfileReportService>.Instance);
+
+    [Fact]
+    public async Task GetProfileVersionReports_Throws_WhenTheUserMayNotViewTheVersion()
+    {
+        versions
+            .Setup(guard => guard.EnsureCanViewAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException());
+
+        var act = async () => await CreateService().GetProfileVersionReportsAsync(ProfileReportTestData.ProfileVersionId, false, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetProfileReportData_Throws_WhenTheUserMayNotViewTheVersion()
+    {
+        versions
+            .Setup(guard => guard.EnsureCanViewAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException());
+
+        var act = async () => await CreateService().GetProfileReportDataAsync(
+            ProfileReportTestData.ProfileVersionId,
+            ProfileReportTestData.ProfileReportId,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
+    }
 
     [Fact]
     public async Task GetProfileVersionReports_MapsEachReport()
@@ -164,9 +194,7 @@ public class ProfileReportServiceTests
     [Theory]
     [InlineData(true, false, true, false, false, true)]
     [InlineData(false, false, false, true, false, true)]
-    [InlineData(false, false, false, false, false, false)]
     [InlineData(false, true, true, false, false, false)]
-    [InlineData(false, false, true, false, true, false)]
     [InlineData(true, false, false, true, false, false)]
     public async Task GetProfileReportsOverview_AppliesTheLegacyCanCreateRule(
         bool isPublished,
@@ -187,6 +215,55 @@ public class ProfileReportServiceTests
         var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
 
         result.Value.CanCreateReports.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task GetProfileReportsOverview_ReturnsForbidden_ForADraftTheUserMayNotView(bool isEditor, bool isUserManagementSystem)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isEditor);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagementSystem);
+        GivenHeader(isPublished: false, effectiveDateTo: null);
+
+        var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetProfileReportsOverview_ListsAPublishedVersion_ForAUserWithNoRoleOnTheProfile()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        GivenHeader(isPublished: true, effectiveDateTo: null);
+        repository
+            .Setup(repo => repo.GetProfileVersionReportsAsync(ProfileReportTestData.ProfileVersionId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.CanCreateReports.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CreateProfileReport_AllowsAnExternalUserWhoHoldsARoleOnTheProfile_OnTheCurrentDraft(bool isContributor)
+    {
+        var command = CreateCommand();
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext
+            .Setup(context => context.GetProfileRole(ProfileReportTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileReportTestData.ProfileId, Guid.NewGuid(), "VA reviewer", isContributor));
+        GivenHeader(isPublished: false, effectiveDateTo: null);
+        repository
+            .Setup(repo => repo.CreateProfileReportAsync(command, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ProfileReportTestData.ProfileReportId);
+
+        var result = await CreateService().CreateProfileReportAsync(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
     }
 
     private static CreateProfileReportCommand CreateCommand() => new()
@@ -345,6 +422,89 @@ public class ProfileReportServiceTests
         var result = await CreateService().GetContributionsReportAsync(ProfileReportTestData.ProfileId, CancellationToken.None);
 
         result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsReport_MapsEveryDueSection_PassingTheFiltersThrough()
+    {
+        var authorId = Guid.NewGuid();
+        var fromDate = new DateTime(2027, 1, 1);
+        var toDate = new DateTime(2027, 12, 31);
+        repository
+            .Setup(repo => repo.GetDiseaseReviewsAsync(fromDate, toDate, authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new DiseaseReviewSection
+                {
+                    ProfileVersionId = ProfileReportTestData.ProfileVersionId,
+                    Title = "Avian influenza",
+                    VersionMajor = 2,
+                    VersionMinor = 1,
+                    SectionNumber = 3,
+                    SectionName = "Surveillance",
+                    NextPolicyReview = new DateTime(2027, 2, 3),
+                    NextAuthorReview = new DateTime(2027, 4, 5),
+                    NextVaReview = new DateTime(2027, 6, 7)
+                },
+                new DiseaseReviewSection
+                {
+                    ProfileVersionId = ProfileReportTestData.ProfileVersionId,
+                    Title = "Avian influenza",
+                    VersionMajor = 2,
+                    VersionMinor = 1,
+                    SectionNumber = 4,
+                    SectionName = "Control"
+                }
+            ]);
+
+        var result = await CreateService().GetDiseaseReviewsReportAsync(fromDate, toDate, authorId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Sections.Should().HaveCount(2);
+        var first = result.Value.Sections[0];
+        first.ProfileVersionId.Should().Be(ProfileReportTestData.ProfileVersionId);
+        first.Title.Should().Be("Avian influenza");
+        first.VersionMajor.Should().Be(2);
+        first.VersionMinor.Should().Be(1);
+        first.SectionNumber.Should().Be(3);
+        first.SectionName.Should().Be("Surveillance");
+        first.NextPolicyReview.Should().Be(new DateTime(2027, 2, 3));
+        first.NextAuthorReview.Should().Be(new DateTime(2027, 4, 5));
+        first.NextVaReview.Should().Be(new DateTime(2027, 6, 7));
+        var second = result.Value.Sections[1];
+        second.NextPolicyReview.Should().BeNull();
+        second.NextAuthorReview.Should().BeNull();
+        second.NextVaReview.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsReport_ReturnsNoSections_WhenNoReviewIsDue()
+    {
+        repository
+            .Setup(repo => repo.GetDiseaseReviewsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await CreateService().GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 1), new DateTime(2027, 1, 31), Guid.NewGuid(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Sections.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task GetDiseaseReviewsReport_IsForbidden_UnlessAnEditorWhoIsNotUserManagement(bool isEditor, bool isUserManagement)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isEditor);
+        userContext.SetupGet(context => context.IsUserManagementSystem).Returns(isUserManagement);
+
+        var result = await CreateService().GetDiseaseReviewsReportAsync(new DateTime(2027, 1, 1), new DateTime(2027, 1, 31), Guid.NewGuid(), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(
+            repo => repo.GetDiseaseReviewsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

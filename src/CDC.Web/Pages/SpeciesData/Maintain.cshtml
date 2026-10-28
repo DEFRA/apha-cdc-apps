@@ -2,7 +2,9 @@
 @using CDC.Web.Infrastructure
 @model CDC.Web.Pages.SpeciesData.MaintainModel
 @{
-    ViewData["Title"] = Model.ShowAuditTrail ? "Species data audit trail" : "Maintain species data";
+    ViewData["Title"] = Model.ShowAuditTrail
+        ? PaginationViewModel.TitleWithPage("Species data audit trail", Model.AuditTrailPage, Model.AuditTrailTotalPages)
+        : "Maintain species data";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
@@ -45,6 +47,15 @@ else if (Model.ShowAuditTrail)
     }
     else
     {
+        var pagination = new PaginationViewModel
+        {
+            CurrentPage = Model.AuditTrailPage,
+            TotalPages = Model.AuditTrailTotalPages,
+            PageUrl = Model.BuildAuditTrailPageUrl,
+            LandmarkLabel = "Audit trail pages"
+        };
+
+        <div id="audit-trail-region" data-app-paged-region>
         <p class="govuk-body app-audit-trail-back-link">
             <a class="govuk-link" asp-page="./Maintain">Back to Maintain species data</a>
         </p>
@@ -94,36 +105,7 @@ else if (Model.ShowAuditTrail)
             </tbody>
         </table>
 
-
-        @if (Model.AuditTrailTotalPages > 1)
-        {
-            <nav class="govuk-pagination" aria-label="Audit trail pages">
-                @if (Model.AuditTrailPage > 1)
-                {
-                    <div class="govuk-pagination__prev">
-                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildAuditTrailPageUrl(Model.AuditTrailPage - 1)" rel="prev">
-                            <span class="govuk-pagination__link-title">Previous</span>
-                        </a>
-                    </div>
-                }
-                <ul class="govuk-pagination__list">
-                    @for (var pageNumber = 1; pageNumber <= Model.AuditTrailTotalPages; pageNumber++)
-                    {
-                        <li class="govuk-pagination__item @(pageNumber == Model.AuditTrailPage ? "govuk-pagination__item--current" : string.Empty)">
-                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildAuditTrailPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.AuditTrailPage ? "page" : null)">@(pageNumber)</a>
-                        </li>
-                    }
-                </ul>
-                @if (Model.AuditTrailPage < Model.AuditTrailTotalPages)
-                {
-                    <div class="govuk-pagination__next">
-                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildAuditTrailPageUrl(Model.AuditTrailPage + 1)" rel="next">
-                            <span class="govuk-pagination__link-title">Next</span>
-                        </a>
-                    </div>
-                }
-            </nav>
-        }
+        <partial name="_Pagination" model="pagination" />
 
         @if (Model.AuditTrailDetailsEntry is not null)
         {
@@ -172,6 +154,7 @@ else if (Model.ShowAuditTrail)
                 </div>
             </div>
         }
+        </div>
     }
 }
 else if (Model.SpeciesTree.Nodes.Count == 0)

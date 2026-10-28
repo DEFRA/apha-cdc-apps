@@ -70,6 +70,99 @@ public sealed class ProfileQuestionRepository(IDbConnectionFactory connectionFac
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ProfileQuestion>> GetProfileQuestionsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var questions = new List<ProfileQuestion>(ids.Count);
+
+            foreach (var id in ids)
+            {
+                var question = await ReadProfileQuestionAsync(connection, transaction: null, id, cancellationToken);
+
+                if (question is not null)
+                {
+                    questions.Add(question);
+                }
+            }
+
+            return questions;
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileQuestionStoredProcedures.GetProfileQuestion);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PrioritisationGuidanceCategory>> GetPrioritisationGuidanceAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    ProfileQuestionStoredProcedures.GetPrioritisationGuidanceData,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken),
+                CommandBehavior.Default);
+
+            var categories = new List<(Guid Id, string DisplayName, string CategoryName, List<PrioritisationGuidanceCriterion> Criteria)>();
+            var criteriaByCategory = new Dictionary<Guid, List<PrioritisationGuidanceCriterion>>();
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var category = (Id: ReadGuid(reader, 0), DisplayName: ReadString(reader, 1), CategoryName: ReadString(reader, 2), Criteria: new List<PrioritisationGuidanceCriterion>());
+
+                categories.Add(category);
+                criteriaByCategory[category.Id] = category.Criteria;
+            }
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                // Columns: question id, category id, section number, question number, question name, is per species, criterion code, criterion name.
+                var listedCodes = new HashSet<string>(StringComparer.Ordinal);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var code = ReadString(reader, 6);
+
+                    // A criterion whose question is mapped twice appears twice; the first reading wins, and the code is
+                    // taken even when its category is not one the report shows.
+                    if (listedCodes.Add(code) && criteriaByCategory.TryGetValue(ReadGuid(reader, 1), out var criteria))
+                    {
+                        criteria.Add(new PrioritisationGuidanceCriterion
+                        {
+                            ProfileQuestionId = ReadGuid(reader, 0),
+                            CriterionCode = code,
+                            CriterionName = ReadString(reader, 7)
+                        });
+                    }
+                }
+            }
+
+            return [.. categories.Select(category => new PrioritisationGuidanceCategory
+            {
+                Id = category.Id,
+                DisplayName = category.DisplayName,
+                CategoryName = category.CategoryName,
+                Criteria = category.Criteria
+            })];
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileQuestionStoredProcedures.GetPrioritisationGuidanceData);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<ProfileQuestion?> UpdateProfileQuestionAsync(UpdateProfileQuestionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);

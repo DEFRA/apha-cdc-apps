@@ -21,9 +21,9 @@ public interface IProfileSearchService
     /// Gets enriched search results for profiles with comprehensive metadata and filtering.
     /// </summary>
     /// <param name="searchText">Optional text to search in profile titles.</param>
-    /// <param name="displayPublished">Include published versions.</param>
-    /// <param name="displayDraft">Include draft versions.</param>
-    /// <param name="displayScenarios">Include scenario versions.</param>
+    /// <param name="displayPublished">Include profiles with a published version.</param>
+    /// <param name="displayDraft">Include profiles with a draft version.</param>
+    /// <param name="displayScenarios">Return each profile's "what-if" scenarios too. It never makes a profile match on its own.</param>
     /// <param name="searchForType">Whether <paramref name="searchText"/> is matched as one phrase or as all of its words.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Enriched profile search results.</returns>

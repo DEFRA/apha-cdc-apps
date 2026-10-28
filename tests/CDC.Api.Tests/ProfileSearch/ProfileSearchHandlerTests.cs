@@ -1,4 +1,6 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
+using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileSearch;
 using CDC.Api.Features.ProfileSearch.Dtos;
 using CDC.Api.Features.ProfileSearch.Interfaces;
@@ -98,7 +100,7 @@ public class ProfileSearchHandlerTests
                 }
             ]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = new ProfileSearchService(repository.Object, EditorContext());
 
         var profiles = await service.GetAllProfilesAsync(CancellationToken.None);
 
@@ -110,7 +112,7 @@ public class ProfileSearchHandlerTests
     public async Task ProfileSearchService_GetProfileVersionAsync_ReturnsVersion()
     {
         var profileVersionId = Guid.NewGuid();
-        var service = new ProfileSearchService(Mock.Of<IProfileRepository>());
+        var service = new ProfileSearchService(Mock.Of<IProfileRepository>(), EditorContext());
 
         var version = await service.GetProfileVersionAsync(profileVersionId, CancellationToken.None);
 
@@ -121,7 +123,7 @@ public class ProfileSearchHandlerTests
     [Theory]
     [InlineData(true, false, false, "Published", true)]
     [InlineData(false, true, false, "Draft", true)]
-    [InlineData(false, false, true, "Scenario", true)]
+    [InlineData(false, false, true, "Scenario", false)]
     [InlineData(false, false, false, "Published", false)]
     public async Task GetProfileSearchResultsAsync_FiltersByVersionAvailability(
         bool displayPublished,
@@ -135,7 +137,7 @@ public class ProfileSearchHandlerTests
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", profileStatus)]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = new ProfileSearchService(repository.Object, EditorContext());
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: displayPublished,
@@ -154,7 +156,7 @@ public class ProfileSearchHandlerTests
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Published", hasDraftVersionToo: true)]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = new ProfileSearchService(repository.Object, EditorContext());
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: false,
@@ -162,6 +164,58 @@ public class ProfileSearchHandlerTests
             cancellationToken: CancellationToken.None);
 
         results.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, true, true, true)]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, false, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, false, true, false)]
+    public async Task GetProfileSearchResultsAsync_MatchesOnAScenariosVersion_OnlyWhenThatVersionTypeIsDisplayed(
+        bool displayPublished,
+        bool displayDraft,
+        bool displayScenarios,
+        bool expectedIncluded)
+    {
+        // The profile's own lineage is empty; only its "what-if" scenario has a (draft) version.
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Scenario")]);
+
+        var service = new ProfileSearchService(repository.Object, EditorContext());
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: displayPublished,
+            displayDraft: displayDraft,
+            displayScenarios: displayScenarios,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().HaveCount(expectedIncluded ? 1 : 0);
+    }
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public async Task GetProfileSearchResultsAsync_ReturnsTheWhatIfScenarios_OnlyWhenDisplayScenariosIsOn(
+        bool displayScenarios,
+        int expectedScenarioCount)
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Scenario")]);
+
+        var service = new ProfileSearchService(repository.Object, EditorContext());
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayDraft: true,
+            displayScenarios: displayScenarios,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle().Which.WhatIfScenarios.Should().HaveCount(expectedScenarioCount);
     }
 
     [Fact]
@@ -176,7 +230,7 @@ public class ProfileSearchHandlerTests
                 CreateProfile("Avian influenza", "Published")
             ]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = new ProfileSearchService(repository.Object, EditorContext());
 
         var results = await service.GetProfileSearchResultsAsync(searchText: "bovine", cancellationToken: CancellationToken.None);
 
@@ -198,11 +252,154 @@ public class ProfileSearchHandlerTests
                 CreateProfile("Avian influenza", "Published")
             ]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = new ProfileSearchService(repository.Object, EditorContext());
 
         var results = await service.GetProfilesByLetterAsync(letter, CancellationToken.None);
 
         results.Should().HaveCount(expectedCount);
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_HidesTheDraftsOfAProfileAnExternalUserHasNoRoleOn()
+    {
+        var draftProfile = CreateProfile("Bovine tuberculosis", "Draft");
+        var service = new ProfileSearchService(RepositoryReturning(draftProfile), ExternalContext());
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: false,
+            displayDraft: true,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetProfileSearchResultsAsync_ListsTheDraftsOfAProfileAnExternalUserHoldsARoleOn(bool isContributor)
+    {
+        var draftProfile = CreateProfile("Bovine tuberculosis", "Draft");
+        var service = new ProfileSearchService(RepositoryReturning(draftProfile), ExternalContext(draftProfile.Id, isContributor));
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: false,
+            displayDraft: true,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle().Which.DraftVersions.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_KeepsThePublishedVersions_WhileHidingTheDrafts_OfAnExternalUser()
+    {
+        var profile = CreateProfile("Bovine tuberculosis", "Published", hasDraftVersionToo: true) with
+        {
+            NextReviewDate = new DateTime(2027, 1, 1),
+            ReviewIncomplete = true
+        };
+        var service = new ProfileSearchService(RepositoryReturning(profile), ExternalContext());
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: true,
+            displayDraft: true,
+            cancellationToken: CancellationToken.None);
+
+        var result = results.Should().ContainSingle().Subject;
+        result.PublishedVersions.Should().ContainSingle();
+        result.DraftVersions.Should().BeEmpty();
+        result.NextReviewDate.Should().BeNull();
+        result.ReviewIncomplete.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_HidesTheDraftsOfAScenarioAnExternalUserHasNoRoleOn()
+    {
+        var scenarioProfile = CreateProfile("Bovine tuberculosis", "Scenario");
+        var service = new ProfileSearchService(RepositoryReturning(scenarioProfile), ExternalContext(scenarioProfile.Id));
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: false,
+            displayDraft: true,
+            displayScenarios: true,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_ListsTheDraftsOfAScenarioAnExternalUserHoldsARoleOn()
+    {
+        var scenarioProfile = CreateProfile("Bovine tuberculosis", "Scenario");
+        var scenarioId = scenarioProfile.WhatIfScenarios[0].ScenarioId;
+        var service = new ProfileSearchService(RepositoryReturning(scenarioProfile), ExternalContext(scenarioId));
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: false,
+            displayDraft: true,
+            displayScenarios: true,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle().Which.WhatIfScenarios.Should().ContainSingle().Which.DraftVersions.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetProfileSearchResultsAsync_ListsEveryDraft_ForAPolicyProfileUser()
+    {
+        var draftProfile = CreateProfile("Bovine tuberculosis", "Draft");
+        var policyUser = new Mock<IUserContext>();
+        policyUser.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
+        var service = new ProfileSearchService(RepositoryReturning(draftProfile), policyUser.Object);
+
+        var results = await service.GetProfileSearchResultsAsync(
+            displayPublished: false,
+            displayDraft: true,
+            cancellationToken: CancellationToken.None);
+
+        results.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetProfilesByLetterAsync_HidesTheDraftsOfAProfileAnExternalUserHasNoRoleOn()
+    {
+        var profile = CreateProfile("Bovine tuberculosis", "Published", hasDraftVersionToo: true);
+        var service = new ProfileSearchService(RepositoryReturning(profile), ExternalContext());
+
+        var results = await service.GetProfilesByLetterAsync("All", CancellationToken.None);
+
+        results.Should().ContainSingle().Which.DraftVersions.Should().BeEmpty();
+    }
+
+    private static IUserContext EditorContext()
+    {
+        var user = new Mock<IUserContext>();
+        user.SetupGet(context => context.IsProfileEditor).Returns(true);
+
+        return user.Object;
+    }
+
+    /// <summary>An external user, who holds a role on the given profile or scenario when one is given.</summary>
+    private static IUserContext ExternalContext(Guid? roleOnProfileId = null, bool isContributor = true)
+    {
+        var user = new Mock<IUserContext>();
+
+        if (roleOnProfileId is { } profileId)
+        {
+            user
+                .Setup(context => context.GetProfileRole(profileId))
+                .Returns(new ProfileRoleAssignment(profileId, Guid.NewGuid(), isContributor ? "Technical author" : "Technical reviewer", isContributor));
+        }
+
+        return user.Object;
+    }
+
+    private static IProfileRepository RepositoryReturning(params ProfileSearchResultDto[] profiles)
+    {
+        var repository = new Mock<IProfileRepository>();
+        repository
+            .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)profiles);
+
+        return repository.Object;
     }
 
     private static ProfileSearchResultDto CreateProfile(string title, string status, bool hasDraftVersionToo = false) => new()

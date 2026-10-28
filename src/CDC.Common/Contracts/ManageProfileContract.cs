@@ -119,23 +119,46 @@ public abstract record ManageProfileContract
 
     /// <summary>
     /// Gets a value indicating whether the "Print full profile" link is shown, matching
-    /// <c>ProfileVersionInfo.CanGetPrintVersion()</c>: the current version must not be Published.
+    /// <c>ProfileVersionInfo.CanGetPrintVersion()</c>: the current version must not be Published, and the user must be a
+    /// profile editor, a policy profile user, or hold a role on the profile.
     /// </summary>
     public bool CanPrintProfileSection { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether the "Summary profile report" and "Summary prioritisation
     /// report" links are shown, matching <c>ProfileVersionInfo.CanGetSummaryReport()</c>: the
-    /// current version must not be Published and must have no effective-to date.
+    /// current version must not be Published and must have no effective-to date, and the user must be a profile editor,
+    /// a policy profile user, or hold a role on the profile.
     /// </summary>
     public bool CanViewProfileReports { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the "Validate" button is shown, matching
-    /// <c>ProfileVersionSection.CanEditProfileVersionSection()</c>: the current version must be a
-    /// current (no effective-to date) Draft, and the user must have edit access.
+    /// Gets a value indicating whether the user can edit at least one section of the current version: the version must be a
+    /// current (no effective-to date) Draft, and the user must be a profile editor or an author assigned to a section. Which
+    /// sections they can edit is <see cref="CanEditAllSections"/> and <see cref="EditableSectionIds"/>.
     /// </summary>
     public bool CanEditProfileSection { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the user can edit every section of the current version: a profile editor, on the
+    /// current draft.
+    /// </summary>
+    public bool CanEditAllSections { get; init; }
+
+    /// <summary>
+    /// Gets the sections of the current draft that an external author is assigned to, and so may edit. Empty for a profile
+    /// editor, who may edit every section (<see cref="CanEditAllSections"/>), and for anyone who may edit none.
+    /// </summary>
+    public IReadOnlyList<Guid> EditableSectionIds { get; init; } = [];
+
+    /// <summary>Gets a value indicating whether the user can edit the author review's frequency, next date and status.</summary>
+    public bool CanEditAuthorReviewDates { get; init; }
+
+    /// <summary>Gets a value indicating whether the user can edit the VA review's frequency, next date and status.</summary>
+    public bool CanEditVaReviewDates { get; init; }
+
+    /// <summary>Gets a value indicating whether the user can edit the policy review's frequency, next date and status.</summary>
+    public bool CanEditPolicyReviewDates { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether the "Clear" button is shown, matching
@@ -145,24 +168,35 @@ public abstract record ManageProfileContract
     public bool CanClearProfileSection { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether the user can add, edit and delete review comments: a profile editor, on the current
+    /// draft. Anyone who can read the comments (<see cref="CanViewReviewComments"/>) reads them.
+    /// </summary>
+    public bool CanAddReviewComments { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the user can read the profile's notes (its "Profile references"): a profile editor, a
+    /// policy profile user, or an external user who holds a role on the profile.
+    /// </summary>
+    public bool CanViewNotes { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether the "Review comments" tab is shown, matching
     /// <c>ReviewCommentList.CanGetReviewCommentList()</c>: the current version must be Draft, and
-    /// the user must be a profile editor or policy profile user. Legacy also allows a profile
-    /// contributor/reviewer, which the user context does not model yet.
+    /// the user must be a profile editor, a policy profile user, or hold a role on the profile.
     /// </summary>
     public bool CanViewReviewComments { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether the "Contributions" tab is shown, matching
     /// <c>ProfileContributionInfoList.CanGetProfileContributionInfoList()</c>: the current version
-    /// must be Draft, and the user must be a profile editor or policy profile user.
+    /// must be Draft, and the user must be a profile editor, a policy profile user, or hold a role on the profile.
     /// </summary>
     public bool CanViewContributions { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether the "All Revision dates" tab is shown, matching
     /// <c>ProfileVersionSection.CanGetRevisionInformation()</c>: the current version must be
-    /// Draft, and the user must be a profile editor or policy profile user.
+    /// Draft, and the user must be a profile editor, a policy profile user, or hold a role on the profile.
     /// </summary>
     public bool CanViewAllRevisionDates { get; init; }
 }

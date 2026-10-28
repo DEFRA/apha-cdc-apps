@@ -46,4 +46,12 @@ public interface IProfileReportRepository
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>The version's header, or <see langword="null"/> when it does not exist.</returns>
     Task<ProfileVersionHeader?> GetProfileVersionHeaderAsync(Guid profileVersionId, CancellationToken cancellationToken);
+
+    /// <summary>Reads the profile sections whose author, VA or policy review falls due in a date range for one user via <c>spgaDiseaseReviews</c>.</summary>
+    /// <param name="fromDate">The first day of the range.</param>
+    /// <param name="toDate">The last day of the range.</param>
+    /// <param name="userId">The user the sections are assigned to.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>One row per section, ordered by profile then section number; empty when none is due.</returns>
+    Task<IReadOnlyList<DiseaseReviewSection>> GetDiseaseReviewsAsync(DateTime fromDate, DateTime toDate, Guid userId, CancellationToken cancellationToken);
 }

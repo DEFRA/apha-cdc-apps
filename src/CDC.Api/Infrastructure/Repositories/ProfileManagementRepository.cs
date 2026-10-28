@@ -38,6 +38,12 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
     private const string ProfiledSpeciesType = "Profiled";
     private const string DraftState = "Draft";
 
+    /// <summary>
+    /// What <c>spuProfile</c> says when it refuses a title: "...is already in use for a different profile" (or scenario),
+    /// and "...cannot be edited" for a title the kind of profile does not have.
+    /// </summary>
+    private static readonly string[] TitleRefusalMessageFragments = ["is already in use for a different", "cannot be edited"];
+
     /// <inheritdoc />
     public async Task<ProfileCreationResult> CreateProfileAsync(CreateProfileCommand command, CancellationToken cancellationToken)
     {
@@ -111,6 +117,12 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
         catch (DbException exception)
         {
             await RollbackAsync(transaction, cancellationToken);
+
+            // Checked before the concurrency test, which treats every error the procedure raises as a clash.
+            if (IsTitleRefusal(exception))
+            {
+                throw new ProfileTitleRefusedException(exception.Message, exception);
+            }
 
             throw SpeciesRepository.IsConcurrencyViolation(exception)
                 ? new ConcurrencyException(
@@ -906,6 +918,9 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
 
         return species;
     }
+
+    private static bool IsTitleRefusal(DbException exception) =>
+        TitleRefusalMessageFragments.Any(fragment => exception.Message.Contains(fragment, StringComparison.OrdinalIgnoreCase));
 
     private static async Task RollbackAsync(DbTransaction transaction, CancellationToken cancellationToken)
     {

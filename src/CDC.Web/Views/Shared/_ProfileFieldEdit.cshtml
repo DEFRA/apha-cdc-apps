@@ -127,23 +127,23 @@ else
                     {
                         <div class="govuk-hint">@hint</div>
                     }
-                    <div class="govuk-date-input" id="@inputName">
+                    <div class="govuk-date-input" id="@inputName" data-module="app-date-picker" data-date-picker-label="Choose date for @Model.Label">
                         <div class="govuk-date-input__item">
                             <div class="govuk-form-group">
                                 <label class="govuk-label govuk-date-input__label" for="@(inputName)_day">Day</label>
-                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_day" name="@(inputName)_day" type="text" inputmode="numeric" value="@Model.DateValue?.Day" />
+                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_day" name="@(inputName)_day" type="text" inputmode="numeric" value="@Model.DateValue?.Day" data-date-picker-part="day" />
                             </div>
                         </div>
                         <div class="govuk-date-input__item">
                             <div class="govuk-form-group">
                                 <label class="govuk-label govuk-date-input__label" for="@(inputName)_month">Month</label>
-                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_month" name="@(inputName)_month" type="text" inputmode="numeric" value="@Model.DateValue?.Month" />
+                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_month" name="@(inputName)_month" type="text" inputmode="numeric" value="@Model.DateValue?.Month" data-date-picker-part="month" />
                             </div>
                         </div>
                         <div class="govuk-date-input__item">
                             <div class="govuk-form-group">
                                 <label class="govuk-label govuk-date-input__label" for="@(inputName)_year">Year</label>
-                                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="@(inputName)_year" name="@(inputName)_year" type="text" inputmode="numeric" value="@Model.DateValue?.Year" />
+                                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="@(inputName)_year" name="@(inputName)_year" type="text" inputmode="numeric" value="@Model.DateValue?.Year" data-date-picker-part="year" />
                             </div>
                         </div>
                     </div>

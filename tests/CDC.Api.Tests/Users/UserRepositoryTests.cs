@@ -29,9 +29,12 @@ public class UserRepositoryTests : IDisposable
 
     private static readonly string[] ActingUserColumns =
     [
-        "Id", "UserName", "FullName", "Organisation", "SubscribedToReviewEmails", "IsProfileEditor", "IsPolicyProfileUser",
-        "SsoUserId", "LastUpdated"
+        "Id", "IsProfileEditor", "IsPolicyProfileUser", "SsoUserIdInt", "SsoUserIdExt"
     ];
+
+    private static readonly string[] ProfileRoleColumns = ["ProfileId", "RoleId", "RoleName", "IsContributor"];
+
+    private static readonly string[] SectionAssignmentColumns = ["ProfileId", "ProfileSectionId"];
 
     private readonly FakeDbConnection connection = new();
     private readonly Mock<ILogger<UserRepository>> logger = new();
@@ -470,16 +473,15 @@ public class UserRepositoryTests : IDisposable
     };
 
     [Fact]
-    public async Task GetActingUserAsync_MapsTheIdAndRoleFlags_WhenFound()
+    public async Task GetActingUserAsync_MapsTheFlagsAndTheInternalIdentifier_OfAnInternalUser()
     {
-        connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetActingUser, new FakeCommandScript
         {
             ResultSets =
             [
-                new FakeResultSet(ActingUserColumns,
-                [
-                    [UserId, "jdoe", "Jane Doe", "APHA", false, true, false, null, new byte[8]]
-                ])
+                new FakeResultSet(ActingUserColumns, [[UserId, true, false, SsoUserIdInt, null]]),
+                FakeResultSet.Empty(ProfileRoleColumns),
+                FakeResultSet.Empty(SectionAssignmentColumns)
             ]
         });
 
@@ -489,17 +491,77 @@ public class UserRepositoryTests : IDisposable
         user.Id.Should().Be(UserId);
         user.IsProfileEditor.Should().BeTrue();
         user.IsPolicyProfileUser.Should().BeFalse();
+        user.SsoUserIdInt.Should().Be(SsoUserIdInt);
+        user.SsoUserIdExt.Should().BeNull();
+        user.Kind.Should().Be(UserKind.Internal);
+        user.ProfileRoles.Should().BeEmpty();
+        user.SectionAssignments.Should().BeEmpty();
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(UserStoredProcedures.GetUser);
+        executed.CommandText.Should().Be(UserStoredProcedures.GetActingUser);
         executed.CommandType.Should().Be(CommandType.StoredProcedure);
         executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(UserId);
     }
 
     [Fact]
+    public async Task GetActingUserAsync_MapsTheProfileRolesAndSectionAssignments_OfAnExternalUser()
+    {
+        var profileId = Guid.Parse("aaaaaaaa-0000-0000-0000-00000000000a");
+        var otherProfileId = Guid.Parse("aaaaaaaa-0000-0000-0000-00000000000b");
+        var roleId = Guid.Parse("bbbbbbbb-0000-0000-0000-00000000000a");
+        var otherRoleId = Guid.Parse("bbbbbbbb-0000-0000-0000-00000000000b");
+        var sectionId = Guid.Parse("cccccccc-0000-0000-0000-00000000000a");
+        connection.Script(UserStoredProcedures.GetActingUser, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(ActingUserColumns, [[UserId, false, false, null, SsoUserIdExt]]),
+                new FakeResultSet(
+                    ProfileRoleColumns,
+                    [
+                        [profileId, roleId, "Technical author", true],
+                        [otherProfileId, otherRoleId, "Policy reviewer", false]
+                    ]),
+                new FakeResultSet(SectionAssignmentColumns, [[profileId, sectionId]])
+            ]
+        });
+
+        var user = await CreateRepository().GetActingUserAsync(UserId, CancellationToken.None);
+
+        user.Should().NotBeNull();
+        user.Kind.Should().Be(UserKind.External);
+        user.SsoUserIdExt.Should().Be(SsoUserIdExt);
+        user.ProfileRoles.Should().Equal(
+            new ProfileRoleAssignment(profileId, roleId, "Technical author", true),
+            new ProfileRoleAssignment(otherProfileId, otherRoleId, "Policy reviewer", false));
+        user.SectionAssignments.Should().Equal(new ProfileSectionAssignment(profileId, sectionId));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetActingUserAsync_LeavesTheUserUnclassified_WhenNeitherOrBothIdentifiersAreSet(bool bothSet)
+    {
+        connection.Script(UserStoredProcedures.GetActingUser, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(ActingUserColumns, [[UserId, true, true, bothSet ? SsoUserIdInt : null, bothSet ? SsoUserIdExt : null]])
+            ]
+        });
+
+        var user = await CreateRepository().GetActingUserAsync(UserId, CancellationToken.None);
+
+        user.Should().NotBeNull();
+        user.Kind.Should().Be(UserKind.Unclassified);
+        user.ProfileRoles.Should().BeEmpty();
+        user.SectionAssignments.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetActingUserAsync_ReturnsNull_WhenNotFound()
     {
-        connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetActingUser, new FakeCommandScript
         {
             ResultSets = [FakeResultSet.Empty(ActingUserColumns)]
         });
@@ -512,7 +574,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetActingUserAsync_LogsAndRethrows_WhenTheProcedureFails()
     {
-        connection.Script(UserStoredProcedures.GetUser, new FakeCommandScript
+        connection.Script(UserStoredProcedures.GetActingUser, new FakeCommandScript
         {
             Throws = new FakeDbException("boom")
         });

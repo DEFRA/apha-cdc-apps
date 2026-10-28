@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CDC.Api.Application;
 using CDC.Api.Application.Extensions;
 using CDC.Api.Features.GlobalUsers.Commands;
 using CDC.Api.Features.GlobalUsers.Dtos;
@@ -16,6 +17,7 @@ namespace CDC.Api.Features.GlobalUsers;
 /// <param name="mediator">Dispatches queries and commands to their handlers.</param>
 [ApiController]
 [Route("api/global-users")]
+[RequireGlobalRole(GlobalRole.ProfileEditor)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class GlobalUsersController(ISender mediator) : ControllerBase

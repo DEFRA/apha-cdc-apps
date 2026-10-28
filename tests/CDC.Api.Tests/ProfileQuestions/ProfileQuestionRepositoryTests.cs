@@ -103,6 +103,116 @@ public class ProfileQuestionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProfileQuestionsAsync_ReadsEachQuestionOnOneConnection_SkippingAnyThatDoNotExist()
+    {
+        var secondId = Guid.NewGuid();
+        connection.Script(ProfileQuestionStoredProcedures.GetProfileQuestion, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["Id", "Name", "ShortName", "QuestionNumber", "UserGuidance", "ProfileSectionId", "NonTechnicalName", "LastUpdated"],
+                    [[ProfileQuestionTestData.QuestionId, "Is it endemic?", "Endemic", 1, "Guidance", Guid.Empty, "Plain", ProfileQuestionTestData.RowVersion]])
+            ]
+        });
+
+        var questions = await CreateRepository().GetProfileQuestionsAsync([ProfileQuestionTestData.QuestionId, secondId], CancellationToken.None);
+
+        questions.Should().HaveCount(2);
+        connection.Executed.Should().HaveCount(2);
+        connection.Executed.Select(command => command.Parameters["Id"]).Should().Equal(ProfileQuestionTestData.QuestionId, secondId);
+    }
+
+    [Fact]
+    public async Task GetProfileQuestionsAsync_ReturnsNothing_WhenNoQuestionExists()
+    {
+        connection.Script(ProfileQuestionStoredProcedures.GetProfileQuestion, new FakeCommandScript { ResultSets = [FakeResultSet.Empty("Id", "Name")] });
+
+        var questions = await CreateRepository().GetProfileQuestionsAsync([ProfileQuestionTestData.QuestionId], CancellationToken.None);
+
+        questions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetProfileQuestionsAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileQuestionStoredProcedures.GetProfileQuestion, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetProfileQuestionsAsync([ProfileQuestionTestData.QuestionId], CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetPrioritisationGuidanceAsync_GroupsCriteriaUnderTheirCategories_ListingEachCodeOnce()
+    {
+        var welfareId = Guid.NewGuid();
+        var healthId = Guid.NewGuid();
+        var unshownId = Guid.NewGuid();
+        var firstQuestion = Guid.NewGuid();
+        var secondQuestion = Guid.NewGuid();
+        var thirdQuestion = Guid.NewGuid();
+        var fourthQuestion = Guid.NewGuid();
+        string[] criterionColumns = ["ProfileQuestionId", "PrioritisationCategoryId", "SectionNumber", "QuestionNumber", "QuestionName", "IsPerSpecies", "CriterionCode", "CriterionName"];
+
+        connection.Script(ProfileQuestionStoredProcedures.GetPrioritisationGuidanceData, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["PrioritisationCategoryId", "DisplayName", "Name"],
+                    [[welfareId, "Welfare", "WEL"], [healthId, "Public health", "PH"]]),
+                new FakeResultSet(
+                    criterionColumns,
+                    [
+                        [firstQuestion, welfareId, 3, 20, "Q20", false, "WEL01", "Suffering"],
+                        [secondQuestion, healthId, 6, 14, "Q14", false, "PH01", "Zoonosis"],
+                        // The same criterion mapped to a second question is listed once, from the first reading.
+                        [thirdQuestion, healthId, 6, 15, "Q15", false, "WEL01", "Suffering again"],
+                        // A category the report does not show is dropped, but its code is still taken.
+                        [fourthQuestion, unshownId, 7, 1, "Q1", false, "XX01", "Hidden"],
+                        [Guid.NewGuid(), welfareId, 7, 2, "Q2", false, "XX01", "Hidden again"]
+                    ])
+            ]
+        });
+
+        var categories = await CreateRepository().GetPrioritisationGuidanceAsync(CancellationToken.None);
+
+        categories.Select(category => category.DisplayName).Should().Equal("Welfare", "Public health");
+        categories[0].CategoryName.Should().Be("WEL");
+        var welfare = categories[0].Criteria.Should().ContainSingle().Subject;
+        welfare.ProfileQuestionId.Should().Be(firstQuestion);
+        welfare.CriterionCode.Should().Be("WEL01");
+        welfare.CriterionName.Should().Be("Suffering");
+        var health = categories[1].Criteria.Should().ContainSingle().Subject;
+        health.CriterionCode.Should().Be("PH01");
+        connection.Executed.Should().ContainSingle().Which.CommandType.Should().Be(CommandType.StoredProcedure);
+    }
+
+    [Fact]
+    public async Task GetPrioritisationGuidanceAsync_ReturnsCategoriesWithNoCriteria_WhenThereIsNoSecondResultSet()
+    {
+        connection.Script(ProfileQuestionStoredProcedures.GetPrioritisationGuidanceData, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["PrioritisationCategoryId", "DisplayName", "Name"], [[Guid.NewGuid(), "Welfare", "WEL"]])]
+        });
+
+        var categories = await CreateRepository().GetPrioritisationGuidanceAsync(CancellationToken.None);
+
+        categories.Should().ContainSingle().Which.Criteria.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetPrioritisationGuidanceAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileQuestionStoredProcedures.GetPrioritisationGuidanceData, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetPrioritisationGuidanceAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
     public async Task UpdateProfileQuestionAsync_ReturnsNull_WhenNoRowUpdated()
     {
         connection.Script(ProfileQuestionStoredProcedures.UpdateProfileQuestion, new FakeCommandScript());

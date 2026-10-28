@@ -17,7 +17,6 @@ public partial class GeneralModel : BreadcrumbPageModelBase
 
     private readonly IApiClient apiClient;
     private readonly IAuthorizationService authorizationService;
-    private readonly string apiBaseUrl;
     private readonly ILogger<GeneralModel> logger;
 
     [BindProperty(SupportsGet = true)]
@@ -63,13 +62,11 @@ public partial class GeneralModel : BreadcrumbPageModelBase
     public GeneralModel(
         IApiClient apiClient,
         IAuthorizationService authorizationService,
-        IOptions<ApiOptions> apiOptions,
         ILogger<GeneralModel> logger)
         : base(ReportsTitle)
     {
         this.apiClient = apiClient;
         this.authorizationService = authorizationService;
-        apiBaseUrl = (apiOptions.Value.BaseUrl ?? string.Empty).TrimEnd('/');
         this.logger = logger;
     }
 
@@ -279,7 +276,7 @@ public partial class GeneralModel : BreadcrumbPageModelBase
         Url.Page(ReportsPage, new { StaticReportId, PageSize, PageNumber = page });
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
-        $"{apiBaseUrl}/api/static-reports/versions/{staticReportVersionId}/document";
+        $"/static-reports/versions/{staticReportVersionId}/document?download=true";
 
     public string? BuildHistoryUrl(Guid staticReportId) =>
         Url.Page(ReportsPage, new { StaticReportId = staticReportId });

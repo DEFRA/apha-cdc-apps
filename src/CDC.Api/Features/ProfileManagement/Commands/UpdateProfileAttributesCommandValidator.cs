@@ -9,11 +9,20 @@ public sealed class UpdateProfileAttributesCommandValidator : AbstractValidator<
     /// <summary>SQL Server <c>rowversion</c> values are always 8 bytes.</summary>
     private const int RowVersionLength = 8;
 
+    /// <summary>The width of the <c>Title</c> and <c>ScenarioTitle</c> columns, which the legacy <c>Profile</c> rules enforced.</summary>
+    private const int TitleMaxLength = 255;
+
     /// <summary>Initialises a new instance of the <see cref="UpdateProfileAttributesCommandValidator"/> class.</summary>
     public UpdateProfileAttributesCommandValidator()
     {
         RuleFor(command => command.Id)
             .NotEmpty().WithMessage("A profile id is required.");
+
+        RuleFor(command => command.Title)
+            .MaximumLength(TitleMaxLength).WithMessage($"The profile title cannot exceed {TitleMaxLength} characters.");
+
+        RuleFor(command => command.ScenarioTitle)
+            .MaximumLength(TitleMaxLength).WithMessage($"The scenario title cannot exceed {TitleMaxLength} characters.");
 
         RuleFor(command => command.LastUpdated)
             .NotNull().WithMessage("The row version read with the profile is required.")

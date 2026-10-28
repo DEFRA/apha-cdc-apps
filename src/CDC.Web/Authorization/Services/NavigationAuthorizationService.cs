@@ -29,6 +29,10 @@ public sealed class NavigationAuthorizationService(IAuthorizationService authori
         CanAccessAsync(user, AuthorizationPolicies.CanCreateProfile);
 
     /// <inheritdoc />
+    public Task<bool> CanEditProfileAsync(ClaimsPrincipal user) =>
+        CanAccessAsync(user, AuthorizationPolicies.CanEditProfile);
+
+    /// <inheritdoc />
     public Task<bool> CanViewProfileComparisonAsync(ClaimsPrincipal user) =>
         CanAccessAsync(user, AuthorizationPolicies.CanViewProfileComparison);
 

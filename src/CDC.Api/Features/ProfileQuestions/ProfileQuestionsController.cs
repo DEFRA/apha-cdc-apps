@@ -3,6 +3,7 @@ using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileQuestions.Commands;
 using CDC.Api.Features.ProfileQuestions.Dtos;
 using CDC.Api.Features.ProfileQuestions.Queries;
+using CDC.Common.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -89,6 +90,28 @@ public sealed class ProfileQuestionsController(ISender mediator) : ControllerBas
     }
 
     /// <summary>
+    /// Gets what the four user guidance reports print.
+    /// </summary>
+    /// <remarks>
+    /// Replaces the report bytes the legacy <c>GetProfileGuidanceReport</c> operation built with TallPDF: CDC.Web lays
+    /// the reports out itself, so CDC.Api only supplies every section's questions with their titles and guidance, and the
+    /// criteria behind the summary prioritisation report. Limited to profile editors, as the legacy command was.
+    /// </remarks>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The guidance content.</returns>
+    /// <response code="200">The content was retrieved.</response>
+    /// <response code="403">The user cannot edit user guidance.</response>
+    [HttpGet("guidance-content")]
+    [ProducesResponseType(typeof(ProfileGuidanceContentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<ProfileGuidanceContentDto>> GetProfileGuidanceContent(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetProfileGuidanceContentQuery(), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
     /// Updates a question's guidance text and display names.
     /// </summary>
     /// <remarks>
@@ -104,11 +127,13 @@ public sealed class ProfileQuestionsController(ISender mediator) : ControllerBas
     /// <returns>The updated question.</returns>
     /// <response code="200">The question was updated.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user cannot edit user guidance.</response>
     /// <response code="404">No question exists with the supplied identifier.</response>
     /// <response code="409">Another user has saved this question since it was read.</response>
     [HttpPut("{profileQuestionId:guid}")]
     [ProducesResponseType(typeof(ProfileQuestionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProfileQuestionDto>> UpdateProfileQuestion(

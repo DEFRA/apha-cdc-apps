@@ -8,8 +8,8 @@ public sealed class UpdateProfileQuestionCommandValidator : AbstractValidator<Up
     /// <summary>SQL Server <c>rowversion</c> values are always 8 bytes.</summary>
     private const int RowVersionLength = 8;
 
-    /// <summary><c>Name</c>/<c>NonTechnicalName</c> are <c>nvarchar(200)</c> in the legacy schema.</summary>
-    private const int NameMaxLength = 200;
+    /// <summary>Legacy <c>ProfileQuestion</c> rules cap <c>Name</c>/<c>NonTechnicalName</c> at the 400-character column size.</summary>
+    private const int NameMaxLength = 400;
 
     /// <summary>Initialises a new instance of the <see cref="UpdateProfileQuestionCommandValidator"/> class.</summary>
     public UpdateProfileQuestionCommandValidator()

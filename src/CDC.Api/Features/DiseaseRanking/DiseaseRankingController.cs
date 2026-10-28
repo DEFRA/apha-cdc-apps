@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Features.DiseaseRanking.Interfaces;
 using CDC.Common.Contracts;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace CDC.Api.Features.DiseaseRanking;
 /// <param name="diseaseRankingService">Disease ranking report service.</param>
 [ApiController]
 [Route("api/disease-ranking")]
+[RequireGlobalRole(GlobalRole.ProfileEditor, GlobalRole.PolicyProfileUser)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class DiseaseRankingController(IDiseaseRankingService diseaseRankingService) : ControllerBase

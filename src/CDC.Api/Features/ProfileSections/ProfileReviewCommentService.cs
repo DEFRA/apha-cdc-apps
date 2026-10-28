@@ -1,8 +1,6 @@
 using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
-using CDC.Api.Features.ProfileManagement;
-using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Common.Contracts;
 using MediatR;
@@ -11,18 +9,18 @@ namespace CDC.Api.Features.ProfileSections;
 
 /// <summary>
 /// Default <see cref="IProfileReviewCommentService"/>. Matches the legacy <c>ReviewComment</c>
-/// rules: comments can be added, edited and deleted only while the profile version is an editable
-/// current draft, and a comment can be edited or deleted only by its author and only while it has
-/// no replies.
+/// rules: comments can be read by anyone who can view the version, can be added, edited and deleted only by a profile editor
+/// while the profile version is the current draft, and a comment can be edited or deleted only by its author and only while
+/// it has no replies.
 /// </summary>
 /// <param name="repository">Profile section data access.</param>
-/// <param name="managementRepository">Profile data access, for the version's draft/published state.</param>
-/// <param name="userContext">The signed-in user: their profile-authoring role flags, and the author a comment is attributed to.</param>
+/// <param name="versions">Reads a version's state and refuses what the signed-in user's role does not allow.</param>
+/// <param name="userContext">The signed-in user: their roles, and the author a comment is attributed to.</param>
 /// <param name="logger">Structured logger.</param>
 /// <param name="timeProvider">Supplies the comment time; defaults to the system clock.</param>
 public sealed class ProfileReviewCommentService(
     IProfileSectionRepository repository,
-    IProfileManagementRepository managementRepository,
+    IProfileVersionGuard versions,
     IUserContext userContext,
     ILogger<ProfileReviewCommentService> logger,
     TimeProvider? timeProvider = null)
@@ -36,6 +34,8 @@ public sealed class ProfileReviewCommentService(
         Guid profileSectionId,
         CancellationToken cancellationToken)
     {
+        await versions.EnsureCanViewNotesAsync(profileVersionId, cancellationToken);
+
         var comments = await repository.GetProfileSectionReviewCommentsAsync(profileVersionId, profileSectionId, cancellationToken);
         var actingUser = comments.Count > 0 ? await ResolveEditingUserAsync(profileVersionId, cancellationToken) : null;
 
@@ -160,11 +160,11 @@ public sealed class ProfileReviewCommentService(
     /// <inheritdoc />
     public async Task<Result<Unit>> DeleteAllAsync(Guid profileVersionId, Guid profileSectionId, CancellationToken cancellationToken)
     {
-        var summary = await managementRepository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
+        var version = await versions.FindAsync(profileVersionId, cancellationToken);
 
-        if (!ProfileManagementService.ComputeCanEditProfileSection(summary, userContext))
+        if (version is not { } facts || !ProfileAccess.CanWriteReviewComments(userContext, facts))
         {
-            logger.ReviewCommentChangeRefused(profileVersionId, "not an editable current draft");
+            logger.ReviewCommentChangeRefused(profileVersionId, "not an editable current draft, or not a profile editor");
 
             return Result.Forbidden<Unit>("Review comments can only be deleted from the current draft version.");
         }
@@ -205,13 +205,13 @@ public sealed class ProfileReviewCommentService(
         return null;
     }
 
-    /// <summary>Resolves the acting user, or <see langword="null"/> when the version is not an
-    /// editable current draft for them or they cannot be found.</summary>
+    /// <summary>Resolves the acting user, or <see langword="null"/> when the version is not a
+    /// current draft they may write comments on or they cannot be found.</summary>
     private async Task<ReviewCommentUser?> ResolveEditingUserAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
-        var summary = await managementRepository.GetProfileVersionSummaryAsync(profileVersionId, cancellationToken);
+        var version = await versions.FindAsync(profileVersionId, cancellationToken);
 
-        if (!ProfileManagementService.ComputeCanEditProfileSection(summary, userContext) || userContext.UserId is not { } userId)
+        if (version is not { } facts || !ProfileAccess.CanWriteReviewComments(userContext, facts) || userContext.UserId is not { } userId)
         {
             return null;
         }

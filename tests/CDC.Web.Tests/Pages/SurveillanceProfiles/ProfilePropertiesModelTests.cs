@@ -11,6 +11,8 @@ namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
 
 public class ProfilePropertiesModelTests
 {
+    private const string CreatedMessage = "Your changes are successfully saved";
+
     private static readonly Guid ProfileId = Guid.NewGuid();
     private static readonly Guid DraftVersionId = Guid.NewGuid();
     private static readonly Guid CloneVersionId = Guid.NewGuid();
@@ -471,7 +473,7 @@ public class ProfilePropertiesModelTests
     // ---- Creating ----
 
     [Fact]
-    public async Task OnPostAsync_CreatesTheProfile_AndGoesOnToItsQuestions()
+    public async Task OnPostAsync_CreatesTheProfile_AndReloadsItsPropertiesWithAMessage()
     {
         var properties = new FakeProfilePropertiesApiService();
         var pageModel = CreatePageModel(properties: properties);
@@ -483,8 +485,9 @@ public class ProfilePropertiesModelTests
 
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         var request = properties.LastCreateRequest!;
-        Assert.Equal("/SurveillanceProfiles/EditProfileQuestions", redirect.PageName);
+        Assert.Null(redirect.PageName);
         Assert.Equal(request.Id, redirect.RouteValues!["profileId"]);
+        Assert.Equal(CreatedMessage, pageModel.StatusMessage);
         Assert.Equal("<em>Anthrax</em>", request.Title);
         Assert.Equal(string.Empty, request.ScenarioTitle);
         Assert.Equal(Guid.Empty, request.ParentId);
@@ -508,6 +511,7 @@ public class ProfilePropertiesModelTests
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
         Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(CreatedMessage, pageModel.StatusMessage);
         var request = properties.LastCreateRequest!;
         Assert.Equal(CloneVersionId, request.CloneProfileVersionId);
         Assert.Equal("Bovine tuberculosis (copy)", request.Title);
@@ -529,6 +533,7 @@ public class ProfilePropertiesModelTests
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
         Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(CreatedMessage, pageModel.StatusMessage);
         var request = properties.LastCreateRequest!;
         Assert.Equal(string.Empty, request.Title);
         Assert.Equal("Wildlife outbreak", request.ScenarioTitle);
@@ -552,6 +557,7 @@ public class ProfilePropertiesModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.Equal(["Profile creation failed: A title is required."], Errors(pageModel, string.Empty));
+        Assert.Null(pageModel.StatusMessage);
         Assert.Contains(Sheep.ToString(), pageModel.ProfiledSpeciesTree.SelectedValues);
     }
 

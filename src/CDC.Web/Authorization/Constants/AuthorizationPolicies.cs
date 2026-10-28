@@ -16,18 +16,25 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>Profile.CanCreateProfile()</c>. Header: "Create profile".</summary>
     public const string CanCreateProfile = nameof(CanCreateProfile);
 
+    /// <summary>Legacy: <c>Profile.CanEditProfile()</c>. Search results: the "Edit Title" link and the Edit profile title page.</summary>
+    public const string CanEditProfile = nameof(CanEditProfile);
+
     /// <summary>Legacy: <c>GetProfileRankingReportCommand.CanGetReport()</c>. Header: "Compare
-    /// profile versions".</summary>
+    /// profile versions". Profile editor or policy profile user; an external user cannot compare versions.</summary>
     public const string CanViewProfileComparison = nameof(CanViewProfileComparison);
 
     /// <summary>Legacy: <c>NavigationLinks.ascx.vb</c> shows the "Disease ranking report" link to every
-    /// user (editors open the interactive report, everyone else the pre-generated static one); the page
-    /// here is the same for every user. Header: "Disease ranking report". Open to every signed-in user.</summary>
+    /// user (editors open the interactive report, everyone else the pre-generated static one). Header: "Disease
+    /// ranking report". Profile editor or policy profile user; an external user cannot open it.</summary>
     public const string CanViewDiseaseRankingReport = nameof(CanViewDiseaseRankingReport);
 
-    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Footer: "Help using D2R2" and
-    /// "D2R2 Quality Statement". Open to every signed-in user.</summary>
+    /// <summary>Legacy: <c>StaticReportList.CanGetList()</c>. Header: "General reports". Profile editor or policy profile
+    /// user; an external user cannot open the static reports.</summary>
     public const string CanViewReports = nameof(CanViewReports);
+
+    /// <summary>Footer: "Help using D2R2" and "D2R2 Quality Statement", and the document download behind them. Open to every
+    /// signed-in user.</summary>
+    public const string CanViewHelp = nameof(CanViewHelp);
 
     /// <summary>Legacy: <c>StaticReport.CanDelete</c> and <c>UploadStaticReportCommand.CanUploadStaticReport()</c>. General reports page: delete and add.</summary>
     public const string CanManageReports = nameof(CanManageReports);
@@ -42,7 +49,7 @@ public static class AuthorizationPolicies
     /// signed-in user.</summary>
     public const string CanViewSpeciesData = nameof(CanViewSpeciesData);
 
-    /// <summary>Legacy: <c>DiseaseReviewsFilterInfo.CanGetObject()</c>. Header: "Review Timings".</summary>
+    /// <summary>Legacy: <c>DiseaseReviewsFilterInfo.CanGetObject()</c>. Header: "Review Timings". Profile editor only.</summary>
     public const string CanViewReviewTiming = nameof(CanViewReviewTiming);
 
     /// <summary>Legacy: <c>GetContributionsReportCommand.CanGetReport()</c>. Search results and Manage profile: the "Contributions" report link.</summary>
@@ -70,4 +77,7 @@ public static class AuthorizationPolicies
     /// <summary>Legacy: <c>SpeciesPrioritisationMetadata.CanGetObject()</c>. Footer: "Maintain cross-cutting issue
     /// scores".</summary>
     public const string CanManageCrossCuttingScores = nameof(CanManageCrossCuttingScores);
+
+    /// <summary>Legacy: <c>DiseaseFilterValues.CanGetList()</c>. The Edit disease ranking filters page. Profile editor only.</summary>
+    public const string CanManageDiseaseRankingFilters = nameof(CanManageDiseaseRankingFilters);
 }

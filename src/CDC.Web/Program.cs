@@ -81,6 +81,14 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
+builder.Services.AddHttpClient<IStaticReportDocumentApiService, StaticReportDocumentApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler();
+
 builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
@@ -98,6 +106,23 @@ builder.Services.AddHttpClient<IProfilePropertiesApiService, ProfilePropertiesAp
     .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
+
+// Reads and saves question titles and guidance on the Edit user guidance page, and reads every question's guidance for the
+// guidance reports, which CDC.Api can take longer than the default 10-second attempt timeout to gather. A save is not retried: the
+// row version it carries would make a replay of one that already succeeded fail as a conflict.
+builder.Services.AddHttpClient<IProfileQuestionsApiService, ProfileQuestionsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.DisableForUnsafeHttpMethods();
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(90);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(180);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
+    });
 
 // Reference data is served from an in-process store until the reference data endpoints exist on
 // CDC.Api; swap this registration for a typed HttpClient when they do.
@@ -298,6 +323,39 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Landing}/{action=Index}/{id?}")
     .WithStaticAssets();
+
+// Streams static report PDFs through this app: CDC.Api is private, so browsers cannot link to it directly. The user manuals behind
+// the Help and Support footer links are open to every signed-in user, and the general reports are listed only to those allowed
+// them, by CDC.Api, so a signed-in user is let through here.
+app.MapGet("/static-reports/versions/{staticReportVersionId:guid}/document", async (
+        Guid staticReportVersionId,
+        bool? download,
+        IStaticReportDocumentApiService documents,
+        HttpResponse response,
+        CancellationToken cancellationToken) =>
+    {
+        try
+        {
+            var document = await documents.GetDocumentAsync(staticReportVersionId, download ?? false, cancellationToken);
+
+            if (document is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (document.ContentDisposition is not null)
+            {
+                response.Headers.ContentDisposition = document.ContentDisposition;
+            }
+
+            return Results.File(document.Content, "application/pdf");
+        }
+        catch (HttpRequestException)
+        {
+            return Results.StatusCode(StatusCodes.Status502BadGateway);
+        }
+    })
+    .RequireAuthorization(CDC.Web.Authorization.Constants.AuthorizationPolicies.CanViewHelp);
 
 // Ensure Razor Pages are available if any exist in the project
 app.MapRazorPages();

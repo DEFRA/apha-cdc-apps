@@ -26,12 +26,37 @@ public class ProfileSectionServiceTests
     private readonly Mock<IProfileSectionRepository> repository = new(MockBehavior.Strict);
     private readonly Mock<IProfileReportContentRepository> contentRepository = new(MockBehavior.Strict);
     private readonly Mock<IUserContext> userContext = new();
+    private readonly Mock<IProfileVersionGuard> versions = new();
 
-    public ProfileSectionServiceTests() =>
+    public ProfileSectionServiceTests()
+    {
         userContext.SetupGet(context => context.UserId).Returns(AuditUserId);
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(true);
+        GivenVersion(isPublished: false, isCurrent: true);
+    }
 
     private ProfileSectionService CreateService() =>
-        new(repository.Object, contentRepository.Object, userContext.Object, NullLogger<ProfileSectionService>.Instance, new FixedTimeProvider(FixedNow));
+        new(repository.Object, contentRepository.Object, userContext.Object, versions.Object, NullLogger<ProfileSectionService>.Instance, new FixedTimeProvider(FixedNow));
+
+    private void GivenVersion(bool isPublished, bool isCurrent) =>
+        versions
+            .Setup(guard => guard.RequireAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionFacts(ProfileSectionTestData.ProfileId, isPublished, isCurrent));
+
+    /// <summary>An external user who holds a profile role, assigned to the given sections when they are an author.</summary>
+    private void GivenAnExternalUser(string roleName, bool isContributor, params Guid[] assignedSectionIds)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext
+            .Setup(context => context.GetProfileRole(ProfileSectionTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileSectionTestData.ProfileId, Guid.NewGuid(), roleName, isContributor));
+        userContext
+            .Setup(context => context.GetAssignedSectionIds(ProfileSectionTestData.ProfileId))
+            .Returns(isContributor ? assignedSectionIds : []);
+        userContext
+            .Setup(context => context.IsAssignedToSection(ProfileSectionTestData.ProfileId, It.IsAny<Guid>()))
+            .Returns((Guid _, Guid sectionId) => isContributor && assignedSectionIds.Contains(sectionId));
+    }
 
     [Fact]
     public async Task GetProfileQuestionnaireMetadataAsync_MapsSectionsQuestionsAndFields()
@@ -822,6 +847,188 @@ public class ProfileSectionServiceTests
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_AllowsAnAuthorAssignedToTheSection()
+    {
+        GivenAnExternalUser("Technical author", isContributor: true, ProfileSectionTestData.SectionId);
+        SetupValidation(CompleteRevision(), answerTheMandatoryField: false);
+        repository
+            .Setup(repo => repo.ApplyProfileVersionSectionChangeAsync(
+                ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<ProfileSectionChange>(), AuditUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true } };
+
+        var result = await CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+
+        result.FieldsSavedCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_Throws_ForAnAuthorNotAssignedToTheSection()
+    {
+        GivenAnExternalUser("Policy author", isContributor: true, Guid.NewGuid());
+
+        var act = () => CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        contentRepository.VerifyNoOtherCalls();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_Throws_ForAReviewer()
+    {
+        GivenAnExternalUser("VA reviewer", isContributor: false, ProfileSectionTestData.SectionId);
+
+        var act = () => CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionSectionAsync_Throws_ForAUserWithNoRoleOnTheProfile()
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+
+        var act = () => CreateService().SaveProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task EveryChange_Throws_WhenTheVersionIsNotTheCurrentDraft(bool isPublished, bool isCurrent)
+    {
+        GivenVersion(isPublished, isCurrent);
+        var service = CreateService();
+        var versionId = ProfileSectionTestData.ProfileVersionId;
+        var sectionId = ProfileSectionTestData.SectionId;
+
+        Func<Task>[] changes =
+        [
+            () => service.SaveProfileVersionSectionAsync(versionId, sectionId, [], null, CancellationToken.None),
+            () => service.ClearProfileVersionSectionAsync(versionId, sectionId, null, CancellationToken.None),
+            () => service.SaveProfileVersionRevisionDatesAsync(versionId, [Input(sectionId)], CancellationToken.None)
+        ];
+
+        foreach (var change in changes)
+        {
+            await change.Should().ThrowAsync<UnauthorizedAccessException>();
+        }
+
+        repository.VerifyNoOtherCalls();
+        contentRepository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("Technical author", true)]
+    [InlineData("VA reviewer", false)]
+    public async Task ClearProfileVersionSectionAsync_Throws_ForAnExternalUser(string roleName, bool isContributor)
+    {
+        GivenAnExternalUser(roleName, isContributor, ProfileSectionTestData.SectionId);
+
+        var act = () => CreateService().ClearProfileVersionSectionAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("Technical author", ReviewType.Author)]
+    [InlineData("VA author", ReviewType.Va)]
+    [InlineData("Policy author", ReviewType.Policy)]
+    public async Task SaveProfileVersionRevisionDatesAsync_LetsAnAuthorChangeTheReviewTheirRoleOwns(string roleName, ReviewType reviewType)
+    {
+        GivenAnExternalUser(roleName, isContributor: true, ProfileSectionTestData.SectionId);
+        SetupLookups();
+        SetupExistingRevision(ProfileSectionTestData.SectionId, new ProfileSectionRevisionInfo { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = RowVersion });
+        var written = CaptureWrittenUpdates();
+
+        await CreateService().SaveProfileVersionRevisionDatesAsync(
+            ProfileSectionTestData.ProfileVersionId, [ChangeOnly(reviewType)], CancellationToken.None);
+
+        written().Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData("Technical author", ReviewType.Va)]
+    [InlineData("Technical author", ReviewType.Policy)]
+    [InlineData("VA author", ReviewType.Author)]
+    [InlineData("VA author", ReviewType.Policy)]
+    [InlineData("Policy author", ReviewType.Author)]
+    [InlineData("Policy author", ReviewType.Va)]
+    public async Task SaveProfileVersionRevisionDatesAsync_Throws_WhenAnAuthorChangesAReviewTheirRoleDoesNotOwn(string roleName, ReviewType reviewType)
+    {
+        GivenAnExternalUser(roleName, isContributor: true, ProfileSectionTestData.SectionId);
+        SetupLookups();
+        SetupExistingRevision(ProfileSectionTestData.SectionId, new ProfileSectionRevisionInfo { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = RowVersion });
+
+        var act = () => CreateService().SaveProfileVersionRevisionDatesAsync(
+            ProfileSectionTestData.ProfileVersionId, [ChangeOnly(reviewType)], CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.Verify(
+            repo => repo.UpdateProfileVersionSectionRevisionsAsync(It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ProfileSectionRevisionUpdate>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveProfileVersionRevisionDatesAsync_Throws_ForAReviewer()
+    {
+        GivenAnExternalUser("Policy reviewer", isContributor: false, ProfileSectionTestData.SectionId);
+
+        var act = () => CreateService().SaveProfileVersionRevisionDatesAsync(
+            ProfileSectionTestData.ProfileVersionId, [Input(ProfileSectionTestData.SectionId)], CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task EveryRead_Throws_WhenTheUserMayNotViewTheVersion()
+    {
+        versions
+            .Setup(guard => guard.EnsureCanViewAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException());
+        var service = CreateService();
+        var versionId = ProfileSectionTestData.ProfileVersionId;
+        var sectionId = ProfileSectionTestData.SectionId;
+
+        Func<Task>[] reads =
+        [
+            () => service.GetProfileSectionAnswersAsync(versionId, sectionId, CancellationToken.None),
+            () => service.GetProfileVersionValidationStatusAsync(versionId, CancellationToken.None),
+            () => service.ValidateProfileVersionSectionAsync(versionId, sectionId, CancellationToken.None),
+            () => service.ValidateProfileVersionAsync(versionId, CancellationToken.None),
+            () => service.GetProfileVersionSectionContributionsAsync(versionId, sectionId, CancellationToken.None),
+            () => service.GetProfileVersionAllRevisionDatesAsync(versionId, CancellationToken.None)
+        ];
+
+        foreach (var read in reads)
+        {
+            await read.Should().ThrowAsync<UnauthorizedAccessException>();
+        }
+
+        repository.VerifyNoOtherCalls();
+        contentRepository.VerifyNoOtherCalls();
+    }
+
+    /// <summary>An input that changes the frequency of one review and nothing else.</summary>
+    private static ProfileSectionRevisionDatesInputDto ChangeOnly(ReviewType reviewType) => reviewType switch
+    {
+        ReviewType.Author => Input(ProfileSectionTestData.SectionId, authorFrequency: YearlyFrequencyId),
+        ReviewType.Va => Input(ProfileSectionTestData.SectionId, vaFrequency: YearlyFrequencyId),
+        _ => Input(ProfileSectionTestData.SectionId, policyFrequency: YearlyFrequencyId)
+    };
 
     private void SetupLookups()
     {

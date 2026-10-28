@@ -13,8 +13,8 @@ public class AllowedRolesAuthorizationHandlerTests
     [Fact]
     public async Task HandleAsync_Succeeds_WhenUserIsInAnAllowedRole()
     {
-        var requirement = new AllowedRolesRequirement(AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
-        var context = CreateContext(requirement, AuthorizationRoles.Reviewer);
+        var requirement = new AllowedRolesRequirement(AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+        var context = CreateContext(requirement, AuthorizationRoles.PolicyProfileUser);
 
         await Handler.HandleAsync(context);
 
@@ -25,7 +25,7 @@ public class AllowedRolesAuthorizationHandlerTests
     public async Task HandleAsync_Fails_WhenUserIsInNoAllowedRole()
     {
         var requirement = new AllowedRolesRequirement(AuthorizationRoles.ProfileEditor);
-        var context = CreateContext(requirement, AuthorizationRoles.Contributor);
+        var context = CreateContext(requirement, AuthorizationRoles.PolicyProfileUser);
 
         await Handler.HandleAsync(context);
 

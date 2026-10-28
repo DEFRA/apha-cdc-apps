@@ -1,3 +1,4 @@
+using CDC.Api.Domain.Common;
 using CDC.Api.Features.ProfileManagement.Commands;
 using CDC.Api.Features.ProfileManagement.Dtos;
 
@@ -18,8 +19,8 @@ public interface IProfileManagementService
     /// <summary>Updates a profile's attributes and applies affected species changes.</summary>
     /// <param name="command">The changes to apply.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The new row version.</returns>
-    Task<UpdateProfileAttributesResultDto> UpdateProfileAttributesAsync(
+    /// <returns>The new row version, or a forbidden result when the user may not edit a profile.</returns>
+    Task<Result<UpdateProfileAttributesResultDto>> UpdateProfileAttributesAsync(
         UpdateProfileAttributesCommand command,
         CancellationToken cancellationToken);
 

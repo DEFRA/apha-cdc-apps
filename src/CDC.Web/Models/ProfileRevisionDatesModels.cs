@@ -107,6 +107,20 @@ public sealed record RevisionDatesSetForAllView
     public string NextPolicyReview { get; init; } = string.Empty;
 }
 
+/// <summary>Which of the three reviews a user may change on the "All Revision dates" tab. A profile editor may change all of
+/// them; an author only the review their role owns: technical for the author review, policy, or VA.</summary>
+/// <param name="Author">Whether the author (technical) review can be changed.</param>
+/// <param name="Va">Whether the VA review can be changed.</param>
+/// <param name="Policy">Whether the policy review can be changed.</param>
+public readonly record struct EditableReviews(bool Author, bool Va, bool Policy)
+{
+    /// <summary>Gets the editability when every review can be changed.</summary>
+    public static EditableReviews All { get; } = new(true, true, true);
+
+    /// <summary>Gets a value indicating whether any review can be changed.</summary>
+    public bool Any => Author || Va || Policy;
+}
+
 /// <summary>Everything the "All Revision dates" tab renders.</summary>
 /// <param name="Rows">One row per section, in section-number order.</param>
 /// <param name="FrequencyOptions">The review frequency drop-down options (blank option first).</param>
@@ -118,4 +132,9 @@ public sealed record RevisionDatesTabView(
     IReadOnlyList<RevisionDatesOption> FrequencyOptions,
     IReadOnlyList<RevisionDatesOption> StatusOptions,
     RevisionDatesSetForAllView SetForAll,
-    bool IsEditable);
+    bool IsEditable)
+{
+    /// <summary>Gets which reviews can be changed. An editable tab lets every review be changed unless a smaller set is given;
+    /// a read-only tab lets none.</summary>
+    public EditableReviews Editable { get; init; } = IsEditable ? EditableReviews.All : default;
+}

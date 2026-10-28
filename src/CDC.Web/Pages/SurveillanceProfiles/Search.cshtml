@@ -62,6 +62,7 @@
                             <p class="app-search-alphabet govuk-body govuk-!-margin-top-1 govuk-!-margin-bottom-0">
                                 <a class="govuk-link app-search-letter @(Model.SelectedLetter == "All" ? "app-search-letter--selected" : string.Empty)"
                                    href="@Model.BuildLetterUrl("All")"
+                                   data-app-search-letter="All"
                                    aria-current="@(Model.SelectedLetter == "All" ? "true" : null)">All</a>
                                 @foreach (var letter in letters)
                                 {
@@ -69,6 +70,7 @@
                                     <text> </text>
                                     <a class="govuk-link app-search-letter @(Model.SelectedLetter == letterValue ? "app-search-letter--selected" : string.Empty)"
                                        href="@Model.BuildLetterUrl(letterValue)"
+                                       data-app-search-letter="@letterValue"
                                        aria-current="@(Model.SelectedLetter == letterValue ? "true" : null)">@letterValue</a>
                                 }
                             </p>

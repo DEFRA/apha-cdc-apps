@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/CDC.Web/wwwroot/js/search-filters.js';
+import '../../src/CDC.Web/wwwroot/js/paged-region.js';
+import { paginationHtml } from './helpers/pagination-html.js';
+import { click } from './helpers/click.js';
 
 function buildForm() {
   document.body.innerHTML = `
@@ -34,6 +37,7 @@ describe('search-filters', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    window.history.replaceState(null, '', '/');
   });
 
   it('fetches the results fragment as XHR and swaps it in, without changing the URL', async () => {
@@ -106,5 +110,219 @@ describe('search-filters', () => {
     await vi.waitFor(() => expect(results.innerHTML).toBe('<p>Fresh</p>'));
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(results.innerHTML).toBe('<p>Fresh</p>');
+  });
+
+  it('asks for the form fields on the search address, not on top of the query string the page was reached with', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('<p>New results</p>') });
+    vi.stubGlobal('fetch', fetchMock);
+    window.history.replaceState(null, '', '/SurveillanceProfiles/Search?SelectedLetter=B&PageNumber=2');
+    document.body.innerHTML = `
+      <form id="search-form" method="get">
+        <input type="checkbox" id="DisplayDraft" name="DisplayDraft" value="true" data-app-search-auto-refresh />
+      </form>
+      <div id="search-results-container">Original results</div>
+    `;
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    toggle(document.getElementById('DisplayDraft'));
+    await vi.waitFor(() => expect(document.getElementById('search-results-container').innerHTML).toBe('<p>New results</p>'));
+
+    const requested = new URL(fetchMock.mock.calls[0][0]);
+    expect(requested.pathname).toBe('/SurveillanceProfiles/Search');
+    expect(requested.search).toBe('?DisplayDraft=true');
+  });
+});
+
+// The letter and page links carry the address of the last search; the script sends the form instead so the
+// filters go as they are now, which is what every postback of the legacy page did. A letter submits the form,
+// and a page is fetched in the background like a filter change.
+function buildSearchPage({ searchText = '', letter = 'All', page = '2', withPageField = true } = {}) {
+  document.body.innerHTML = `
+    <form id="search-form" method="get" action="/SurveillanceProfiles/Search">
+      <input type="hidden" name="SelectedLetter" value="${letter}" />
+      <input type="text" id="SearchText" name="SearchText" value="${searchText}" />
+      <a id="letter-b" href="/SurveillanceProfiles/Search?SearchText=foo&SelectedLetter=B" data-app-search-letter="B">B</a>
+      <input type="checkbox" id="DisplayDraft" name="DisplayDraft" value="true" data-app-search-auto-refresh checked />
+    </form>
+    <div id="search-results-container">
+      ${withPageField ? `<input type="hidden" id="PageNumber" name="PageNumber" value="${page}" form="search-form" />` : ''}
+      <a id="next" href="/SurveillanceProfiles/Search?SearchText=foo&PageNumber=3" data-app-page="3"><span>Next</span></a>
+      <a id="elsewhere" href="/somewhere-else">Elsewhere</a>
+    </div>
+  `;
+
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+
+  const form = document.getElementById('search-form');
+  const submissions = [];
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submissions.push(Object.fromEntries(new FormData(form)));
+  });
+
+  return {
+    form,
+    submissions,
+    searchText: document.getElementById('SearchText'),
+    results: document.getElementById('search-results-container'),
+    letterLink: document.getElementById('letter-b'),
+    nextLink: document.getElementById('next'),
+    elsewhereLink: document.getElementById('elsewhere')
+  };
+}
+
+// What the server sends back for a page of results: the page number field, and the pagination.
+function resultsFragment({ current, total }) {
+  return `
+    <input type="hidden" id="PageNumber" name="PageNumber" value="${current}" form="search-form" />
+    ${paginationHtml({ current, total, label: 'Search results pages' })}
+  `;
+}
+
+const requestedFields = (url) => Object.fromEntries(new URL(url).searchParams);
+
+describe('search-filters letter and page links', () => {
+  let fetchMock;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    fetchMock = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(resultsFragment({ current: 3, total: 5 })) });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('submits the form with the keyword as it is now, and from the first page, when a letter is clicked', () => {
+    const { submissions, letterLink, searchText } = buildSearchPage({ searchText: 'foo', page: '3' });
+    searchText.value = '';
+
+    expect(click(letterLink)).toBe(true);
+
+    expect(submissions).toEqual([{ SelectedLetter: 'B', SearchText: '', PageNumber: '1', DisplayDraft: 'true' }]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('fetches the page asked for in the background, with the keyword as it is now, when a page link is clicked', async () => {
+    const { submissions, nextLink, searchText, results } = buildSearchPage({ letter: 'A' });
+    searchText.value = 'bovine';
+
+    expect(click(nextLink)).toBe(true);
+    await vi.waitFor(() => expect(results.querySelector('.govuk-pagination')).not.toBeNull());
+
+    expect(submissions).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(requestedFields(url)).toEqual({ SelectedLetter: 'A', SearchText: 'bovine', PageNumber: '3', DisplayDraft: 'true' });
+    expect(options.headers['X-Requested-With']).toBe('XMLHttpRequest');
+  });
+
+  it('brings the address up to date with the page shown, as following the link used to', async () => {
+    const { nextLink, searchText, results } = buildSearchPage({ letter: 'A' });
+    searchText.value = 'bovine';
+
+    click(nextLink);
+    await vi.waitFor(() => expect(results.querySelector('.govuk-pagination')).not.toBeNull());
+
+    expect(window.location.pathname).toBe('/SurveillanceProfiles/Search');
+    expect(Object.fromEntries(new URLSearchParams(window.location.search)))
+      .toEqual({ SelectedLetter: 'A', SearchText: 'bovine', PageNumber: '3', DisplayDraft: 'true' });
+  });
+
+  it('takes a click on something inside the link as a click on the link', async () => {
+    const { submissions, nextLink, results } = buildSearchPage();
+
+    expect(click(nextLink.querySelector('span'))).toBe(true);
+    await vi.waitFor(() => expect(results.querySelector('.govuk-pagination')).not.toBeNull());
+
+    expect(submissions).toEqual([]);
+    expect(requestedFields(fetchMock.mock.calls[0][0]).PageNumber).toBe('3');
+  });
+
+  it.each([
+    ['control', { ctrlKey: true }],
+    ['command', { metaKey: true }],
+    ['shift', { shiftKey: true }],
+    ['alt', { altKey: true }],
+    ['middle button', { button: 1 }]
+  ])('leaves a %s click to the link itself', (_name, init) => {
+    const { submissions, letterLink, nextLink } = buildSearchPage();
+
+    expect(click(letterLink, init)).toBe(false);
+    expect(click(nextLink, init)).toBe(false);
+
+    expect(submissions).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves other links alone', () => {
+    const { submissions, elsewhereLink } = buildSearchPage();
+
+    expect(click(elsewhereLink)).toBe(false);
+
+    expect(submissions).toEqual([]);
+  });
+
+  it('still works on page links that arrive with a refreshed results fragment', async () => {
+    const { submissions, results } = buildSearchPage();
+    results.innerHTML = `
+      <input type="hidden" id="PageNumber" name="PageNumber" value="1" form="search-form" />
+      <a id="refreshed" href="/SurveillanceProfiles/Search?PageNumber=2" data-app-page="2">2</a>
+    `;
+
+    expect(click(document.getElementById('refreshed'))).toBe(true);
+    await vi.waitFor(() => expect(results.querySelector('.govuk-pagination')).not.toBeNull());
+
+    expect(submissions).toEqual([]);
+    expect(requestedFields(fetchMock.mock.calls[0][0]).PageNumber).toBe('2');
+  });
+
+  it.each([
+    ['Next', '.govuk-pagination__next a', { current: 2, total: 5 }, { current: 3, total: 5 }, '.govuk-pagination__next a', 'Page 3 of 5'],
+    ['Previous', '.govuk-pagination__prev a', { current: 4, total: 5 }, { current: 3, total: 5 }, '.govuk-pagination__prev a', 'Page 3 of 5'],
+    ['a page number', 'a[aria-label="Page 4"]', { current: 2, total: 5 }, { current: 4, total: 5 }, '.govuk-pagination__item--current a', 'Page 4 of 5'],
+    ['Next to the last page', '.govuk-pagination__next a', { current: 4, total: 5 }, { current: 5, total: 5 }, '.govuk-pagination__item--current a', 'Page 5 of 5'],
+    ['Previous to the first page', '.govuk-pagination__prev a', { current: 2, total: 5 }, { current: 1, total: 5 }, '.govuk-pagination__item--current a', 'Page 1 of 5']
+  ])('puts focus where %s was and says which page is shown, as the link it was on is gone', async (_name, followed, before, after, focusedSelector, announced) => {
+    fetchMock.mockResolvedValue({ ok: true, text: () => Promise.resolve(resultsFragment(after)) });
+    const { results } = buildSearchPage();
+    results.innerHTML = resultsFragment(before);
+    const link = results.querySelector(followed);
+
+    click(link);
+    await vi.waitFor(() => expect(link.isConnected).toBe(false));
+
+    expect(document.activeElement).toBe(results.querySelector(focusedSelector));
+    expect(document.querySelector('[role="status"]').textContent).toBe(announced);
+  });
+
+  it('shows the error and leaves the address alone when the page cannot be fetched', async () => {
+    fetchMock.mockResolvedValue({ ok: false, text: () => Promise.resolve('') });
+    const { nextLink, results } = buildSearchPage();
+
+    click(nextLink);
+
+    await vi.waitFor(() => expect(results.textContent).toContain('There is a problem'));
+    expect(window.location.search).toBe('');
+  });
+
+  it('follows the link as it is when the form has no page number to set', () => {
+    const { submissions, letterLink, nextLink } = buildSearchPage({ withPageField: false });
+
+    expect(click(letterLink)).toBe(false);
+    expect(click(nextLink)).toBe(false);
+
+    expect(submissions).toEqual([]);
+  });
+
+  it('follows a letter link as it is when the form has no selected letter to set', () => {
+    const { form, submissions, letterLink } = buildSearchPage();
+    form.querySelector('[name="SelectedLetter"]').remove();
+
+    expect(click(letterLink)).toBe(false);
+
+    expect(submissions).toEqual([]);
   });
 });

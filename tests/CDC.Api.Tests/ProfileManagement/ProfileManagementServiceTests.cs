@@ -1,4 +1,5 @@
 using CDC.Api.Application;
+using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileManagement;
 using CDC.Api.Features.ProfileManagement.Commands;
@@ -194,7 +195,33 @@ public class ProfileManagementServiceTests
 
         var result = await CreateService().UpdateProfileAttributesAsync(command, CancellationToken.None);
 
-        result.NewLastUpdated.Should().BeEquivalentTo(ProfileManagementTestData.NewRowVersion);
+        result.IsSuccess.Should().BeTrue();
+        result.Value.NewLastUpdated.Should().BeEquivalentTo(ProfileManagementTestData.NewRowVersion);
+    }
+
+    // The legacy Profile.CanEditProfile(): a profile editor who is not a user management system account.
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, false)]
+    public async Task UpdateProfileAttributes_IsForbidden_WithoutTouchingTheProfile_WhenTheUserMayNotEditAProfile(
+        bool isProfileEditor, bool isUserManagementSystem, bool isPolicyProfileUser)
+    {
+        var command = new UpdateProfileAttributesCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Bovine tuberculosis",
+            LastUpdated = ProfileManagementTestData.RowVersion
+        };
+        var userContext = new ManageProfileLinkVisibilityTests.TestUserContext(isProfileEditor, isUserManagementSystem, isPolicyProfileUser);
+
+        var result = await CreateService(userContext).UpdateProfileAttributesAsync(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        result.Error.Should().Be(CDC.Api.Features.ProfileManagement.ProfileManagementService.EditNotPermittedMessage);
+        repository.Verify(
+            repo => repo.UpdateProfileAttributesAsync(It.IsAny<UpdateProfileAttributesCommand>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -627,5 +654,196 @@ public class ProfileManagementServiceTests
         result.ScenarioTitle.Should().Be("Low uptake scenario");
         result.IsWhatIfScenario.Should().BeTrue();
         result.FullTitle.Should().Be($"{result.ProfileTitle} (Low uptake scenario)");
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsTheProfileEditorEditEverySectionAndEveryReviewAndWriteReviewComments()
+    {
+        GivenACurrentDraft();
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanEditProfileSection.Should().BeTrue();
+        result.CanEditAllSections.Should().BeTrue();
+        result.EditableSectionIds.Should().BeEmpty();
+        result.CanEditAuthorReviewDates.Should().BeTrue();
+        result.CanEditVaReviewDates.Should().BeTrue();
+        result.CanEditPolicyReviewDates.Should().BeTrue();
+        result.CanClearProfileSection.Should().BeTrue();
+        result.CanAddReviewComments.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsAnAuthorEditOnlyTheirSectionsAndTheReviewTheirRoleOwns()
+    {
+        GivenACurrentDraft();
+        var sectionId = Guid.NewGuid();
+
+        var result = await CreateService(ExternalUser("VA author", isContributor: true, sectionId).Object)
+            .GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanEditProfileSection.Should().BeTrue();
+        result.CanEditAllSections.Should().BeFalse();
+        result.EditableSectionIds.Should().Equal(sectionId);
+        result.CanEditAuthorReviewDates.Should().BeFalse();
+        result.CanEditVaReviewDates.Should().BeTrue();
+        result.CanEditPolicyReviewDates.Should().BeFalse();
+        result.CanClearProfileSection.Should().BeFalse();
+        result.CanAddReviewComments.Should().BeFalse();
+        AssertTheDraftCanBeReadAndReportedOn(result);
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsAnAuthorWithNoAssignedSectionReadButNotEdit()
+    {
+        GivenACurrentDraft();
+
+        var result = await CreateService(ExternalUser("Technical author", isContributor: true).Object)
+            .GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanEditProfileSection.Should().BeFalse();
+        result.EditableSectionIds.Should().BeEmpty();
+        result.CanEditAuthorReviewDates.Should().BeTrue();
+        AssertTheDraftCanBeReadAndReportedOn(result);
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsAReviewerReadTheDraftButChangeNothing()
+    {
+        GivenACurrentDraft();
+
+        var result = await CreateService(ExternalUser("Policy reviewer", isContributor: false, Guid.NewGuid()).Object)
+            .GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanEditProfileSection.Should().BeFalse();
+        result.CanEditAllSections.Should().BeFalse();
+        result.EditableSectionIds.Should().BeEmpty();
+        result.CanEditAuthorReviewDates.Should().BeFalse();
+        result.CanEditVaReviewDates.Should().BeFalse();
+        result.CanEditPolicyReviewDates.Should().BeFalse();
+        result.CanClearProfileSection.Should().BeFalse();
+        result.CanAddReviewComments.Should().BeFalse();
+        AssertTheDraftCanBeReadAndReportedOn(result);
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsThePolicyProfileUserReadTheDraftButChangeNothing()
+    {
+        GivenACurrentDraft();
+        var policyUser = new Mock<IUserContext>();
+        policyUser.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
+
+        var result = await CreateService(policyUser.Object).GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanEditProfileSection.Should().BeFalse();
+        result.CanEditAuthorReviewDates.Should().BeFalse();
+        result.CanEditVaReviewDates.Should().BeFalse();
+        result.CanEditPolicyReviewDates.Should().BeFalse();
+        result.CanClearProfileSection.Should().BeFalse();
+        result.CanAddReviewComments.Should().BeFalse();
+        AssertTheDraftCanBeReadAndReportedOn(result);
+    }
+
+    [Fact]
+    public async Task GetManageProfile_HidesTheDraft_FromAUserWithNoRoleOnTheProfile()
+    {
+        GivenACurrentDraft();
+        var noRole = new Mock<IUserContext>();
+
+        var result = await CreateService(noRole.Object).GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.LatestDraftVersion.Should().Be("- none -");
+        result.CurrentProfileVersionId.Should().Be(Guid.Empty);
+        result.CanPrintProfileSection.Should().BeFalse();
+        result.CanViewProfileReports.Should().BeFalse();
+        result.CanEditProfileSection.Should().BeFalse();
+        result.CanViewNotes.Should().BeFalse();
+        result.CanViewReviewComments.Should().BeFalse();
+        result.CanViewContributions.Should().BeFalse();
+        result.CanViewAllRevisionDates.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsAnyoneWhoCanReadTheDraftSeeTheNotes_EvenWhenTheCurrentVersionIsPublished()
+    {
+        GivenACurrentDraft(isPublished: true);
+        var policyUser = new Mock<IUserContext>();
+        policyUser.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
+
+        var result = await CreateService(policyUser.Object).GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CanViewNotes.Should().BeTrue();
+        result.CanViewReviewComments.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetManageProfile_LetsNobodyEditAPublishedVersion_NotEvenTheProfileEditor()
+    {
+        GivenACurrentDraft(isPublished: true);
+
+        var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result.CurrentVersionIsPublished.Should().BeTrue();
+        result.CanEditProfileSection.Should().BeFalse();
+        result.CanEditAllSections.Should().BeFalse();
+        result.EditableSectionIds.Should().BeEmpty();
+        result.CanEditAuthorReviewDates.Should().BeFalse();
+        result.CanClearProfileSection.Should().BeFalse();
+        result.CanAddReviewComments.Should().BeFalse();
+    }
+
+    private static void AssertTheDraftCanBeReadAndReportedOn(CDC.Common.Contracts.ManageProfileContract result)
+    {
+        result.CanPrintProfileSection.Should().BeTrue();
+        result.CanViewProfileReports.Should().BeTrue();
+        result.CanViewNotes.Should().BeTrue();
+        result.CanViewReviewComments.Should().BeTrue();
+        result.CanViewContributions.Should().BeTrue();
+        result.CanViewAllRevisionDates.Should().BeTrue();
+    }
+
+    private static Mock<IUserContext> ExternalUser(string roleName, bool isContributor, params Guid[] assignedSectionIds)
+    {
+        var user = new Mock<IUserContext>();
+        user
+            .Setup(context => context.GetProfileRole(ProfileManagementTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileManagementTestData.ProfileId, Guid.NewGuid(), roleName, isContributor));
+        user
+            .Setup(context => context.GetAssignedSectionIds(ProfileManagementTestData.ProfileId))
+            .Returns(isContributor ? assignedSectionIds : []);
+
+        return user;
+    }
+
+    /// <summary>A profile whose current version is a draft, or a published version when <paramref name="isPublished"/> is set.</summary>
+    private void GivenACurrentDraft(bool isPublished = false)
+    {
+        var profile = ProfileManagementTestData.Profile() with
+        {
+            CurrentDraftProfileVersionId = isPublished ? Guid.Empty : ProfileManagementTestData.ProfileVersionId,
+            CurrentPublishedProfileVersionId = isPublished ? ProfileManagementTestData.ProfileVersionId : Guid.Empty,
+            CurrentPublicVersionId = Guid.Empty
+        };
+
+        repository
+            .Setup(repo => repo.GetProfileAttributesAsync(ProfileManagementTestData.ProfileId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(Guid.Empty, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionSummary?)null);
+        repository
+            .Setup(repo => repo.GetProfileVersionSummaryAsync(ProfileManagementTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 3, VersionMinor = 1, IsPublished = isPublished });
+        repository
+            .Setup(repo => repo.GetProfileStatusTypesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<ProfileStatusType>)[]);
     }
 }
