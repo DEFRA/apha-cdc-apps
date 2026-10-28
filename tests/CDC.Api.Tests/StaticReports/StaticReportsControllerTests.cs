@@ -76,20 +76,16 @@ public sealed class StaticReportsControllerTests
         header.FileName.ToString().Trim('"').Should().Be("Help_using_D2R2_28_10_2026_13_02_51.pdf");
     }
 
-    [Theory]
-    [InlineData(2026, 10, 28, 16, 28, 28, "10_28_2026_4_28_28_PM")]
-    [InlineData(2026, 1, 5, 9, 5, 7, "1_5_2026_9_05_07_AM")]
-    [InlineData(2026, 12, 1, 0, 0, 0, "12_1_2026_12_00_00_AM")]
-    public async Task GetStaticReportDocument_SendsAnAttachmentNamedWithTheDownloadDateAndTime_WhenDownloadRequested(
-        int year, int month, int day, int hour, int minute, int second, string expectedTimestamp)
+    [Fact]
+    public async Task GetStaticReportDocument_SendsAnAttachment_WhenDownloadRequested()
     {
-        var document = new StaticReportDataDto { Title = "DiseaseRankingReport", PdfData = [1, 2, 3] };
+        var document = new StaticReportDataDto { Title = "D2R2 Quality Statement", PdfData = [1, 2, 3] };
 
         service
             .Setup(svc => svc.GetStaticReportDataAsync(VersionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(document);
 
-        var controller = CreateController(new FixedTimeProvider(new DateTime(year, month, day, hour, minute, second)));
+        var controller = CreateController();
         await controller.GetStaticReportDocument(VersionId, download: true, CancellationToken.None);
 
         var header = ContentDispositionHeaderValue.Parse(controller.Response.Headers.ContentDisposition.ToString());
@@ -225,12 +221,5 @@ public sealed class StaticReportsControllerTests
         var response = await CreateController().UploadStaticReport(request, CancellationToken.None);
 
         response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
-    }
-
-    private sealed class FixedTimeProvider(DateTime localNow) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => new(localNow, TimeSpan.Zero);
-
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 }

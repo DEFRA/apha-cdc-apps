@@ -167,9 +167,15 @@ public sealed class ProfileManagementService(
 
         // A user who may not view the profile's drafts is shown the profile as if it had none, so every page built from
         // this response falls back to the published version.
-        var profile = ProfileAccess.CanViewDraft(userContext, storedProfile.Id) || storedProfile.CurrentDraftProfileVersionId == Guid.Empty
-            ? storedProfile
-            : storedProfile with { CurrentDraftProfileVersionId = Guid.Empty };
+        var draftIsHidden = storedProfile.CurrentDraftProfileVersionId != Guid.Empty && !ProfileAccess.CanViewDraft(userContext, storedProfile.Id);
+        var profile = draftIsHidden ? storedProfile with { CurrentDraftProfileVersionId = Guid.Empty } : storedProfile;
+
+        // With no published version to fall back to, the draft was all there was to see, so the request is refused as the
+        // legacy GetProfileVersionSection was, rather than answered with a profile that has no version.
+        if (draftIsHidden && ResolveCurrentProfileVersionId(profile) == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException("The acting user may not view any version of this profile.");
+        }
 
         var publicVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublicVersionId, cancellationToken);
         var publishedVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublishedProfileVersionId, cancellationToken);

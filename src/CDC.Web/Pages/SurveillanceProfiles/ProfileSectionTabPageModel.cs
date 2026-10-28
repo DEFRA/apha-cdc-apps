@@ -1,3 +1,4 @@
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -22,6 +23,12 @@ public abstract class ProfileSectionTabPageModel(
 {
     /// <summary>The date format used by the Contributions and Review comments tables.</summary>
     protected const string DateDisplayFormat = "dd/MM/yyyy";
+
+    /// <summary>The error type the Application error page shows when CDC.Api refuses the user the profile data: the legacy site's exception.</summary>
+    public const string AccessRefusedErrorType = "System.Security.SecurityException";
+
+    /// <summary>What the Application error page says when CDC.Api refuses the user the profile data, in the legacy exception's words.</summary>
+    public const string AccessRefusedDetails = "You do not have permission to access the profile data for this profile version section";
 
     /// <summary>Gets or sets the profile being browsed, bound from the page route.</summary>
     [BindProperty(SupportsGet = true)]
@@ -212,7 +219,8 @@ public abstract class ProfileSectionTabPageModel(
     /// when it has no version; callers check <see cref="IsReady"/> before loading their own content.
     /// </summary>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns><see cref="NotFound()"/> when the profile does not exist; otherwise <see langword="null"/>.</returns>
+    /// <returns><see cref="NotFound()"/> when the profile does not exist, a redirect to the Application error page when CDC.Api refuses
+    /// the user the profile; otherwise <see langword="null"/>.</returns>
     protected async Task<IActionResult?> LoadProfileContextAsync(CancellationToken cancellationToken)
     {
         try
@@ -248,6 +256,10 @@ public abstract class ProfileSectionTabPageModel(
 
             CurrentProfileVersionId = profile.CurrentProfileVersionId;
         }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return RedirectToAccessRefusedPage();
+        }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
             logger.ProfilePageLoadFailed(exception, ProfileId);
@@ -258,6 +270,20 @@ public abstract class ProfileSectionTabPageModel(
         await RefreshValidationStatusAsync(cancellationToken);
 
         return null;
+    }
+
+    /// <summary>
+    /// Sends the user to the Application error page, as the legacy site did when a <c>SecurityException</c> said they may not read
+    /// the profile data. The page is also marked as failed, so a handler that carries on after loading (a POST) shows the load
+    /// error rather than a half-empty page.
+    /// </summary>
+    /// <returns>The redirect to the Application error page.</returns>
+    protected IActionResult RedirectToAccessRefusedPage()
+    {
+        logger.ProfileAccessRefused(ProfileId);
+        HasError = true;
+
+        return ApplicationErrorModel.RedirectFrom(this, AccessRefusedErrorType, AccessRefusedDetails);
     }
 
     private void ApplyProfileFlags(ManageProfileViewModel profile)

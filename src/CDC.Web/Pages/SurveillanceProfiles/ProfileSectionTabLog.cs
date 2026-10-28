@@ -61,4 +61,7 @@ internal static partial class ProfileSectionTabLog
 
     [LoggerMessage(EventId = 2318, Level = LogLevel.Warning, Message = "A {Action} of profile '{ProfileId}' section '{ProfileSectionId}' was refused by CDC.Api with outcome {Outcome}")]
     public static partial void ProfileSectionWriteRefused(this ILogger logger, string action, Guid profileId, Guid profileSectionId, ProfileSectionWriteOutcome outcome);
+
+    [LoggerMessage(EventId = 2319, Level = LogLevel.Warning, Message = "CDC.Api refused to show profile '{ProfileId}' to the signed-in user, who was sent to the Application error page")]
+    public static partial void ProfileAccessRefused(this ILogger logger, Guid profileId);
 }

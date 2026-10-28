@@ -48,10 +48,12 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <returns>The profile's "Manage profile" details.</returns>
     /// <response code="200">The profile was retrieved.</response>
     /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The profile has no version the user may view: its only version is a draft they hold no role on.</response>
     /// <response code="404">No profile exists with the supplied identifier.</response>
     [HttpGet("{profileId:guid}/manage")]
     [ProducesResponseType(typeof(GetManageProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GetManageProfileResponse>> GetManageProfile(Guid profileId, CancellationToken cancellationToken)
     {

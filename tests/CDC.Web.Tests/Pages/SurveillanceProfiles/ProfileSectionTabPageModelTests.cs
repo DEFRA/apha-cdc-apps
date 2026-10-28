@@ -1,7 +1,9 @@
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using static CDC.Web.Tests.Pages.SurveillanceProfiles.ProfileTabTestData;
 
 namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
@@ -135,6 +137,38 @@ public class ProfileSectionTabPageModelTests
 
         Assert.True(pageModel.IsReady);
         Assert.Equal(ProfileVersionId, pageModel.CurrentProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_SendsTheUserToTheApplicationErrorPage_WhenCdcApiRefusesThemTheProfile()
+    {
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                new FakeApiClient(throwOnGetManageProfile: Refused()),
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+        var tempData = WithTempData(pageModel);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        AssertSentToTheApplicationErrorPage(result, tempData);
+        Assert.False(pageModel.IsReady);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsTheLoadError_WhenCdcApiFailsToLoadTheProfileForAnyOtherReason()
+    {
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                new FakeApiClient(throwOnGetManageProfile: new HttpRequestException("boom", null, HttpStatusCode.InternalServerError)),
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
     }
 
     [Fact]
