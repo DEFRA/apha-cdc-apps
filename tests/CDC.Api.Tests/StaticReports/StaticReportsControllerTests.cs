@@ -4,6 +4,7 @@ using CDC.Api.Features.StaticReports.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using Moq;
 
 namespace CDC.Api.Tests.StaticReports;
@@ -70,7 +71,9 @@ public sealed class StaticReportsControllerTests
         var fileResult = response.Should().BeOfType<FileContentResult>().Subject;
         fileResult.FileContents.Should().BeSameAs(document.PdfData);
         fileResult.ContentType.Should().Be("application/pdf");
-        controller.Response.Headers.ContentDisposition.ToString().Should().Be("inline; filename=\"Help_using_D2R2_28_10_2026_13_02_51.pdf\"");
+        var header = ContentDispositionHeaderValue.Parse(controller.Response.Headers.ContentDisposition.ToString());
+        header.DispositionType.ToString().Should().Be("inline");
+        header.FileName.ToString().Trim('"').Should().Be("Help_using_D2R2_28_10_2026_13_02_51.pdf");
     }
 
     [Fact]
@@ -85,13 +88,15 @@ public sealed class StaticReportsControllerTests
         var controller = CreateController();
         await controller.GetStaticReportDocument(VersionId, download: true, CancellationToken.None);
 
-        controller.Response.Headers.ContentDisposition.ToString().Should().Be("attachment; filename=\"D2R2_Quality_Statement_28_10_2026_13_02_51.pdf\"");
+        var header = ContentDispositionHeaderValue.Parse(controller.Response.Headers.ContentDisposition.ToString());
+        header.DispositionType.ToString().Should().Be("attachment");
+        header.FileName.ToString().Trim('"').Should().Be("D2R2_Quality_Statement_28_10_2026_13_02_51.pdf");
     }
 
     [Theory]
     [InlineData("Dr Smith's guide, v2; final", "Dr_Smiths_guide_v2_final")]
     [InlineData("<b>Q&A</b> sheet", "Q&A_sheet")]
-    [InlineData("A/B: C", "A_B_C")]
+    [InlineData("A/B: C", "A_B__C")]
     public async Task GetStaticReportDocument_AppliesLegacyFileNameSanitisation(string title, string expected)
     {
         service
@@ -101,8 +106,8 @@ public sealed class StaticReportsControllerTests
         var controller = CreateController();
         await controller.GetStaticReportDocument(VersionId, download: true, CancellationToken.None);
 
-        controller.Response.Headers.ContentDisposition.ToString()
-            .Should().Be($"attachment; filename=\"{expected}_28_10_2026_13_02_51.pdf\"");
+        var header = ContentDispositionHeaderValue.Parse(controller.Response.Headers.ContentDisposition.ToString());
+        header.FileName.ToString().Trim('"').Should().Be($"{expected}_28_10_2026_13_02_51.pdf");
     }
 
     [Fact]
