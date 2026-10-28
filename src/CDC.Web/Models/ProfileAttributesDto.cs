@@ -21,6 +21,9 @@ public sealed record ProfileAttributesDto
     /// <summary>The current draft profile version, or <see cref="Guid.Empty"/> when the profile has no draft.</summary>
     public Guid CurrentDraftProfileVersionId { get; init; }
 
+    /// <summary>The current published profile version, or <see cref="Guid.Empty"/> when the profile has never been published.</summary>
+    public Guid CurrentPublishedProfileVersionId { get; init; }
+
     /// <summary>The SQL Server <c>rowversion</c> to send back when updating.</summary>
     public byte[] LastUpdated { get; init; } = [];
 

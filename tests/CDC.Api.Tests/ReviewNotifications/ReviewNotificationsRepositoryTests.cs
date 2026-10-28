@@ -27,7 +27,7 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
         {
             ResultSets =
             [
-                new FakeResultSet(["UserId", "ProfileVersionId", "ProfileTitle", "ScenarioTitle", "VersionMajor", "VersionMinor"], rows)
+                new FakeResultSet(["UserId", "ProfileVersionId", "ProfileTitle", "ScenarioTitle", "VersionMajor", "VersionMinor", "HasPublishedVersion"], rows)
             ]
         });
 
@@ -70,8 +70,8 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
         ScriptRoles([UserId, VersionId, "Policy reviewer"], [Guid.NewGuid(), VersionId, "Technical author"]);
         ScriptUsers([UserId, "Ann Reviewer", "ann@example.test"]);
         ScriptProfiles(
-            [UserId, VersionId, "Anthrax", null, (byte)2, (byte)1],
-            [Guid.NewGuid(), Guid.NewGuid(), "Other user's profile", null, (byte)1, (byte)0]);
+            [UserId, VersionId, "Anthrax", null, (byte)2, (byte)1, true],
+            [Guid.NewGuid(), Guid.NewGuid(), "Other user's profile", null, (byte)1, (byte)0, false]);
         ScriptSections(
             [UserId, VersionId, "Second", 2, "Active", null, null, due, null, null],
             [UserId, VersionId, "First", 1, null, "Proposed", "Complete", null, due, due]);
@@ -84,6 +84,7 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
         var profile = user.Profiles.Should().ContainSingle().Subject;
         profile.Title.Should().Be("Anthrax");
         profile.Version.Should().Be("2.1");
+        profile.HasPublishedVersion.Should().BeTrue();
         profile.UserRoles.Should().Equal("Policy reviewer");
         profile.Sections.Select(s => s.Name).Should().Equal("First", "Second");
         profile.Sections[0].Policy.Should().Be(new Features.ReviewNotifications.Dtos.ReviewItem(due, "Proposed"));
@@ -96,7 +97,7 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
     {
         ScriptRoles();
         ScriptUsers([UserId, "Ann", "ann@example.test"]);
-        ScriptProfiles([UserId, VersionId, "Anthrax", "Scenario", (byte)1, (byte)0]);
+        ScriptProfiles([UserId, VersionId, "Anthrax", "Scenario", (byte)1, (byte)0, false]);
         ScriptSections();
 
         var result = await CreateRepository().GetUsersDueReviewAsync(CancellationToken.None);

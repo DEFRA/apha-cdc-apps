@@ -13,7 +13,6 @@ namespace CDC.Api.Features.ReviewNotifications;
 public sealed class ReviewNotificationsJob(
     IReviewNotificationsRepository repository,
     IEmailSender emailSender,
-    IComparisonAttachmentBuilder attachmentBuilder,
     IOptions<ReviewNotificationsOptions> options,
     TimeProvider timeProvider,
     ILogger<ReviewNotificationsJob> logger)
@@ -63,7 +62,7 @@ public sealed class ReviewNotificationsJob(
             try
             {
                 var message = ReviewEmailComposer.Compose(user, today, options.Value);
-                await emailSender.SendAsync(message with { Attachment = await TryBuildAttachmentAsync(user, cancellationToken) }, cancellationToken);
+                await emailSender.SendAsync(message, cancellationToken);
                 logger.ReminderSent(user.Id);
                 sent++;
             }
@@ -77,20 +76,5 @@ public sealed class ReviewNotificationsJob(
         logger.JobCompleted(sent, failed);
 
         return failed == 0;
-    }
-
-    // The comparison is a courtesy: if it cannot be built the reminder still goes out without it.
-    private async Task<EmailAttachment?> TryBuildAttachmentAsync(ReviewDueUser user, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await attachmentBuilder.BuildAsync(user, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.ComparisonReportFailed(ex, user.Id);
-
-            return null;
-        }
     }
 }

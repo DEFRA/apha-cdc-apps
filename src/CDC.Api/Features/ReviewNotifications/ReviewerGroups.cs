@@ -63,6 +63,12 @@ public static class ReviewerGroups
         options.ReviewerGroups.TryGetValue(group, out var groupRoles)
         && groupRoles.Any(g => roles.Contains(g, StringComparer.OrdinalIgnoreCase));
 
-    private static bool IsDue(ReviewItem item, DateTime today) =>
-        item.NextReview is { } date && date.Date < today.Date.AddDays(ReminderWindowDays) && item.Status != "Complete";
+    /// <summary>
+    /// True when the review is not Complete and its date is before now plus two weeks (overdue included),
+    /// matching the <c>vwReviewEmail*</c> views. A null status or date never qualifies.
+    /// </summary>
+    /// <param name="item">The review.</param>
+    /// <param name="now">The current date and time.</param>
+    internal static bool IsDue(ReviewItem item, DateTime now) =>
+        item.NextReview is { } date && item.Status is { } status && status != "Complete" && date < now.AddDays(ReminderWindowDays);
 }

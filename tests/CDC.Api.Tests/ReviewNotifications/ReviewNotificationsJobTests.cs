@@ -12,7 +12,6 @@ public class ReviewNotificationsJobTests
 {
     private readonly Mock<IReviewNotificationsRepository> repository = new();
     private readonly Mock<IEmailSender> sender = new();
-    private readonly Mock<IComparisonAttachmentBuilder> attachments = new();
     private readonly Mock<ILogger<ReviewNotificationsJob>> logger = new();
 
     public ReviewNotificationsJobTests() =>
@@ -31,7 +30,6 @@ public class ReviewNotificationsJobTests
     private ReviewNotificationsJob CreateJob() => new(
         repository.Object,
         sender.Object,
-        attachments.Object,
         Options.Create(options),
         TimeProvider.System,
         logger.Object);
@@ -49,6 +47,17 @@ public class ReviewNotificationsJobTests
     }
 
     [Fact]
+    public async Task RunAsync_SendsNoAttachment_BecauseTheComparisonIsALink()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.Attachment == null), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task RunAsync_SendsOnlyReviewTypesOfTheUsersGroup()
     {
         repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
@@ -60,7 +69,7 @@ public class ReviewNotificationsJobTests
         await CreateJob().RunAsync(CancellationToken.None);
 
         // One due cell (Author) of the three types.
-        message!.Body.Split("(Overdue)").Length.Should().Be(2);
+        message!.Body.Split("(overdue)").Length.Should().Be(2);
     }
 
     [Theory]
@@ -77,7 +86,7 @@ public class ReviewNotificationsJobTests
         await CreateJob().RunAsync(CancellationToken.None);
 
         message!.ToAddress.Should().Be("ann@example.test");
-        message.Body.Split("(Overdue)").Length.Should().Be(2);
+        message.Body.Split("(overdue)").Length.Should().Be(2);
     }
 
     [Fact]
@@ -196,34 +205,6 @@ public class ReviewNotificationsJobTests
         var act = () => CreateJob().RunAsync(CancellationToken.None);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
-    }
-
-    [Fact]
-    public async Task RunAsync_AttachesTheComparisonReport_WhenOneIsBuilt()
-    {
-        var attachment = new EmailAttachment("c.pdf", [1, 2, 3]);
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test")]);
-        attachments.Setup(a => a.BuildAsync(It.IsAny<ReviewDueUser>(), It.IsAny<CancellationToken>())).ReturnsAsync(attachment);
-
-        await CreateJob().RunAsync(CancellationToken.None);
-
-        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.Attachment == attachment), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task RunAsync_SendsWithoutTheReport_WhenBuildingItFails()
-    {
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test")]);
-        attachments.Setup(a => a.BuildAsync(It.IsAny<ReviewDueUser>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("render failed"));
-
-        var result = await CreateJob().RunAsync(CancellationToken.None);
-
-        result.Should().BeTrue();
-        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.Attachment == null), It.IsAny<CancellationToken>()), Times.Once);
-        VerifyErrorLogged(Times.Once());
     }
 
     private void VerifyErrorLogged(Times times) => VerifyLogged(LogLevel.Error, times);

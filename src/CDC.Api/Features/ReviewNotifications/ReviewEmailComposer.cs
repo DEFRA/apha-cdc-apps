@@ -6,111 +6,111 @@ using CDC.Api.Features.ReviewNotifications.Interfaces;
 namespace CDC.Api.Features.ReviewNotifications;
 
 /// <summary>
-/// Builds the review reminder email as GOV.UK Notify markdown (Notify does not render HTML or tables),
-/// following the wording of the legacy D2R2 <c>ReviewEmail</c>.
+/// Builds the <c>((body))</c> of the review reminder as GOV.UK Notify markdown, following the legacy D2R2
+/// <c>ReviewEmail</c>. The Notify template holds the greeting, the instructions and the support mailbox. Notify cannot
+/// show tables, so each legacy table row is a bullet. The comparison report is a link that CDC.Web generates, not an attachment.
 /// </summary>
 public static class ReviewEmailComposer
 {
     /// <summary>Subject line, unchanged from the legacy email.</summary>
     public const string Subject = "D2R2 - Profile review request";
 
+    /// <summary>CDC.Web page that lists every revision date of a profile.</summary>
+    internal const string RevisionDatesPath = "/SurveillanceProfiles/EditProfileAllRevisionDates";
+
+    /// <summary>CDC.Web handler that builds the draft-against-published comparison PDF when the link is opened.</summary>
+    internal const string ComparisonPath = "/DiseaseProfiles/CompareVersions";
+
     private const int ReminderWindowDays = 14;
+
+    private const string DateFormat = "d MMMM yyyy";
 
     /// <summary>Composes the reminder for one user.</summary>
     /// <param name="user">The user and their due profile sections.</param>
-    /// <param name="today">The current date, used to label reviews overdue or due soon.</param>
-    /// <param name="options">Link and contact details.</param>
-    public static EmailMessage Compose(ReviewDueUser user, DateTime today, ReviewNotificationsOptions options)
+    /// <param name="now">The current date and time, used to decide which reviews are due or overdue.</param>
+    /// <param name="options">Link details.</param>
+    public static EmailMessage Compose(ReviewDueUser user, DateTime now, ReviewNotificationsOptions options)
     {
         var body = new StringBuilder();
-        body.Append("Please find the list of approaching, overdue and completed author, technical and policy reviews below. ");
-        body.Append("After completing a review please update the relevant review status for the profile section in the system. ");
-        body.Append("This can be achieved by locating the profile on the search page, clicking the browse link and then selecting the revision dates tab. ");
-        body.Append("Set the status to complete by using the drop down list.\n\n");
-
         var hasHomePage = TryGetWebUri(options.InternalHomePageUrl, out var homePage);
 
         foreach (var profile in user.Profiles)
         {
-            AppendProfile(body, profile, today, hasHomePage ? homePage : null);
+            AppendProfile(body, profile, now, hasHomePage ? homePage : null);
         }
 
         if (TryGetWebUri(options.ExternalHomePageUrl, out var externalHomePage))
         {
-            body.Append("The D2R2 system can be accessed via the internet using the following link: ").Append(externalHomePage.AbsoluteUri).Append("\n\n");
+            body.Append("External users can access [D2R2 on the internet](").Append(externalHomePage.AbsoluteUri).Append(").\n\n");
         }
 
         if (hasHomePage)
         {
-            body.Append("Internal users can access the D2R2 system using the following link: ").Append(homePage!.AbsoluteUri).Append("\n\n");
+            body.Append("Internal users can access [D2R2 on the Defra network](").Append(homePage!.AbsoluteUri).Append(").\n\n");
         }
 
-        body.Append("If you have a problem accessing the D2R2 application (or aren't sure why you've received this email) please contact us by emailing the D2R2 mailbox: ");
-        body.Append(Clean(options.SupportMailbox));
-
-        return new EmailMessage(user.EmailAddress, Clean(user.FullName), Subject, body.ToString());
+        return new EmailMessage(user.EmailAddress, Clean(user.FullName), Subject, body.ToString().TrimEnd());
     }
 
-    private static void AppendProfile(StringBuilder body, ReviewDueProfile profile, DateTime today, Uri? baseUri)
+    private static void AppendProfile(StringBuilder body, ReviewDueProfile profile, DateTime now, Uri? baseUri)
     {
         var title = Clean(string.IsNullOrEmpty(profile.ScenarioTitle)
-            ? $"{profile.Title} - v {profile.Version} (Draft)"
-            : $"{profile.Title} ({profile.ScenarioTitle}) - v {profile.Version} (Draft)");
+            ? $"{profile.Title} - version {profile.Version} (draft)"
+            : $"{profile.Title} ({profile.ScenarioTitle}) - version {profile.Version} (draft)");
 
         body.Append("## ").Append(title).Append("\n\n");
 
-        if (baseUri is not null && profile.ProfileId != Guid.Empty)
-        {
-            // The page binds profileId from the querystring and opens the all-revision-dates tab for that profile.
-            var link = new Uri(baseUri, $"/SurveillanceProfiles/EditProfileAllRevisionDates?profileId={profile.ProfileId}");
-            body.Append(link.AbsoluteUri).Append("\n\n");
-        }
-
-        body.Append("Reviews due for ").Append(title).Append(":\n\n");
-
         foreach (var section in profile.Sections)
         {
-            body.Append("* ").Append(section.Number.ToString(CultureInfo.InvariantCulture)).Append(' ').Append(Clean(section.Name));
+            // Same column order as the legacy table.
+            var reviews = new[]
+                {
+                    DescribeReview("VA", section.Technical, now),
+                    DescribeReview("policy", section.Policy, now),
+                    DescribeReview("author", section.Author, now)
+                }
+                .Where(text => text.Length > 0)
+                .ToList();
 
-            var due = new[]
+            if (reviews.Count == 0)
             {
-                ("Author review", DescribeReview(section.Author, today)),
-                ("Technical review", DescribeReview(section.Technical, today)),
-                ("Policy review", DescribeReview(section.Policy, today))
-            }
-            .Where(r => r.Item2.Length > 0)
-            .Select(r => $"{r.Item1} {r.Item2}")
-            .ToList();
-
-            if (due.Count > 0)
-            {
-                body.Append(" - ").Append(string.Join(", ", due));
+                continue;
             }
 
-            body.Append('\n');
+            body.Append("* ").Append(section.Number.ToString(CultureInfo.InvariantCulture)).Append(' ').Append(Clean(section.Name))
+                .Append(" - ").Append(string.Join(", ", reviews)).Append('\n');
         }
 
         body.Append('\n');
+
+        if (baseUri is null || profile.ProfileId == Guid.Empty)
+        {
+            return;
+        }
+
+        var reviewDates = new Uri(baseUri, $"{RevisionDatesPath}?profileId={profile.ProfileId}");
+        body.Append("[Open the revision dates for this profile](").Append(reviewDates.AbsoluteUri).Append(")\n\n");
+
+        if (profile.HasPublishedVersion)
+        {
+            var comparison = new Uri(baseUri, $"{ComparisonPath}?handler=Review&profileId={profile.ProfileId}");
+            body.Append("[Download the changes since the published version (PDF)](").Append(comparison.AbsoluteUri).Append(")\n\n");
+        }
     }
 
-    // The status is always written as text so it does not rely on colour alone.
-    private static string DescribeReview(ReviewItem item, DateTime today)
+    // As legacy, completed reviews in the window are listed too; the state is text, not colour.
+    private static string DescribeReview(string type, ReviewItem item, DateTime now)
     {
-        if (item.NextReview is not { } reviewDate || reviewDate.Date >= today.Date.AddDays(ReminderWindowDays))
+        if (item.NextReview is not { } date || item.Status is null || date >= now.AddDays(ReminderWindowDays))
         {
             return string.Empty;
         }
 
-        var date = reviewDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        var state = item.Status == "Complete" ? "completed"
+            : date.Date < now.Date ? "overdue"
+            : "due soon";
 
-        return item.Status switch
-        {
-            "Complete" => $"{date} (Completed)",
-            "Active" or "Proposed" => reviewDate.Date < today.Date
-                ? $"{date} (Overdue)"
-                : $"{date} (Due soon)",
-            _ => date
-        };
+        return $"{type} review {date.ToString(DateFormat, CultureInfo.InvariantCulture)} ({state})";
     }
 
     private static bool TryGetWebUri(string value, out Uri uri) =>

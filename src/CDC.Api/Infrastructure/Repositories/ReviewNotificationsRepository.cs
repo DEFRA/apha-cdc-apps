@@ -14,8 +14,13 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
 {
     internal const string UsersQuery = "SELECT Id, FullName, EmailAddress FROM dbo.vwReviewEmailUsers";
 
+    // HasPublishedVersion mirrors how spgProfile finds the current published version.
     internal const string ProfilesQuery =
-        "SELECT p.UserId, pv.ProfileId, p.ProfileVersionId, p.ProfileTitle, p.ScenarioTitle, p.VersionMajor, p.VersionMinor " +
+        "SELECT p.UserId, pv.ProfileId, p.ProfileVersionId, p.ProfileTitle, p.ScenarioTitle, p.VersionMajor, p.VersionMinor, " +
+        "CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.ProfileVersion pub " +
+        "INNER JOIN dbo.luProfileVersionState s ON s.Id = pub.ProfileVersionStateId " +
+        "WHERE pub.ProfileId = pv.ProfileId AND pub.EffectiveDateTo IS NULL AND s.Name = 'Published') " +
+        "THEN 1 ELSE 0 END AS bit) AS HasPublishedVersion " +
         "FROM dbo.vwReviewEmailProfiles p " +
         "INNER JOIN dbo.ProfileVersion pv ON pv.Id = p.ProfileVersionId";
 
@@ -59,7 +64,8 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
                     roles
                         .Where(r => r.UserId == user.Id && r.ProfileVersionId == p.ProfileVersionId)
                         .Select(r => r.RoleName)
-                        .ToList()))
+                        .ToList(),
+                    p.HasPublishedVersion))
                 .Where(p => p.Sections.Count > 0)
                 .OrderBy(p => p.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -104,6 +110,8 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         public byte VersionMajor { get; set; }
 
         public byte VersionMinor { get; set; }
+
+        public bool HasPublishedVersion { get; set; }
     }
 
     private sealed class RoleRow

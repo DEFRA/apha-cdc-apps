@@ -43,12 +43,12 @@ public class CompareVersionsIntegrationTests
         }
     ];
 
-    private static WebApplicationFactory<Program> CreateFactory(CapturingPdfRenderer pdf) =>
+    private static WebApplicationFactory<Program> CreateFactory(CapturingPdfRenderer pdf, ProfileAttributesDto? attributes = null) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(Profiles));
+                services.AddSingleton<IApiClient>(new FakeApiClient(Profiles, attributes));
                 services.RemoveAll<IProfileSectionsApiService>();
                 services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(
                     metadata: new ProfileQuestionnaireMetadataDto
@@ -177,6 +177,46 @@ public class CompareVersionsIntegrationTests
         Assert.True(response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Redirect or HttpStatusCode.Found);
         Assert.DoesNotContain("checked=\"checked\"", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ReviewLink_ReturnsPdfOfThePublishedVersionAgainstTheDraft()
+    {
+        var pdf = new CapturingPdfRenderer();
+        using var factory = CreateFactory(pdf, Attributes(LaterId, DraftId));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"{PagePath}?handler=Review&profileId={ProfileId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.True(pdf.Html.IndexOf("Version 2.0", StringComparison.Ordinal) < pdf.Html.IndexOf("Version 3.0", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReviewLink_ShowsError_WhenThereIsNothingToCompare(bool profileExists)
+    {
+        var pdf = new CapturingPdfRenderer();
+        using var factory = CreateFactory(pdf, profileExists ? Attributes(Guid.Empty, DraftId) : null);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"{PagePath}?handler=Review&profileId={ProfileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("There is a problem", body, StringComparison.Ordinal);
+        Assert.Contains("There is no draft and published version of this profile to compare", body, StringComparison.Ordinal);
+        Assert.Empty(pdf.Html);
+    }
+
+    private static ProfileAttributesDto Attributes(Guid publishedId, Guid draftId) => new()
+    {
+        Id = ProfileId,
+        Title = "Anthrax",
+        CurrentPublishedProfileVersionId = publishedId,
+        CurrentDraftProfileVersionId = draftId
+    };
 
     private static async Task<HttpResponseMessage> Post(HttpClient client, params Guid[] selected) =>
         await Post(client, selected, null, null);

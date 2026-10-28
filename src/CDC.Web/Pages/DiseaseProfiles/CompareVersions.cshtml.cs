@@ -62,6 +62,45 @@ public class CompareVersionsModel(
         return Page();
     }
 
+    /// <summary>
+    /// Opened from the review reminder email: compares the profile's current draft with its current published
+    /// version, as the legacy email attachment did, but generated when the link is followed.
+    /// </summary>
+    public async Task<IActionResult> OnGetReviewAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        var versions = await LoadTreeAsync(cancellationToken);
+
+        if (versions is null)
+        {
+            return Page();
+        }
+
+        ProfileAttributesDto? profile;
+
+        try
+        {
+            profile = profileId == Guid.Empty ? null : await apiClient.GetProfileAttributesAsync(profileId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            LogLoadFailed(logger, exception);
+            ErrorMessage = "Unable to retrieve the profile. The service may be temporarily unavailable.";
+
+            return Page();
+        }
+
+        if (profile is null
+            || !versions.TryGetValue(profile.CurrentPublishedProfileVersionId, out var published)
+            || !versions.TryGetValue(profile.CurrentDraftProfileVersionId, out var draft))
+        {
+            ErrorMessage = "There is no draft and published version of this profile to compare. Select the versions to compare below.";
+
+            return Page();
+        }
+
+        return await RenderReportAsync(published, draft, cancellationToken);
+    }
+
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
         var versions = await LoadTreeAsync(cancellationToken);
@@ -81,9 +120,16 @@ public class CompareVersionsModel(
             return Page();
         }
 
+        return await RenderReportAsync(versions[ordered[0]], versions[ordered[1]], cancellationToken);
+    }
+
+    public IActionResult OnPostRemoveSelection() => RedirectToPage();
+
+    private async Task<IActionResult> RenderReportAsync(ProfileVersionOption left, ProfileVersionOption right, CancellationToken cancellationToken)
+    {
         try
         {
-            var report = await comparisonService.BuildReportAsync(versions[ordered[0]], versions[ordered[1]], cancellationToken);
+            var report = await comparisonService.BuildReportAsync(left, right, cancellationToken);
             var html = await viewRenderer.RenderAsync(ReportViewPath, report);
             var pdf = await pdfRenderer.RenderLandscapeAsync(html, cancellationToken);
 
@@ -91,14 +137,12 @@ public class CompareVersionsModel(
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or PlaywrightException)
         {
-            LogReportFailed(logger, ordered[0], ordered[1], exception);
+            LogReportFailed(logger, left.VersionId, right.VersionId, exception);
             ErrorMessage = "The comparison report could not be generated. Try again later.";
 
             return Page();
         }
     }
-
-    public IActionResult OnPostRemoveSelection() => RedirectToPage();
 
     private async Task<IReadOnlyDictionary<Guid, ProfileVersionOption>?> LoadTreeAsync(CancellationToken cancellationToken)
     {

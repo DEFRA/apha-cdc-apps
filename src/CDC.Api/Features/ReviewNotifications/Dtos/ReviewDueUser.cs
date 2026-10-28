@@ -19,6 +19,7 @@ public sealed record ReviewDueUser(
 /// <param name="Version">Version formatted as major.minor.</param>
 /// <param name="Sections">Sections assigned to the user for this version, in section order.</param>
 /// <param name="UserRoles">Names of the roles the user holds on the profile; they decide which reviewer groups the user belongs to.</param>
+/// <param name="HasPublishedVersion">Whether the profile has a current published version the draft can be compared with.</param>
 public sealed record ReviewDueProfile(
     Guid ProfileId,
     Guid ProfileVersionId,
@@ -26,7 +27,8 @@ public sealed record ReviewDueProfile(
     string? ScenarioTitle,
     string Version,
     IReadOnlyList<ReviewDueSection> Sections,
-    IReadOnlyList<string>? UserRoles = null);
+    IReadOnlyList<string>? UserRoles = null,
+    bool HasPublishedVersion = false);
 
 /// <summary>A profile section and the state of its three review types.</summary>
 /// <param name="Number">Section number.</param>
