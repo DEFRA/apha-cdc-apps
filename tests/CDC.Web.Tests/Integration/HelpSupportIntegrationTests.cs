@@ -44,16 +44,16 @@ public class HelpSupportIntegrationTests
         Assert.Contains("Next", body);
     }
 
-    // The Design System asks for the page number in the page title, so a screen reader user knows they have moved to another page.
+    // Legacy kept the same title on every results page, so the page number is not added.
     [Fact]
-    public async Task StaticReports_ShowsThePageNumberInThePageTitle_WhenThereIsMoreThanOnePage()
+    public async Task StaticReports_KeepsTheSamePageTitle_WhenThereIsMoreThanOnePage()
     {
         using var factory = CreateFactory(Reports(30));
         var client = await factory.SignedInClientAsync();
 
         var body = await client.GetStringAsync("/HelpSupport/StaticReports?PageNumber=2&PageSize=10");
 
-        Assert.Contains("<title>Static reports (page 2 of 3) - D2R2</title>", body);
+        Assert.Contains("<title>Static reports - D2R2</title>", body);
         Assert.Contains("<nav class=\"govuk-pagination\" aria-label=\"Static reports pages\">", body);
     }
 

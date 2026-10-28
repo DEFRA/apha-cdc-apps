@@ -276,7 +276,7 @@ public partial class GeneralModel : BreadcrumbPageModelBase
         Url.Page(ReportsPage, new { StaticReportId, PageSize, PageNumber = page });
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
-        $"/static-reports/versions/{staticReportVersionId}/document";
+        $"/static-reports/versions/{staticReportVersionId}/document?download=true";
 
     public string? BuildHistoryUrl(Guid staticReportId) =>
         Url.Page(ReportsPage, new { StaticReportId = staticReportId });

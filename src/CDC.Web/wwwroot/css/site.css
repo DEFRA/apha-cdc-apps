@@ -825,6 +825,28 @@ body {
   white-space: nowrap;
 }
 
+/* Sortable header that looks like normal header text (no link colour or underline). */
+.app-sortable-header--plain a,
+.app-sortable-header--plain a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-sortable-header--plain a:focus {
+  color: var(--govuk-focus-text-colour, #0b0c0c);
+}
+
+/* Small triangle showing the current sort direction, as on the legacy grid headers. */
+.app-sortable-header[aria-sort="ascending"] a::after {
+  content: " \25B2";
+  font-size: 0.7em;
+}
+
+.app-sortable-header[aria-sort="descending"] a::after {
+  content: " \25BC";
+  font-size: 0.7em;
+}
+
 /* Shared confirmation dialog (e.g. "Create new draft version"): a native <dialog>, styled with
    GOV.UK tokens since GOV.UK Frontend has no official modal component, and Bootstrap is
    deliberately being phased out of this app (see _Layout.cshtml). Visibility, centring and

@@ -1,7 +1,7 @@
 @page
 @model CDC.Web.Pages.HelpSupport.StaticReportsModel
 @{
-    ViewData["Title"] = PaginationViewModel.TitleWithPage(Model.Breadcrumb.PageName, Model.PageNumber, Model.TotalPages);
+    ViewData["Title"] = Model.Breadcrumb.PageName;
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
@@ -74,6 +74,7 @@ else
     <form method="get" id="static-reports-form">
         <input type="hidden" name="UserManual" value="@Model.UserManual" />
         <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
+        <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
         <input type="hidden" id="PageNumber" name="PageNumber" value="1" />
         <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
             <div class="govuk-form-group govuk-!-margin-bottom-0">
@@ -92,7 +93,16 @@ else
         <caption class="govuk-table__caption govuk-visually-hidden">@Model.Breadcrumb.PageName</caption>
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-                <th scope="col" class="govuk-table__header">Title</th>
+                @if (Model.IsHistoryMode)
+                {
+                    <th scope="col" class="govuk-table__header">Title</th>
+                }
+                else
+                {
+                    <th scope="col" class="govuk-table__header app-sortable-header app-sortable-header--plain" aria-sort="@Model.TitleAriaSort">
+                        <a href="@Model.BuildTitleSortUrl()">Title</a>
+                    </th>
+                }
                 <th scope="col" class="govuk-table__header">Version</th>
                 @if (!Model.IsUserManual)
                 {
@@ -111,7 +121,7 @@ else
             {
                 <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
-                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" target="_blank" rel="noopener noreferrer">@report.Title</a>
+                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" download>@report.Title</a>
                     </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
                     @if (!Model.IsUserManual)

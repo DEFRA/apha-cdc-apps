@@ -1,7 +1,10 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using CDC.Api.Application;
 using CDC.Api.Features.StaticReports.Dtos;
 using CDC.Api.Features.StaticReports.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace CDC.Api.Features.StaticReports;
 
@@ -10,12 +13,34 @@ namespace CDC.Api.Features.StaticReports;
 /// page ("Help using D2R2" when <c>UserManual=1</c>).
 /// </summary>
 /// <param name="staticReportService">Static report data service.</param>
+/// <param name="timeProvider">Clock used to stamp download file names; defaults to the system clock.</param>
 [ApiController]
 [Route("api/static-reports")]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-public sealed class StaticReportsController(IStaticReportService staticReportService) : ControllerBase
+public sealed partial class StaticReportsController(IStaticReportService staticReportService, TimeProvider? timeProvider = null) : ControllerBase
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
+    // Fixed Windows set, as legacy ran on Windows; Path.GetInvalidFileNameChars() is smaller on Linux containers.
+    [GeneratedRegex("[<>:\"/\\\\|?*\\x00-\\x1F]+")]
+    private static partial Regex InvalidFileNameChars();
+
+    [GeneratedRegex("<.*?>")]
+    private static partial Regex HtmlTags();
+
+    // Mirrors legacy PdfDownloadHelper: "{title}_{dd/MM/yyyy HH:mm:ss}.pdf" with invalid characters and spaces turned into "_".
+    private static string ToLegacyFileName(string title, DateTimeOffset now)
+    {
+        var name = $"{HtmlTags().Replace(title, string.Empty)}_{now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture)}.pdf";
+
+        return InvalidFileNameChars().Replace(name, "_")
+            .Replace(";", string.Empty, StringComparison.Ordinal)
+            .Replace("'", string.Empty, StringComparison.Ordinal)
+            .Replace(",", string.Empty, StringComparison.Ordinal)
+            .Replace(' ', '_');
+    }
+
     /// <summary>
     /// Gets the current version of every static report, or of every user manual.
     /// </summary>
@@ -87,9 +112,9 @@ public sealed class StaticReportsController(IStaticReportService staticReportSer
         }
 
         // Set via the header directly, not File()'s fileDownloadName parameter, which always forces "attachment".
-        var fileName = document.Title.Replace("\"", string.Empty, StringComparison.Ordinal);
-        var disposition = download ? "attachment" : "inline";
-        Response.Headers.ContentDisposition = $"{disposition}; filename=\"{fileName}.pdf\"";
+        var header = new ContentDispositionHeaderValue(download ? "attachment" : "inline");
+        header.SetHttpFileName(ToLegacyFileName(document.Title, clock.GetLocalNow()));
+        Response.Headers.ContentDisposition = header.ToString();
 
         return File(document.PdfData, "application/pdf", enableRangeProcessing: true);
     }
