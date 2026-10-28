@@ -214,6 +214,31 @@ public class ProfileRevisionDatesFormTests
     }
 
     [Fact]
+    public void Parse_ReportsAnUnreadableRowVersionBesideTheSectionsOtherProblems_FrequenciesThenStatusesThenDates()
+    {
+        var form = new FormCollection(new Dictionary<string, StringValues>
+        {
+            [ProfileRevisionDatesForm.FieldName(SectionId, ProfileRevisionDatesForm.FieldLastUpdated)] = "not base64!",
+            [ProfileRevisionDatesForm.FieldName(SectionId, ProfileRevisionDatesForm.FieldNextVa)] = "soon",
+            [ProfileRevisionDatesForm.FieldName(SectionId, ProfileRevisionDatesForm.FieldAuthorStatus)] = "not-a-guid",
+            [ProfileRevisionDatesForm.FieldName(SectionId, ProfileRevisionDatesForm.FieldPolicyFrequency)] = "not-a-guid"
+        });
+
+        var result = ProfileRevisionDatesForm.Parse(form, Source());
+
+        string[] expected =
+        [
+            "1. Summary: the section's revision data could not be read. Reload the page and try again.",
+            "1. Summary: Policy review frequency is not a valid option.",
+            "1. Summary: Author review status is not a valid option.",
+            "1. Summary: Next VA review date must be a valid date"
+        ];
+        Assert.Equal(expected, result.Errors);
+        Assert.Equal(expected, Assert.Single(result.Rows).Errors);
+        Assert.Empty(result.Inputs);
+    }
+
+    [Fact]
     public void Parse_ReportsEverySectionsErrors_AndKeepsEveryRow()
     {
         var secondSectionId = Guid.NewGuid();
