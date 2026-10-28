@@ -209,6 +209,7 @@ public class ReviewNotificationsJobTests
 
     private void VerifyErrorLogged(Times times) => VerifyLogged(LogLevel.Error, times);
 
+#pragma warning disable CA1873 // Mock verification expressions are not logging calls
     private void VerifyLogged(LogLevel level, Times times) =>
         logger.Verify(
             log => log.Log(
@@ -218,4 +219,5 @@ public class ReviewNotificationsJobTests
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             times);
+#pragma warning restore CA1873
 }
