@@ -26,8 +26,7 @@ public class StaticReportsModelTests
         Exception? throwOnGetStaticReportHistory = null,
         bool canUploadStaticReports = true,
         UploadStaticReportResult? uploadStaticReportResult = null,
-        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
-        string? baseUrl = "https://api.example.test")
+        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -40,7 +39,6 @@ public class StaticReportsModelTests
                 canUploadStaticReports: canUploadStaticReports,
                 uploadStaticReportResult: uploadStaticReportResult,
                 deleteStaticReportVersionResult: deleteStaticReportVersionResult),
-            Options.Create(new ApiOptions { BaseUrl = baseUrl ?? string.Empty }),
             new AlwaysEnabledLogger<StaticReportsModel>())
         {
             PageContext = new PageContext
@@ -105,6 +103,30 @@ public class StaticReportsModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_SortsTitlesDescending_WhenSortDirectionIsDescending()
+    {
+        var pageModel = CreatePageModel([Report("Report A"), Report("Report C"), Report("Report B")]);
+        pageModel.SortDirection = "Descending";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(["Report C", "Report B", "Report A"], pageModel.PagedReports.Select(r => r.Title));
+    }
+
+    [Theory]
+    [InlineData("Descending", "descending", "Ascending")]
+    [InlineData("Ascending", "ascending", "Descending")]
+    public void TitleSort_ReflectsTheCurrentDirection(string current, string expectedAria, string expectedNextDirection)
+    {
+        var pageModel = CreatePageModel();
+        pageModel.SortDirection = current;
+        pageModel.Url = new FakeUrlHelper(values => $"{values["SortDirection"]}");
+
+        Assert.Equal(expectedAria, pageModel.TitleAriaSort);
+        Assert.Equal(expectedNextDirection, pageModel.BuildTitleSortUrl());
+    }
+
+    [Fact]
     public async Task OnGetAsync_ReturnsEmptyReports_WhenTheApiThrows()
     {
         var pageModel = CreatePageModel(throwOnGetCurrentStaticReports: new HttpRequestException("connection refused"));
@@ -166,13 +188,13 @@ public class StaticReportsModelTests
     }
 
     [Fact]
-    public void GetDocumentUrl_BuildsDownloadLink_FromApiBaseUrl()
+    public void GetDocumentUrl_BuildsDownloadLink_ThroughTheWebApp()
     {
-        var pageModel = CreatePageModel(baseUrl: "https://api.example.test/");
+        var pageModel = CreatePageModel();
 
         var url = pageModel.GetDocumentUrl(VersionId);
 
-        Assert.Equal($"https://api.example.test/api/static-reports/versions/{VersionId}/document", url);
+        Assert.Equal($"/static-reports/versions/{VersionId}/document?download=true", url);
     }
 
     [Fact]

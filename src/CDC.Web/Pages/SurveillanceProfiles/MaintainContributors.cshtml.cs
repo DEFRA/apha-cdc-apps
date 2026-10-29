@@ -1,6 +1,8 @@
 using CDC.Common.Contracts;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -11,6 +13,7 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 /// "Edit profile contributor" panels and a per-row delete confirmation. Replaces the legacy
 /// <c>MaintainContributors.aspx</c> grid and <c>pnlProfileContributor</c> panel.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.IsProfileEditor)]
 public class MaintainContributorsModel : PageModel
 {
     private const string PageRoute = "/SurveillanceProfiles/MaintainContributors";

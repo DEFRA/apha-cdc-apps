@@ -19,6 +19,7 @@
     // the second input match anywhere in the item, so a node with no input of its own (a
     // non-selectable branch) would resolve to its first descendant's checkbox.
     const INPUT = ':is(input[type="radio"], input[type="checkbox"])';
+    const PANEL = '.app-tree__panel';
     const EXPANDED = 'aria-expanded';
     const TRUE = 'true';
 
@@ -43,8 +44,10 @@
             this.hierarchyExclusive = $root.dataset.appTreeHierarchyExclusive !== 'false';
 
             const $form = $root.closest('form');
+            // A tree in a panel owns that panel's "Open all"/"Close all" - the profile properties page has two trees in one form.
+            const $controls = $root.closest(PANEL) || $form;
             this.$status = $form ? $form.querySelector('.app-tree__status') : null;
-            this.$toggleAll = $form ? $form.querySelector('.app-tree__toggle-all') : null;
+            this.$toggleAll = $controls ? $controls.querySelector('.app-tree__toggle-all') : null;
             this.$announcement = $form ? $form.querySelector('[data-app-tree-announcement]') : null;
 
             this.items = Array.from($root.querySelectorAll(ITEM));
@@ -56,7 +59,12 @@
 
             if ($form) {
                 $form.querySelectorAll('[data-app-tree-action]').forEach(($button) => {
-                    $button.addEventListener('click', () => this.runAction($button.dataset.appTreeAction));
+                    const $owner = $button.closest(PANEL);
+
+                    // A button in another tree's panel is that tree's to run, not this one's.
+                    if (!$owner || $owner.contains($root)) {
+                        $button.addEventListener('click', () => this.runAction($button.dataset.appTreeAction));
+                    }
                 });
             }
 
@@ -189,7 +197,8 @@
 
         /* ---------- expand and collapse ---------- */
 
-        setExpanded(item, expanded) {
+        // Announces a branch the user opens or closes (not "Open all"/"Close all", which passes silent) so a page can mirror it.
+        setExpanded(item, expanded, { silent = false } = {}) {
             const group = this.group(item);
             const toggle = this.toggle(item);
 
@@ -197,10 +206,16 @@
                 return;
             }
 
+            const changed = this.isExpanded(item) !== expanded;
+
             group.hidden = !expanded;
             toggle.setAttribute(EXPANDED, String(expanded));
             item.dataset.appTreeExpanded = String(expanded);
             this.refreshToggleAllControl();
+
+            if (changed && !silent) {
+                item.dispatchEvent(new CustomEvent('app-tree-toggle', { bubbles: true, detail: { expanded } }));
+            }
         }
 
         isExpanded(item) {
@@ -213,7 +228,7 @@
             if (action === 'toggle-all') {
                 const branches = this.items.filter((item) => this.group(item));
                 const expanded = !this.allExpanded(branches);
-                branches.forEach((item) => this.setExpanded(item, expanded));
+                branches.forEach((item) => this.setExpanded(item, expanded, { silent: true }));
 
                 return;
             }

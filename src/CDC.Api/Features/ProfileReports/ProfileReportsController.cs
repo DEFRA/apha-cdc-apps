@@ -226,6 +226,37 @@ public sealed class ProfileReportsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Gets the data behind the disease reviews report.
+    /// </summary>
+    /// <remarks>
+    /// Replaces the legacy <c>GetProfileDiseaseReviewsReport</c> operation, which rendered a PDF with TallPDF:
+    /// this returns the profile sections whose author, VA or policy review falls due in the date range
+    /// (<c>spgaDiseaseReviews</c>) and CDC.Web renders them to PDF with a Razor view and Playwright.
+    /// </remarks>
+    /// <param name="fromDate">The first day of the range.</param>
+    /// <param name="toDate">The last day of the range.</param>
+    /// <param name="authorId">The user the sections are assigned to.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The report data; no sections when no review is due.</returns>
+    /// <response code="200">The report data was retrieved.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user may not run the disease reviews report.</response>
+    [HttpGet("disease-reviews")]
+    [ProducesResponseType(typeof(DiseaseReviewsReportDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<DiseaseReviewsReportDto>> GetDiseaseReviewsReport(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] Guid authorId,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetDiseaseReviewsReportQuery(fromDate, toDate, authorId), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
     /// Gets a printable profile section report descriptor.
     /// </summary>
     /// <param name="profileVersionId">The profile version to report on.</param>

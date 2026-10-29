@@ -333,6 +333,102 @@ public class ProfileReportRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    private static readonly string[] DiseaseReviewColumns =
+    [
+        "ProfileVersionId", "Title", "VersionMajor", "VersionMinor", "SectionNumber",
+        "NextPolicyReview", "NextAuthorReview", "NextTechnicalReview", "SectionName"
+    ];
+
+    [Fact]
+    public async Task GetDiseaseReviewsAsync_MapsEveryColumn_AndPassesTheFiltersAsDates()
+    {
+        var versionId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        connection.Script(ProfileReportStoredProcedures.GetDiseaseReviews, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    DiseaseReviewColumns,
+                    [[versionId, "Avian influenza", (byte)2, (byte)1, 3, new DateTime(2027, 2, 3), new DateTime(2027, 4, 5), new DateTime(2027, 6, 7), "Surveillance"]])
+            ]
+        });
+
+        var sections = await CreateRepository().GetDiseaseReviewsAsync(
+            new DateTime(2027, 1, 1, 13, 45, 0),
+            new DateTime(2027, 12, 31, 8, 0, 0),
+            userId,
+            CancellationToken.None);
+
+        var section = sections.Should().ContainSingle().Subject;
+        section.ProfileVersionId.Should().Be(versionId);
+        section.Title.Should().Be("Avian influenza");
+        section.VersionMajor.Should().Be(2);
+        section.VersionMinor.Should().Be(1);
+        section.SectionNumber.Should().Be(3);
+        section.SectionName.Should().Be("Surveillance");
+        section.NextPolicyReview.Should().Be(new DateTime(2027, 2, 3));
+        section.NextAuthorReview.Should().Be(new DateTime(2027, 4, 5));
+        section.NextVaReview.Should().Be(new DateTime(2027, 6, 7));
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters["FromDate"].Should().Be(new DateTime(2027, 1, 1));
+        executed.Parameters["ToDate"].Should().Be(new DateTime(2027, 12, 31));
+        executed.Parameters["UserId"].Should().Be(userId);
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsAsync_ReadsSectionsWithOnlySomeReviewsDue_AndNoTitle()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetDiseaseReviews, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    DiseaseReviewColumns,
+                    [
+                        [Guid.NewGuid(), null, (byte)1, (byte)0, 1, null, new DateTime(2027, 4, 5), null, "Summary"],
+                        [Guid.NewGuid(), "Anthrax", (byte)1, (byte)0, 2, new DateTime(2027, 2, 3), null, new DateTime(2027, 6, 7), "Control"]
+                    ])
+            ]
+        });
+
+        var sections = await CreateRepository().GetDiseaseReviewsAsync(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid(), CancellationToken.None);
+
+        sections.Should().HaveCount(2);
+        sections[0].Title.Should().BeEmpty();
+        sections[0].NextPolicyReview.Should().BeNull();
+        sections[0].NextAuthorReview.Should().Be(new DateTime(2027, 4, 5));
+        sections[0].NextVaReview.Should().BeNull();
+        sections[1].NextPolicyReview.Should().Be(new DateTime(2027, 2, 3));
+        sections[1].NextAuthorReview.Should().BeNull();
+        sections[1].NextVaReview.Should().Be(new DateTime(2027, 6, 7));
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsAsync_ReturnsNothing_WhenNoReviewIsDue()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetDiseaseReviews, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty(DiseaseReviewColumns)]
+        });
+
+        var sections = await CreateRepository().GetDiseaseReviewsAsync(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid(), CancellationToken.None);
+
+        sections.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetDiseaseReviews, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetDiseaseReviewsAsync(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

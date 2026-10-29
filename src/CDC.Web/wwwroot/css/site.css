@@ -222,6 +222,11 @@ html {
   margin-bottom: 8px;
 }
 
+/* Profile properties: the label takes the first quarter of the row, as the legacy table did. */
+.app-edit-title-row__label--quarter {
+  flex: 0 0 25%;
+}
+
 .app-edit-title-row__input-wrapper {
   flex: 1 1 auto;
   min-width: 0;
@@ -234,6 +239,24 @@ html {
 .app-edit-title-row__button {
   flex: 0 0 auto;
   margin-bottom: 0;
+}
+
+/* .govuk-error-message sets display:block, which would otherwise override the hidden attribute. */
+.app-edit-title-row__input-wrapper .govuk-error-message[hidden] {
+  display: none;
+}
+
+/* Profile properties: the validation message sits below the textbox, so the label lines up with its first line (7px = its border and padding), not the row's bottom. */
+.app-edit-title-row--message-below {
+  align-items: flex-start;
+}
+
+.app-edit-title-row--message-below .app-edit-title-row__label {
+  margin: 7px 0 0;
+}
+
+.app-edit-title-row--message-below .govuk-error-message {
+  margin: 5px 0 0;
 }
 
 /* Edit profile title: formatting toolbar shown above the title textbox. */
@@ -274,6 +297,24 @@ html {
   font-style: italic;
   font-weight: 700;
   min-width: 2.5rem;
+}
+
+/* A toolbar shown only while the title is being edited floats above it, as the legacy inline editor's did,
+   so the page does not move when it appears. */
+.app-title-floating {
+  position: relative;
+}
+
+.app-title-toolbar--floating {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(11, 12, 12, 0.2);
+}
+
+.app-title-toolbar[hidden] {
+  display: none;
 }
 
 /* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
@@ -693,6 +734,41 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Tighter row height than the default govuk-table on the Notes page's references table, which
+   typically lists many short rows. */
+.app-profile-note-table .govuk-table__cell,
+.app-profile-note-table .govuk-table__header {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+/* Sortable column headers on the Notes page's references table. */
+.app-sortable-header a {
+  white-space: nowrap;
+}
+
+/* Sortable header that looks like normal header text (no link colour or underline). */
+.app-sortable-header--plain a,
+.app-sortable-header--plain a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-sortable-header--plain a:focus {
+  color: var(--govuk-focus-text-colour, #0b0c0c);
+}
+
+/* Small triangle showing the current sort direction, as on the legacy grid headers. */
+.app-sortable-header[aria-sort="ascending"] a::after {
+  content: " \25B2";
+  font-size: 0.7em;
+}
+
+.app-sortable-header[aria-sort="descending"] a::after {
+  content: " \25BC";
+  font-size: 0.7em;
+}
+
 /* Shared confirmation dialog (e.g. "Create new draft version"): a native <dialog>, styled with
    GOV.UK tokens since GOV.UK Frontend has no official modal component, and Bootstrap is
    deliberately being phased out of this app (see _Layout.cshtml). Visibility, centring and
@@ -756,6 +832,42 @@ body {
 }
 
 .app-tree__status[hidden] {
+  display: none;
+}
+
+/* Profile properties: the profiled species and other affected species trees sit side by side,
+   wrapping to one above the other on a narrow screen. Each shows its own "Selected: ..." summary. */
+.app-species-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0 20px;
+}
+
+.app-species-selector__column {
+  min-width: 0;
+}
+
+/* Each species box keeps its "Open all"/"Close all" fixed above a tree that scrolls on its own, as in the legacy page. */
+.app-species-selector__panel {
+  max-height: none;
+  padding-right: 0;
+}
+
+.app-species-selector__tree {
+  position: relative;
+  max-height: 400px;
+  padding: 2px 15px 0 0;
+  overflow-y: auto;
+}
+
+.app-species-selector__status {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-weight: bold;
+}
+
+.app-species-selector__status[hidden] {
   display: none;
 }
 
@@ -955,15 +1067,6 @@ body {
   padding: 1rem;
 }
 
-/* Previous/Next section links below the accordion. */
-.app-species-pagination {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
-}
-
 .app-header__help-icon {
   height: 26px;
   width: 26px;
@@ -1084,4 +1187,402 @@ body {
 
 .app-button-group--right.govuk-button-group {
   display: flex;
+}
+
+/* Disease ranking report: a report dropdown with its actions beside it, wrapping on narrow screens. */
+.app-select-with-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.app-select-with-actions .govuk-select {
+  max-width: 100%;
+}
+
+/* All Revision dates tab */
+.app-revision-set-all {
+    margin-bottom: 20px;
+}
+
+.app-revision-dates-layout td {
+    padding: 2px 6px 2px 0;
+    vertical-align: middle;
+}
+
+.app-revision-dates-layout .govuk-label {
+    margin: 0;
+}
+
+.app-revision-dates-layout__gap {
+    width: 30px;
+}
+
+.app-revision-dates-date {
+    width: 10em;
+}
+
+.app-revision-dates-readonly {
+    display: inline-block;
+    min-width: 130px;
+    min-height: 1.5em;
+    padding: 2px 5px;
+    border: 1px solid #0b0c0c;
+    background-color: #ffffff;
+}
+
+/* A tab that posts the page (so it can save first) but looks like the link tab. */
+.app-tab-button {
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Review comments tab: the "Add a review comment:" row, the red "new!" label and the add/view panel.
+   The Further information tab shares the row, panel and read-only box (its "Add a new ...:" and "Select a ...:" rows). */
+.app-review-comment-add,
+.app-note-action {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.app-review-comment-new {
+  color: #d4351c;
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+.app-review-comment-panel,
+.app-note-panel {
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #fff;
+}
+
+.app-review-comment-readonly,
+.app-note-readonly {
+  padding: 0.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background: #f3f2f1;
+  overflow-wrap: anywhere;
+}
+
+/* Further information panel: "Tick all"/"Untick all" on the left, "OK"/"Cancel" on the right, as in legacy. */
+.app-note-panel__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+
+.app-note-select-form .govuk-select {
+  max-width: 100%;
+}
+
+/* Add / Edit name/parent: label and field pairs in a four-column grid, matching the legacy
+   MaintainSpeciesData page (old name | new name, then old parent | new parent, then a
+   full-width reason for change and the buttons). */
+.app-legacy-form {
+  display: grid;
+  grid-template-columns: 15% 35% 15% 35%;
+  gap: 15px 10px;
+  align-items: start;
+}
+
+.app-legacy-form__label {
+  padding-top: 7px;
+  font-weight: bold;
+}
+
+/* The name row has a toolbar above its editor, so its cells sit level with the editor, not the toolbar. */
+.app-legacy-form__cell--bottom {
+  align-self: end;
+}
+
+.app-legacy-form__label.app-legacy-form__cell--bottom {
+  padding-top: 0;
+  padding-bottom: 7px;
+}
+
+/* Read-only, not disabled, so the value stays focusable and announced by screen readers. */
+.app-legacy-form__value {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #f3f2f1;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Single-line editable box beneath its formatting toolbar; scrolls sideways when the name is long. */
+.app-richtext-editor--single-line {
+  min-height: 0;
+  height: 40px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  white-space: normal;
+  word-break: break-all;
+  box-sizing: border-box;
+}
+
+.app-legacy-form__field .app-richtext-toolbar {
+  margin-top: 0;
+  gap: 0.5rem;
+  padding: 0.375rem;
+}
+
+.app-richtext-toolbar__button--icon:disabled {
+  color: #505a5f;
+  background-color: #f3f2f1;
+  cursor: default;
+}
+
+/* Pressed state: darker fill and a bottom bar, so it does not rely on colour alone. */
+.app-richtext-toolbar__button--active {
+  background-color: #b1b4b6;
+  border-color: #0b0c0c;
+  box-shadow: inset 0 -3px 0 #0b0c0c;
+}
+
+.app-legacy-form__field {
+  min-width: 0;
+}
+
+/* An empty error message still has a bottom margin, which pushed the control below its label. */
+.app-legacy-form__field .govuk-error-message:empty {
+  display: none;
+}
+
+.app-legacy-form__field .app-richtext-toolbar__divider {
+  flex: 0 0 2px;
+  width: 2px;
+  margin: 0 0.5rem;
+  background-color: #505a5f;
+}
+
+.app-legacy-form__field--wide {
+  grid-column: 2 / -1;
+}
+
+.app-legacy-form__field .govuk-input,
+.app-legacy-form__field .govuk-select,
+.app-legacy-form__field .govuk-textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-legacy-form__actions {
+  grid-column: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.app-legacy-form__actions .govuk-button {
+  margin-bottom: 0;
+}
+
+@media (max-width: 40.0525em) {
+  .app-legacy-form {
+    grid-template-columns: 1fr;
+  }
+
+  .app-legacy-form__field--wide,
+  .app-legacy-form__actions {
+    grid-column: auto;
+  }
+}
+
+/* Date picker (js/date-picker.js): a calendar icon beside a date box, and the month grid it opens just below the box.
+   The Design System has no date picker, so this is custom. It follows the MoJ date picker's structure and reuses the
+   Design System's colours, focus style and type. */
+.app-date-picker {
+  position: relative;
+}
+
+.app-date-picker--single {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The icon is copied from the legacy Calendar.gif. The button is the height of a text box, so it is easy to hit. */
+.app-date-picker__toggle {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent url("../assets/images/calendar.png") center / 16px 16px no-repeat;
+  cursor: pointer;
+}
+
+.app-date-picker--parts .app-date-picker__toggle-item {
+  margin-right: 0;
+}
+
+.app-date-picker__calendar {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 30px);
+  margin-top: 2px;
+  padding: 10px;
+  border: 2px solid var(--govuk-input-border-colour, #0b0c0c);
+  background-color: #fff;
+  box-shadow: 0 2px 6px rgba(11, 12, 12, 0.3);
+  color: var(--govuk-text-colour, #0b0c0c);
+  font-family: "GDS Transport", arial, sans-serif;
+  /* The GOV.UK date input sets font-size: 0 to close the gaps between its boxes; the grid must not inherit that. */
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.app-date-picker__calendar[hidden] {
+  display: none;
+}
+
+.app-date-picker__calendar--right {
+  right: 0;
+  left: auto;
+}
+
+.app-date-picker__header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 5px;
+}
+
+.app-date-picker__title {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.app-date-picker__nav {
+  flex: none;
+  width: 34px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-date-picker__grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.app-date-picker__grid th {
+  padding: 5px 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.app-date-picker__grid td {
+  padding: 0;
+  text-align: center;
+}
+
+.app-date-picker__day {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-date-picker__day--today {
+  border-color: var(--govuk-secondary-text-colour, #505a5f);
+  font-weight: 700;
+}
+
+.app-date-picker__day--selected {
+  border-color: var(--govuk-brand-colour, #1d70b8);
+  background-color: var(--govuk-brand-colour, #1d70b8);
+  color: #fff;
+  font-weight: 700;
+}
+
+.app-date-picker__footer {
+  margin-top: 5px;
+  text-align: center;
+}
+
+.app-date-picker__today {
+  margin: 0;
+  padding: 4px 10px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--govuk-link-colour, #1d70b8);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.app-date-picker__toggle:hover,
+.app-date-picker__nav:hover,
+.app-date-picker__day:hover,
+.app-date-picker__today:hover {
+  background-color: #f3f2f1;
+}
+
+.app-date-picker__day--selected:hover {
+  background-color: var(--govuk-link-hover-colour, #003078);
+}
+
+/* Last, so the focus indicator wins over a day's selected and hover colours. */
+.app-date-picker__toggle:focus-visible,
+.app-date-picker__nav:focus-visible,
+.app-date-picker__day:focus-visible,
+.app-date-picker__today:focus-visible {
+  outline: 3px solid transparent;
+  color: var(--govuk-focus-text-colour, #0b0c0c);
+  background-color: var(--govuk-focus-colour, #fd0);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #fd0), 0 4px var(--govuk-focus-text-colour, #0b0c0c);
+}
+
+@media (forced-colors: active) {
+  .app-date-picker__day--selected {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+}
+
+@media print {
+  .app-date-picker__toggle,
+  .app-date-picker__calendar {
+    display: none;
+  }
 }

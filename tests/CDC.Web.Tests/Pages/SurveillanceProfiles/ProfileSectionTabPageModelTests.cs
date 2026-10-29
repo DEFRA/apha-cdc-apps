@@ -146,4 +146,15 @@ public class ProfileSectionTabPageModelTests
 
         Assert.False(pageModel.HasFormErrors);
     }
+
+    [Fact]
+    public async Task ListPage_IsTheOnlyPage_ForATabThatDoesNotPaginate()
+    {
+        var pageModel = CreatePageModel(Profile());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, pageModel.ListPageNumber);
+        Assert.Equal(1, pageModel.ListTotalPages);
+    }
 }

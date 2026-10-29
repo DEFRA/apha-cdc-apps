@@ -44,6 +44,43 @@ public class HelpSupportIntegrationTests
         Assert.Contains("Next", body);
     }
 
+    // Legacy kept the same title on every results page, so the page number is not added.
+    [Fact]
+    public async Task StaticReports_KeepsTheSamePageTitle_WhenThereIsMoreThanOnePage()
+    {
+        using var factory = CreateFactory(Reports(30));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/HelpSupport/StaticReports?PageNumber=2&PageSize=10");
+
+        Assert.Contains("<title>Static reports - D2R2</title>", body);
+        Assert.Contains("<nav class=\"govuk-pagination\" aria-label=\"Static reports pages\">", body);
+    }
+
+    // The pagination links reload this region in place, so it has to hold everything the page number changes.
+    [Fact]
+    public async Task StaticReports_MarksTheReportListAndItsPaginationAsAPagedRegion()
+    {
+        using var factory = CreateFactory(Reports(30));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/HelpSupport/StaticReports?PageNumber=2&PageSize=10");
+
+        PagedRegionAssert.ContainsPagination(body, "static-reports-region");
+    }
+
+    [Fact]
+    public async Task StaticReports_LeavesThePageTitleAlone_WhenThereIsOnlyOnePage()
+    {
+        using var factory = CreateFactory(Reports(3));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/HelpSupport/StaticReports");
+
+        Assert.Contains("<title>Static reports - D2R2</title>", body);
+        Assert.DoesNotContain("govuk-pagination", body);
+    }
+
     [Fact]
     public async Task StaticReports_OmitsThePublicColumn_ForUserManuals()
     {

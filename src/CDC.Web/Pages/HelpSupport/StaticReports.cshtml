@@ -9,6 +9,7 @@
 
 <h1 class="govuk-heading-l">@Model.Breadcrumb.PageName</h1>
 
+<div id="static-reports-region" data-app-paged-region>
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
     <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-static-reports-success-title" data-module="govuk-notification-banner">
@@ -73,6 +74,7 @@ else
     <form method="get" id="static-reports-form">
         <input type="hidden" name="UserManual" value="@Model.UserManual" />
         <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
+        <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
         <input type="hidden" id="PageNumber" name="PageNumber" value="1" />
         <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
             <div class="govuk-form-group govuk-!-margin-bottom-0">
@@ -91,7 +93,16 @@ else
         <caption class="govuk-table__caption govuk-visually-hidden">@Model.Breadcrumb.PageName</caption>
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-                <th scope="col" class="govuk-table__header">Title</th>
+                @if (Model.IsHistoryMode)
+                {
+                    <th scope="col" class="govuk-table__header">Title</th>
+                }
+                else
+                {
+                    <th scope="col" class="govuk-table__header app-sortable-header app-sortable-header--plain" aria-sort="@Model.TitleAriaSort">
+                        <a href="@Model.BuildTitleSortUrl()">Title</a>
+                    </th>
+                }
                 <th scope="col" class="govuk-table__header">Version</th>
                 @if (!Model.IsUserManual)
                 {
@@ -110,7 +121,7 @@ else
             {
                 <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
-                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" target="_blank" rel="noopener noreferrer">@report.Title</a>
+                        <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" download>@report.Title</a>
                     </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
                     @if (!Model.IsUserManual)
@@ -147,46 +158,16 @@ else
         </tbody>
     </table>
 
-    @if (Model.TotalPages > 1)
+    var pagination = new PaginationViewModel
     {
-        <div class="app-pagination-center">
-            <nav class="govuk-pagination" aria-label="Static reports pages">
-                @if (Model.PageNumber > 1)
-                {
-                    <div class="govuk-pagination__prev">
-                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
-                            <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
-                                <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
-                            </svg>
-                            <span class="govuk-pagination__link-title">Previous</span>
-                        </a>
-                    </div>
-                }
-
-                <ul class="govuk-pagination__list">
-                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-                    {
-                        <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
-                            <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
-                        </li>
-                    }
-                </ul>
-
-                @if (Model.PageNumber < Model.TotalPages)
-                {
-                    <div class="govuk-pagination__next">
-                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
-                            <span class="govuk-pagination__link-title">Next</span>
-                            <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
-                                <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
-                            </svg>
-                        </a>
-                    </div>
-                }
-            </nav>
-        </div>
-    }
+        CurrentPage = Model.PageNumber,
+        TotalPages = Model.TotalPages,
+        PageUrl = Model.BuildPageUrl,
+        LandmarkLabel = "Static reports pages"
+    };
+    <partial name="_Pagination" model="pagination" />
 }
+</div>
 
 @if (!Model.IsHistoryMode && Model.CanUpload)
 {

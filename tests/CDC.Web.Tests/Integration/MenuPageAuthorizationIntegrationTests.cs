@@ -1,5 +1,4 @@
 using System.Net;
-using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Features.Landing;
@@ -52,18 +51,23 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
         }
     }
 
-    // Pages a Policy Profile user's role does not include.
+    // Pages a Policy Profile user's role does not include. Comparing profile versions, the general reports and the disease
+    // ranking report are theirs, as the role matrix says.
     [Theory]
     [InlineData("/SurveillanceProfiles/ProfileProperties")]
-    [InlineData("/DiseaseProfiles/CompareVersions")]
-    [InlineData("/DiseaseProfiles/ReviewTimings")]
-    [InlineData("/Reports/QuestionsGuidance")]
+    [InlineData("/SurveillanceProfiles/DiseaseReviews")]
+    [InlineData("/SurveillanceProfiles/EditUserGuidance")]
     [InlineData("/SpeciesData/Maintain")]
     [InlineData("/UserAdmin/GlobalUsers")]
     [InlineData("/UserAdmin/ExternalUsers")]
     [InlineData("/CrossProfileAdmin/ReferenceData")]
+    [InlineData("/CrossProfileAdmin/ReferenceDataAudit")]
     [InlineData("/CrossProfileAdmin/PrioritisationVariables")]
     [InlineData("/CrossProfileAdmin/CrossCuttingIssueScores")]
+    [InlineData("/DiseaseRanking/EditFilters")]
+    [InlineData("/SurveillanceProfiles/MaintainContributors/6f1c2a3b-0000-4000-8000-000000000001")]
+    [InlineData("/SurveillanceProfiles/CreateNewDraftVersion/6f1c2a3b-0000-4000-8000-000000000001")]
+    [InlineData("/SurveillanceProfiles/PublishPublic/6f1c2a3b-0000-4000-8000-000000000001")]
     public async Task PolicyProfileUser_IsRefusedPagesTheirRoleDoesNotInclude(string path)
     {
         var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: true);
@@ -72,6 +76,30 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains(RefusalHeading, await response.Content.ReadAsStringAsync());
+    }
+
+    // An external user holds no global role - their rights are per profile and CDC.Api applies them - so a role claim, even one
+    // named after a profile role, opens none of the pages that need one.
+    [Theory]
+    [InlineData("/DiseaseProfiles/CompareVersions")]
+    [InlineData("/SurveillanceProfiles/DiseaseReviews")]
+    [InlineData("/Reports/General")]
+    [InlineData("/Reports/DiseaseRanking")]
+    [InlineData("/SurveillanceProfiles/ProfileProperties")]
+    [InlineData("/SurveillanceProfiles/EditUserGuidance")]
+    [InlineData("/SurveillanceProfiles/ViewContributionsReport/6f1c2a3b-0000-4000-8000-000000000001")]
+    [InlineData("/SpeciesData/Maintain")]
+    [InlineData("/UserAdmin/GlobalUsers")]
+    [InlineData("/CrossProfileAdmin/ReferenceDataAuditDetails")]
+    [InlineData("/DiseaseRanking/EditFilters")]
+    [InlineData("/SurveillanceProfiles/MaintainContributors/6f1c2a3b-0000-4000-8000-000000000001")]
+    public async Task ExternalUser_IsRefusedPagesThatNeedAGlobalRole(string path)
+    {
+        var client = await _factory.SignedInClientWithRolesAsync("Reviewer");
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // Help and Support is open to every signed-in user: the footer shows it to a user whose record holds no permission, and the pages let them in.
@@ -98,20 +126,20 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     {
         var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: true, isPolicyProfileUser: false);
 
-        var response = await client.GetAsync("/Reports/QuestionsGuidance");
+        var response = await client.GetAsync("/SurveillanceProfiles/EditUserGuidance");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    [Fact]
-    public async Task Reviewer_IsAllowedReviewTimings_ButRefusedAnEditorOnlyPage()
+    [Theory]
+    [InlineData("/SurveillanceProfiles/DiseaseReviews")]
+    [InlineData("/SurveillanceProfiles/EditUserGuidance")]
+    public async Task PolicyProfileUser_IsRefusedReviewTimingsAndGuidance_AsTheyAreEditorOnly(string path)
     {
-        var client = await _factory.SignedInClientWithRolesAsync(AuthorizationRoles.Reviewer);
+        var client = await _factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: true);
 
-        var allowed = await client.GetAsync("/DiseaseProfiles/ReviewTimings");
-        var refused = await client.GetAsync("/Reports/QuestionsGuidance");
+        var response = await client.GetAsync(path);
 
-        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 }

@@ -20,9 +20,9 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
     /// Searches for profiles with optional filtering and text search.
     /// </summary>
     /// <param name="searchText">Optional text to search in profile titles.</param>
-    /// <param name="displayPublished">Include published versions (default: true).</param>
-    /// <param name="displayDraft">Include draft versions (default: false).</param>
-    /// <param name="displayScenarios">Include scenario versions (default: false).</param>
+    /// <param name="displayPublished">Include profiles with a published version (default: true).</param>
+    /// <param name="displayDraft">Include profiles with a draft version (default: false).</param>
+    /// <param name="displayScenarios">Return each profile's "what-if" scenarios too (default: false); it never makes a profile match on its own.</param>
     /// <param name="searchForType">Whether <paramref name="searchText"/> is matched as one phrase or as all of its words.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>List of profiles matching the search criteria.</returns>

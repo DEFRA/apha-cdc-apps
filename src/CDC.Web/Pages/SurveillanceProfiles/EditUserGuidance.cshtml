@@ -1,0 +1,229 @@
+@page
+@model CDC.Web.Pages.SurveillanceProfiles.EditUserGuidanceModel
+@using CDC.Web.Infrastructure
+@using CDC.Web.Infrastructure.Reports
+@using CDC.Web.Pages.SurveillanceProfiles
+@{
+    var failure = Model.FailureMessage;
+    var success = Model.SuccessMessage;
+    var hasErrors = !ViewData.ModelState.IsValid || failure is not null;
+
+    ViewData["Title"] = (hasErrors ? "Error: " : string.Empty) + "Edit questions and guidance";
+
+    // The error summary lists errors in the order the fields appear, with any that belong to no field first.
+    var summaryKeys = new[] { string.Empty, EditUserGuidanceModel.NameKey, EditUserGuidanceModel.NonTechnicalNameKey, EditUserGuidanceModel.UserGuidanceKey };
+
+    IEnumerable<string> ErrorsFor(string key) =>
+        ViewData.ModelState.TryGetValue(key, out var entry) ? entry.Errors.Select(error => error.ErrorMessage) : [];
+
+    var nameError = ErrorsFor(EditUserGuidanceModel.NameKey).FirstOrDefault();
+    var nonTechnicalNameError = ErrorsFor(EditUserGuidanceModel.NonTechnicalNameKey).FirstOrDefault();
+    var guidanceError = ErrorsFor(EditUserGuidanceModel.UserGuidanceKey).FirstOrDefault();
+
+    static string? AnchorFor(string key) => key switch
+    {
+        EditUserGuidanceModel.NameKey => "#Input_NameEditor",
+        EditUserGuidanceModel.NonTechnicalNameKey => "#Input_NonTechnicalNameEditor",
+        EditUserGuidanceModel.UserGuidanceKey => "#Input_UserGuidance-group",
+        _ => null
+    };
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+@if (hasErrors)
+{
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+                <ul class="govuk-list govuk-error-summary__list">
+                    @if (failure is not null)
+                    {
+                        <li>@failure</li>
+                    }
+                    @foreach (var key in summaryKeys)
+                    {
+                        var anchor = AnchorFor(key);
+
+                        foreach (var message in ErrorsFor(key))
+                        {
+                            <li>
+                                @if (anchor is not null)
+                                {
+                                    <a href="@anchor">@message</a>
+                                }
+                                else
+                                {
+                                    @message
+                                }
+                            </li>
+                        }
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+else if (success is not null)
+{
+    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="guidance-success-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="guidance-success-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">@success</p>
+        </div>
+    </div>
+}
+
+<h1 class="govuk-heading-l">Edit questions and guidance</h1>
+
+<h2 class="govuk-heading-m">Guidance reports</h2>
+<p class="govuk-body">Use the buttons below to generate the user guidance reports.</p>
+<div class="govuk-button-group">
+    <a asp-page="ViewProfileGuidanceReport" asp-route-type="@GuidanceReportType.All" class="govuk-button govuk-button--secondary" target="_blank" rel="noopener noreferrer">Full profile guidance report<span class="govuk-visually-hidden"> (opens in new tab)</span></a>
+    <a asp-page="ViewProfileGuidanceReport" asp-route-type="@GuidanceReportType.SummaryProfile" class="govuk-button govuk-button--secondary" target="_blank" rel="noopener noreferrer">Summary profile guidance report<span class="govuk-visually-hidden"> (opens in new tab)</span></a>
+    <a asp-page="ViewProfileGuidanceReport" asp-route-type="@GuidanceReportType.SummaryPrioritisationReport" class="govuk-button govuk-button--secondary" target="_blank" rel="noopener noreferrer">SPR guidance report<span class="govuk-visually-hidden"> (opens in new tab)</span></a>
+    <a asp-page="ViewProfileGuidanceReport" asp-route-type="@GuidanceReportType.QAGuidanceReport" class="govuk-button govuk-button--secondary" target="_blank" rel="noopener noreferrer">Q&amp;A sheet guidance report<span class="govuk-visually-hidden"> (opens in new tab)</span></a>
+</div>
+
+<h2 class="govuk-heading-m">Questions</h2>
+<p class="govuk-body">
+    Use this function to change the user guidance that appears for each question in the profile, or to change the question itself.
+    You can use italics, bulleted lists and links. Bold and underline cannot be used.
+</p>
+
+<form method="get" action="@Url.Page("EditUserGuidance")">
+    <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="Section">Select a profile section</label>
+        <select class="govuk-select" id="Section" name="section" onchange="this.form.requestSubmit()">
+            <option value="">Please select...</option>
+            @foreach (var choice in Model.Sections)
+            {
+                <option value="@choice.Id" selected="@(choice.Id == Model.Section)">@choice.Text</option>
+            }
+        </select>
+        <noscript>
+            <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-top-2 govuk-!-margin-bottom-0" data-module="govuk-button">Show questions</button>
+        </noscript>
+    </div>
+</form>
+
+@if (Model.HasSection)
+{
+    if (Model.Questions.Count == 0)
+    {
+        <p class="govuk-body">There are no questions in this section.</p>
+    }
+    else
+    {
+        <table class="govuk-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Questions in the selected section</caption>
+            <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                    <th scope="col" class="govuk-table__header">Number</th>
+                    <th scope="col" class="govuk-table__header">Question</th>
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Action</span></th>
+                </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+                @foreach (var question in Model.Questions)
+                {
+                    <tr class="govuk-table__row">
+                        <td class="govuk-table__cell">@question.QuestionNumber</td>
+                        <td class="govuk-table__cell">@ProfileTitleHtmlFormatter.Format(question.Name)</td>
+                        <td class="govuk-table__cell">
+                            <a class="govuk-link" asp-page="EditUserGuidance" asp-route-section="@Model.Section" asp-route-questionId="@question.Id" asp-fragment="edit-question">Edit<span class="govuk-visually-hidden"> question @question.QuestionNumber</span></a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    if (Model.IsEditing)
+    {
+        <section id="edit-question" class="app-note-panel" aria-labelledby="edit-question-heading">
+            <h2 class="govuk-heading-m" id="edit-question-heading">Edit question @Model.EditingQuestionNumber</h2>
+
+            <form method="post" novalidate>
+                <input type="hidden" name="Section" value="@Model.Section" />
+                <input type="hidden" name="QuestionId" value="@Model.QuestionId" />
+                <input type="hidden" name="Input.RowVersion" value="@Model.Input.RowVersion" />
+
+                <div class="govuk-form-group @(nameError is null ? null : "govuk-form-group--error")">
+                    <label class="govuk-label govuk-label--s" id="Input_NameLabel" for="Input_NameEditor">Title</label>
+                    @if (nameError is not null)
+                    {
+                        <p id="Input_Name-error" class="govuk-error-message">
+                            <span class="govuk-visually-hidden">Error:</span> @nameError
+                        </p>
+                    }
+                    <partial name="_ItalicTitleToolbar" model="@("Input_NameEditor")" view-data="@(new ViewDataDictionary(ViewData) { { "Label", "Title formatting" } })" />
+                    <div id="Input_NameEditor"
+                         class="govuk-input app-title-editor@(nameError is null ? null : " govuk-input--error")"
+                         contenteditable="true"
+                         aria-labelledby="Input_NameLabel"
+                         aria-describedby="@(nameError is null ? null : "Input_Name-error")"
+                         data-app-title-hidden-input="Input_Name">@ProfileTitleHtmlFormatter.Format(Model.Input.Name)</div>
+                    <input type="hidden" id="Input_Name" name="Input.Name" value="@Model.Input.Name" />
+                </div>
+
+                <div class="govuk-form-group @(nonTechnicalNameError is null ? null : "govuk-form-group--error")">
+                    <label class="govuk-label govuk-label--s" id="Input_NonTechnicalNameLabel" for="Input_NonTechnicalNameEditor">Non-technical title</label>
+                    @if (nonTechnicalNameError is not null)
+                    {
+                        <p id="Input_NonTechnicalName-error" class="govuk-error-message">
+                            <span class="govuk-visually-hidden">Error:</span> @nonTechnicalNameError
+                        </p>
+                    }
+                    <partial name="_ItalicTitleToolbar" model="@("Input_NonTechnicalNameEditor")" view-data="@(new ViewDataDictionary(ViewData) { { "Label", "Non-technical title formatting" } })" />
+                    <div id="Input_NonTechnicalNameEditor"
+                         class="govuk-input app-title-editor@(nonTechnicalNameError is null ? null : " govuk-input--error")"
+                         contenteditable="true"
+                         aria-labelledby="Input_NonTechnicalNameLabel"
+                         aria-describedby="@(nonTechnicalNameError is null ? null : "Input_NonTechnicalName-error")"
+                         data-app-title-hidden-input="Input_NonTechnicalName">@ProfileTitleHtmlFormatter.Format(Model.Input.NonTechnicalName)</div>
+                    <input type="hidden" id="Input_NonTechnicalName" name="Input.NonTechnicalName" value="@Model.Input.NonTechnicalName" />
+                </div>
+
+                <div id="Input_UserGuidance-group" class="govuk-form-group @(guidanceError is null ? null : "govuk-form-group--error")">
+                    <label class="govuk-label govuk-label--s" for="Input_UserGuidance">User guidance</label>
+                    @if (guidanceError is not null)
+                    {
+                        <p id="Input_UserGuidance-error" class="govuk-error-message">
+                            <span class="govuk-visually-hidden">Error:</span> @guidanceError
+                        </p>
+                    }
+                    <div class="app-richtext-toolbar" role="toolbar" aria-label="User guidance formatting">
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="Input_UserGuidance" aria-label="Undo" title="Undo">&#8630;</button>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="Input_UserGuidance" aria-label="Redo" title="Redo">&#8631;</button>
+                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon app-richtext-toolbar__button--italic" data-richtext-command="italic" data-richtext-target="Input_UserGuidance" aria-label="Italic" title="Italic">I</button>
+                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="bullist" data-richtext-target="Input_UserGuidance" aria-label="Bulleted list" title="Bulleted list">&#9776;</button>
+                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="Input_UserGuidance" aria-label="Insert link" title="Insert link">&#128279;</button>
+                    </div>
+                    <textarea class="govuk-textarea app-richtext-editor @(guidanceError is null ? null : "govuk-textarea--error")" id="Input_UserGuidance" name="Input.UserGuidance" rows="12" spellcheck="true" aria-describedby="@(guidanceError is null ? null : "Input_UserGuidance-error")">@Model.Input.UserGuidance</textarea>
+                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-top-2" data-spellcheck-target="Input_UserGuidance-editor" data-module="govuk-button">Spell check user guidance</button>
+                </div>
+
+                <div class="govuk-button-group">
+                    <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+                    <a class="govuk-button govuk-button--secondary" asp-page="EditUserGuidance" asp-route-section="@Model.Section">Cancel</a>
+                </div>
+            </form>
+        </section>
+    }
+
+    <p class="govuk-body">@ProfileReportLayout.WarningText</p>
+}
+
+@section Scripts {
+    <script src="~/js/edit-profile-title.js" asp-append-version="true"></script>
+    <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
+    <script src="~/js/spell-check.js" asp-append-version="true"></script>
+}

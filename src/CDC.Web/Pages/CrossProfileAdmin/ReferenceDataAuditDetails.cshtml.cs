@@ -1,11 +1,14 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Pages.CrossProfileAdmin;
 
 /// <summary>Shows the full detail of one recorded reference data change.</summary>
 /// <param name="referenceDataService">Reads the audit trail.</param>
+[Authorize(Policy = AuthorizationPolicies.CanManageReferenceData)]
 public class ReferenceDataAuditDetailsModel(IReferenceDataService referenceDataService)
     : BreadcrumbPageModelBase("Change details")
 {

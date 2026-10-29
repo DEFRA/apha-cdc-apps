@@ -8,8 +8,8 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 /// <summary>
 /// The All Revision dates tab: every section's author, VA and policy review frequency, next review date and status,
 /// with a "Set For All Sections" area. Replaces the legacy <c>EditProfileAllRevisionDates.aspx</c>. Shown only to users
-/// allowed to see it (legacy <c>ProfileVersionSection.CanGetRevisionInformation()</c>) and editable only to users who may
-/// edit the section (legacy <c>CanEditProfileVersionSection()</c>).
+/// allowed to see it (legacy <c>ProfileVersionSection.CanGetRevisionInformation()</c>) and editable only to a profile
+/// editor, or to an author for the one review their role owns.
 /// </summary>
 /// <param name="apiClient">Typed client for the profile management endpoints on CDC.Api.</param>
 /// <param name="profileSectionsApiService">Typed client for the profile sections endpoints on CDC.Api.</param>
@@ -81,13 +81,13 @@ public class EditProfileAllRevisionDatesModel(
             return result;
         }
 
-        if (!CanEditProfileSection)
+        if (!CanEditAnyReviewDates)
         {
             RevisionDatesSaveError = "You do not have permission to edit the revision dates of this profile version.";
             return Page();
         }
 
-        var parsed = ProfileRevisionDatesForm.Parse(Request.Form, allRevisionDatesSource);
+        var parsed = ProfileRevisionDatesForm.Parse(Request.Form, allRevisionDatesSource, EditableReviewDates);
         var submittedTab = RevisionDatesTab with
         {
             Rows = parsed.Rows,
@@ -153,11 +153,17 @@ public class EditProfileAllRevisionDatesModel(
                 ProfileRevisionDatesForm.BuildOptions(revisionDates.ReviewFrequencies),
                 ProfileRevisionDatesForm.BuildOptions(revisionDates.ReviewStatuses),
                 new RevisionDatesSetForAllView(),
-                CanEditProfileSection);
+                CanEditAnyReviewDates)
+            {
+                Editable = EditableReviewDates
+            };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
             Logger.ProfileAllRevisionDatesLoadFailed(exception, ProfileId);
         }
     }
+
+    /// <summary>Gets the reviews the user may change: all three for a profile editor, the one their role owns for an author.</summary>
+    private EditableReviews EditableReviewDates => new(CanEditAuthorReviewDates, CanEditVaReviewDates, CanEditPolicyReviewDates);
 }

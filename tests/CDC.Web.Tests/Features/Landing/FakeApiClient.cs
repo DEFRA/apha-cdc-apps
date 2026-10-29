@@ -70,12 +70,19 @@ internal sealed class FakeApiClient( // NOSONAR
             ? Task.FromException<ProfileAttributesDto?>(throwOnGetProfileAttributes)
             : Task.FromResult(profileAttributes);
 
+    /// <summary>Gets the title most recently sent to <see cref="UpdateProfileTitleAsync"/>, or <see langword="null"/> when none was.</summary>
+    public string? LastUpdatedProfileTitle { get; private set; }
+
     public Task<UpdateProfileTitleResult> UpdateProfileTitleAsync(
         Guid profileId,
         string title,
         byte[] lastUpdated,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(_updateProfileTitleResult);
+        CancellationToken cancellationToken = default)
+    {
+        LastUpdatedProfileTitle = title;
+
+        return Task.FromResult(_updateProfileTitleResult);
+    }
 
     public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         throwOnGetManageProfile is not null
@@ -95,11 +102,18 @@ internal sealed class FakeApiClient( // NOSONAR
     public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_profileStatusTypes);
 
+    /// <summary>Gets the profile and status most recently sent to <see cref="UpdateProfileStatusAsync"/>, or <see langword="null"/> when none was.</summary>
+    public (Guid ProfileId, Guid ProfileStatusId)? LastUpdatedProfileStatus { get; private set; }
+
     public Task<UpdateProfileStatusResult> UpdateProfileStatusAsync(
         Guid profileId,
         Guid profileStatusId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(_updateProfileStatusResult);
+        CancellationToken cancellationToken = default)
+    {
+        LastUpdatedProfileStatus = (profileId, profileStatusId);
+
+        return Task.FromResult(_updateProfileStatusResult);
+    }
 
     public Task<IReadOnlyList<StaticReportListItemDto>> GetCurrentStaticReportsAsync(
         bool isUserManual = false,

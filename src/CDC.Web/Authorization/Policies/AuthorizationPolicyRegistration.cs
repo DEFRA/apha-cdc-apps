@@ -7,10 +7,11 @@ namespace CDC.Web.Authorization.Policies;
 /// <summary>
 /// Registers every named policy from <see cref="AuthorizationPolicies"/>, with the allowed roles for each
 /// role-based policy (an <see cref="AllowedRolesRequirement"/>) centralized here - the single place to change a
-/// role mapping. Each list follows the legacy <c>CanXxx()</c> method it replaces, except where the requester
-/// explicitly chose otherwise: Compare profile versions and Review Timings also allow Reviewer, and Search disease
-/// profiles, General reports (with the Help and Support footer links, which share its policy), Disease ranking
-/// report and View species data are open to every signed-in user, internal or external, whatever roles they hold.
+/// role mapping. Each list follows the legacy <c>CanXxx()</c> method it replaces, except where the role matrix says
+/// otherwise: the policy profile user (an internal, global user) may also compare profile versions, run the disease ranking
+/// report and open the general reports, and an external user holds no global role at all, so none of those is open to
+/// one. Searching disease profiles, viewing species data and the Help and Support footer links are open to every signed-in
+/// user. What an external user may do with a particular profile is decided by CDC.Api, from their role on that profile.
 /// </summary>
 public static class AuthorizationPolicyRegistration
 {
@@ -22,12 +23,19 @@ public static class AuthorizationPolicyRegistration
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanCreateProfile,
             AuthorizationRoles.ProfileEditor);
 
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanEditProfile,
+            AuthorizationRoles.ProfileEditor);
+
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewProfileComparison,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
 
-        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewDiseaseRankingReport);
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewDiseaseRankingReport,
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
 
-        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewReports);
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReports,
+            AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
+
+        AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewHelp);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageReports,
             AuthorizationRoles.ProfileEditor);
@@ -41,7 +49,7 @@ public static class AuthorizationPolicyRegistration
         AddSignedInUserPolicy(options, AuthorizationPolicies.CanViewSpeciesData);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewReviewTiming,
-            AuthorizationRoles.ProfileEditor, AuthorizationRoles.Reviewer);
+            AuthorizationRoles.ProfileEditor);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanViewContributionsReport,
             AuthorizationRoles.ProfileEditor, AuthorizationRoles.PolicyProfileUser);
@@ -67,6 +75,9 @@ public static class AuthorizationPolicyRegistration
             AuthorizationRoles.ProfileEditor);
 
         AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageCrossCuttingScores,
+            AuthorizationRoles.ProfileEditor);
+
+        AddAllowedRolesPolicy(options, AuthorizationPolicies.CanManageDiseaseRankingFilters,
             AuthorizationRoles.ProfileEditor);
     }
 

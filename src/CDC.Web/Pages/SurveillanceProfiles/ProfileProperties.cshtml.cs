@@ -41,6 +41,7 @@ public class ProfilePropertiesModel(
 
     private const int MaxTitleLength = 255;
     private const string SavedMessage = "Your changes were successfully saved";
+    private const string CreatedMessage = "Your changes are successfully saved";
 
     private ProfileAttributesDto? attributes;
     private NewProfileDefaultsDto? defaults;
@@ -74,7 +75,7 @@ public class ProfilePropertiesModel(
     [BindProperty]
     public List<Guid> OtherSpeciesIds { get; set; } = [];
 
-    /// <summary>Gets or sets the message shown once after a successful update.</summary>
+    /// <summary>Gets or sets the message shown once after a profile is created or updated.</summary>
     [TempData]
     public string? StatusMessage { get; set; }
 
@@ -104,6 +105,9 @@ public class ProfilePropertiesModel(
 
     /// <summary>Gets the label of the title field.</summary>
     public string TitleLabel => IsScenarioTitle ? "Scenario title" : "Profile title";
+
+    /// <summary>Gets the message shown while the title has no text, as the legacy required field validator did.</summary>
+    public string TitleRequiredMessage => $"You must enter a {TitleLabel.ToLowerInvariant()}";
 
     /// <summary>Gets the label of the button that saves the form.</summary>
     public string SubmitButtonText => Mode == ProfilePropertiesMode.Edit ? "Update" : "Create profile";
@@ -344,7 +348,7 @@ public class ProfilePropertiesModel(
     {
         if (ProfileTitleHtmlFormatter.ToPlainText(title).Length == 0)
         {
-            ModelState.AddModelError(nameof(ProfileTitle), $"You must enter a {TitleLabel.ToLowerInvariant()}");
+            ModelState.AddModelError(nameof(ProfileTitle), TitleRequiredMessage);
         }
         else if (title.Length > MaxTitleLength)
         {
@@ -408,10 +412,10 @@ public class ProfilePropertiesModel(
         {
             var createdProfileId = result.NewProfileId ?? newProfileId;
             logger.ProfileCreated(createdProfileId, cloneId, isScenario);
+            StatusMessage = CreatedMessage;
 
-            // The legacy page meant to carry on to the new profile's questions (its redirect never fired,
-            // because it compared the button text with "Create" while the text was "Create profile").
-            return RedirectToPage("/SurveillanceProfiles/EditProfileQuestions", new { profileId = createdProfileId });
+            // Reloads the new profile as an edit page, so a second save updates it rather than creating another.
+            return RedirectToPage(new { profileId = createdProfileId });
         }
 
         logger.CreateRefused(result.Outcome);

@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports.Interfaces;
@@ -11,10 +12,12 @@ namespace CDC.Api.Features.ProfileReports;
 /// </summary>
 /// <param name="reportRepository">Reads the profile version's details.</param>
 /// <param name="contentRepository">Reads the questionnaire, answers and option lists.</param>
+/// <param name="userContext">The current user, who may read a draft only when the role matrix allows it.</param>
 /// <param name="logger">Structured logger.</param>
 public sealed class ProfileReportContentService(
     IProfileReportRepository reportRepository,
     IProfileReportContentRepository contentRepository,
+    IUserContext userContext,
     ILogger<ProfileReportContentService> logger)
     : IProfileReportContentService
 {
@@ -28,6 +31,11 @@ public sealed class ProfileReportContentService(
         if (header is null)
         {
             return Result.NotFound<ProfileReportContentDto>("The profile version does not exist.");
+        }
+
+        if (!ProfileAccess.CanView(userContext, ProfileVersionFacts.From(header)))
+        {
+            return Result.Forbidden<ProfileReportContentDto>("You do not have permission to view this draft profile version.");
         }
 
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
@@ -67,9 +75,16 @@ public sealed class ProfileReportContentService(
     /// <inheritdoc />
     public async Task<Result<ProfilePrioritisationScoresDto>> GetProfilePrioritisationScoresAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
-        if (await reportRepository.GetProfileVersionHeaderAsync(profileVersionId, cancellationToken) is null)
+        var header = await reportRepository.GetProfileVersionHeaderAsync(profileVersionId, cancellationToken);
+
+        if (header is null)
         {
             return Result.NotFound<ProfilePrioritisationScoresDto>("The profile version does not exist.");
+        }
+
+        if (!ProfileAccess.CanView(userContext, ProfileVersionFacts.From(header)))
+        {
+            return Result.Forbidden<ProfilePrioritisationScoresDto>("You do not have permission to view this draft profile version.");
         }
 
         var scores = await contentRepository.GetPrioritisationScoresAsync(profileVersionId, cancellationToken);

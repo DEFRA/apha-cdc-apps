@@ -30,16 +30,35 @@ internal static class ProfileTabTestData
         CurrentProfileVersionId = currentProfileVersionId ?? ProfileVersionId
     };
 
-    /// <summary>A current draft the user may edit, with every tab visible.</summary>
+    /// <summary>A current draft a profile editor may edit, with every tab visible.</summary>
     public static ManageProfileViewModel DraftProfile() =>
         Profile() with
         {
             CanEditProfileSection = true,
+            CanEditAllSections = true,
+            CanEditAuthorReviewDates = true,
+            CanEditVaReviewDates = true,
+            CanEditPolicyReviewDates = true,
+            CanAddReviewComments = true,
             CanClearProfileSection = true,
             CanPrintProfileSection = true,
+            CanViewNotes = true,
             CanViewReviewComments = true,
             CanViewContributions = true,
             CanViewAllRevisionDates = true
+        };
+
+    /// <summary>A current draft read-only to the user, who can still see every tab.</summary>
+    public static ManageProfileViewModel ReadOnlyDraftProfile() =>
+        DraftProfile() with
+        {
+            CanEditProfileSection = false,
+            CanEditAllSections = false,
+            CanEditAuthorReviewDates = false,
+            CanEditVaReviewDates = false,
+            CanEditPolicyReviewDates = false,
+            CanAddReviewComments = false,
+            CanClearProfileSection = false
         };
 
     /// <summary>Two sections, the first holding one per-species question.</summary>

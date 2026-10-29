@@ -6,6 +6,7 @@
 @{
     Layout = "_Layout";
     var pageTitle = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
+    pageTitle = PaginationViewModel.TitleWithPage(pageTitle, Model.ListPageNumber, Model.ListTotalPages);
     ViewData["Title"] = Model.HasFormErrors ? $"Error: {pageTitle}" : pageTitle;
 
     var body = RenderBody();
@@ -65,7 +66,7 @@ else
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-one-quarter">
-            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(Model.CanPrintProfileSection, Model.CanViewProfileReports, Model.BuildNotesUrl(Model.ProfileId), false, subnavModel, Model.BuildPrintUrl())" />
+            <partial name="_ProfileLeftNav" model="new ProfileLeftNavViewModel(Model.CanPrintProfileSection, Model.CanViewProfileReports, Model.CanViewNotes ? Model.BuildNotesUrl(Model.ProfileId) : null, false, subnavModel, Model.BuildPrintUrl())" />
         </div>
         <div class="govuk-grid-column-three-quarters">
             @if (Model.CurrentSection is null)

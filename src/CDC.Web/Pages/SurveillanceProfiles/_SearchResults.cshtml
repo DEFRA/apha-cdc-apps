@@ -3,6 +3,7 @@
 @* Rendered both by the full page and, via SurveillanceProfilesSearchModel.OnGetAsync, as an
    AJAX fragment so filter changes can repopulate this section without a full page reload. *@
 @{
+    var canEditProfile = await NavigationAuthorization.CanEditProfileAsync(User);
     var canViewContributionsReport = await NavigationAuthorization.CanViewContributionsReportAsync(User);
 }
 
@@ -64,74 +65,74 @@
                 <div class="app-profile-list">
                     @foreach (var profile in Model.PagedResults)
                     {
-                        var versionGroups = CDC.Web.Pages.SurveillanceProfilesSearchModel.GetVersionGroups(
-                            profile, Model.DisplayPublished, Model.DisplayDraft, Model.DisplayScenarios);
+                        var scenarioSections = Model.GetScenarioSections(profile);
 
                         <div class="app-profile-card govuk-!-margin-bottom-3">
                             <div class="app-profile-card__header">
                                 <h3 class="govuk-heading-s govuk-!-margin-bottom-0">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(profile.Title)</h3>
                                 <p class="govuk-body govuk-!-margin-bottom-0">
-                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileTitle" asp-route-profileId="@profile.Id">Edit Title</a>
-                                    <span aria-hidden="true"> | </span>
-                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
-                                    @if (canViewContributionsReport)
+                                    @if (canEditProfile)
                                     {
-                                        <span aria-hidden="true"> | </span>
-                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileTitle" asp-route-profileId="@profile.Id">Edit Title</a>
+                                    }
+                                    @* With scenarios shown, Manage and Contributions are offered per scenario below, not here. *@
+                                    @if (!Model.DisplayScenarios)
+                                    {
+                                        @if (canEditProfile)
+                                        {
+                                            <span aria-hidden="true"> | </span>
+                                        }
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
+                                        @if (canViewContributionsReport)
+                                        {
+                                            <span aria-hidden="true"> | </span>
+                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
+                                        }
                                     }
                                 </p>
                             </div>
 
-                            @for (var index = 0; index < versionGroups.Count; index++)
+                            @foreach (var scenario in scenarioSections)
                             {
-                                var versionGroup = versionGroups[index];
-                                <div class="@(index > 0 ? "govuk-!-margin-top-1" : string.Empty)">
-                                    <partial name="_ProfileVersionGroupCard" model="versionGroup" />
+                                @if (Model.DisplayScenarios)
+                                {
+                                    var scenarioName = CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(scenario.Title);
+
+                                    <div class="app-profile-card__header govuk-!-margin-bottom-2">
+                                        <h4 class="govuk-heading-s govuk-!-margin-bottom-0">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(scenario.Title)</h4>
+                                        <p class="govuk-body govuk-!-margin-bottom-0">
+                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@scenario.ScenarioId">Manage<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            @if (canViewContributionsReport)
+                                            {
+                                                <span aria-hidden="true"> | </span>
+                                                <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@scenario.ScenarioId">Contributions<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            }
+                                        </p>
+                                    </div>
+                                }
+
+                                <div class="@(Model.DisplayScenarios ? "govuk-!-margin-left-6 govuk-!-margin-bottom-4" : null)">
+                                    @for (var index = 0; index < scenario.Groups.Count; index++)
+                                    {
+                                        <div class="@(index > 0 ? "govuk-!-margin-top-1" : string.Empty)">
+                                            <partial name="_ProfileVersionGroupCard" model="scenario.Groups[index]" />
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
                     }
                 </div>
 
-                @if (Model.TotalPages > 1)
+                var pagination = new PaginationViewModel
                 {
-                    <div class="app-pagination-center">
-                        <nav class="govuk-pagination" aria-label="Search results pages">
-                            @if (Model.PageNumber > 1)
-                            {
-                                <div class="govuk-pagination__prev">
-                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber - 1)" rel="prev">
-                                        <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
-                                            <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.4443-4.1517-3.9526h12.896v-2h-12.984l4.2058-4.2058-1.3776-1.3776z"></path>
-                                        </svg>
-                                        <span class="govuk-pagination__link-title">Previous</span>
-                                    </a>
-                                </div>
-                            }
-
-                            <ul class="govuk-pagination__list">
-                                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-                                {
-                                    <li class="govuk-pagination__item @(pageNumber == Model.PageNumber ? "govuk-pagination__item--current" : string.Empty)">
-                                        <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(pageNumber)" aria-label="Page @(pageNumber)" aria-current="@(pageNumber == Model.PageNumber ? "page" : null)">@(pageNumber)</a>
-                                    </li>
-                                }
-                            </ul>
-
-                            @if (Model.PageNumber < Model.TotalPages)
-                            {
-                                <div class="govuk-pagination__next">
-                                    <a class="govuk-link govuk-pagination__link" href="@Model.BuildPageUrl(Model.PageNumber + 1)" rel="next">
-                                        <span class="govuk-pagination__link-title">Next</span>
-                                        <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
-                                            <path d="m8.107-0.0078125-1.4136 1.415 4.2926 4.2926h-12.986v2h12.896l-4.1519 4.1525 1.377 1.4445 6.7273-6.7263-6.7409-6.5938z"></path>
-                                        </svg>
-                                    </a>
-                                </div>
-                            }
-                        </nav>
-                    </div>
-                }
+                    CurrentPage = Model.PageNumber,
+                    TotalPages = Model.TotalPages,
+                    PageUrl = Model.BuildPageUrl,
+                    LandmarkLabel = "Search results pages",
+                    AddPageData = true
+                };
+                <partial name="_Pagination" model="pagination" />
             }
         </div>
     </div>

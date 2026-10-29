@@ -1,0 +1,24 @@
+@using CDC.Web.Models
+@model IReadOnlyList<SprStandardTextView>
+@* Paragraphs and list items of the SPR guidance report's standard text, in order. Consecutive list items share one list. *@
+@{
+    var index = 0;
+}
+@while (index < Model.Count)
+{
+    if (Model[index].IsBullet)
+    {
+        <ul class="sp-std-list">
+            @while (index < Model.Count && Model[index].IsBullet)
+            {
+                <li>@Model[index].Text</li>
+                index++;
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="sp-std-text">@Model[index].Text</p>
+        index++;
+    }
+}

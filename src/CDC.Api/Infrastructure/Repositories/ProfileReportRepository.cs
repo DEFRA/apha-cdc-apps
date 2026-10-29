@@ -187,6 +187,56 @@ public sealed class ProfileReportRepository(IDbConnectionFactory connectionFacto
         }
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DiseaseReviewSection>> GetDiseaseReviewsAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@FromDate", fromDate.Date, DbType.Date);
+        parameters.Add("@ToDate", toDate.Date, DbType.Date);
+        parameters.Add("@UserId", userId, DbType.Guid);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+                ProfileReportStoredProcedures.GetDiseaseReviews,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            // ProfileVersionId, Title, VersionMajor, VersionMinor, SectionNumber, NextPolicyReview, NextAuthorReview,
+            // NextTechnicalReview (the VA review), SectionName.
+            var sections = new List<DiseaseReviewSection>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                sections.Add(new DiseaseReviewSection
+                {
+                    ProfileVersionId = reader.GetGuid(0),
+                    Title = reader.ReadString(1),
+                    VersionMajor = Convert.ToInt32(reader.GetValue(2), CultureInfo.InvariantCulture),
+                    VersionMinor = Convert.ToInt32(reader.GetValue(3), CultureInfo.InvariantCulture),
+                    SectionNumber = Convert.ToInt32(reader.GetValue(4), CultureInfo.InvariantCulture),
+                    NextPolicyReview = reader.ReadNullableDateTime(5),
+                    NextAuthorReview = reader.ReadNullableDateTime(6),
+                    NextVaReview = reader.ReadNullableDateTime(7),
+                    SectionName = reader.ReadString(8)
+                });
+            }
+
+            return sections;
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, ProfileReportStoredProcedures.GetDiseaseReviews);
+            throw;
+        }
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = connectionFactory.CreateConnection();

@@ -2,7 +2,6 @@ using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Domain.Exceptions;
-using CDC.Api.Features.ProfileManagement.Interfaces;
 using CDC.Api.Features.ProfileSections;
 using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Common.Contracts;
@@ -21,7 +20,7 @@ public class ProfileReviewCommentServiceTests
     private static readonly byte[] RowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
     private readonly Mock<IProfileSectionRepository> repository = new(MockBehavior.Strict);
-    private readonly Mock<IProfileManagementRepository> managementRepository = new(MockBehavior.Strict);
+    private readonly Mock<IProfileVersionGuard> versions = new();
     private readonly Mock<IUserContext> userContext = new();
 
     public ProfileReviewCommentServiceTests()
@@ -34,15 +33,15 @@ public class ProfileReviewCommentServiceTests
     private ProfileReviewCommentService CreateService() =>
         new(
             repository.Object,
-            managementRepository.Object,
+            versions.Object,
             userContext.Object,
             NullLogger<ProfileReviewCommentService>.Instance,
             new FixedTimeProvider(FixedNow));
 
     private void GivenVersion(bool isPublished = false, DateTime? effectiveDateTo = null) =>
-        managementRepository
-            .Setup(repo => repo.GetProfileVersionSummaryAsync(VersionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ProfileVersionSummary { VersionMajor = 1, VersionMinor = 0, IsPublished = isPublished, EffectiveDateTo = effectiveDateTo });
+        versions
+            .Setup(guard => guard.FindAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfileVersionFacts(ProfileSectionTestData.ProfileId, isPublished, effectiveDateTo is null));
 
     private void GivenActingUser(string userName = "jdoe") =>
         repository
@@ -110,8 +109,20 @@ public class ProfileReviewCommentServiceTests
         var result = await CreateService().GetAsync(VersionId, SectionId, CancellationToken.None);
 
         result.Should().BeEmpty();
-        managementRepository.Verify(
-            repo => repo.GetProfileVersionSummaryAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        versions.Verify(guard => guard.FindAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetAsync_Throws_WhenTheUserMayNotViewTheNotesOfTheProfile()
+    {
+        versions
+            .Setup(guard => guard.EnsureCanViewNotesAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException());
+
+        var act = () => CreateService().GetAsync(VersionId, SectionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        repository.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -219,6 +230,24 @@ public class ProfileReviewCommentServiceTests
 
         result.Status.Should().Be(ResultStatus.Forbidden);
         repository.Verify(repo => repo.GetReviewCommentUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AddAsync_ReturnsForbidden_ForAnExternalAuthorOrReviewer(bool isContributor)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
+        userContext
+            .Setup(context => context.GetProfileRole(ProfileSectionTestData.ProfileId))
+            .Returns(new ProfileRoleAssignment(ProfileSectionTestData.ProfileId, Guid.NewGuid(), "Policy author", isContributor));
+        GivenVersion();
+
+        var result = await CreateService().AddAsync(VersionId, SectionId, null, "S", "R", "T", CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(
+            repo => repo.InsertReviewCommentAsync(It.IsAny<NewProfileReviewComment>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

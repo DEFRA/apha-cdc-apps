@@ -369,5 +369,13 @@ public sealed class ManageProfileLinkVisibilityTests
         public bool IsUserManagementSystem { get; } = isUserManagementSystem;
 
         public bool IsPolicyProfileUser { get; } = isPolicyProfileUser;
+
+        public UserKind Kind => IsProfileEditor || IsPolicyProfileUser ? UserKind.Internal : UserKind.Unclassified;
+
+        public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
+
+        public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;
+
+        public IEnumerable<Guid> GetAssignedSectionIds(Guid profileId) => [];
     }
 }

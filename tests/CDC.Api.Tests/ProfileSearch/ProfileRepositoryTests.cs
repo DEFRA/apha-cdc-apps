@@ -42,6 +42,8 @@ public sealed class ProfileRepositoryTests : IDisposable
         "StateName", "EffectiveDateFrom", "EffectiveDateTo", "IsPublic", "LastContributionDate"
     ];
     private static readonly string[] Rs4Columns = ["ProfileVersionId", "ScenarioId", "ProfileId", "Name", "SpeciesId", "AffectedSpeciesType", "IsActive"];
+    private static readonly string[] ReviewDateColumns = ["ProfileVersionId", "ScenarioId", "ProfileId", "Title", "NextReviewDate"];
+    private static readonly string[] IncompleteReviewColumns = ["ProfileVersionId", "ScenarioId", "ProfileId", "Title"];
 
     [Fact]
     public async Task GetAllProfilesAsync_MapsPublishedDraftAndScenarioBuckets()
@@ -212,6 +214,197 @@ public sealed class ProfileRepositoryTests : IDisposable
         var scenarioB = profile.WhatIfScenarios.Single(scenario => scenario.ScenarioId == scenarioBId);
         scenarioB.DraftVersions.Should().ContainSingle().Which.VersionId.Should().Be(scenarioBDraft);
         scenarioB.PublishedVersions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsScenarioTitlesFromResultSet2_InTheProceduresOrder()
+    {
+        var scenarioBId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns,
+                [
+                    [ProfileAId, ProfileAId, "Current situation", null, null],
+                    [scenarioBId, ProfileAId, "Alpha scenario", null, null],
+                    [ScenarioId, ProfileAId, "Zeta scenario", null, null],
+                    [Guid.NewGuid(), OrphanProfileId, "Orphan scenario", null, null]
+                ]),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, 1, 0, "Published", Utc(2026, 1, 1), null, true, Utc(2026, 1, 1)],
+                    [Guid.NewGuid(), ScenarioId, ProfileAId, 1, 0, "Draft", Utc(2026, 1, 2), null, false, Utc(2026, 1, 2)],
+                    [Guid.NewGuid(), scenarioBId, ProfileAId, 1, 0, "Draft", Utc(2026, 1, 3), null, false, Utc(2026, 1, 3)]
+                ])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ScenarioTitle.Should().Be("Current situation");
+        profile.WhatIfScenarios.Select(scenario => (scenario.ScenarioId, scenario.ScenarioTitle))
+            .Should().Equal((scenarioBId, "Alpha scenario"), (ScenarioId, "Zeta scenario"));
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_ListsAScenarioFromResultSet2_EvenWhenItHasNoVersions()
+    {
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns, [[ScenarioId, ProfileAId, "Empty scenario", null, null]]),
+                FakeResultSet.Empty(Rs3Columns)
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        var scenario = profile.WhatIfScenarios.Should().ContainSingle().Subject;
+        scenario.ScenarioTitle.Should().Be("Empty scenario");
+        scenario.PublishedVersions.Should().BeEmpty();
+        scenario.DraftVersions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_DefaultsTheOwnScenarioTitle_WhenResultSet2HasNoRowForIt()
+    {
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                FakeResultSet.Empty(Rs3Columns)
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ScenarioTitle.Should().Be("Current situation");
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsEachScenariosProfileStatusNameFromResultSet2()
+    {
+        var scenarioBId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns,
+                [
+                    [ProfileAId, ProfileAId, "Current situation", null, "Active"],
+                    [ScenarioId, ProfileAId, "Scenario A", null, "Under review"],
+                    [scenarioBId, ProfileAId, "Scenario B", null, null]
+                ]),
+                FakeResultSet.Empty(Rs3Columns)
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ProfileStatusName.Should().Be("Active");
+        profile.WhatIfScenarios.Select(scenario => (scenario.ScenarioId, scenario.ProfileStatusName))
+            .Should().Equal((ScenarioId, "Under review"), (scenarioBId, string.Empty));
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsTheEarliestNextReviewDate_AcrossTheTechnicalAndPolicyResultSets()
+    {
+        var scenarioBId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns,
+                [
+                    [ProfileAId, ProfileAId, "Current situation", null, null],
+                    [ScenarioId, ProfileAId, "Scenario A", null, null],
+                    [scenarioBId, ProfileAId, "Scenario B", null, null]
+                ]),
+                FakeResultSet.Empty(Rs3Columns),
+                FakeResultSet.Empty(Rs4Columns),
+                new FakeResultSet(ReviewDateColumns,
+                [
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, "Title", Utc(2026, 3, 10)],
+                    [Guid.NewGuid(), scenarioBId, ProfileAId, "Title", null]
+                ]),
+                new FakeResultSet(ReviewDateColumns,
+                [
+                    [Guid.NewGuid(), ProfileAId, ProfileAId, "Title", Utc(2026, 2, 20)],
+                    [Guid.NewGuid(), ScenarioId, ProfileAId, "Title", Utc(2026, 5, 1)]
+                ])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.NextReviewDate.Should().Be(Utc(2026, 2, 20));
+        profile.WhatIfScenarios.Select(scenario => (scenario.ScenarioId, scenario.NextReviewDate))
+            .Should().Equal((ScenarioId, (DateTime?)Utc(2026, 5, 1)), (scenarioBId, null));
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_FlagsAScenarioWithAnIncompleteReview_FromEitherIncompleteResultSet()
+    {
+        var scenarioBId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                new FakeResultSet(Rs2Columns,
+                [
+                    [ProfileAId, ProfileAId, "Current situation", null, null],
+                    [ScenarioId, ProfileAId, "Scenario A", null, null],
+                    [scenarioBId, ProfileAId, "Scenario B", null, null]
+                ]),
+                FakeResultSet.Empty(Rs3Columns),
+                FakeResultSet.Empty(Rs4Columns),
+                FakeResultSet.Empty(ReviewDateColumns),
+                FakeResultSet.Empty(ReviewDateColumns),
+                new FakeResultSet(IncompleteReviewColumns, [[Guid.NewGuid(), ProfileAId, ProfileAId, "Title"]]),
+                new FakeResultSet(IncompleteReviewColumns, [[Guid.NewGuid(), ScenarioId, ProfileAId, "Title"]])
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ReviewIncomplete.Should().BeTrue();
+        profile.NextReviewDate.Should().BeNull();
+        profile.WhatIfScenarios.Select(scenario => (scenario.ScenarioId, scenario.ReviewIncomplete))
+            .Should().Equal((ScenarioId, true), (scenarioBId, false));
+    }
+
+    [Fact]
+    public async Task GetAllProfilesAsync_LeavesTheReviewStateEmpty_WhenTheProcedureReturnsNoReviewResultSets()
+    {
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "African Horse Sickness"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                FakeResultSet.Empty(Rs3Columns),
+                FakeResultSet.Empty(Rs4Columns)
+            ]
+        });
+
+        var profile = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+
+        profile.ProfileStatusName.Should().BeEmpty();
+        profile.NextReviewDate.Should().BeNull();
+        profile.ReviewIncomplete.Should().BeFalse();
     }
 
     [Fact]

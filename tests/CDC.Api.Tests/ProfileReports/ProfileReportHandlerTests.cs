@@ -117,6 +117,38 @@ public class ProfileReportHandlerTests
     }
 
     [Fact]
+    public async Task GetDiseaseReviewsReportQueryHandler_ReturnsSuccess()
+    {
+        var authorId = Guid.NewGuid();
+        var fromDate = new DateTime(2027, 1, 1);
+        var toDate = new DateTime(2027, 12, 31);
+        var dto = new DiseaseReviewsReportDto { Sections = [new DiseaseReviewsReportRowDto { SectionName = "Summary" }] };
+
+        service
+            .Setup(svc => svc.GetDiseaseReviewsReportAsync(fromDate, toDate, authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var result = await new GetDiseaseReviewsReportQueryHandler(service.Object)
+            .Handle(new GetDiseaseReviewsReportQuery(fromDate, toDate, authorId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsReportQueryHandler_PassesThroughAForbiddenResult()
+    {
+        service
+            .Setup(svc => svc.GetDiseaseReviewsReportAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<DiseaseReviewsReportDto>("no"));
+
+        var result = await new GetDiseaseReviewsReportQueryHandler(service.Object)
+            .Handle(new GetDiseaseReviewsReportQuery(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid()), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
     public async Task GetProfileReportsOverviewQueryHandler_PassesTheServiceResultThrough()
     {
         var dto = new ProfileReportsOverviewDto { ProfileVersionId = ProfileReportTestData.ProfileVersionId };

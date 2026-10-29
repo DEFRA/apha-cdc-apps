@@ -130,6 +130,35 @@ public class ProfileReportsControllerTests
     }
 
     [Fact]
+    public async Task GetDiseaseReviewsReport_ReturnsOk_AndSendsTheFilters()
+    {
+        var authorId = Guid.NewGuid();
+        var fromDate = new DateTime(2027, 1, 1);
+        var toDate = new DateTime(2027, 12, 31);
+        var dto = new DiseaseReviewsReportDto();
+
+        mediator
+            .Setup(sender => sender.Send(new GetDiseaseReviewsReportQuery(fromDate, toDate, authorId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var response = await CreateController().GetDiseaseReviewsReport(fromDate, toDate, authorId, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task GetDiseaseReviewsReport_ReturnsForbidden_WhenTheUserMayNotRunIt()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<GetDiseaseReviewsReportQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Forbidden<DiseaseReviewsReportDto>("no"));
+
+        var response = await CreateController().GetDiseaseReviewsReport(new DateTime(2027, 1, 1), new DateTime(2027, 12, 31), Guid.NewGuid(), CancellationToken.None);
+
+        AssertProblem(response.Result!, StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
     public async Task GetProfilePrioritisationScores_ReturnsOk()
     {
         var dto = new ProfilePrioritisationScoresDto();

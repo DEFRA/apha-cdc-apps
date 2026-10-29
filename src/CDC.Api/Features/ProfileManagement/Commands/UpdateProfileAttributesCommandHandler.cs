@@ -17,7 +17,7 @@ public sealed class UpdateProfileAttributesCommandHandler(
     /// <summary>Executes the command.</summary>
     /// <param name="request">The changes to apply.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The new row version, or a conflict result when another user has saved first.</returns>
+    /// <returns>The new row version, a forbidden result when the user may not edit a profile, a conflict result when another user has saved first, or a validation failure when the title is refused.</returns>
     public async Task<Result<UpdateProfileAttributesResultDto>> Handle(
         UpdateProfileAttributesCommand request,
         CancellationToken cancellationToken)
@@ -26,15 +26,19 @@ public sealed class UpdateProfileAttributesCommandHandler(
 
         try
         {
-            var result = await profileManagementService.UpdateProfileAttributesAsync(request, cancellationToken);
-
-            return Result.Success(result);
+            return await profileManagementService.UpdateProfileAttributesAsync(request, cancellationToken);
         }
         catch (ConcurrencyException exception)
         {
             logger.ConcurrencyConflict(request.Id);
 
             return Result.Conflict<UpdateProfileAttributesResultDto>(exception.Message);
+        }
+        catch (ProfileTitleRefusedException exception)
+        {
+            logger.ProfileTitleRefused(request.Id);
+
+            return Result.ValidationFailed<UpdateProfileAttributesResultDto>(exception.Message);
         }
     }
 }

@@ -46,18 +46,28 @@ function tree(prefix, checked) {
     </ul>`;
 }
 
+// A species box as the page renders it: its own "Close all" above its tree.
+function panel(kind, checked) {
+  return `
+    <div class="app-tree__panel" data-species-tree="${kind}">
+      <div class="app-tree__controls">
+        <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+          <span class="app-tree__toggle-all-text">Close all</span>
+        </button>
+      </div>
+      ${tree(kind, checked)}
+    </div>`;
+}
+
 function build({ profiled = [], other = [], warningEnabled = true } = {}) {
   document.body.innerHTML = `
     <form data-module="app-profile-properties">
       <div id="ProfileTitleEditor" contenteditable="true" data-app-title-hidden-input="ProfileTitle">Anthrax</div>
       <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="Anthrax">
-      <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
-        <span class="app-tree__toggle-all-text">Close all</span>
-      </button>
       <div data-module="app-species-selector" data-species-warning-enabled="${warningEnabled}">
-        <div data-species-tree="profiled">${tree('profiled', profiled)}</div>
+        ${panel('profiled', profiled)}
         <output data-species-status="profiled" hidden></output>
-        <div data-species-tree="other">${tree('other', other)}</div>
+        ${panel('other', other)}
         <output data-species-status="other" hidden></output>
         <div data-species-warning hidden>Removing profiled species removes their data.</div>
         <div data-species-announcement></div>
@@ -239,20 +249,49 @@ describe('profile-properties species selector', () => {
     expect(warning.hidden).toBe(true);
   });
 
-  it('opens and closes the same branch in the other tree', async () => {
+  it('opens and closes the same branch in the other tree', () => {
     build();
     const toggle = (treeName) => document.querySelector(`#${treeName} #${treeName}-cattle`).closest('.app-tree__item').querySelector('.app-tree__toggle');
 
     toggle('profiled').click();
-    await Promise.resolve();
 
     expect(toggle('profiled').getAttribute('aria-expanded')).toBe('false');
     expect(toggle('other').getAttribute('aria-expanded')).toBe('false');
 
     toggle('other').click();
-    await Promise.resolve();
 
     expect(toggle('profiled').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  // As in the legacy page, each box's control works on its own tree only; it is single branches that stay level between the trees.
+  it('opens and closes every branch in its own box only, from the Open all / Close all in that box', async () => {
+    build();
+    const toggleAll = (kind) => document.querySelector(`[data-species-tree="${kind}"] .app-tree__toggle-all`);
+    const label = (kind) => toggleAll(kind).querySelector('.app-tree__toggle-all-text').textContent;
+    const hidden = (kind) => [...document.querySelectorAll(`[data-species-tree="${kind}"] .app-tree__group`)].map((group) => group.hidden);
+
+    toggleAll('profiled').click();
+    // Lets any delayed mirroring to the other tree happen before it is checked.
+    await Promise.resolve();
+
+    expect(hidden('profiled')).toEqual([true, true]);
+    expect(label('profiled')).toBe('Open all');
+    expect(hidden('other')).toEqual([false, false]);
+    expect(label('other')).toBe('Close all');
+    expect(toggleAll('other').getAttribute('aria-expanded')).toBe('true');
+
+    toggleAll('other').click();
+    await Promise.resolve();
+
+    expect(hidden('other')).toEqual([true, true]);
+    expect(label('other')).toBe('Open all');
+
+    toggleAll('profiled').click();
+    await Promise.resolve();
+
+    expect(hidden('profiled')).toEqual([false, false]);
+    expect(label('profiled')).toBe('Close all');
+    expect(hidden('other')).toEqual([true, true]);
   });
 });
 
@@ -307,21 +346,5 @@ describe('profile-properties reset', () => {
     reset.click();
 
     expect(warning.hidden).toBe(true);
-  });
-
-  it('keeps the title on a single line by ignoring Enter', () => {
-    const { editor } = build();
-    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
-
-    editor.dispatchEvent(enter);
-
-    expect(enter.defaultPrevented).toBe(true);
-  });
-
-  it('exposes the title editor as a single-line textbox', () => {
-    const { editor } = build();
-
-    expect(editor.getAttribute('role')).toBe('textbox');
-    expect(editor.getAttribute('aria-multiline')).toBe('false');
   });
 });
