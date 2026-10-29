@@ -255,6 +255,10 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
 builder.AddCidmAuthentication();
 builder.AddEntraAuthentication();
 
+// How long a signed-in session may sit idle - the lifetime of both sign-in cookies, which any request renews - and how long before
+// it ends the user is asked whether to extend it. See SessionController and wwwroot/js/session-timeout.js for the dialogs.
+builder.Services.AddSessionTimeout(builder.Configuration);
+
 // Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see
 // CidmOpenIdConnectEvents.TokenValidated, which calls this via ICidmExternalUserResolver.
 builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();

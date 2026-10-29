@@ -91,6 +91,23 @@ dotnet user-secrets set "Entra:ClientId" "<client-id>"
 dotnet user-secrets set "Entra:ClientSecret" "<client-secret>"
 ```
 
+## Session timeout (CDC.Web)
+
+A signed-in session - an internal (Entra ID) or an external (CIDM) user's alike - ends after a period with no activity, as
+the legacy application's 20-minute session did. Any request to CDC.Web is activity and renews the session (the sign-in
+cookie is re-issued at most once every twentieth of the timeout); asking how long a session has left is not, so it can never
+keep an idle session alive. Five minutes before a session ends, the user is asked "Extend session?"; once it has ended, a
+"Session expired" dialog sends them back through sign-in to the page they were on. The dialogs are built into every page
+that has a signed-in user (`_SessionTimeout.cshtml`, `wwwroot/js/session-timeout.js`, `SessionController`).
+
+Both settings are optional - the defaults reproduce the legacy behaviour - and are validated on startup, so the app will not
+start with values that would end a session without a user being able to respond to the warning:
+
+| Config key                           | Default    | Purpose                                                                                                             |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `SessionTimeout:IdleTimeout`         | `00:20:00` | How long a session may sit idle before the user has to sign in again (the lifetime of both sign-in cookies)         |
+| `SessionTimeout:WarningBeforeExpiry` | `00:05:00` | How long before the session ends the user is asked whether to extend it: at least 20 seconds, shorter than the idle timeout |
+
 
 ## Code style & pre-commit checks
 

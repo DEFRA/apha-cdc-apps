@@ -135,6 +135,12 @@
     <script src="~/js/confirm-modal.js" asp-append-version="true"></script>
     <script src="~/js/paged-region.js" asp-append-version="true"></script>
     <script src="~/js/date-picker.js" asp-append-version="true"></script>
+    @* Only a signed-in user has a session to warn about, and the dialogs it opens are built for it by the partial. *@
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <partial name="_SessionTimeout" />
+        <script src="~/js/session-timeout.js" asp-append-version="true"></script>
+    }
     <script type="module" src="~/js/govuk-frontend-6.5.0.min.js"></script>
     <script type="module">
         import { initAll } from '/js/govuk-frontend-6.5.0.min.js'

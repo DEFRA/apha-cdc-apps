@@ -14,12 +14,20 @@ namespace CDC.Common.Auth;
 /// which re-validates against the provider on a schedule rather than trusting the session cookie for its
 /// full lifetime. Each identity provider supplies only its own refresh service, callback path and timing.
 /// </summary>
+/// <remarks>
+/// The same events make the cookie's <see cref="CookieAuthenticationOptions.ExpireTimeSpan"/> an idle timeout: a request is
+/// activity and renews the session for another full timeout, except a request to an endpoint marked
+/// <see cref="PassiveSessionRequestAttribute"/>, which leaves the session exactly as it found it.
+/// </remarks>
 public abstract partial class TokenRefreshCookieEvents : CookieAuthenticationEvents
 {
     private const string ExpiresAtTokenName = "expires_at";
     private const string RefreshTokenName = "refresh_token";
     private const string AccessTokenName = "access_token";
     private const string IdTokenName = "id_token";
+
+    // A session is renewed once this fraction of its timeout has passed since it was last renewed (a minute, for a 20-minute timeout).
+    private const int RenewalDivisor = 20;
 
     private readonly ITokenRefreshService _refreshService;
     private readonly string _providerName;
@@ -52,8 +60,38 @@ public abstract partial class TokenRefreshCookieEvents : CookieAuthenticationEve
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The built-in rule re-issues the cookie only once half its lifetime has passed, so a session that went quiet could end after as
+    /// little as half the timeout. Any request counts as activity instead, as it did in the legacy ASP.NET session, and the cookie is
+    /// re-issued - which re-sends every token it holds - at most once per twentieth of the timeout, so the timeout is exact to
+    /// within that. A renewed session is re-based on the configured timeout, so a change to it also applies to sessions that are
+    /// already open.
+    /// </remarks>
+    public override Task CheckSlidingExpiration(CookieSlidingExpirationContext context)
+    {
+        var renew = !IsPassiveRequest(context.HttpContext) && context.ElapsedTime >= context.Options.ExpireTimeSpan / RenewalDivisor;
+
+        if (renew)
+        {
+            var now = _timeProvider.GetUtcNow();
+            context.Properties.IssuedUtc = now;
+            context.Properties.ExpiresUtc = now + context.Options.ExpireTimeSpan;
+        }
+
+        context.ShouldRenew = renew;
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
     public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
     {
+        if (IsPassiveRequest(context.HttpContext))
+        {
+            // Exchanging the refresh token would mean re-issuing the cookie to keep the new one, and so extending the session.
+            return;
+        }
+
         var expiresAtRaw = context.Properties.GetTokenValue(ExpiresAtTokenName);
         var refreshToken = context.Properties.GetTokenValue(RefreshTokenName);
 
@@ -92,6 +130,9 @@ public abstract partial class TokenRefreshCookieEvents : CookieAuthenticationEve
 
         context.ShouldRenew = true;
     }
+
+    private static bool IsPassiveRequest(HttpContext httpContext) =>
+        httpContext.GetEndpoint()?.Metadata.GetMetadata<PassiveSessionRequestAttribute>() is not null;
 
     private string BuildRedirectUri(HttpRequest request) =>
         $"{request.Scheme}://{request.Host}{_callbackPath}";
