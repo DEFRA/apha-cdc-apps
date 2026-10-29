@@ -59,7 +59,7 @@ public class ReviewEmailComposerTests
             [new ReviewDueProfile(profileId, Guid.NewGuid(), "Anthrax", null, "2.1", [Section(new ReviewItem(Today, "Active"))], null, true)]);
 
         ReviewEmailComposer.Compose(user, Today, Options()).Body
-            .Should().Contain($"(https://d2r2.example.test/SurveillanceProfiles/EditProfileAllRevisionDates?profileId={profileId})")
+            .Should().Contain($"(https://d2r2.example.test/SurveillanceProfiles/EditProfileAllRevisionDates/{profileId})")
             .And.Contain($"(https://d2r2.example.test/DiseaseProfiles/CompareVersions?handler=Review&profileId={profileId})");
     }
 
@@ -69,6 +69,31 @@ public class ReviewEmailComposerTests
         var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")), hasPublishedVersion: false);
 
         ReviewEmailComposer.Compose(user, Today, Options()).Body.Should().NotContain("CompareVersions");
+    }
+
+    [Fact]
+    public void Compose_StripsHtmlFromProfileTitles()
+    {
+        var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
+        user = user with { Profiles = [user.Profiles[0] with { Title = "<p>Goat Pox</p>" }] };
+
+        ReviewEmailComposer.Compose(user, Today, Options()).Body.Should().Contain("## Goat Pox - version 2.1 (draft)");
+    }
+
+    [Fact]
+    public void Compose_OrdersProfilesByTheirCleanedTitle()
+    {
+        var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
+        var template = user.Profiles[0];
+        user = user with
+        {
+            Profiles = [template with { Title = "<p>Z test clone</p>" }, template with { Title = "<p>Z test</p>" }]
+        };
+
+        var body = ReviewEmailComposer.Compose(user, Today, Options()).Body;
+
+        body.IndexOf("## Z test - version", StringComparison.Ordinal)
+            .Should().BeLessThan(body.IndexOf("## Z test clone - version", StringComparison.Ordinal));
     }
 
     [Fact]

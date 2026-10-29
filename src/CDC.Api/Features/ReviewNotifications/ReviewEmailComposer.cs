@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using CDC.Api.Features.ReviewNotifications.Dtos;
 using CDC.Api.Features.ReviewNotifications.Interfaces;
 
@@ -10,7 +12,7 @@ namespace CDC.Api.Features.ReviewNotifications;
 /// <c>ReviewEmail</c>. The Notify template holds the greeting, the instructions and the support mailbox. Notify cannot
 /// show tables, so each legacy table row is a bullet. The comparison report is a link that CDC.Web generates, not an attachment.
 /// </summary>
-public static class ReviewEmailComposer
+public static partial class ReviewEmailComposer
 {
     /// <summary>Subject line, unchanged from the legacy email.</summary>
     public const string Subject = "D2R2 - Profile review request";
@@ -34,7 +36,8 @@ public static class ReviewEmailComposer
         var body = new StringBuilder();
         var hasHomePage = TryGetWebUri(options.InternalHomePageUrl, out var homePage);
 
-        foreach (var profile in user.Profiles)
+        // Sorted on the cleaned title: the stored HTML tags would otherwise decide the order.
+        foreach (var profile in user.Profiles.OrderBy(p => Clean(p.Title), StringComparer.OrdinalIgnoreCase))
         {
             AppendProfile(body, profile, now, hasHomePage ? homePage : null);
         }
@@ -88,7 +91,7 @@ public static class ReviewEmailComposer
             return;
         }
 
-        var reviewDates = new Uri(baseUri, $"{RevisionDatesPath}?profileId={profile.ProfileId}");
+        var reviewDates = new Uri(baseUri, $"{RevisionDatesPath}/{profile.ProfileId}");
         body.Append("[Open the revision dates for this profile](").Append(reviewDates.AbsoluteUri).Append(")\n\n");
 
         if (profile.HasPublishedVersion)
@@ -126,10 +129,14 @@ public static class ReviewEmailComposer
     private static bool TryGetWebUri(string value, out Uri uri) =>
         Uri.TryCreate(value, UriKind.Absolute, out uri!) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
 
-    // Strips characters that Notify would treat as markup, links or HTML.
+    // Titles are stored as HTML (for example <p>Goat Pox</p>), so tags go first, then the characters Notify treats as markup.
     private static string Clean(string value) =>
-        value.Replace("\r", " ").Replace("\n", " ")
+        WebUtility.HtmlDecode(HtmlTag().Replace(value, string.Empty))
+            .Replace("\r", " ").Replace("\n", " ")
             .Replace("<", string.Empty).Replace(">", string.Empty)
             .Replace("[", string.Empty).Replace("]", string.Empty)
             .Replace("*", string.Empty).Replace("`", string.Empty);
+
+    [GeneratedRegex("<[^>]*>")]
+    private static partial Regex HtmlTag();
 }
