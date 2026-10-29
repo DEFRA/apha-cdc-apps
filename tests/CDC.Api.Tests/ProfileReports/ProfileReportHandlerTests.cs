@@ -5,6 +5,7 @@ using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Api.Features.ProfileReports.Queries;
 using CDC.Common.Contracts;
 using FluentAssertions;
+using MediatR;
 using Moq;
 
 namespace CDC.Api.Tests.ProfileReports;
@@ -194,6 +195,28 @@ public class ProfileReportHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(dto);
+    }
+
+    [Theory]
+    [InlineData(ResultStatus.Success)]
+    [InlineData(ResultStatus.NotFound)]
+    [InlineData(ResultStatus.Forbidden)]
+    public async Task PrioritiseProfileVersionCommandHandler_PassesTheServiceResultThrough(ResultStatus status)
+    {
+        var contentService = new Mock<IProfileReportContentService>(MockBehavior.Strict);
+        contentService
+            .Setup(svc => svc.PrioritiseProfileVersionAsync(ProfileReportTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(status switch
+            {
+                ResultStatus.Success => Result.Success(Unit.Value),
+                ResultStatus.NotFound => Result.NotFound<Unit>("no"),
+                _ => Result.Forbidden<Unit>("no")
+            });
+
+        var result = await new PrioritiseProfileVersionCommandHandler(contentService.Object)
+            .Handle(new PrioritiseProfileVersionCommand(ProfileReportTestData.ProfileVersionId), CancellationToken.None);
+
+        result.Status.Should().Be(status);
     }
 
     [Fact]

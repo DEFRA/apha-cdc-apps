@@ -116,6 +116,17 @@ public class ProfileSectionTabPageModelTests
             pageModel.BuildPrintUrl(EpidemiologySectionId));
     }
 
+    [Theory]
+    [InlineData(DraftSummaryReport.SummaryProfile, "SummaryProfile")]
+    [InlineData(DraftSummaryReport.SummaryPrioritisation, "SummaryPrioritisation")]
+    public async Task BuildSummaryReportUrl_OpensTheReportPage_NamingTheReport(DraftSummaryReport report, string routeName)
+    {
+        var pageModel = CreatePageModel(DraftProfile());
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal($"/SurveillanceProfiles/ViewDraftSummaryReport?profileId={ProfileId}&report={routeName}", pageModel.BuildSummaryReportUrl(report));
+    }
+
     [Fact]
     public async Task IsReady_IsFalse_WhenTheProfileHasNoVersion()
     {

@@ -93,6 +93,15 @@ public class ProfileReportValidatorTests
     }
 
     [Fact]
+    public void PrioritiseProfileVersionCommandValidator_ValidatesTheProfileVersionId()
+    {
+        var validator = new PrioritiseProfileVersionCommandValidator();
+
+        validator.Validate(new PrioritiseProfileVersionCommand(Guid.Empty)).IsValid.Should().BeFalse();
+        validator.Validate(new PrioritiseProfileVersionCommand(ProfileReportTestData.ProfileVersionId)).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void GetProfileReportsOverviewQueryValidator_EmptyProfileVersionId_ShouldFail()
     {
         var result = new GetProfileReportsOverviewQueryValidator().Validate(new GetProfileReportsOverviewQuery(Guid.Empty));

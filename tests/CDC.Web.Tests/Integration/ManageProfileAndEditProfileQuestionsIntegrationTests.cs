@@ -189,7 +189,59 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
         Assert.Contains($"href=\"/SurveillanceProfiles/ViewProfilePrintVersion/{profileId}\" target=\"_blank\" rel=\"noopener noreferrer\">Print full profile", body);
         Assert.Contains($"href=\"/SurveillanceProfiles/ViewProfilePrintVersion/{profileId}?section={ProfileTabTestData.SummarySectionId}\" draggable=\"false\" class=\"govuk-button govuk-button--secondary\"", body);
         Assert.DoesNotContain("window.print", body);
-        Assert.Contains("The summary reports are not yet available in this migrated view.", body);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewDraftSummaryReport/{profileId}/SummaryProfile\" target=\"_blank\" rel=\"noopener noreferrer\">Summary profile report", body);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewDraftSummaryReport/{profileId}/SummaryPrioritisation\" target=\"_blank\" rel=\"noopener noreferrer\">Summary prioritisation report", body);
+        Assert.DoesNotContain("not yet available", body);
+    }
+
+    [Fact]
+    public async Task EditProfileQuestions_LinksOnlyTheSummaryReports_WhenTheUserMayRunThemButNotPrint()
+    {
+        var profileId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel
+        {
+            ProfileId = profileId,
+            ProfileTitle = "Bovine tuberculosis",
+            CurrentProfileVersionId = Guid.NewGuid(),
+            CanViewProfileReports = true
+        };
+
+        using var factory = CreateProfilePageFactory(profile);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{profileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.DoesNotContain("ViewProfilePrintVersion", body);
+        Assert.Contains($"/SurveillanceProfiles/ViewDraftSummaryReport/{profileId}/SummaryProfile", body);
+        Assert.Contains($"/SurveillanceProfiles/ViewDraftSummaryReport/{profileId}/SummaryPrioritisation", body);
+        Assert.DoesNotContain("No profile reports are available for this version.", body);
+    }
+
+    [Fact]
+    public async Task EditProfileQuestions_HidesTheSummaryReportLinks_WhenTheUserMayNotRunThem()
+    {
+        var profileId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel
+        {
+            ProfileId = profileId,
+            ProfileTitle = "Bovine tuberculosis",
+            CurrentProfileVersionId = Guid.NewGuid(),
+            CanPrintProfileSection = true
+        };
+
+        using var factory = CreateProfilePageFactory(profile);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{profileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Contains("Print full profile", body);
+        Assert.DoesNotContain("ViewDraftSummaryReport", body);
+        Assert.DoesNotContain("Summary profile report", body);
+        Assert.DoesNotContain("Summary prioritisation report", body);
     }
 
     [Fact]
@@ -211,6 +263,56 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.DoesNotContain("ViewProfilePrintVersion", body);
+        Assert.DoesNotContain("ViewDraftSummaryReport", body);
+        Assert.Contains("No profile reports are available for this version.", body);
+    }
+
+    [Fact]
+    public async Task Notes_LinksPrintAndBothSummaryReports_AsTheLegacyLeftNavigationDidOnEveryPage()
+    {
+        var profileId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel
+        {
+            ProfileId = profileId,
+            ProfileTitle = "Bovine tuberculosis",
+            CurrentProfileVersionId = Guid.NewGuid(),
+            CanPrintProfileSection = true,
+            CanViewProfileReports = true
+        };
+
+        using var factory = CreateProfilePageFactory(profile);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/Notes/{profileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewProfilePrintVersion/{profileId}\" target=\"_blank\" rel=\"noopener noreferrer\">Print full profile", body);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewDraftSummaryReport/{profileId}/SummaryProfile\" target=\"_blank\" rel=\"noopener noreferrer\">Summary profile report", body);
+        Assert.Contains($"href=\"/SurveillanceProfiles/ViewDraftSummaryReport/{profileId}/SummaryPrioritisation\" target=\"_blank\" rel=\"noopener noreferrer\">Summary prioritisation report", body);
+        Assert.DoesNotContain("No profile reports are available for this version.", body);
+    }
+
+    [Fact]
+    public async Task Notes_ShowsNoReportLinks_WhenTheUserMayNotRunThem()
+    {
+        var profileId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel
+        {
+            ProfileId = profileId,
+            ProfileTitle = "Bovine tuberculosis",
+            CurrentProfileVersionId = Guid.NewGuid()
+        };
+
+        using var factory = CreateProfilePageFactory(profile);
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/Notes/{profileId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.DoesNotContain("ViewProfilePrintVersion", body);
+        Assert.DoesNotContain("ViewDraftSummaryReport", body);
         Assert.Contains("No profile reports are available for this version.", body);
     }
 

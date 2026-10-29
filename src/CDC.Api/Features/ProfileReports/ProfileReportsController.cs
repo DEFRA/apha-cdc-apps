@@ -122,6 +122,33 @@ public sealed class ProfileReportsController(ISender mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Recalculates the prioritisation scores of a profile version.
+    /// </summary>
+    /// <remarks>
+    /// Replaces the legacy <c>PrioritiseProfileCommand.PrioritiseProfile</c> that the draft summary prioritisation report ran before it
+    /// was built: <c>sppPrioritisationCalculation</c> for the version, then <c>sppPrioritisationScore</c>, in one transaction. Only the
+    /// current version can be prioritised, by the users who may create its reports.
+    /// </remarks>
+    /// <param name="profileVersionId">The profile version to prioritise.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>No content.</returns>
+    /// <response code="204">The scores were recalculated.</response>
+    /// <response code="400">The request failed validation.</response>
+    /// <response code="403">The user may not prioritise the profile version.</response>
+    /// <response code="404">The profile version does not exist.</response>
+    [HttpPost("prioritisation/{profileVersionId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> PrioritiseProfileVersion(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new PrioritiseProfileVersionCommand(profileVersionId), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
+    /// <summary>
     /// Gets the user guidance of a set of questions.
     /// </summary>
     /// <remarks>

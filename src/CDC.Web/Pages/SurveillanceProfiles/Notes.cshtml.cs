@@ -86,6 +86,12 @@ public class NotesModel(
     /// <summary>Gets a value indicating whether the profile has no current version to browse.</summary>
     public bool HasNoVersion { get; private set; }
 
+    /// <summary>Gets a value indicating whether the "Print full profile" link is shown (legacy <c>CanGetPrintVersion()</c>).</summary>
+    public bool CanPrintProfileSection { get; private set; }
+
+    /// <summary>Gets a value indicating whether the summary report links are shown (legacy <c>CanGetSummaryReport()</c>).</summary>
+    public bool CanViewProfileReports { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         try
@@ -98,6 +104,8 @@ public class NotesModel(
             }
 
             ProfileTitle = profile.FullTitle;
+            CanPrintProfileSection = profile.CanPrintProfileSection;
+            CanViewProfileReports = profile.CanViewProfileReports;
 
             if (profile.CurrentProfileVersionId == Guid.Empty)
             {

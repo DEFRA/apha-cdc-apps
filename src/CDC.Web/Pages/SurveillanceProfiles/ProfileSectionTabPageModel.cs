@@ -195,7 +195,14 @@ public abstract class ProfileSectionTabPageModel(
     /// <param name="sectionId">The one section to print, or <see langword="null"/> to print the full profile.</param>
     /// <returns>The print page URL.</returns>
     public string? BuildPrintUrl(Guid? sectionId = null) =>
-        Url.Page(ViewProfilePrintVersionModel.PagePath, new { profileId = ProfileId, section = sectionId });
+        this.BuildPrintVersionUrl(ProfileId, sectionId);
+
+    /// <summary>Builds the URL that downloads one of the summary reports of the profile's current draft, which the legacy page opened
+    /// as <c>ShowDraftSummaryProfileReport.aspx</c> or <c>ShowDraftSummaryPrioritisationReport.aspx</c>.</summary>
+    /// <param name="report">The report to download.</param>
+    /// <returns>The report page URL.</returns>
+    public string? BuildSummaryReportUrl(DraftSummaryReport report) =>
+        this.BuildSummaryReportUrl(ProfileId, report);
 
     /// <summary>Builds the tab strip for the selected section.</summary>
     /// <param name="submitHandler">When set, tabs post to this page handler (which receives the tab's name in

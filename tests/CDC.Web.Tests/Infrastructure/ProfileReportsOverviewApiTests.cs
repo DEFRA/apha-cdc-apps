@@ -177,6 +177,31 @@ public class ProfileReportsOverviewApiTests
         Assert.Equal(expected, await CreateService(handler).SaveReportAsync(ProfileVersionId, ReportId, "x", [1]));
     }
 
+    [Fact]
+    public async Task PrioritiseProfileVersionAsync_PostsToThePrioritisationRoute_AndReturnsSuccess()
+    {
+        var handler = new RecordingHandler(HttpStatusCode.NoContent, new StringContent(string.Empty));
+
+        var outcome = await CreateService(handler).PrioritiseProfileVersionAsync(ProfileVersionId);
+
+        Assert.Equal(ProfileReportsOutcome.Success, outcome);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal($"/api/profile-reports/prioritisation/{ProfileVersionId}", handler.RequestPath);
+        Assert.Equal(string.Empty, handler.RequestBody);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, ProfileReportsOutcome.NotFound)]
+    [InlineData(HttpStatusCode.Forbidden, ProfileReportsOutcome.Forbidden)]
+    [InlineData(HttpStatusCode.BadRequest, ProfileReportsOutcome.Error)]
+    [InlineData(HttpStatusCode.InternalServerError, ProfileReportsOutcome.Error)]
+    public async Task PrioritiseProfileVersionAsync_MapsFailureStatusCodes(HttpStatusCode status, ProfileReportsOutcome expected)
+    {
+        var handler = new RecordingHandler(status, new StringContent(string.Empty));
+
+        Assert.Equal(expected, await CreateService(handler).PrioritiseProfileVersionAsync(ProfileVersionId));
+    }
+
     private static ProfileReportsApiService CreateService(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://api.test") });
 

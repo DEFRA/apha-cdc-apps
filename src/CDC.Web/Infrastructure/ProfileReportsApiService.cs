@@ -112,6 +112,14 @@ public sealed class ProfileReportsApiService(HttpClient httpClient) : IProfileRe
     }
 
     /// <inheritdoc />
+    public async Task<ProfileReportsOutcome> PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsync($"{BasePath}/prioritisation/{profileVersionId}", content: null, cancellationToken);
+
+        return response.IsSuccessStatusCode ? ProfileReportsOutcome.Success : ToOutcome(response.StatusCode);
+    }
+
+    /// <inheritdoc />
     public async Task<ProfileQuestionGuidanceResult> GetQuestionGuidanceAsync(IReadOnlyList<Guid> questionIds, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PostAsJsonAsync(

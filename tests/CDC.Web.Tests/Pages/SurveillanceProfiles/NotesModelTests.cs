@@ -132,6 +132,22 @@ public class NotesModelTests
         Assert.True(pageModel.HasError);
     }
 
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task OnGetAsync_ExposesWhetherTheUserMayPrintAndRunTheSummaryReports(bool canPrint, bool canViewReports)
+    {
+        var profile = Profile() with { CanPrintProfileSection = canPrint, CanViewProfileReports = canViewReports };
+        var pageModel = CreatePageModel(profile, metadata: OneSectionMetadata(), noteTypes: ThreeNoteTypes());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(canPrint, pageModel.CanPrintProfileSection);
+        Assert.Equal(canViewReports, pageModel.CanViewProfileReports);
+    }
+
     [Fact]
     public async Task OnGetAsync_SelectsNothing_WhenNoReferenceTypeIsRequested()
     {
