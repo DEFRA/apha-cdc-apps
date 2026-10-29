@@ -135,6 +135,38 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains(">Browse profile</a>", body);
     }
 
+    // Legacy named the version in every "Browse profile" link, and listed every draft to every user: opening one the user holds no
+    // role on is what is refused, so the links of the draft cards have to say which draft they mean.
+    [Fact]
+    public async Task Search_NamesTheVersionInEveryBrowseProfileLink_OnThePublishedAndTheDraftCardOfAnExternalUser()
+    {
+        var draftVersionId = Guid.NewGuid();
+        var draft = new ProfileHistoryItemDto
+        {
+            VersionId = draftVersionId,
+            VersionNumber = 2,
+            Title = "Bovine tuberculosis",
+            CreatedAtUtc = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsScenario = false
+        };
+        using var factory = CreateFactory([SearchResults[0] with { DraftVersions = [draft] }]);
+        var client = await factory.SignedInExternalClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search?DisplayPublished=true&DisplayDraft=true");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        var browseLinks = Regex.Matches(body, "href=\"([^\"]+)\">Browse profile</a>", RegexOptions.None, TimeSpan.FromSeconds(5))
+            .Select(match => match.Groups[1].Value)
+            .ToList();
+        var browsePath = $"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}";
+        Assert.Equal(4, browseLinks.Count);
+        Assert.Equal(2, browseLinks.Count(link => link == $"{browsePath}?profileVersionId={VersionId}"));
+        Assert.Equal(2, browseLinks.Count(link => link == $"{browsePath}?profileVersionId={draftVersionId}"));
+    }
+
     // The script submits the form for these links, so the address they carry cannot bring back a keyword cleared since the last search.
     [Fact]
     public async Task Search_MarksEveryLetterLinkAndPageLink_ForTheScriptToSubmitTheFilters()

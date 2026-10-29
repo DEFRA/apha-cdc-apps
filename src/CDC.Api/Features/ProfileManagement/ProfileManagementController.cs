@@ -44,20 +44,25 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// Gets the details shown on the "Manage profile" page: titles, version pointers and status.
     /// </summary>
     /// <param name="profileId">The profile to read.</param>
+    /// <param name="profileVersionId">The version the caller is about to browse, when it followed that version's link. It does not
+    /// choose what is returned (the profile's current version is); it lets the request be refused when it is a draft the user may not read.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The profile's "Manage profile" details.</returns>
     /// <response code="200">The profile was retrieved.</response>
     /// <response code="400">The request failed validation.</response>
-    /// <response code="403">The profile has no version the user may view: its only version is a draft they hold no role on.</response>
-    /// <response code="404">No profile exists with the supplied identifier.</response>
+    /// <response code="403">The version asked for is a draft the user holds no role on, or the profile's only version is one.</response>
+    /// <response code="404">No profile exists with the supplied identifier, or the version asked for is not one of its versions.</response>
     [HttpGet("{profileId:guid}/manage")]
     [ProducesResponseType(typeof(GetManageProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<GetManageProfileResponse>> GetManageProfile(Guid profileId, CancellationToken cancellationToken)
+    public async Task<ActionResult<GetManageProfileResponse>> GetManageProfile(
+        Guid profileId,
+        [FromQuery] Guid? profileVersionId,
+        CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(new GetManageProfileQuery(profileId), cancellationToken);
+        var result = await mediator.Send(new GetManageProfileQuery(profileId, profileVersionId), cancellationToken);
 
         return result.ToActionResult(this);
     }

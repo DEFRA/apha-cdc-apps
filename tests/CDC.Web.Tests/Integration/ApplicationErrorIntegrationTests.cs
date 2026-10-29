@@ -1,5 +1,6 @@
 using System.Net;
 using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.TestSupport;
@@ -14,6 +15,32 @@ public class ApplicationErrorIntegrationTests(CdcWebTestFactory factory) : IClas
 {
     private static readonly Guid ProfileId = Guid.NewGuid();
     private static readonly Guid SectionId = Guid.NewGuid();
+    private static readonly Guid DraftVersionId = Guid.NewGuid();
+
+    // The search page lists every draft, so the link of a draft names its version: CDC.Api refuses it to a user with no role on the
+    // profile, while the link of the published card, which names none the user can be refused, still shows the published profile.
+    [Fact]
+    public async Task BrowseProfile_SendsAnExternalUserToTheApplicationErrorPage_WhenTheyFollowADraftsLink()
+    {
+        using var refusing = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(
+                    manageProfile: new ManageProfileViewModel { ProfileId = ProfileId, ProfileTitle = "Bovine tuberculosis", CurrentProfileVersionId = Guid.NewGuid() },
+                    throwOnGetManageProfileForAVersion: ProfileTabTestData.Refused()));
+                services.RemoveAll<IProfileSectionsApiService>();
+                services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService());
+            }));
+        var client = await refusing.SignedInExternalClientAsync();
+
+        var draftsLink = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}?profileVersionId={DraftVersionId}");
+        var withoutVersion = await client.GetAsync($"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}");
+
+        Assert.Equal(HttpStatusCode.Redirect, draftsLink.StatusCode);
+        Assert.Equal(ApplicationErrorModel.PagePath, draftsLink.Headers.Location?.OriginalString);
+        Assert.Equal(HttpStatusCode.OK, withoutVersion.StatusCode);
+    }
 
     [Fact]
     public async Task BrowseProfile_SendsAnExternalUserCdcApiRefuses_ToTheApplicationErrorPage()

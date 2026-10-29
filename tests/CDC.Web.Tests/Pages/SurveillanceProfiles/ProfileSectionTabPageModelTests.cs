@@ -172,6 +172,54 @@ public class ProfileSectionTabPageModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_NamesTheVersionTheUserFollowedALinkTo_SoCdcApiCanRefuseADraftTheyMayNotRead()
+    {
+        var versionId = Guid.NewGuid();
+        var apiClient = new FakeApiClient(manageProfile: Profile());
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                apiClient,
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+        pageModel.ProfileVersionId = versionId;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(versionId, apiClient.LastManageProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_NamesNoVersion_WhenTheUserDidNotFollowAVersionsLink()
+    {
+        var apiClient = new FakeApiClient(manageProfile: Profile());
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                apiClient,
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Null(apiClient.LastManageProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_SendsTheUserToTheApplicationErrorPage_WhenCdcApiRefusesTheVersionTheyFollowedALinkTo()
+    {
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                new FakeApiClient(manageProfile: Profile(), throwOnGetManageProfileForAVersion: Refused()),
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+        pageModel.ProfileVersionId = Guid.NewGuid();
+        var tempData = WithTempData(pageModel);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        AssertSentToTheApplicationErrorPage(result, tempData);
+    }
+
+    [Fact]
     public async Task HasFormErrors_IsFalse_ForATabThatReportsNoErrors()
     {
         var pageModel = CreatePageModel(Profile());

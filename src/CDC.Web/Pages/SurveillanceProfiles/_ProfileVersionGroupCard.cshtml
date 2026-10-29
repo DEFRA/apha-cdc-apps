@@ -30,7 +30,7 @@
                 <a class="govuk-link" href="#">Clone profile</a>
                 <span aria-hidden="true"> | </span>
             }
-            <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId">Browse profile</a>
+            <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId" asp-route-profileVersionId="@Model.CurrentVersion?.VersionId">Browse profile</a>
             @if (Model.CanClone)
             {
                 <span aria-hidden="true"> | </span>
@@ -93,7 +93,7 @@
                                         <a class="govuk-link" href="#">Clone profile</a>
                                         <span aria-hidden="true"> | </span>
                                     }
-                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId">Browse profile</a>
+                                    <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId" asp-route-profileVersionId="@row.Version.VersionId">Browse profile</a>
                                     @if (Model.CanClone)
                                     {
                                         <span aria-hidden="true"> | </span>

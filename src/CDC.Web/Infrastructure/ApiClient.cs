@@ -38,6 +38,10 @@ public interface IApiClient
     /// <c>GET /api/profiles/{profileId}/manage</c>.</summary>
     Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets the details shown on the "Manage profile" page for a user who followed a version's link, so CDC.Api can refuse
+    /// them a draft they may not read. The version does not choose what is returned: the profile's current version does.</summary>
+    Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, Guid? profileVersionId, CancellationToken cancellationToken = default);
+
     /// <summary>Resolves (or provisions) the external user matching the given CIDM claims via
     /// <c>POST /api/users/external/resolve</c>.</summary>
     Task<ResolveExternalUserResult> ResolveExternalUserAsync(ResolveExternalUserRequestDto request, CancellationToken cancellationToken = default);
@@ -335,9 +339,19 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
             DeleteProfileVersionOutcome.Error, false, "The profile version could not be deleted. Please try again.");
     }
 
-    public async Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default)
+    public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        GetManageProfileAsync(profileId, null, cancellationToken);
+
+    public async Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, Guid? profileVersionId, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.GetAsync($"/api/profiles/{Uri.EscapeDataString(profileId.ToString())}/manage", cancellationToken);
+        var url = $"/api/profiles/{Uri.EscapeDataString(profileId.ToString())}/manage";
+
+        if (profileVersionId is { } versionId)
+        {
+            url += $"?profileVersionId={Uri.EscapeDataString(versionId.ToString())}";
+        }
+
+        var response = await httpClient.GetAsync(url, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {

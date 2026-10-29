@@ -38,6 +38,13 @@ public abstract class ProfileSectionTabPageModel(
     [BindProperty(SupportsGet = true)]
     public Guid? Section { get; set; }
 
+    /// <summary>Gets or sets the version the user asked to browse, bound from the querystring of a version's "Browse profile" link on
+    /// the search page. CDC.Api refuses a draft the user may not read, as the legacy page did; the page itself shows the profile's
+    /// current version. Read from the query only, as the forms post a <c>profileVersionId</c> of their own.</summary>
+    [FromQuery]
+    [BindProperty(SupportsGet = true)]
+    public Guid? ProfileVersionId { get; set; }
+
     /// <summary>Gets the profile's full display title (with its scenario title in brackets, for a "what-if"
     /// scenario), once loaded. Matches the legacy <c>ProfileVersionInfo.FullTitle</c>.</summary>
     public string? ProfileTitle { get; private set; }
@@ -225,7 +232,7 @@ public abstract class ProfileSectionTabPageModel(
     {
         try
         {
-            var profile = await apiClient.GetManageProfileAsync(ProfileId, cancellationToken);
+            var profile = await apiClient.GetManageProfileAsync(ProfileId, ProfileVersionId, cancellationToken);
 
             if (profile is null)
             {

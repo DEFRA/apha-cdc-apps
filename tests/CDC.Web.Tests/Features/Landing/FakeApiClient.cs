@@ -27,7 +27,8 @@ internal sealed class FakeApiClient( // NOSONAR
     DeleteProfileVersionResult? deleteProfileVersionResult = null,
     bool staticReportOperationResult = false,
     Exception? throwOnStaticReportOperation = null,
-    PublishProfileResult? publishProfileResult = null) : IApiClient
+    PublishProfileResult? publishProfileResult = null,
+    Exception? throwOnGetManageProfileForAVersion = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -88,6 +89,19 @@ internal sealed class FakeApiClient( // NOSONAR
         throwOnGetManageProfile is not null
             ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfile)
             : Task.FromResult(manageProfile);
+
+    /// <summary>Gets the version most recently asked for through the version-aware <c>GetManageProfileAsync</c>, or <see langword="null"/>
+    /// when that call named none.</summary>
+    public Guid? LastManageProfileVersionId { get; private set; }
+
+    public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, Guid? profileVersionId, CancellationToken cancellationToken = default)
+    {
+        LastManageProfileVersionId = profileVersionId;
+
+        return profileVersionId is not null && throwOnGetManageProfileForAVersion is not null
+            ? Task.FromException<ManageProfileViewModel?>(throwOnGetManageProfileForAVersion)
+            : GetManageProfileAsync(profileId, cancellationToken);
+    }
 
     public Task<ResolveExternalUserResult> ResolveExternalUserAsync(
         ResolveExternalUserRequestDto request,
