@@ -115,6 +115,20 @@ public class ProfileVersionComparisonServiceTests
         string.Concat(segments.Where(segment => segment.Change == change).Select(segment => segment.Text));
 
     [Fact]
+    public async Task BuildReportAsync_TreatsWhitespaceOnlyTextAsBlank()
+    {
+        var service = Service(
+            Metadata(Field(1, "Text")),
+            Answers(Value(1, "   ")),
+            Answers(Value(1, "new")));
+
+        var report = await service.BuildReportAsync(Left, Right);
+
+        var field = Assert.Single(Assert.Single(Assert.Single(report.Sections[0].Questions).Groups).Fields);
+        Assert.Equal("new", Marked(field.Right, ComparisonChange.Added));
+    }
+
+    [Fact]
     public async Task BuildReportAsync_ReportsOnlyDifferingFields()
     {
         var service = Service(

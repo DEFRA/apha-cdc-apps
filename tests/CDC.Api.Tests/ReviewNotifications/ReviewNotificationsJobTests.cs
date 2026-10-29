@@ -1,105 +1,223 @@
-using System.Data;
 using CDC.Api.Features.ReviewNotifications;
-using CDC.Api.Infrastructure;
-using CDC.Api.Tests.Fakes;
+using CDC.Api.Features.ReviewNotifications.Dtos;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace CDC.Api.Tests.ReviewNotifications;
 
-public class ReviewNotificationsJobTests : IDisposable
+public class ReviewNotificationsJobTests
 {
-    private const string DatabaseTimeQuery = "SELECT GETUTCDATE()";
-
-    private readonly FakeDbConnection connection = new();
+    private readonly Mock<IReviewNotificationsRepository> repository = new();
+    private readonly Mock<IEmailSender> sender = new();
     private readonly Mock<ILogger<ReviewNotificationsJob>> logger = new();
 
     public ReviewNotificationsJobTests() =>
         logger.Setup(log => log.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
 
-    public void Dispose()
+    private ReviewNotificationsOptions options = new()
     {
-        connection.Dispose();
-        GC.SuppressFinalize(this);
+        ReviewerGroups = new(StringComparer.OrdinalIgnoreCase)
+        {
+            [ReviewerGroups.Policy] = ["Policy reviewer"],
+            [ReviewerGroups.AuthorTechnical] = ["Technical author"],
+            [ReviewerGroups.VeterinaryAdvisor] = ["Veterinary advisor"]
+        }
+    };
+
+    private ReviewNotificationsJob CreateJob() => new(
+        repository.Object,
+        sender.Object,
+        Options.Create(options),
+        TimeProvider.System,
+        logger.Object);
+
+    private static ReviewDueUser User(string name, string email, params string[] roles)
+    {
+        var due = new ReviewItem(DateTime.Today.AddDays(-1), "Active");
+        var none = new ReviewItem(null, null);
+
+        return new(
+            Guid.NewGuid(),
+            name,
+            email,
+            [new ReviewDueProfile(Guid.NewGuid(), Guid.NewGuid(), "Anthrax", null, "1.0", [new ReviewDueSection(1, "Intro", due, due, due)], roles.Length == 0 ? ["Policy reviewer"] : roles)]);
     }
 
-    private ReviewNotificationsJob CreateJob() =>
-        new(new StubConnectionFactory(connection), logger.Object);
+    [Fact]
+    public async Task RunAsync_SendsNoAttachment_BecauseTheComparisonIsALink()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.Attachment == null), It.IsAny<CancellationToken>()), Times.Once);
+    }
 
     [Fact]
-    public async Task RunAsync_ReturnsTrue_WhenDatabaseConnectionSucceeds()
+    public async Task RunAsync_SendsOnlyReviewTypesOfTheUsersGroup()
     {
-        connection.Script(DatabaseTimeQuery, new FakeCommandScript
-        {
-            ResultSets = [new FakeResultSet(["DatabaseTimeUtc"], [[new DateTime(2026, 9, 28, 12, 0, 0, DateTimeKind.Utc)]])]
-        });
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", "Technical author")]);
+        EmailMessage? message = null;
+        sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<EmailMessage, CancellationToken>((m, _) => message = m);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        // One due cell (Author) of the three types.
+        message!.Body.Split("(overdue)").Length.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("Policy reviewer")]
+    [InlineData("Veterinary advisor")]
+    public async Task RunAsync_SendsOnlyTheReviewTypeOfTheUsersGroup_ForPolicyAndVeterinaryAdvisor(string role)
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", role)]);
+        EmailMessage? message = null;
+        sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<EmailMessage, CancellationToken>((m, _) => message = m);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        message!.ToAddress.Should().Be("ann@example.test");
+        message.Body.Split("(overdue)").Length.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task RunAsync_StillEmailsConfiguredGroups_AndFails_WhenOneGroupUnconfigured()
+    {
+        options.ReviewerGroups.Remove(ReviewerGroups.VeterinaryAdvisor);
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", "Veterinary advisor"), User("Bob", "bob@example.test", "Policy reviewer")]);
 
         var result = await CreateJob().RunAsync(CancellationToken.None);
 
-        result.Should().BeTrue();
+        result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "ann@example.test"), It.IsAny<CancellationToken>()), Times.Never);
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "bob@example.test"), It.IsAny<CancellationToken>()), Times.Once);
+        VerifyErrorLogged(Times.Once());
+    }
+
+    [Fact]
+    public async Task RunAsync_LogsReminderSentAndCompletion_WhenProcessingSucceeds()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        VerifyLogged(LogLevel.Information, Times.Exactly(3));
         VerifyErrorLogged(Times.Never());
     }
 
     [Fact]
-    public async Task RunAsync_ExecutesExpectedQuery_WhenDatabaseConnectionSucceeds()
+    public async Task RunAsync_SkipsUser_WhenNotInAnyReviewerGroup()
     {
-        connection.Script(DatabaseTimeQuery, new FakeCommandScript
-        {
-            ResultSets = [new FakeResultSet(["DatabaseTimeUtc"], [[new DateTime(2026, 9, 28, 12, 0, 0, DateTimeKind.Utc)]])]
-        });
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test", "Policy author")]);
 
-        await CreateJob().RunAsync(CancellationToken.None);
+        var result = await CreateJob().RunAsync(CancellationToken.None);
 
-        var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(DatabaseTimeQuery);
-        executed.CommandType.Should().Be(CommandType.Text);
+        result.Should().BeTrue();
+        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task RunAsync_ReturnsFalse_AndLogsError_WhenDatabaseConnectionFails()
+    public async Task RunAsync_DoesNotSendAndLogs_WhenReviewerGroupNotConfigured()
     {
-        connection.Script(DatabaseTimeQuery, new FakeCommandScript
-        {
-            Throws = new InvalidOperationException("simulated database failure")
-        });
+        options = new();
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
 
         var result = await CreateJob().RunAsync(CancellationToken.None);
 
         result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        VerifyErrorLogged(Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task RunAsync_SendsNothing_WhenNoReviewsDue()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeTrue();
+        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RunAsync_SendsOneEmailPerDueUser()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test"), User("Bob", "bob@example.test")]);
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeTrue();
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "ann@example.test" && m.Subject == ReviewEmailComposer.Subject), It.IsAny<CancellationToken>()), Times.Once);
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "bob@example.test"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAsync_ContinuesAndReturnsFalse_WhenOneSendFails()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test"), User("Bob", "bob@example.test")]);
+        sender.Setup(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "ann@example.test"), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("boom"));
+
+        var result = await CreateJob().RunAsync(CancellationToken.None);
+
+        result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "bob@example.test"), It.IsAny<CancellationToken>()), Times.Once);
         VerifyErrorLogged(Times.Once());
     }
 
     [Fact]
-    public async Task RunAsync_ReturnsFalse_WhenConnectionFactoryThrows()
+    public async Task RunAsync_ReturnsFalse_AndSendsNothing_WhenLookupFails()
     {
-        var job = new ReviewNotificationsJob(
-            new ThrowingConnectionFactory(() => throw new InvalidOperationException("Database:Host is not configured")),
-            logger.Object);
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
 
-        var result = await job.RunAsync(CancellationToken.None);
+        var result = await CreateJob().RunAsync(CancellationToken.None);
 
         result.Should().BeFalse();
+        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
         VerifyErrorLogged(Times.Once());
     }
 
-    private void VerifyErrorLogged(Times times) =>
+    [Fact]
+    public async Task RunAsync_Propagates_WhenCancelled()
+    {
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+        sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var act = () => CreateJob().RunAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    private void VerifyErrorLogged(Times times) => VerifyLogged(LogLevel.Error, times);
+
+#pragma warning disable CA1873 // Mock verification expressions are not logging calls
+    private void VerifyLogged(LogLevel level, Times times) =>
         logger.Verify(
             log => log.Log(
-                LogLevel.Error,
+                level,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             times);
-
-    private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
-    {
-        public IDbConnection CreateConnection() => connection;
-    }
-
-    private sealed class ThrowingConnectionFactory(Func<IDbConnection> factory) : IDbConnectionFactory
-    {
-        public IDbConnection CreateConnection() => factory();
-    }
+#pragma warning restore CA1873
 }

@@ -29,6 +29,16 @@ public class TextDiffTests
     }
 
     [Fact]
+    public void Compare_MarksInsertedWordsBeforeASharedWordAsAdded()
+    {
+        var (left, right) = TextDiff.Compare("one two", "zero one two three");
+
+        Assert.Equal("one two", Marked(left, ComparisonChange.None).Trim());
+        Assert.Contains("zero", Marked(right, ComparisonChange.Added), StringComparison.Ordinal);
+        Assert.Contains("three", Marked(right, ComparisonChange.Added), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Compare_MarksEverythingWhenTheTextIsTooLargeToCompare()
     {
         var a = string.Join(' ', Enumerable.Range(0, 2500).Select(i => $"a{i}"));

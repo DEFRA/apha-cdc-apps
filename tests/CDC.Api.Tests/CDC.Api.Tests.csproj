@@ -1,10 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <ExcludeByFile>**/PlaywrightPdfRenderer.cs</ExcludeByFile>
+    <!-- Covered by CDC.Web.Tests, which exercise the comparison builder and text diff. -->
+    <Exclude>[CDC.Common]CDC.Common.Comparison.*,[CDC.Common]System.Text.RegularExpressions.Generated.*</Exclude>
   </PropertyGroup>
 
   <ItemGroup>
