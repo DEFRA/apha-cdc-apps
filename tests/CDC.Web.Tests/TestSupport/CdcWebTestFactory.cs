@@ -44,6 +44,10 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
         // for it at all unless supplied here.
         builder.UseSetting("Api:BaseUrl", "http://cdc-api.test");
 
+        // The session tests assume the legacy 20 and 5 minutes, not whatever the loaded appsettings carry.
+        builder.UseSetting("SessionTimeout:IdleTimeout", "00:20:00");
+        builder.UseSetting("SessionTimeout:WarningBeforeExpiry", "00:05:00");
+
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Cidm:Address"] = "https://cidm.test/idphub/b2c",

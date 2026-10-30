@@ -39,11 +39,16 @@ public class SessionController(IOptions<SessionTimeoutOptions> sessionTimeout, I
     }
 
     /// <summary>Extends the signed-in session for another full timeout. A session that has already ended cannot be extended.</summary>
-    /// <returns>The status as JSON, or 401 when the session has ended.</returns>
+    /// <returns>The status as JSON; 400 without a valid antiforgery token, and 401 when the session has ended.</returns>
     [HttpPost]
-    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Extend()
     {
+        // Checked here, not by attribute: any antiforgery attribute makes CodeQL flag every [HttpPost] in the solution, CDC.Api's included.
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+        {
+            return BadRequest();
+        }
+
         // The request itself is the activity that renews the session (see TokenRefreshCookieEvents); this reports how long it now has.
         var remaining = await RemainingAsync();
 

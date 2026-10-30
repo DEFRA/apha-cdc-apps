@@ -16,13 +16,20 @@ public class SessionControllerTests
 {
     private static readonly DateTimeOffset Now = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
 
-    private static SessionController CreateController(out FakeAuthenticationService authService, ClaimsPrincipal? user = null, TimeSpan clockOffset = default)
+    private static SessionController CreateController(
+        out FakeAuthenticationService authService,
+        ClaimsPrincipal? user = null,
+        TimeSpan clockOffset = default,
+        bool validAntiforgeryToken = true)
     {
         authService = new FakeAuthenticationService();
         var services = new ServiceCollection();
         services.AddSingleton<IAuthenticationService>(authService);
 
-        return new SessionController(Microsoft.Extensions.Options.Options.Create(new SessionTimeoutOptions()), new FakeAntiforgery(), new FixedTimeProvider(Now + clockOffset))
+        return new SessionController(
+            Microsoft.Extensions.Options.Options.Create(new SessionTimeoutOptions()),
+            new FakeAntiforgery { RequestIsValid = validAntiforgeryToken },
+            new FixedTimeProvider(Now + clockOffset))
         {
             ControllerContext = new ControllerContext
             {
@@ -125,6 +132,23 @@ public class SessionControllerTests
         Assert.Equal(SessionStatus.Ended, unauthorised.Value);
     }
 
+    // Extending must not be forgeable from another site, whether or not the session is still alive.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Extend_WithoutAValidAntiforgeryToken_IsRefusedAndTheSessionIsNotReportedOn(bool signedIn)
+    {
+        var controller = CreateController(out var authService, validAntiforgeryToken: false);
+        if (signedIn)
+        {
+            authService.AuthenticateResultToReturn = SignedInUntil(Now.AddMinutes(20));
+        }
+
+        var result = await controller.Extend();
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
     [Fact]
     public void SignInAgain_WhenSignedOut_ChallengesTheUsersIdentityProviderAndReturnsThemToThePageTheyWereOn()
     {
@@ -172,7 +196,7 @@ public class SessionControllerTests
         Assert.Equal("/Landing/Internal", Assert.IsType<LocalRedirectResult>(result).Url);
     }
 
-    // The status check must never be able to keep an idle session alive, and extending must not be forgeable from another site.
+    // The status check must never be able to keep an idle session alive.
     [Fact]
     public void OnlyTheStatusCheckIsPassive()
     {
@@ -185,12 +209,11 @@ public class SessionControllerTests
     }
 
     [Fact]
-    public void Extend_IsAPostThatRequiresAnAntiforgeryToken()
+    public void Extend_AcceptsOnlyAPost()
     {
         var extend = typeof(SessionController).GetMethod(nameof(SessionController.Extend))!;
 
         Assert.NotNull(extend.GetCustomAttribute<HttpPostAttribute>());
-        Assert.NotNull(extend.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
     }
 
     // A script told to sign in again must be answered, not redirected to the identity provider where it cannot follow, and the answers
@@ -212,11 +235,13 @@ public class SessionControllerTests
         public const string RequestToken = "request-token";
         public const string HeaderName = "RequestVerificationToken";
 
+        public bool RequestIsValid { get; init; } = true;
+
         public AntiforgeryTokenSet GetAndStoreTokens(HttpContext httpContext) => new(RequestToken, "cookie-token", "__RequestVerificationToken", HeaderName);
 
         public AntiforgeryTokenSet GetTokens(HttpContext httpContext) => throw new NotSupportedException();
 
-        public Task<bool> IsRequestValidAsync(HttpContext httpContext) => throw new NotSupportedException();
+        public Task<bool> IsRequestValidAsync(HttpContext httpContext) => Task.FromResult(RequestIsValid);
 
         public Task ValidateRequestAsync(HttpContext httpContext) => throw new NotSupportedException();
 
