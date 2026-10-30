@@ -12,6 +12,7 @@ using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Infrastructure.Reports;
+using CDC.Web.Infrastructure.SpellCheck;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -233,6 +234,20 @@ builder.Services.AddHttpClient<IDiseaseRankingFiltersApiService, DiseaseRankingF
 })
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
+
+// The spell check dialog on the profile text fields: the English dictionary is embedded in this app and read on first use, and the
+// custom dictionary (the words users add with "Add Custom") lives in CDC.Api, which this holds for a minute at a time. Adding a
+// word is not retried: a replay of an attempt that succeeded and still timed out would add it twice.
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ISpellingWordList, HunspellWordList>();
+builder.Services.AddHttpClient<ICustomWordsApiService, CustomWordsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
+builder.Services.AddScoped<ISpellCheckService, SpellCheckService>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");

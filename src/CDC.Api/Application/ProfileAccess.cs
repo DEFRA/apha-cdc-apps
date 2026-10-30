@@ -45,6 +45,26 @@ public static class ProfileAccess
     /// <returns><see langword="true"/> for a global user.</returns>
     public static bool IsGlobalUser(IUserContext user) => IsEditor(user) || IsPolicyUser(user);
 
+    /// <summary>Gets whether the user can read the words in the spell check's custom dictionary (legacy <c>CustomWordList.CanGetCustomWordList</c>).</summary>
+    /// <param name="user">The acting user.</param>
+    /// <returns><see langword="true"/> for any known user other than a user management system account.</returns>
+    public static bool CanViewCustomWords(IUserContext user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        return user.UserId is not null && !user.IsUserManagementSystem;
+    }
+
+    /// <summary>Gets whether the user can add words to the spell check's custom dictionary (legacy <c>CustomWordList.CanEditCustomWordList</c>).</summary>
+    /// <param name="user">The acting user.</param>
+    /// <returns><see langword="true"/> for a profile editor, or a contributor or reviewer of any profile.</returns>
+    public static bool CanEditCustomWords(IUserContext user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        return !user.IsUserManagementSystem && (user.IsProfileEditor || user.HoldsAnyProfileRole);
+    }
+
     /// <summary>Gets whether the user holds a role on a profile.</summary>
     /// <param name="user">The acting user.</param>
     /// <param name="profileId">The profile.</param>

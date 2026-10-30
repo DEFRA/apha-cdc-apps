@@ -26,6 +26,7 @@ public sealed class StaticReportServiceTests
         public bool IsUserManagementSystem => isUserManagementSystem;
         public bool IsPolicyProfileUser => false;
         public UserKind Kind => isProfileEditor ? UserKind.Internal : UserKind.Unclassified;
+        public bool HoldsAnyProfileRole => false;
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
         public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;
         public IEnumerable<Guid> GetAssignedSectionIds(Guid profileId) => [];

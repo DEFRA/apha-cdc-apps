@@ -33,6 +33,12 @@ public interface IUserContext
     /// <summary>Gets which kind of user this is, from the sign-on identifier held on their row.</summary>
     UserKind Kind { get; }
 
+    /// <summary>
+    /// Gets a value indicating whether the user is a contributor or reviewer of at least one profile (legacy
+    /// <c>ProfilesIdentity.IsContributorOrReviewer</c>). A user who holds a global role holds no profile roles.
+    /// </summary>
+    bool HoldsAnyProfileRole { get; }
+
     /// <summary>Gets the role a user holds on a profile.</summary>
     /// <param name="profileId">The profile.</param>
     /// <returns>
@@ -79,6 +85,9 @@ public sealed class RequestUserContext : IUserContext
 
     /// <inheritdoc />
     public bool IsPolicyProfileUser => Kind == UserKind.Internal && actingUser!.IsPolicyProfileUser;
+
+    /// <inheritdoc />
+    public bool HoldsAnyProfileRole => HoldsProfileRoles && actingUser!.ProfileRoles.Count > 0;
 
     /// <inheritdoc />
     public ProfileRoleAssignment? GetProfileRole(Guid profileId) =>

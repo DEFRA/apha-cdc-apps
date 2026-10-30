@@ -3,7 +3,6 @@ using System.Security.Claims;
 using CDC.Common.Auth;
 using CDC.Web.Features.Account;
 using CDC.Web.Tests.TestSupport;
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -228,23 +227,5 @@ public class SessionControllerTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
-    }
-
-    private sealed class FakeAntiforgery : IAntiforgery
-    {
-        public const string RequestToken = "request-token";
-        public const string HeaderName = "RequestVerificationToken";
-
-        public bool RequestIsValid { get; init; } = true;
-
-        public AntiforgeryTokenSet GetAndStoreTokens(HttpContext httpContext) => new(RequestToken, "cookie-token", "__RequestVerificationToken", HeaderName);
-
-        public AntiforgeryTokenSet GetTokens(HttpContext httpContext) => throw new NotSupportedException();
-
-        public Task<bool> IsRequestValidAsync(HttpContext httpContext) => Task.FromResult(RequestIsValid);
-
-        public Task ValidateRequestAsync(HttpContext httpContext) => throw new NotSupportedException();
-
-        public void SetCookieTokenAndHeader(HttpContext httpContext) => throw new NotSupportedException();
     }
 }

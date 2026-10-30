@@ -159,6 +159,38 @@ public class RequestUserContextTests
     }
 
     [Fact]
+    public void HoldsAnyProfileRole_IsFalse_ForAnAnonymousRequest() =>
+        new RequestUserContext().HoldsAnyProfileRole.Should().BeFalse();
+
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    public void HoldsAnyProfileRole_IsTrueForAnInternalUserOnlyWhenTheyHoldNoGlobalRole(bool isProfileEditor, bool isPolicyProfileUser, bool expected)
+    {
+        var context = new RequestUserContext();
+
+        context.SetActingUser(Internal(isProfileEditor, isPolicyProfileUser) with
+        {
+            ProfileRoles = [new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "Technical reviewer", false)]
+        });
+
+        context.HoldsAnyProfileRole.Should().Be(expected);
+    }
+
+    [Fact]
+    public void HoldsAnyProfileRole_IsTrueForAnExternalUserWhoHoldsARole_AndFalseForOneWhoHoldsNone()
+    {
+        var withRole = new RequestUserContext();
+        withRole.SetActingUser(External() with { ProfileRoles = [new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "VA author", true)] });
+        var withNone = new RequestUserContext();
+        withNone.SetActingUser(External());
+
+        withRole.HoldsAnyProfileRole.Should().BeTrue();
+        withNone.HoldsAnyProfileRole.Should().BeFalse();
+    }
+
+    [Fact]
     public void RequireUserId_ReturnsTheActingUsersId()
     {
         var context = new RequestUserContext();

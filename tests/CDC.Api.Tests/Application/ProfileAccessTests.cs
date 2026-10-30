@@ -232,14 +232,44 @@ public class ProfileAccessTests
         bool expected) =>
         ProfileAccess.ReceivesReviewEmails(User(role), ProfileId, reviewType).Should().Be(expected);
 
+    [Theory]
+    [MemberData(nameof(EveryRole))]
+    public void CanViewCustomWords_IsGrantedToEveryKnownUser(string role)
+    {
+        ProfileAccess.CanViewCustomWords(User(role)).Should().BeTrue();
+        ProfileAccess.CanViewCustomWords(new RequestUserContext()).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(Editor, true)]
+    [InlineData(PolicyUser, false)]
+    [InlineData(TechnicalAuthor, true)]
+    [InlineData(TechnicalReviewer, true)]
+    [InlineData(PolicyAuthor, true)]
+    [InlineData(PolicyReviewer, true)]
+    [InlineData(VaAuthor, true)]
+    [InlineData(VaReviewer, true)]
+    [InlineData(InternalAuthor, true)]
+    [InlineData(InternalReviewer, true)]
+    [InlineData(InternalWithNoRole, false)]
+    [InlineData(ExternalOnAnotherProfile, true)]
+    public void CanEditCustomWords_IsForTheEditorAndForAContributorOrReviewerOfAnyProfile(string role, bool expected)
+    {
+        ProfileAccess.CanEditCustomWords(User(role)).Should().Be(expected);
+        ProfileAccess.CanEditCustomWords(new RequestUserContext()).Should().BeFalse();
+    }
+
     [Fact]
     public void AUserManagementSystemAccount_IsRefusedEverything_EvenWithTheEditorFlag()
     {
         var user = new Mock<IUserContext>();
+        user.SetupGet(context => context.UserId).Returns(Guid.NewGuid());
         user.SetupGet(context => context.IsProfileEditor).Returns(true);
         user.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
         user.SetupGet(context => context.IsUserManagementSystem).Returns(true);
 
+        ProfileAccess.CanViewCustomWords(user.Object).Should().BeFalse();
+        ProfileAccess.CanEditCustomWords(user.Object).Should().BeFalse();
         ProfileAccess.IsGlobalUser(user.Object).Should().BeFalse();
         ProfileAccess.CanViewDraft(user.Object, ProfileId).Should().BeFalse();
         ProfileAccess.CanEditSection(user.Object, CurrentDraft, SectionId).Should().BeFalse();
@@ -267,6 +297,8 @@ public class ProfileAccessTests
             () => ProfileAccess.IsEditor(null!),
             () => ProfileAccess.IsPolicyUser(null!),
             () => ProfileAccess.IsAssigned(null!, ProfileId),
+            () => ProfileAccess.CanViewCustomWords(null!),
+            () => ProfileAccess.CanEditCustomWords(null!),
             () => ProfileAccess.CanEditSection(null!, CurrentDraft, SectionId),
             () => ProfileAccess.CanEditAnySection(null!, CurrentDraft),
             () => ProfileAccess.CanEditReviewDates(null!, CurrentDraft),

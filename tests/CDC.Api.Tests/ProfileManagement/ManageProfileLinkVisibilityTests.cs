@@ -375,6 +375,8 @@ public sealed class ManageProfileLinkVisibilityTests
 
         public UserKind Kind => IsProfileEditor || IsPolicyProfileUser ? UserKind.Internal : UserKind.Unclassified;
 
+        public bool HoldsAnyProfileRole => false;
+
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
 
         public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;
