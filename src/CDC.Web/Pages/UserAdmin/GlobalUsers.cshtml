@@ -3,18 +3,13 @@
 @using CDC.Web.Models
 @model CDC.Web.Pages.UserAdmin.GlobalUsersModel
 @{
-    ViewData["Title"] = (Model.HasErrors ? "Error: " : string.Empty)
-        + PaginationViewModel.TitleWithPage("Maintain global users", Model.PageNumber, Model.TotalPages);
+    ViewData["Title"] = (Model.HasErrors ? "Error: " : string.Empty) + "Maintain global users";
 
     void SortableHeader(GlobalUserSortColumn column, string text)
     {
         <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(column)">
             <a class="govuk-link govuk-link--no-visited-state app-sort-link" href="@Model.BuildSortUrl(column)">
                 @text
-                @if (column == Model.SortColumn)
-                {
-                    <span class="app-sort-indicator" aria-hidden="true">@(Model.IsSortDescending ? "\u25BC" : "\u25B2")</span>
-                }
             </a>
         </th>
     }
@@ -182,7 +177,7 @@
                 <input type="hidden" asp-for="SortColumn" />
                 <input type="hidden" asp-for="SortDirection" />
 
-                <h2 class="govuk-heading-m">Add global user</h2>
+                <h2 class="govuk-body">Add global user</h2>
 
                 @{
                     var lookupError = Model.FieldErrors.GetValueOrDefault("UserName");
@@ -191,17 +186,22 @@
                 <div class="govuk-form-group @(lookupError is null ? null : "govuk-form-group--error")">
                     <label class="govuk-label" for="UserName">Username:</label>
                     <div class="app-inline-fields__control">
-                    <div id="UserName-hint" class="govuk-hint">For example, DEFRA\jsmith</div>
                     @if (lookupError is not null)
                     {
                         <p id="UserName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @lookupError</p>
                     }
-                    <input class="govuk-input govuk-input--width-20 @(lookupError is null ? null : "govuk-input--error")" id="UserName" name="UserName" type="text" maxlength="50" value="@Model.UserName" spellcheck="false" autocomplete="off" aria-describedby="UserName-hint@(lookupError is null ? null : " UserName-error")" />
+                    <input class="govuk-input govuk-input--width-20 @(lookupError is null ? null : "govuk-input--error")" id="UserName" name="UserName" type="text" maxlength="50" value="@Model.UserName" spellcheck="false" autocomplete="off" aria-describedby="@(lookupError is null ? null : "UserName-error")" />
+                    <div class="govuk-!-margin-top-3">
+                        <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Look up</button>
+                    </div>
                     </div>
                 </div>
                 </div>
-                <button type="submit" class="govuk-button govuk-button--secondary">Look up</button>
-                <a class="govuk-button govuk-button--secondary" href="@Model.BuildCloseUrl()">Cancel</a>
+
+                <div class="app-contributor-edit__actions">
+                    <button type="button" class="govuk-button govuk-!-margin-bottom-0" disabled aria-disabled="true">OK</button>
+                    <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseUrl()">Cancel</a>
+                </div>
             </form>
         }
 
@@ -218,7 +218,7 @@
                 <input type="hidden" asp-for="SortColumn" />
                 <input type="hidden" asp-for="SortDirection" />
 
-                <h2 class="govuk-heading-m">@Model.PanelHeading</h2>
+                <h2 class="govuk-body">@Model.PanelHeading</h2>
 
                 @if (!string.IsNullOrEmpty(Model.LookupWarning))
                 {

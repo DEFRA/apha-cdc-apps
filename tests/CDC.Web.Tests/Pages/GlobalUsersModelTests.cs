@@ -168,7 +168,7 @@ public class GlobalUsersModelTests
 
         Assert.True(model.IsNewUser);
         Assert.True(model.IsExistingUser);
-        Assert.Equal("Edit global user", model.PanelHeading);
+        Assert.Equal("Edit profile editor", model.PanelHeading);
     }
 
     [Fact]

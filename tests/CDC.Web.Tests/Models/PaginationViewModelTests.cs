@@ -80,18 +80,6 @@ public class PaginationViewModelTests
         Assert.False(viewModel.AddPageData);
     }
 
-    [Theory]
-    [InlineData(1, 4, "General reports (page 1 of 4)")]
-    [InlineData(4, 4, "General reports (page 4 of 4)")]
-    public void TitleWithPage_ShowsThePageNumber_WhenThereIsMoreThanOnePage(int currentPage, int totalPages, string expected) =>
-        Assert.Equal(expected, PaginationViewModel.TitleWithPage("General reports", currentPage, totalPages));
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(0)]
-    public void TitleWithPage_LeavesTheTitleAlone_WhenThereIsOnePage(int totalPages) =>
-        Assert.Equal("General reports", PaginationViewModel.TitleWithPage("General reports", 1, totalPages));
-
     private static string Describe(IEnumerable<PaginationItem> items) =>
         string.Join(' ', items.Select(item => item.Number?.ToString(CultureInfo.InvariantCulture) ?? Ellipsis));
 }

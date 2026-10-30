@@ -1048,6 +1048,20 @@ body {
   font-weight: 700;
 }
 
+/* Section validation tick/cross shown before each left-nav entry (EditProfileQuestions). */
+.app-section-status {
+  margin-right: 0.3rem;
+  vertical-align: text-bottom;
+}
+
+.app-section-status--valid {
+  color: #00703c;
+}
+
+.app-section-status--invalid {
+  color: #d4351c;
+}
+
 /* Single active tab labelled with the current section's title, above the question accordion. */
 .app-species-tabs {
   border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);

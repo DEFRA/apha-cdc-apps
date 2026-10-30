@@ -16,7 +16,7 @@ namespace CDC.Api.Features.GlobalUsers;
 /// (it has no paging parameters) and replicates the legacy <c>GlobalUser</c> validation rules.
 /// </summary>
 /// <param name="repository">Global users data access.</param>
-/// <param name="graphClient">Directory lookup used to pre-fill a new user's name and organisation.</param>
+/// <param name="graphClient">Directory lookup used to pre-fill a new user's name.</param>
 /// <param name="logger">Structured logger.</param>
 public sealed partial class GlobalUsersService(
     IGlobalUsersRepository repository,
@@ -195,7 +195,7 @@ public sealed partial class GlobalUsersService(
             Id = Guid.NewGuid(),
             UserName = userName,
             FullName = Truncate(directoryUser?.DisplayName),
-            Organisation = Truncate(directoryUser?.Organisation),
+            Organisation = string.Empty,
             LastUpdated = new byte[RowVersionLength]
         };
     }

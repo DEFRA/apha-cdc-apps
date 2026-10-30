@@ -8,41 +8,43 @@ public class GraphClientTests
         new(new HttpClient(handler) { BaseAddress = new Uri("https://graph.example/v1.0/") });
 
     [Fact]
-    public async Task FindUser_ReturnsTheSingleMatch_WithCompanyAsOrganisation()
+    public async Task FindUser_ReturnsTheSingleMatch_WithTheFiveProperties()
     {
         var handler = StubHttpMessageHandler.Json(
-            """{"value":[{"id":"abc","displayName":"Jo Smith","companyName":"APHA","department":"Ignored"}]}""");
+            """{"value":[{"id":"abc","onPremisesSamAccountName":"jsmith","mail":"jo.smith@example.test","givenName":"Jo","surname":"Smith"}]}""");
 
         var user = await CreateClient(handler).FindUserBySamAccountNameAsync("jsmith", CancellationToken.None);
 
-        Assert.Equal(new GraphUser("abc", "Jo Smith", "APHA"), user);
+        Assert.Equal(new GraphUser("abc", "jsmith", "jo.smith@example.test", "Jo", "Smith"), user);
+        Assert.Equal("Jo Smith", user?.DisplayName);
     }
 
     [Fact]
-    public async Task FindUser_FallsBackToDepartment_WhenThereIsNoCompany()
+    public async Task FindUser_RequestsTheFiveProperties()
     {
-        var handler = StubHttpMessageHandler.Json("""{"value":[{"id":"abc","displayName":"Jo","department":"Surveillance"}]}""");
+        var handler = StubHttpMessageHandler.Json("""{"value":[]}""");
 
-        var user = await CreateClient(handler).FindUserBySamAccountNameAsync("jsmith", CancellationToken.None);
+        await CreateClient(handler).FindUserBySamAccountNameAsync("jsmith", CancellationToken.None);
 
-        Assert.Equal("Surveillance", user?.Organisation);
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Requests).RequestUri!.Query);
+        Assert.Contains("$select=id,onPremisesSamAccountName,mail,givenName,surname", query, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task FindUser_LeavesOrganisationNull_WhenNeitherIsSet()
+    public async Task FindUser_UsesTheOnlyNamePartAvailable()
     {
-        var handler = StubHttpMessageHandler.Json("""{"value":[{"id":"abc","displayName":"Jo","companyName":" "}]}""");
+        var handler = StubHttpMessageHandler.Json("""{"value":[{"id":"abc","givenName":"Jo"}]}""");
 
         var user = await CreateClient(handler).FindUserBySamAccountNameAsync("jsmith", CancellationToken.None);
 
-        Assert.Null(user?.Organisation);
+        Assert.Equal("Jo", user?.DisplayName);
     }
 
     [Theory]
     [InlineData("""{"value":[]}""")]
-    [InlineData("""{"value":[{"id":"a","displayName":"A"},{"id":"b","displayName":"B"}]}""")]
-    [InlineData("""{"value":[{"id":"a","displayName":""}]}""")]
-    [InlineData("""{"value":[{"id":"","displayName":"A"}]}""")]
+    [InlineData("""{"value":[{"id":"a","givenName":"A"},{"id":"b","givenName":"B"}]}""")]
+    [InlineData("""{"value":[{"id":"a","givenName":" ","surname":""}]}""")]
+    [InlineData("""{"value":[{"id":"","givenName":"A"}]}""")]
     [InlineData("""{}""")]
     [InlineData("null")]
     public async Task FindUser_ReturnsNull_WhenThereIsNoUsableSingleMatch(string json)

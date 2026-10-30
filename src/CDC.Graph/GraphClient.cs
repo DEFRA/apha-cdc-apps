@@ -10,7 +10,7 @@ namespace CDC.Graph;
 /// <param name="httpClient">Typed client whose base address is the Graph v1.0 endpoint.</param>
 internal sealed class GraphClient(HttpClient httpClient) : IGraphClient
 {
-    private const string SelectedProperties = "id,displayName,companyName,department";
+    private const string SelectedProperties = "id,onPremisesSamAccountName,mail,givenName,surname";
 
     /// <inheritdoc />
     public async Task<GraphUser?> FindUserBySamAccountNameAsync(string samAccountName, CancellationToken cancellationToken)
@@ -53,17 +53,17 @@ internal sealed class GraphClient(HttpClient httpClient) : IGraphClient
 
     private static GraphUser? ToUser(UserResponse user)
     {
-        if (string.IsNullOrWhiteSpace(user.Id) || string.IsNullOrWhiteSpace(user.DisplayName))
+        if (string.IsNullOrWhiteSpace(user.Id))
         {
             return null;
         }
 
-        var organisation = !string.IsNullOrWhiteSpace(user.CompanyName) ? user.CompanyName : user.Department;
+        var graphUser = new GraphUser(user.Id, user.OnPremisesSamAccountName, user.Mail, user.GivenName, user.Surname);
 
-        return new GraphUser(user.Id, user.DisplayName, string.IsNullOrWhiteSpace(organisation) ? null : organisation);
+        return graphUser.DisplayName.Length == 0 ? null : graphUser;
     }
 
     private sealed record UsersResponse(List<UserResponse>? Value);
 
-    private sealed record UserResponse(string? Id, string? DisplayName, string? CompanyName, string? Department);
+    private sealed record UserResponse(string? Id, string? OnPremisesSamAccountName, string? Mail, string? GivenName, string? Surname);
 }

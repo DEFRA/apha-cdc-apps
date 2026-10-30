@@ -112,7 +112,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     public bool IsExistingUser { get; set; }
 
     /// <summary>Gets the add/edit panel heading.</summary>
-    public string PanelHeading => IsNewUser && !IsExistingUser ? "Add global user" : "Edit global user";
+    public string PanelHeading => IsNewUser && !IsExistingUser ? "Add global user" : "Edit profile editor";
 
     /// <summary>Gets or sets the success message shown after a save or delete, carried across the redirect.</summary>
     [TempData]

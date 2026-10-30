@@ -179,13 +179,13 @@ public class GlobalUsersServiceTests
         repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserVerification?)null);
         graph.Setup(client => client.FindUserBySamAccountNameAsync("new.user", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GraphUser("id-1", "  New User  ", "APHA"));
+            .ReturnsAsync(new GraphUser("id-1", "new.user", null, "  New", "User  "));
 
         var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
 
         result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
         result.FullName.Should().Be("New User");
-        result.Organisation.Should().Be("APHA");
+        result.Organisation.Should().BeEmpty();
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public class GlobalUsersServiceTests
         repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserVerification?)null);
         graph.Setup(client => client.FindUserBySamAccountNameAsync("new.user", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GraphUser("id-1", new string('n', 150), null));
+            .ReturnsAsync(new GraphUser("id-1", null, null, new string('n', 150), null));
 
         var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
 

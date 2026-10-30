@@ -74,13 +74,4 @@ public sealed record PaginationViewModel
 
         return items;
     }
-
-    /// <summary>Adds the page number to a page title when there is more than one page, as the Design System asks, so a screen
-    /// reader user can tell they have moved to another page.</summary>
-    /// <param name="title">The page title.</param>
-    /// <param name="currentPage">The page being shown, counting from 1.</param>
-    /// <param name="totalPages">How many pages there are.</param>
-    /// <returns>For example "General reports (page 2 of 4)", or <paramref name="title"/> unchanged when there is one page.</returns>
-    public static string TitleWithPage(string title, int currentPage, int totalPages) =>
-        totalPages > 1 ? $"{title} (page {currentPage} of {totalPages})" : title;
 }

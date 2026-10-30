@@ -2,8 +2,7 @@
 @model CDC.Web.Pages.UserAdmin.ExternalUsersModel
 @{
     var hasError = Model.SaveError is not null || Model.AccessError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage);
-    ViewData["Title"] = (hasError ? "Error: " : string.Empty)
-        + PaginationViewModel.TitleWithPage("Maintain external users", Model.PageNumber, Model.TotalPages);
+    ViewData["Title"] = (hasError ? "Error: " : string.Empty) + "Maintain external users";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
