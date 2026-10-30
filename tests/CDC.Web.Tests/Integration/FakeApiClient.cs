@@ -34,6 +34,9 @@ internal sealed class FakeApiClient(IReadOnlyList<ProfileSearchResultDto>? searc
     public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         Task.FromResult<ManageProfileViewModel?>(null);
 
+    public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, Guid? profileVersionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<ManageProfileViewModel?>(null);
+
     public Task<ResolveExternalUserResult> ResolveExternalUserAsync(
         ResolveExternalUserRequestDto request,
         CancellationToken cancellationToken = default) =>

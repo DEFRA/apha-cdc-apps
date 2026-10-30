@@ -165,6 +165,7 @@ public class SurveillanceProfilesSearchModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        ApplyRememberedFilters();
         await LoadSpeciesTreeAsync(cancellationToken);
         await PerformSearchAsync(cancellationToken);
 
@@ -426,6 +427,32 @@ public class SurveillanceProfilesSearchModel : PageModel
         return SelectedSpecies.Aggregate(url, (current, speciesId) => QueryHelpers.AddQueryString(current, nameof(SelectedSpecies), speciesId));
     }
 
+    // As in legacy, where the Display checkboxes and the letter lived in the session, they are as the user left them on
+    // coming back from another page. A value in the address is the latest choice, so it wins and is remembered; the
+    // session only fills in what the address leaves out, which is all of it for a link back to the page.
+    private void ApplyRememberedFilters()
+    {
+        var query = Request.Query;
+        var chosenPublished = query.ContainsKey(nameof(DisplayPublished));
+        var chosenDraft = query.ContainsKey(nameof(DisplayDraft));
+        var chosenScenarios = query.ContainsKey(nameof(DisplayScenarios));
+        var chosenLetter = query.ContainsKey(nameof(SelectedLetter));
+        var session = HttpContext.Session;
+
+        if (RememberedSearchFilters.Read(session) is { } remembered)
+        {
+            DisplayPublished = chosenPublished ? DisplayPublished : remembered.DisplayPublished;
+            DisplayDraft = chosenDraft ? DisplayDraft : remembered.DisplayDraft;
+            DisplayScenarios = chosenScenarios ? DisplayScenarios : remembered.DisplayScenarios;
+            SelectedLetter = chosenLetter ? SelectedLetter : remembered.SelectedLetter;
+        }
+
+        if (chosenPublished || chosenDraft || chosenScenarios || chosenLetter)
+        {
+            new RememberedSearchFilters(DisplayPublished, DisplayDraft, DisplayScenarios, SelectedLetter).Write(session);
+        }
+    }
+
     private const string AnySpeciesLabel = "Any species";
     private const string SpeciesParameter = "species";
 
@@ -651,6 +678,9 @@ public sealed record ProfileVersionGroupViewModel
 
     /// <summary>Whether the "View reports" link is shown - Draft cards have no report to view.</summary>
     public bool ShowViewReportsLink { get; init; } = true;
+
+    /// <summary>Whether the "Clone profile" and "Clone scenario" links are shown - only to a user who may create a profile.</summary>
+    public bool CanClone { get; init; }
 }
 
 /// <summary>One scenario listed under a profile - its own current situation or a "what-if" - with

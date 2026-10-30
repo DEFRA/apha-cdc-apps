@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CDC.Web.Tests.TestSupport;
 
@@ -13,10 +14,24 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
 
     public IEnumerable<string?> SignOutSchemes => SignOutCalls.Select(call => call.Scheme);
 
+    /// <summary>Creates an accessor to a request that signs in and out through a new fake, for code that reaches the request that way.</summary>
+    public static (IHttpContextAccessor Accessor, FakeAuthenticationService AuthService) CreateAccessor()
+    {
+        var authService = new FakeAuthenticationService();
+        var services = new ServiceCollection();
+        services.AddSingleton<IAuthenticationService>(authService);
+        var accessor = new HttpContextAccessor { HttpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() } };
+
+        return (accessor, authService);
+    }
+
     public AuthenticateResult AuthenticateResultToReturn { get; set; } = AuthenticateResult.NoResult();
 
+    /// <summary>Gets the result for particular schemes, which takes precedence over <see cref="AuthenticateResultToReturn"/>.</summary>
+    public Dictionary<string, AuthenticateResult> AuthenticateResultsByScheme { get; } = [];
+
     public Task<AuthenticateResult> AuthenticateAsync(HttpContext context, string? scheme) =>
-        Task.FromResult(AuthenticateResultToReturn);
+        Task.FromResult(scheme is not null && AuthenticateResultsByScheme.TryGetValue(scheme, out var result) ? result : AuthenticateResultToReturn);
 
     public Task ChallengeAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) =>
         Task.CompletedTask;

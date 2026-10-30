@@ -27,12 +27,13 @@ public class CidmCookieEventsTests
     private static CidmCookieEvents CreateEvents(ICidmTokenRefreshService refreshService) =>
         new(refreshService, Microsoft.Extensions.Options.Options.Create(TestCidmOptions), new FakeTimeProvider(Now), NullLogger<CidmCookieEvents>.Instance);
 
-    private static CookieValidatePrincipalContext CreateContext(AuthenticationProperties properties, out FakeAuthenticationService authService)
+    private static CookieValidatePrincipalContext CreateContext(AuthenticationProperties properties, out FakeAuthenticationService authService, bool passive = false)
     {
         authService = new FakeAuthenticationService();
         var services = new ServiceCollection();
         services.AddSingleton<IAuthenticationService>(authService);
-        var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        var httpContext = CreateHttpContext(passive);
+        httpContext.RequestServices = services.BuildServiceProvider();
         var scheme = new AuthenticationScheme(CookieAuthenticationDefaults.AuthenticationScheme, null, typeof(CookieAuthenticationHandler));
         var ticket = new AuthenticationTicket(new System.Security.Claims.ClaimsPrincipal(), properties, scheme.Name);
         var context = new CookieValidatePrincipalContext(httpContext, scheme, new CookieAuthenticationOptions(), ticket);
@@ -124,6 +125,103 @@ public class CidmCookieEventsTests
         await CreateEvents(refreshService).ValidatePrincipal(context);
 
         Assert.Equal("original-refresh-token", context.Properties.GetTokenValue("refresh_token"));
+    }
+
+    // --- The session cookie as an idle timeout ----------------------------------------------------------------------------------------
+
+    private static readonly TimeSpan SessionTimeout = TimeSpan.FromMinutes(20);
+
+    private static DefaultHttpContext CreateHttpContext(bool passive)
+    {
+        var httpContext = new DefaultHttpContext();
+        if (passive)
+        {
+            httpContext.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new PassiveSessionRequestAttribute()), "session status"));
+        }
+
+        return httpContext;
+    }
+
+    // A session cookie issued 'sinceIssued' ago that was given 'lifetime', as the cookie handler describes it to its sliding-expiration event.
+    private static CookieSlidingExpirationContext CreateSlidingContext(TimeSpan sinceIssued, TimeSpan lifetime, bool passive = false)
+    {
+        var issuedUtc = Now - sinceIssued;
+        var properties = new AuthenticationProperties { IssuedUtc = issuedUtc, ExpiresUtc = issuedUtc + lifetime };
+        var scheme = new AuthenticationScheme(CookieAuthenticationDefaults.AuthenticationScheme, null, typeof(CookieAuthenticationHandler));
+        var ticket = new AuthenticationTicket(new System.Security.Claims.ClaimsPrincipal(), properties, scheme.Name);
+
+        return new CookieSlidingExpirationContext(
+            CreateHttpContext(passive), scheme, new CookieAuthenticationOptions { ExpireTimeSpan = SessionTimeout }, ticket, sinceIssued, lifetime - sinceIssued);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(5)]
+    [InlineData(19)]
+    public async Task CheckSlidingExpiration_ARequestAMinuteOrMoreAfterTheLastRenewal_RenewsTheSessionForAFullTimeoutFromNow(int minutesSinceIssued)
+    {
+        // The built-in rule would not renew a session less than halfway through its lifetime.
+        var context = CreateSlidingContext(TimeSpan.FromMinutes(minutesSinceIssued), SessionTimeout);
+
+        await CreateEvents(new FakeTokenRefreshService(TokenRefreshResult.Failed)).CheckSlidingExpiration(context);
+
+        Assert.True(context.ShouldRenew);
+        Assert.Equal(Now, context.Properties.IssuedUtc);
+        Assert.Equal(Now + SessionTimeout, context.Properties.ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task CheckSlidingExpiration_ARequestSoonAfterTheLastRenewal_LeavesTheCookieAlone()
+    {
+        var context = CreateSlidingContext(TimeSpan.FromSeconds(59), SessionTimeout);
+
+        await CreateEvents(new FakeTokenRefreshService(TokenRefreshResult.Failed)).CheckSlidingExpiration(context);
+
+        Assert.False(context.ShouldRenew);
+        Assert.Equal(Now.AddSeconds(-59), context.Properties.IssuedUtc);
+        Assert.Equal(Now.AddSeconds(-59) + SessionTimeout, context.Properties.ExpiresUtc);
+    }
+
+    // A change to the timeout has to apply to sessions already open, not just to those signed in after it.
+    [Fact]
+    public async Task CheckSlidingExpiration_ASessionGivenAnotherLifetime_IsRebasedOnTheConfiguredTimeout()
+    {
+        var context = CreateSlidingContext(TimeSpan.FromMinutes(5), TimeSpan.FromDays(14));
+
+        await CreateEvents(new FakeTokenRefreshService(TokenRefreshResult.Failed)).CheckSlidingExpiration(context);
+
+        Assert.True(context.ShouldRenew);
+        Assert.Equal(Now + SessionTimeout, context.Properties.ExpiresUtc);
+    }
+
+    // Asking how long a session has left must never be what keeps it alive.
+    [Fact]
+    public async Task CheckSlidingExpiration_APassiveRequest_NeverRenewsTheSession()
+    {
+        var context = CreateSlidingContext(TimeSpan.FromMinutes(15), SessionTimeout, passive: true);
+
+        await CreateEvents(new FakeTokenRefreshService(TokenRefreshResult.Failed)).CheckSlidingExpiration(context);
+
+        Assert.False(context.ShouldRenew);
+        Assert.Equal(Now.AddMinutes(-15), context.Properties.IssuedUtc);
+        Assert.Equal(Now.AddMinutes(5), context.Properties.ExpiresUtc);
+    }
+
+    // Exchanging the refresh token would mean re-issuing the cookie to keep the new one, which would extend the session.
+    [Fact]
+    public async Task ValidatePrincipal_APassiveRequest_ExchangesNoTokensEvenWhenTheyAreAboutToExpire()
+    {
+        var properties = CreatePropertiesWithTokens(Now.AddMinutes(1).ToString("o"), "old-refresh-token");
+        var context = CreateContext(properties, out var authService, passive: true);
+        var refreshService = new FakeTokenRefreshService(new TokenRefreshResult(true, "new-access", "new-id", "new-refresh", Now.AddHours(1)));
+
+        await CreateEvents(refreshService).ValidatePrincipal(context);
+
+        Assert.Equal(0, refreshService.CallCount);
+        Assert.NotNull(context.Principal);
+        Assert.False(context.ShouldRenew);
+        Assert.Equal("old-refresh-token", context.Properties.GetTokenValue("refresh_token"));
+        Assert.Empty(authService.SignOutSchemes);
     }
 
     private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider

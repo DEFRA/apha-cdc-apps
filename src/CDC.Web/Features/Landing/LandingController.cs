@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using CDC.Auth.Cidm;
+using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -15,16 +17,20 @@ public class LandingController(IApiClient apiClient) : Controller
         return View();
     }
 
-    // Requires authentication - the app's fallback authorization policy resolves to Entra ID's
-    // cookie scheme (this app is predominantly used by internal/Entra-authenticated staff), so no
-    // explicit scheme needs naming here, unlike External() below.
+    // Requires authentication - the app's fallback authorization policy accepts whichever sign-in cookie the request carries, so
+    // no explicit scheme is named here. Every "D2R2 Home" link points here, so an external user is sent on to their own home page.
     public IActionResult Internal()
     {
+        if (User.HasClaim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme))
+        {
+            return RedirectToAction(nameof(External));
+        }
+
         return View();
     }
 
-    // Requires authentication against CIDM specifically, not the app's fallback policy (which
-    // resolves to Entra ID's cookie scheme) - only reachable after a successful CIDM sign-in.
+    // Requires authentication against CIDM specifically, not the fallback policy (which accepts either provider's cookie)
+    // - only reachable after a successful CIDM sign-in.
     [Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme)]
     public IActionResult External()
     {

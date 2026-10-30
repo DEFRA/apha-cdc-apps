@@ -32,6 +32,7 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
     public const string TestSignInPath = "/__test/sign-in";
     public const string RolesQueryKey = "roles";
     public const string ExternalOnlyQueryKey = "externalOnly";
+    public const string InternalOnlyQueryKey = "internalOnly";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -42,6 +43,10 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
         // this machine, apparently), so the test host there defaults to Production and has no value
         // for it at all unless supplied here.
         builder.UseSetting("Api:BaseUrl", "http://cdc-api.test");
+
+        // The session tests assume the legacy 20 and 5 minutes, not whatever the loaded appsettings carry.
+        builder.UseSetting("SessionTimeout:IdleTimeout", "00:20:00");
+        builder.UseSetting("SessionTimeout:WarningBeforeExpiry", "00:05:00");
 
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
@@ -115,13 +120,13 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
                 if (context.Request.Path == TestSignInPath)
                 {
                     var identity = new ClaimsIdentity(BuildTestClaims(context.Request.Query), CookieAuthenticationDefaults.AuthenticationScheme);
-                    // Signed into both cookie schemes with the same test identity - most "protected"
-                    // routes used across this test suite rely on the app's fallback policy (which
-                    // resolves to Entra's cookie scheme), while LandingController.External is
-                    // explicitly gated on the CIDM cookie scheme - one shared sign-in endpoint covers
-                    // both without every calling test needing to know which scheme its route uses.
-                    await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
-                    // ?externalOnly= leaves out Entra's cookie, as a real CIDM-only (external user) session would.
+                    // Signed into both cookie schemes with the same test identity unless ?externalOnly= or ?internalOnly= leaves one out,
+                    // as a real session of one identity provider would: most tests only need a signed-in user and do not mind which.
+                    if (!context.Request.Query.ContainsKey(InternalOnlyQueryKey))
+                    {
+                        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+                    }
+
                     if (!context.Request.Query.ContainsKey(ExternalOnlyQueryKey))
                     {
                         await context.SignInAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme, new ClaimsPrincipal(identity));
@@ -140,6 +145,15 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
         private static List<Claim> BuildTestClaims(IQueryCollection query)
         {
             var claims = new List<Claim> { new(ClaimTypes.Name, "test-user") };
+
+            if (query.ContainsKey(ExternalOnlyQueryKey))
+            {
+                claims.Add(new Claim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme));
+            }
+            else if (query.ContainsKey(InternalOnlyQueryKey))
+            {
+                claims.Add(new Claim(ExternalUserClaimTypes.AuthenticationProvider, EntraAuthenticationDefaults.AuthenticationScheme));
+            }
 
             if (query.TryGetValue(RolesQueryKey, out var roles))
             {
@@ -195,6 +209,15 @@ public static class CdcWebTestFactoryExtensions
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         await client.GetAsync($"{CdcWebTestFactory.TestSignInPath}?{CdcWebTestFactory.ExternalOnlyQueryKey}=true&{CdcWebTestFactory.RolesQueryKey}=");
+        return client;
+    }
+
+    /// <summary>Signs in through the Entra ID cookie only, as a profile editor. Redirects are not followed, so a test can see a page
+    /// sending the user to sign in elsewhere.</summary>
+    public static async Task<HttpClient> SignedInInternalClientAsync(this WebApplicationFactory<Program> factory)
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        await client.GetAsync($"{CdcWebTestFactory.TestSignInPath}?{CdcWebTestFactory.InternalOnlyQueryKey}=true");
         return client;
     }
 

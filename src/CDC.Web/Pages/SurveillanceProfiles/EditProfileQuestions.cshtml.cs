@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -127,6 +128,10 @@ public class EditProfileQuestionsModel(
             try
             {
                 await LoadQuestionsAsync(CurrentProfileVersionId, CurrentSection!, cancellationToken);
+            }
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return RedirectToAccessRefusedPage();
             }
             catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
             {

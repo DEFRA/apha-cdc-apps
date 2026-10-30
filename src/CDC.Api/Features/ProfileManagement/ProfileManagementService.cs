@@ -167,9 +167,15 @@ public sealed class ProfileManagementService(
 
         // A user who may not view the profile's drafts is shown the profile as if it had none, so every page built from
         // this response falls back to the published version.
-        var profile = ProfileAccess.CanViewDraft(userContext, storedProfile.Id) || storedProfile.CurrentDraftProfileVersionId == Guid.Empty
-            ? storedProfile
-            : storedProfile with { CurrentDraftProfileVersionId = Guid.Empty };
+        var draftIsHidden = storedProfile.CurrentDraftProfileVersionId != Guid.Empty && !ProfileAccess.CanViewDraft(userContext, storedProfile.Id);
+        var profile = draftIsHidden ? storedProfile with { CurrentDraftProfileVersionId = Guid.Empty } : storedProfile;
+
+        // With no published version to fall back to, the draft was all there was to see, so the request is refused as the
+        // legacy GetProfileVersionSection was, rather than answered with a profile that has no version.
+        if (draftIsHidden && ResolveCurrentProfileVersionId(profile) == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException("The acting user may not view any version of this profile.");
+        }
 
         var publicVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublicVersionId, cancellationToken);
         var publishedVersionLabel = await FormatVersionLabelAsync(profile.CurrentPublishedProfileVersionId, cancellationToken);
@@ -182,6 +188,7 @@ public sealed class ProfileManagementService(
         var currentVersionSummary = await repository.GetProfileVersionSummaryAsync(currentProfileVersionId, cancellationToken);
         var version = currentVersionSummary is null ? (ProfileVersionFacts?)null : ProfileVersionFacts.From(profile.Id, currentVersionSummary);
         var canEditAllSections = Allows(version, current => current.IsCurrentDraft && ProfileAccess.IsEditor(userContext));
+        var canEditReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current));
 
         logger.RetrievedProfileAttributes(profileId);
 
@@ -211,9 +218,9 @@ public sealed class ProfileManagementService(
             CanEditProfileSection = Allows(version, current => ProfileAccess.CanEditAnySection(userContext, current)),
             CanEditAllSections = canEditAllSections,
             EditableSectionIds = version is { IsCurrentDraft: true } && !canEditAllSections ? [.. userContext.GetAssignedSectionIds(profile.Id)] : [],
-            CanEditAuthorReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current, ReviewType.Author)),
-            CanEditVaReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current, ReviewType.Va)),
-            CanEditPolicyReviewDates = Allows(version, current => ProfileAccess.CanEditReviewDates(userContext, current, ReviewType.Policy)),
+            CanEditAuthorReviewDates = canEditReviewDates,
+            CanEditVaReviewDates = canEditReviewDates,
+            CanEditPolicyReviewDates = canEditReviewDates,
             CanClearProfileSection = Allows(version, current => ProfileAccess.CanClearSection(userContext, current)),
             CanAddReviewComments = Allows(version, current => ProfileAccess.CanWriteReviewComments(userContext, current)),
             CanViewNotes = ProfileAccess.CanViewDraft(userContext, storedProfile.Id),

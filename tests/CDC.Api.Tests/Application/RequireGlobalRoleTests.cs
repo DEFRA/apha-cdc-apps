@@ -102,8 +102,8 @@ public class RequireGlobalRoleTests
         RolesOn(controller).Should().Equal(GlobalRole.ProfileEditor);
 
     [Fact]
-    public void TheDiseaseRankingReports_AreRestrictedToTheProfileEditorAndThePolicyProfileUser() =>
-        RolesOn(typeof(DiseaseRankingController)).Should().BeEquivalentTo([GlobalRole.ProfileEditor, GlobalRole.PolicyProfileUser]);
+    public void TheDiseaseRankingReports_AreRestrictedToTheProfileEditor() =>
+        RolesOn(typeof(DiseaseRankingController)).Should().Equal(GlobalRole.ProfileEditor);
 
     [Theory]
     [InlineData(typeof(ProfileManagementController), nameof(ProfileManagementController.CreateProfile))]

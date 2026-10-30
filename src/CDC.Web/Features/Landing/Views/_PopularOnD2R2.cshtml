@@ -2,9 +2,7 @@
 @using CDC.Web.Authorization.Services
 @inject INavigationAuthorizationService NavigationAuthorizationService
 @{
-    // The disease ranking report and the general reports are for a profile editor or a policy profile user; an external user holds no
-    // global role, so is not offered either.
-    var canViewDiseaseRanking = await NavigationAuthorizationService.CanAccessAsync(User, AuthorizationPolicies.CanViewDiseaseRankingReport);
+    // The reports are open to every signed-in user; the disease ranking link opens the interactive report for a profile editor and the stored one for anyone else.
     var canViewReports = await NavigationAuthorizationService.CanAccessAsync(User, AuthorizationPolicies.CanViewReports);
 }
 <h2 class="govuk-heading-m">Popular on D2R2</h2>
@@ -13,15 +11,12 @@
         <a class="govuk-link govuk-!-font-weight-bold" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
         <p class="govuk-body govuk-!-margin-bottom-0">Find information about diseases and the species they affect.</p>
     </li>
-    @if (canViewDiseaseRanking)
+    @if (canViewReports)
     {
         <li class="govuk-!-margin-bottom-4">
             <a class="govuk-link govuk-!-font-weight-bold" asp-page="/Reports/DiseaseRanking">Disease ranking report</a>
             <p class="govuk-body govuk-!-margin-bottom-0">View the disease ranking report.</p>
         </li>
-    }
-    @if (canViewReports)
-    {
         <li class="govuk-!-margin-bottom-4">
             <a class="govuk-link govuk-!-font-weight-bold" asp-page="/Reports/General">General reports</a>
             <p class="govuk-body govuk-!-margin-bottom-0">View a list of published reports.</p>

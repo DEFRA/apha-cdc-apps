@@ -25,6 +25,8 @@ using CDC.Api.Features.ReferenceData;
 using CDC.Api.Features.ReferenceData.Interfaces;
 using CDC.Api.Features.Species;
 using CDC.Api.Features.Species.Interfaces;
+using CDC.Api.Features.SpellCheck;
+using CDC.Api.Features.SpellCheck.Interfaces;
 using CDC.Api.Features.StaticReports;
 using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Features.Users;
@@ -70,6 +72,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IProfileReportContentService, ProfileReportContentService>();
         services.AddScoped<IBespokeReportTemplateService, BespokeReportTemplateService>();
         services.AddScoped<IStaticReportService, StaticReportService>();
+        services.AddScoped<ISpellCheckService, SpellCheckService>();
         services.AddScoped<IDiseaseRankingService, DiseaseRankingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IUserService, UserService>();

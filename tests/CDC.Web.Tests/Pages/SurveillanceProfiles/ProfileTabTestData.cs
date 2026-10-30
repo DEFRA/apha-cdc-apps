@@ -1,3 +1,4 @@
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
@@ -129,6 +130,43 @@ internal static class ProfileTabTestData
         pageModel.Url = new PageRouteUrlHelper();
 
         return pageModel;
+    }
+
+    /// <summary>CDC.Api's 403, as it reaches a page when the user may not read the profile.</summary>
+    public static HttpRequestException Refused() => new("Forbidden", null, HttpStatusCode.Forbidden);
+
+    /// <summary>Gives a page model the request address and the TempData a page leaves the Application error page's details in.</summary>
+    public static TempDataDictionary WithTempData(PageModel pageModel)
+    {
+        pageModel.Request.Scheme = "https";
+        pageModel.Request.Host = new HostString("d2r2.example");
+        pageModel.Request.Path = RequestPath;
+        var tempData = new TempDataDictionary(pageModel.HttpContext, new NullTempDataProvider());
+        pageModel.TempData = tempData;
+
+        return tempData;
+    }
+
+    /// <summary>Asserts that a page redirected the user to the Application error page, with the details of a refused profile.</summary>
+    public static void AssertSentToTheApplicationErrorPage(IActionResult result, TempDataDictionary tempData)
+    {
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+
+        Assert.Equal(ApplicationErrorModel.PagePath, redirect.PageName);
+        Assert.Contains(ProfileSectionTabPageModel.AccessRefusedErrorType, tempData.Values);
+        Assert.Contains(ProfileSectionTabPageModel.AccessRefusedDetails, tempData.Values);
+        Assert.Contains($"https://d2r2.example{RequestPath}", tempData.Values);
+    }
+
+    private static string RequestPath => $"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}";
+
+    private sealed class NullTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(HttpContext context) => new Dictionary<string, object?>();
+
+        public void SaveTempData(HttpContext context, IDictionary<string, object?> values)
+        {
+        }
     }
 
     /// <summary>Resolves <c>Url.Page(...)</c> to <c>{page}?{handler=...&amp;}key=value&amp;...</c> so tests can assert on links.</summary>

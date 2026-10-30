@@ -9,8 +9,7 @@ public static class EntraAuthenticationDefaults
     /// <summary>
     /// Scheme name used for the internal-user session cookie. Distinct from the external (CIDM) cookie
     /// scheme so the two identities never collide in the same ASP.NET Core authentication options -
-    /// both exist side by side in this app, selected per-controller/action via
-    /// <c>[Authorize(AuthenticationSchemes = ...)]</c> or the app's fallback authorization policy.
+    /// both exist side by side in this app, and each request is authenticated with whichever one it carries.
     /// </summary>
     public const string CookieAuthenticationScheme = "Cookies.Entra";
 }

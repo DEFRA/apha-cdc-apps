@@ -1,6 +1,9 @@
 using System.Net;
+using CDC.Web.Authorization;
 using CDC.Web.Tests.TestSupport;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CDC.Web.Tests.Integration;
 
@@ -33,6 +36,18 @@ public class AccountSmokeTests : IClassFixture<CdcWebTestFactory>
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
+    }
+
+    // Neither identity provider is the default: a request is authenticated with the session cookie it carries, whichever the
+    // provider registered last would otherwise win.
+    [Fact]
+    public async Task EveryRequestIsAuthenticatedWithTheSessionCookieItCarries()
+    {
+        var schemes = _factory.Services.GetRequiredService<IAuthenticationSchemeProvider>();
+
+        Assert.Equal(InternalOrExternalAuthenticationScheme.Name, (await schemes.GetDefaultAuthenticateSchemeAsync())?.Name);
+        Assert.Equal(InternalOrExternalAuthenticationScheme.Name, (await schemes.GetDefaultChallengeSchemeAsync())?.Name);
+        Assert.Equal(InternalOrExternalAuthenticationScheme.Name, (await schemes.GetDefaultForbidSchemeAsync())?.Name);
     }
 
     [Fact]

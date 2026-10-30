@@ -1,3 +1,4 @@
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -23,6 +24,12 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>The date format used by the Contributions and Review comments tables.</summary>
     protected const string DateDisplayFormat = "dd/MM/yyyy";
 
+    /// <summary>The error type the Application error page shows when CDC.Api refuses the user the profile data: the legacy site's exception.</summary>
+    public const string AccessRefusedErrorType = "System.Security.SecurityException";
+
+    /// <summary>What the Application error page says when CDC.Api refuses the user the profile data, in the legacy exception's words.</summary>
+    public const string AccessRefusedDetails = "You do not have permission to access the profile data for this profile version section";
+
     /// <summary>Gets or sets the profile being browsed, bound from the page route.</summary>
     [BindProperty(SupportsGet = true)]
     public Guid ProfileId { get; set; }
@@ -30,6 +37,13 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets or sets the selected section id, bound from the querystring. Defaults to the first section.</summary>
     [BindProperty(SupportsGet = true)]
     public Guid? Section { get; set; }
+
+    /// <summary>Gets or sets the version the user asked to browse, bound from the querystring of a version's "Browse profile" link on
+    /// the search page. CDC.Api refuses a draft the user may not read, as the legacy page did; the page itself shows the profile's
+    /// current version. Read from the query only, as the forms post a <c>profileVersionId</c> of their own.</summary>
+    [FromQuery]
+    [BindProperty(SupportsGet = true)]
+    public Guid? ProfileVersionId { get; set; }
 
     /// <summary>Gets the profile's full display title (with its scenario title in brackets, for a "what-if"
     /// scenario), once loaded. Matches the legacy <c>ProfileVersionInfo.FullTitle</c>.</summary>
@@ -181,7 +195,14 @@ public abstract class ProfileSectionTabPageModel(
     /// <param name="sectionId">The one section to print, or <see langword="null"/> to print the full profile.</param>
     /// <returns>The print page URL.</returns>
     public string? BuildPrintUrl(Guid? sectionId = null) =>
-        Url.Page(ViewProfilePrintVersionModel.PagePath, new { profileId = ProfileId, section = sectionId });
+        this.BuildPrintVersionUrl(ProfileId, sectionId);
+
+    /// <summary>Builds the URL that downloads one of the summary reports of the profile's current draft, which the legacy page opened
+    /// as <c>ShowDraftSummaryProfileReport.aspx</c> or <c>ShowDraftSummaryPrioritisationReport.aspx</c>.</summary>
+    /// <param name="report">The report to download.</param>
+    /// <returns>The report page URL.</returns>
+    public string? BuildSummaryReportUrl(DraftSummaryReport report) =>
+        this.BuildSummaryReportUrl(ProfileId, report);
 
     /// <summary>Builds the tab strip for the selected section.</summary>
     /// <param name="submitHandler">When set, tabs post to this page handler (which receives the tab's name in
@@ -212,12 +233,13 @@ public abstract class ProfileSectionTabPageModel(
     /// when it has no version; callers check <see cref="IsReady"/> before loading their own content.
     /// </summary>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns><see cref="NotFound()"/> when the profile does not exist; otherwise <see langword="null"/>.</returns>
+    /// <returns><see cref="NotFound()"/> when the profile does not exist, a redirect to the Application error page when CDC.Api refuses
+    /// the user the profile; otherwise <see langword="null"/>.</returns>
     protected async Task<IActionResult?> LoadProfileContextAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var profile = await apiClient.GetManageProfileAsync(ProfileId, cancellationToken);
+            var profile = await apiClient.GetManageProfileAsync(ProfileId, ProfileVersionId, cancellationToken);
 
             if (profile is null)
             {
@@ -248,6 +270,10 @@ public abstract class ProfileSectionTabPageModel(
 
             CurrentProfileVersionId = profile.CurrentProfileVersionId;
         }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return RedirectToAccessRefusedPage();
+        }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
             logger.ProfilePageLoadFailed(exception, ProfileId);
@@ -258,6 +284,20 @@ public abstract class ProfileSectionTabPageModel(
         await RefreshValidationStatusAsync(cancellationToken);
 
         return null;
+    }
+
+    /// <summary>
+    /// Sends the user to the Application error page, as the legacy site did when a <c>SecurityException</c> said they may not read
+    /// the profile data. The page is also marked as failed, so a handler that carries on after loading (a POST) shows the load
+    /// error rather than a half-empty page.
+    /// </summary>
+    /// <returns>The redirect to the Application error page.</returns>
+    protected IActionResult RedirectToAccessRefusedPage()
+    {
+        logger.ProfileAccessRefused(ProfileId);
+        HasError = true;
+
+        return ApplicationErrorModel.RedirectFrom(this, AccessRefusedErrorType, AccessRefusedDetails);
     }
 
     private void ApplyProfileFlags(ManageProfileViewModel profile)

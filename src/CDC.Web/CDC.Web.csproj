@@ -15,6 +15,7 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageReference Include="WeCantSpell.Hunspell" Version="7.0.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +31,14 @@
   <ItemGroup>
     <EmbeddedResource Include="Infrastructure\Pdf\Assets\aphalogo.png" LogicalName="CDC.Web.Pdf.aphalogo.png" />
     <EmbeddedResource Include="Infrastructure\Pdf\Assets\D2R2LogoSmall.png" LogicalName="CDC.Web.Pdf.D2R2LogoSmall.png" />
+    <!-- The spell check's English dictionary (SCOWL en_US, in Hunspell format), read by HunspellDictionary. -->
+    <EmbeddedResource Include="Infrastructure\SpellCheck\Dictionaries\en_US.aff" LogicalName="CDC.Web.SpellCheck.en_US.aff" />
+    <EmbeddedResource Include="Infrastructure\SpellCheck\Dictionaries\en_US.dic" LogicalName="CDC.Web.SpellCheck.en_US.dic" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The dictionary's licence requires its copyright notice to travel with every copy, so it is published beside the app. -->
+    <Content Include="Infrastructure\SpellCheck\Dictionaries\en_US.license.txt" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

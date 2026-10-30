@@ -4,6 +4,7 @@
    AJAX fragment so filter changes can repopulate this section without a full page reload. *@
 @{
     var canEditProfile = await NavigationAuthorization.CanEditProfileAsync(User);
+    var canCreateProfile = await NavigationAuthorization.CanCreateProfileAsync(User);
     var canViewContributionsReport = await NavigationAuthorization.CanViewContributionsReportAsync(User);
 }
 
@@ -81,11 +82,14 @@
                                         @if (canEditProfile)
                                         {
                                             <span aria-hidden="true"> | </span>
+                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
                                         }
-                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@profile.Id">Manage</a>
                                         @if (canViewContributionsReport)
                                         {
-                                            <span aria-hidden="true"> | </span>
+                                            @if (canEditProfile)
+                                            {
+                                                <span aria-hidden="true"> | </span>
+                                            }
                                             <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@profile.Id">Contributions</a>
                                         }
                                     }
@@ -101,10 +105,16 @@
                                     <div class="app-profile-card__header govuk-!-margin-bottom-2">
                                         <h4 class="govuk-heading-s govuk-!-margin-bottom-0">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(scenario.Title)</h4>
                                         <p class="govuk-body govuk-!-margin-bottom-0">
-                                            <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@scenario.ScenarioId">Manage<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            @if (canEditProfile)
+                                            {
+                                                <a class="govuk-link" asp-page="/SurveillanceProfiles/ManageProfile" asp-route-profileId="@scenario.ScenarioId">Manage<span class="govuk-visually-hidden"> @scenarioName</span></a>
+                                            }
                                             @if (canViewContributionsReport)
                                             {
-                                                <span aria-hidden="true"> | </span>
+                                                @if (canEditProfile)
+                                                {
+                                                    <span aria-hidden="true"> | </span>
+                                                }
                                                 <a class="govuk-link" asp-page="/SurveillanceProfiles/ViewContributionsReport" asp-route-profileId="@scenario.ScenarioId">Contributions<span class="govuk-visually-hidden"> @scenarioName</span></a>
                                             }
                                         </p>
@@ -114,8 +124,10 @@
                                 <div class="@(Model.DisplayScenarios ? "govuk-!-margin-left-6 govuk-!-margin-bottom-4" : null)">
                                     @for (var index = 0; index < scenario.Groups.Count; index++)
                                     {
+                                        var card = scenario.Groups[index] with { CanClone = canCreateProfile };
+
                                         <div class="@(index > 0 ? "govuk-!-margin-top-1" : string.Empty)">
-                                            <partial name="_ProfileVersionGroupCard" model="scenario.Groups[index]" />
+                                            <partial name="_ProfileVersionGroupCard" model="card" />
                                         </div>
                                     }
                                 </div>

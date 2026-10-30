@@ -3,7 +3,7 @@
 -- the user holds a role on, and the profile sections the user may contribute to. It replaces spgUser for the
 -- acting-user lookup, which returned the flags only.
 -- Result sets: 1 the user (empty when the id is unknown), 2 profile roles, 3 section assignments. CDC.Api ignores
--- the second and third for an internal user and the flags for an external user.
+-- the second and third for an internal user who holds a global role, and the flags for an external user.
 SET ANSI_NULLS ON
 GO
 

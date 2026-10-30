@@ -1,4 +1,3 @@
-using CDC.Api.Application;
 using CDC.Api.Features.ProfileSearch.Dtos;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 
@@ -6,12 +5,11 @@ namespace CDC.Api.Features.ProfileSearch;
 
 /// <summary>
 /// Default <see cref="IProfileSearchService"/>: reads through <see cref="IProfileRepository"/>
-/// and applies the text/status/letter filtering the legacy UI expects. A draft version appears in the results only for a
-/// user who may read it: a profile editor or policy profile user, or an external user who holds a role on the profile.
+/// and applies the text/status/letter filtering the legacy UI expects. As in legacy, every draft version is listed to every
+/// user (<c>ProfileInfoList.CanGetProfileInfoList</c>: "this data is available to all"); a draft is refused only when it is browsed.
 /// </summary>
 /// <param name="repository">Profile data access.</param>
-/// <param name="userContext">The current user, whose drafts are listed.</param>
-public sealed class ProfileSearchService(IProfileRepository repository, IUserContext userContext) : IProfileSearchService
+public sealed class ProfileSearchService(IProfileRepository repository) : IProfileSearchService
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileDto>> GetAllProfilesAsync(CancellationToken cancellationToken)
@@ -58,7 +56,7 @@ public sealed class ProfileSearchService(IProfileRepository repository, IUserCon
         SearchForType searchForType = SearchForType.ExactWordOrPhrase,
         CancellationToken cancellationToken = default)
     {
-        var allProfiles = (await repository.GetAllProfilesAsync(cancellationToken)).Select(HideUnreadableDrafts).ToList();
+        var allProfiles = await repository.GetAllProfilesAsync(cancellationToken);
 
         return
         [
@@ -68,31 +66,6 @@ public sealed class ProfileSearchService(IProfileRepository repository, IUserCon
                 // As in legacy, the scenarios are listed only when asked for.
                 .Select(profile => displayScenarios ? profile : profile with { WhatIfScenarios = [] })
         ];
-    }
-
-    /// <summary>Removes the draft versions, and what is derived from the current draft, of every lineage the acting user may not
-    /// read, so a search can neither list nor filter on them.</summary>
-    private ProfileSearchResultDto HideUnreadableDrafts(ProfileSearchResultDto profile)
-    {
-        if (ProfileAccess.IsGlobalUser(userContext))
-        {
-            return profile;
-        }
-
-        var ownDraftsReadable = ProfileAccess.CanViewDraft(userContext, profile.Id);
-
-        return profile with
-        {
-            DraftVersions = ownDraftsReadable ? profile.DraftVersions : [],
-            NextReviewDate = ownDraftsReadable ? profile.NextReviewDate : null,
-            ReviewIncomplete = ownDraftsReadable && profile.ReviewIncomplete,
-            WhatIfScenarios =
-            [
-                .. profile.WhatIfScenarios.Select(scenario => ProfileAccess.CanViewDraft(userContext, scenario.ScenarioId)
-                    ? scenario
-                    : scenario with { DraftVersions = [], NextReviewDate = null, ReviewIncomplete = false })
-            ]
-        };
     }
 
     /// <summary>Mirrors the legacy <c>ProfileInfoList.Filter</c>: a profile matches when any of its
@@ -138,7 +111,6 @@ public sealed class ProfileSearchService(IProfileRepository repository, IUserCon
         return
         [
             .. allProfiles
-                .Select(HideUnreadableDrafts)
                 .Where(profile => letter == "All" || profile.Title.StartsWith(letter, StringComparison.OrdinalIgnoreCase))
         ];
     }

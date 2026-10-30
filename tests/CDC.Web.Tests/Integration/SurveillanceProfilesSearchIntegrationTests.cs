@@ -90,7 +90,81 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("Bovine tuberculosis", body);
         Assert.DoesNotContain("Edit Title", body);
         Assert.DoesNotContain("EditProfileTitle", body);
-        Assert.Contains(">Manage</a>", body);
+        Assert.DoesNotContain(">Manage</a>", body);
+    }
+
+    // Legacy showed Clone profile and Clone scenario only to a user who may create a profile, on the card and on every version row.
+    [Fact]
+    public async Task Search_ShowsTheCloneLinks_ToAProfileEditor()
+    {
+        var body = await GetResultsPartialAsync(isProfileEditor: true, isPolicyProfileUser: false);
+
+        Assert.Equal(2, Regex.Count(body, ">Clone profile</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.Equal(2, Regex.Count(body, ">Clone scenario</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task Search_HidesTheCloneLinks_FromAUserWhoMayNotCreateAProfile(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        var body = await GetResultsPartialAsync(isProfileEditor, isPolicyProfileUser);
+
+        AssertNoCloneLinksButBrowseProfileRemains(body);
+    }
+
+    [Fact]
+    public async Task Search_HidesTheCloneLinks_FromAnExternalUser()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInExternalClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(request);
+
+        Assert.True(response.IsSuccessStatusCode);
+        AssertNoCloneLinksButBrowseProfileRemains(await response.Content.ReadAsStringAsync());
+    }
+
+    private static void AssertNoCloneLinksButBrowseProfileRemains(string body)
+    {
+        Assert.Contains("Bovine tuberculosis", body);
+        Assert.DoesNotContain("Clone profile", body);
+        Assert.DoesNotContain("Clone scenario", body);
+        Assert.Contains(">Browse profile</a>", body);
+    }
+
+    // Legacy named the version in every "Browse profile" link, and listed every draft to every user: opening one the user holds no
+    // role on is what is refused, so the links of the draft cards have to say which draft they mean.
+    [Fact]
+    public async Task Search_NamesTheVersionInEveryBrowseProfileLink_OnThePublishedAndTheDraftCardOfAnExternalUser()
+    {
+        var draftVersionId = Guid.NewGuid();
+        var draft = new ProfileHistoryItemDto
+        {
+            VersionId = draftVersionId,
+            VersionNumber = 2,
+            Title = "Bovine tuberculosis",
+            CreatedAtUtc = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsScenario = false
+        };
+        using var factory = CreateFactory([SearchResults[0] with { DraftVersions = [draft] }]);
+        var client = await factory.SignedInExternalClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search?DisplayPublished=true&DisplayDraft=true");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        var browseLinks = Regex.Matches(body, "href=\"([^\"]+)\">Browse profile</a>", RegexOptions.None, TimeSpan.FromSeconds(5))
+            .Select(match => match.Groups[1].Value)
+            .ToList();
+        var browsePath = $"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}";
+        Assert.Equal(4, browseLinks.Count);
+        Assert.Equal(2, browseLinks.Count(link => link == $"{browsePath}?profileVersionId={VersionId}"));
+        Assert.Equal(2, browseLinks.Count(link => link == $"{browsePath}?profileVersionId={draftVersionId}"));
     }
 
     // The script submits the form for these links, so the address they carry cannot bring back a keyword cleared since the last search.
@@ -161,6 +235,73 @@ public class SurveillanceProfilesSearchIntegrationTests
 
         Assert.DoesNotContain("govuk-pagination", page);
     }
+
+    // The legacy page kept the Display checkboxes and the letter in the session, so a link back to the page - the breadcrumb
+    // of Browse profile, or the menu - found them as the user had left them.
+    [Fact]
+    public async Task Search_ShowsTheFiltersLastChosen_OnComingBackToThePageWithNoneInTheAddress()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+        await client.GetStringAsync("/SurveillanceProfiles/Search?DisplayPublished=false&DisplayDraft=true&DisplayScenarios=true&SelectedLetter=B");
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.False(IsChecked(page, "DisplayPublished"));
+        Assert.True(IsChecked(page, "DisplayDraft"));
+        Assert.True(IsChecked(page, "DisplayScenarios"));
+        Assert.Contains("<input type=\"hidden\" name=\"SelectedLetter\" value=\"B\" />", page);
+    }
+
+    // A change to a checkbox refreshes the results in the background, and that request is what tells the server about it.
+    [Fact]
+    public async Task Search_ShowsTheFiltersOfTheLastResultsRefresh_OnComingBackToThePage()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+        using var refresh = new HttpRequestMessage(
+            HttpMethod.Get, "/SurveillanceProfiles/Search?DisplayPublished=true&DisplayDraft=true&DisplayScenarios=false&SelectedLetter=All");
+        refresh.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        Assert.True((await client.SendAsync(refresh)).IsSuccessStatusCode);
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayPublished"));
+        Assert.True(IsChecked(page, "DisplayDraft"));
+        Assert.False(IsChecked(page, "DisplayScenarios"));
+    }
+
+    [Fact]
+    public async Task Search_ShowsTheDefaultFilters_ToAUserWhoHasChosenNone()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayPublished"));
+        Assert.False(IsChecked(page, "DisplayDraft"));
+        Assert.False(IsChecked(page, "DisplayScenarios"));
+        Assert.Contains("<input type=\"hidden\" name=\"SelectedLetter\" value=\"All\" />", page);
+    }
+
+    // The filters live in the user's own session, so what one user chose is not what another finds.
+    [Fact]
+    public async Task Search_DoesNotShowTheFiltersOfOneUser_ToAnother()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var firstUser = await factory.SignedInClientAsync();
+        await firstUser.GetStringAsync("/SurveillanceProfiles/Search?DisplayPublished=false&DisplayDraft=true");
+        var secondUser = await factory.SignedInClientAsync();
+
+        var page = await secondUser.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayPublished"));
+        Assert.False(IsChecked(page, "DisplayDraft"));
+    }
+
+    private static bool IsChecked(string page, string checkboxId) =>
+        Regex.IsMatch(page, $"<input[^>]* id=\"{checkboxId}\"[^>]* checked", RegexOptions.None, TimeSpan.FromSeconds(5));
 
     private static List<string> PaginationListItems(string html)
     {

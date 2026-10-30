@@ -37,6 +37,12 @@ public interface IProfileReportsApiService
     /// <returns>The scores, or why they are not available.</returns>
     Task<ProfilePrioritisationScoresResult> GetPrioritisationScoresAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>POST /api/profile-reports/prioritisation/{profileVersionId}</c> to recalculate a profile version's prioritisation scores.</summary>
+    /// <param name="profileVersionId">The profile version to prioritise.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Whether the scores were recalculated.</returns>
+    Task<ProfileReportsOutcome> PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>POST /api/profile-reports/guidance</c> for the guidance the bespoke report prints under its guidance headings.</summary>
     /// <param name="questionIds">The questions whose guidance is wanted.</param>
     /// <param name="cancellationToken">Cancels the request.</param>

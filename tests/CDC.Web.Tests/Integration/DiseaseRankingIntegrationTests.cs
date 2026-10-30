@@ -18,6 +18,8 @@ public class DiseaseRankingIntegrationTests
 
     private static readonly byte[] PdfBytes = [0x25, 0x50, 0x44, 0x46, 0x2D];
 
+    private static readonly Guid StoredVersionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     private static readonly IReadOnlyList<DiseaseRankingReportOptionDto> Options =
     [
         new DiseaseRankingReportOptionDto { Key = "terrestrial", Label = "Disease ranking report: Terrestrial diseases" },
@@ -206,6 +208,65 @@ public class DiseaseRankingIntegrationTests
         Assert.Contains("The report could not be generated. Try again later", body, StringComparison.Ordinal);
     }
 
+    // Legacy showed every user the link and gave anyone but a profile editor the stored report (SetupDiseaseRankingLink).
+    [Fact]
+    public async Task Get_SendsAnExternalUserToTheStoredReport_WhichDownloadsAsAPdf()
+    {
+        using var factory = CreateFactory(new FakeApi(), apiClient: StoredReportClient());
+        var client = await factory.SignedInExternalClientAsync();
+
+        var redirect = await client.GetAsync(PagePath);
+
+        Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
+        Assert.Equal($"/static-reports/versions/{StoredVersionId}/document?download=true", redirect.Headers.Location?.ToString());
+
+        var download = await client.GetAsync(redirect.Headers.Location);
+
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal("application/pdf", download.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Equal(PdfBytes, await download.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Get_DownloadsTheStoredReport_ForAPolicyProfileUser()
+    {
+        using var factory = CreateFactory(new FakeApi(), apiClient: StoredReportClient());
+        var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: true);
+
+        var response = await client.GetAsync(PagePath);
+
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Equal(PdfBytes, await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Get_ReturnsNotFound_ToAUserWhoIsNotAProfileEditor_WhenNoStoredReportExists()
+    {
+        using var factory = CreateFactory(new FakeApi(), apiClient: new Features.Landing.FakeApiClient(staticReports: []));
+        var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: false);
+
+        var response = await client.GetAsync(PagePath);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_ShowsAnErrorAndNoReportForms_ToAUserWhoIsNotAProfileEditor_WhenTheStoredReportCannotBeLoaded()
+    {
+        using var factory = CreateFactory(
+            new FakeApi(),
+            apiClient: new Features.Landing.FakeApiClient(throwOnGetCurrentStaticReports: new HttpRequestException("down")));
+        var client = await factory.SignedInClientWithPermissionsAsync(isProfileEditor: false, isPolicyProfileUser: true);
+
+        var body = await client.GetStringAsync(PagePath);
+
+        Assert.Contains("The report could not be loaded. Try again later", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scored RFI graphs", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ranked RFI graphs", body, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task EditFiltersPage_Loads()
     {
@@ -248,7 +309,7 @@ public class DiseaseRankingIntegrationTests
             }));
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(FakeApi api, FakePdfRenderer? pdf = null) =>
+    private static WebApplicationFactory<Program> CreateFactory(FakeApi api, FakePdfRenderer? pdf = null, Features.Landing.FakeApiClient? apiClient = null) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
@@ -256,7 +317,40 @@ public class DiseaseRankingIntegrationTests
                 services.AddSingleton<IDiseaseRankingApiService>(api);
                 services.RemoveAll<CDC.Web.Features.DiseaseRanking.IPdfRenderer>();
                 services.AddSingleton<CDC.Web.Features.DiseaseRanking.IPdfRenderer>(pdf ?? new FakePdfRenderer());
+
+                if (apiClient is not null)
+                {
+                    services.RemoveAll<IApiClient>();
+                    services.AddSingleton<IApiClient>(apiClient);
+                    services.RemoveAll<IStaticReportDocumentApiService>();
+                    services.AddSingleton<IStaticReportDocumentApiService>(new FakeStaticReportDocuments());
+                }
             }));
+
+    private static Features.Landing.FakeApiClient StoredReportClient() => new(staticReports:
+    [
+        StaticReport("Some other report", Guid.NewGuid()),
+        StaticReport("DiseaseRankingReport", StoredVersionId)
+    ]);
+
+    private static CDC.Web.Models.StaticReportListItemDto StaticReport(string title, Guid versionId) => new()
+    {
+        Id = versionId,
+        StaticReportId = Guid.NewGuid(),
+        Title = title,
+        VersionMajor = 1,
+        EffectiveDateFrom = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        EffectiveDateTo = null,
+        IsUserManual = false,
+        IsPublic = false,
+        FileSize = 1024
+    };
+
+    private sealed class FakeStaticReportDocuments : IStaticReportDocumentApiService
+    {
+        public Task<StaticReportDocument?> GetDocumentAsync(Guid staticReportVersionId, bool download, CancellationToken cancellationToken = default) =>
+            Task.FromResult<StaticReportDocument?>(new StaticReportDocument(PdfBytes, "attachment; filename=\"DiseaseRankingReport.pdf\""));
+    }
 
     private sealed class FakeApi : IDiseaseRankingApiService
     {

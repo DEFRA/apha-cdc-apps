@@ -1,7 +1,9 @@
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using static CDC.Web.Tests.Pages.SurveillanceProfiles.ProfileTabTestData;
 
 namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
@@ -114,6 +116,17 @@ public class ProfileSectionTabPageModelTests
             pageModel.BuildPrintUrl(EpidemiologySectionId));
     }
 
+    [Theory]
+    [InlineData(DraftSummaryReport.SummaryProfile, "SummaryProfile")]
+    [InlineData(DraftSummaryReport.SummaryPrioritisation, "SummaryPrioritisation")]
+    public async Task BuildSummaryReportUrl_OpensTheReportPage_NamingTheReport(DraftSummaryReport report, string routeName)
+    {
+        var pageModel = CreatePageModel(DraftProfile());
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal($"/SurveillanceProfiles/ViewDraftSummaryReport?profileId={ProfileId}&report={routeName}", pageModel.BuildSummaryReportUrl(report));
+    }
+
     [Fact]
     public async Task IsReady_IsFalse_WhenTheProfileHasNoVersion()
     {
@@ -135,6 +148,86 @@ public class ProfileSectionTabPageModelTests
 
         Assert.True(pageModel.IsReady);
         Assert.Equal(ProfileVersionId, pageModel.CurrentProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_SendsTheUserToTheApplicationErrorPage_WhenCdcApiRefusesThemTheProfile()
+    {
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                new FakeApiClient(throwOnGetManageProfile: Refused()),
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+        var tempData = WithTempData(pageModel);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        AssertSentToTheApplicationErrorPage(result, tempData);
+        Assert.False(pageModel.IsReady);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsTheLoadError_WhenCdcApiFailsToLoadTheProfileForAnyOtherReason()
+    {
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                new FakeApiClient(throwOnGetManageProfile: new HttpRequestException("boom", null, HttpStatusCode.InternalServerError)),
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_NamesTheVersionTheUserFollowedALinkTo_SoCdcApiCanRefuseADraftTheyMayNotRead()
+    {
+        var versionId = Guid.NewGuid();
+        var apiClient = new FakeApiClient(manageProfile: Profile());
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                apiClient,
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+        pageModel.ProfileVersionId = versionId;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(versionId, apiClient.LastManageProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_NamesNoVersion_WhenTheUserDidNotFollowAVersionsLink()
+    {
+        var apiClient = new FakeApiClient(manageProfile: Profile());
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                apiClient,
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Null(apiClient.LastManageProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_SendsTheUserToTheApplicationErrorPage_WhenCdcApiRefusesTheVersionTheyFollowedALinkTo()
+    {
+        var pageModel = Configure(
+            new EditProfileReferencesModel(
+                new FakeApiClient(manageProfile: Profile(), throwOnGetManageProfileForAVersion: Refused()),
+                new FakeProfileSectionsApiService(metadata: TwoSectionMetadata()),
+                new AlwaysEnabledLogger<EditProfileReferencesModel>()));
+        pageModel.ProfileVersionId = Guid.NewGuid();
+        var tempData = WithTempData(pageModel);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        AssertSentToTheApplicationErrorPage(result, tempData);
     }
 
     [Fact]

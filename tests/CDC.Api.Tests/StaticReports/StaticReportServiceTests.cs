@@ -26,6 +26,7 @@ public sealed class StaticReportServiceTests
         public bool IsUserManagementSystem => isUserManagementSystem;
         public bool IsPolicyProfileUser => false;
         public UserKind Kind => isProfileEditor ? UserKind.Internal : UserKind.Unclassified;
+        public bool HoldsAnyProfileRole => false;
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
         public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;
         public IEnumerable<Guid> GetAssignedSectionIds(Guid profileId) => [];
@@ -80,45 +81,26 @@ public sealed class StaticReportServiceTests
         reports.Should().ContainSingle().Which.CanDelete.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task GetCurrentStaticReportsAsync_Throws_ForTheGeneralReports_WhenTheUserIsNotAProfileEditorOrPolicyProfileUser()
-    {
-        var act = () => CreateService(isProfileEditor: false).GetCurrentStaticReportsAsync(false, false, CancellationToken.None);
-
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
-        repository.VerifyNoOtherCalls();
-    }
-
     [Theory]
+    [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public async Task GetCurrentStaticReportsAsync_IsOpenToAnyUser_ForTheUserManualsAndThePublicReports(bool isUserManual, bool publicOnly)
+    public async Task GetCurrentStaticReportsAsync_IsOpenToAnyUser_ForTheGeneralReportsTheUserManualsAndThePublicReports(bool isUserManual, bool publicOnly)
     {
         repository
             .Setup(repo => repo.GetCurrentStaticReportsAsync(isUserManual, publicOnly, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([ReportDto("Manual", 1)]);
+            .ReturnsAsync([ReportDto("Report", 1)]);
 
         var reports = await CreateService(isProfileEditor: false).GetCurrentStaticReportsAsync(isUserManual, publicOnly, CancellationToken.None);
 
         reports.Should().ContainSingle();
     }
 
-    [Fact]
-    public async Task GetStaticReportHistoryAsync_Throws_ForAGeneralReport_WhenTheUserIsNotAProfileEditorOrPolicyProfileUser()
-    {
-        repository
-            .Setup(repo => repo.GetStaticReportHistoryAsync(StaticReportId, false, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([ReportDto("v1", 1)]);
-
-        var act = () => CreateService(isProfileEditor: false).GetStaticReportHistoryAsync(StaticReportId, false, CancellationToken.None);
-
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
-    }
-
     [Theory]
+    [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public async Task GetStaticReportHistoryAsync_IsOpenToAnyUser_ForAUserManualOrThePublicVersions(bool isUserManual, bool publicOnly)
+    public async Task GetStaticReportHistoryAsync_IsOpenToAnyUser_ForAGeneralReportAUserManualOrThePublicVersions(bool isUserManual, bool publicOnly)
     {
         repository
             .Setup(repo => repo.GetStaticReportHistoryAsync(StaticReportId, publicOnly, It.IsAny<CancellationToken>()))

@@ -1,6 +1,10 @@
+using System.Security.Claims;
+using CDC.Auth.Cidm;
+using CDC.Web.Features.Account;
 using CDC.Web.Features.Landing;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Tests.Features.Landing;
@@ -20,11 +24,23 @@ public class LandingControllerTests
     [Fact]
     public void Internal_ReturnsView()
     {
-        var controller = new LandingController(new FakeApiClient());
+        var controller = CreateController();
 
         var result = controller.Internal();
 
         Assert.IsType<ViewResult>(result);
+    }
+
+    // Every "D2R2 Home" link points at Internal, so an external user is sent on to their own home page.
+    [Fact]
+    public void Internal_SendsAnExternalUserToTheExternalLandingPage()
+    {
+        var identity = new ClaimsIdentity([new Claim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme)], "test");
+        var controller = CreateController(new ClaimsPrincipal(identity));
+
+        var result = controller.Internal();
+
+        Assert.Equal(nameof(LandingController.External), Assert.IsType<RedirectToActionResult>(result).ActionName);
     }
 
     [Fact]
@@ -66,4 +82,12 @@ public class LandingControllerTests
         var model = Assert.IsType<ErrorViewModel>(viewResult.Model);
         Assert.True(model.ShowRequestId);
     }
+
+    private static LandingController CreateController(ClaimsPrincipal? user = null) => new(new FakeApiClient())
+    {
+        ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = user ?? new ClaimsPrincipal(new ClaimsIdentity()) }
+        }
+    };
 }
