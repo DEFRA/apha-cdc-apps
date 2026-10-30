@@ -236,6 +236,73 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.DoesNotContain("govuk-pagination", page);
     }
 
+    // The legacy page kept the Display checkboxes and the letter in the session, so a link back to the page - the breadcrumb
+    // of Browse profile, or the menu - found them as the user had left them.
+    [Fact]
+    public async Task Search_ShowsTheFiltersLastChosen_OnComingBackToThePageWithNoneInTheAddress()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+        await client.GetStringAsync("/SurveillanceProfiles/Search?DisplayPublished=false&DisplayDraft=true&DisplayScenarios=true&SelectedLetter=B");
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.False(IsChecked(page, "DisplayPublished"));
+        Assert.True(IsChecked(page, "DisplayDraft"));
+        Assert.True(IsChecked(page, "DisplayScenarios"));
+        Assert.Contains("<input type=\"hidden\" name=\"SelectedLetter\" value=\"B\" />", page);
+    }
+
+    // A change to a checkbox refreshes the results in the background, and that request is what tells the server about it.
+    [Fact]
+    public async Task Search_ShowsTheFiltersOfTheLastResultsRefresh_OnComingBackToThePage()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+        using var refresh = new HttpRequestMessage(
+            HttpMethod.Get, "/SurveillanceProfiles/Search?DisplayPublished=true&DisplayDraft=true&DisplayScenarios=false&SelectedLetter=All");
+        refresh.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        Assert.True((await client.SendAsync(refresh)).IsSuccessStatusCode);
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayPublished"));
+        Assert.True(IsChecked(page, "DisplayDraft"));
+        Assert.False(IsChecked(page, "DisplayScenarios"));
+    }
+
+    [Fact]
+    public async Task Search_ShowsTheDefaultFilters_ToAUserWhoHasChosenNone()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayPublished"));
+        Assert.False(IsChecked(page, "DisplayDraft"));
+        Assert.False(IsChecked(page, "DisplayScenarios"));
+        Assert.Contains("<input type=\"hidden\" name=\"SelectedLetter\" value=\"All\" />", page);
+    }
+
+    // The filters live in the user's own session, so what one user chose is not what another finds.
+    [Fact]
+    public async Task Search_DoesNotShowTheFiltersOfOneUser_ToAnother()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var firstUser = await factory.SignedInClientAsync();
+        await firstUser.GetStringAsync("/SurveillanceProfiles/Search?DisplayPublished=false&DisplayDraft=true");
+        var secondUser = await factory.SignedInClientAsync();
+
+        var page = await secondUser.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayPublished"));
+        Assert.False(IsChecked(page, "DisplayDraft"));
+    }
+
+    private static bool IsChecked(string page, string checkboxId) =>
+        Regex.IsMatch(page, $"<input[^>]* id=\"{checkboxId}\"[^>]* checked", RegexOptions.None, TimeSpan.FromSeconds(5));
+
     private static List<string> PaginationListItems(string html)
     {
         var list = Regex.Match(html, "<ul class=\"govuk-pagination__list\">(.*?)</ul>", RegexOptions.Singleline).Groups[1].Value;
