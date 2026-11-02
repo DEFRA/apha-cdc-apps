@@ -1,5 +1,21 @@
 namespace CDC.Common.Contracts;
 
+/// <summary>The column the external users list is sorted by.</summary>
+public enum ExternalUserSortColumn
+{
+    /// <summary>Keep the order the database returns (the default).</summary>
+    None = 0,
+
+    /// <summary>Sort by username.</summary>
+    UserName = 1,
+
+    /// <summary>Sort by full name.</summary>
+    FullName = 2,
+
+    /// <summary>Sort by organisation.</summary>
+    Organisation = 3
+}
+
 /// <summary>
 /// An external (SSO) user maintained by administrators, as returned by <c>GET /api/external-users</c>.
 /// Shared by CDC.Api's response DTO and CDC.Web's view model so the wire shape cannot drift.

@@ -45,14 +45,21 @@ public class ExternalUsersModelTests
 
         public Guid? DeletedProfileId { get; private set; }
 
-        public Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new PagedResult<MaintainedExternalUserDto>
+        public (ExternalUserSortColumn Column, bool Descending)? RequestedSort { get; private set; }
+
+        public Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
+            int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
+        {
+            RequestedSort = (sortColumn, sortDescending);
+
+            return Task.FromResult(new PagedResult<MaintainedExternalUserDto>
             {
                 Items = Users,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 TotalRecords = Users.Count
             });
+        }
 
         public Task<bool> SetReviewEmailSubscriptionAsync(Guid id, bool subscribed, CancellationToken cancellationToken = default)
         {
@@ -158,6 +165,53 @@ public class ExternalUsersModelTests
         ],
         AvailableProfiles = [new ProfileOptionContract { Id = AvailableProfileId, Title = "Brucellosis" }]
     };
+
+    [Fact]
+    public async Task OnGet_SortsByFullNameAscending_ByDefault()
+    {
+        var api = new FakeExternalUsersApiService();
+        var model = CreatePageModel(api);
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal((ExternalUserSortColumn.FullName, false), api.RequestedSort);
+        Assert.Equal("ascending", model.GetAriaSort(ExternalUserSortColumn.FullName));
+        Assert.Equal("none", model.GetAriaSort(ExternalUserSortColumn.UserName));
+    }
+
+    [Fact]
+    public async Task OnGet_PassesTheRequestedSortToTheApi()
+    {
+        var api = new FakeExternalUsersApiService();
+        var model = CreatePageModel(api);
+        model.SortColumn = ExternalUserSortColumn.Organisation;
+        model.SortDirection = "Descending";
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal((ExternalUserSortColumn.Organisation, true), api.RequestedSort);
+        Assert.Equal("descending", model.GetAriaSort(ExternalUserSortColumn.Organisation));
+        Assert.Equal("none", model.GetAriaSort(ExternalUserSortColumn.UserName));
+    }
+
+    [Fact]
+    public void BuildSortUrl_StartsAscending_ThenTogglesAndResetsToThePageOne()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService());
+        var url = new StubUrlHelper("/UserAdmin/ExternalUsers");
+        model.Url = url;
+        model.PageNumber = 3;
+        model.SortColumn = ExternalUserSortColumn.FullName;
+        model.SortDirection = "Ascending";
+
+        model.BuildSortUrl(ExternalUserSortColumn.FullName);
+        Assert.Equal("Descending", url.LastValues!["SortDirection"]);
+        Assert.Equal(1, url.LastValues["PageNumber"]);
+
+        model.BuildSortUrl(ExternalUserSortColumn.UserName);
+        Assert.Equal(ExternalUserSortColumn.UserName, url.LastValues["SortColumn"]);
+        Assert.Equal("Ascending", url.LastValues["SortDirection"]);
+    }
 
     [Fact]
     public async Task OnGet_OpensEditPanelWithCurrentSubscription()
@@ -732,6 +786,13 @@ public class ExternalUsersModelTests
 
         public string? Link(string? routeName, object? values) => result;
 
-        public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext) => result;
+        public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext)
+        {
+            LastValues = new Microsoft.AspNetCore.Routing.RouteValueDictionary(routeContext.Values);
+
+            return result;
+        }
+
+        public Microsoft.AspNetCore.Routing.RouteValueDictionary? LastValues { get; private set; }
     }
 }

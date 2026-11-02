@@ -65,6 +65,17 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
+    /// <summary>Gets or sets the column the list of users is sorted by. Defaults to full name, as for global users.</summary>
+    [BindProperty(SupportsGet = true)]
+    public ExternalUserSortColumn SortColumn { get; set; } = ExternalUserSortColumn.FullName;
+
+    /// <summary>Gets or sets the sort direction of the list of users: "Ascending" or "Descending".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string SortDirection { get; set; } = "Ascending";
+
+    /// <summary>Gets a value indicating whether the list of users is sorted in descending order.</summary>
+    public bool IsSortDescending => string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Gets or sets the number of profile rows shown per page in the edit panel, or "All".</summary>
     [BindProperty(SupportsGet = true)]
     public string ProfilePageSize { get; set; } = PageSizeOptions[0];
@@ -234,7 +245,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         {
             SuccessMessage = "Your changes were successfully saved";
 
-            return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+            return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
         }
 
         EditUserId = UserId;
@@ -259,7 +270,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
         if (EditUser is null)
         {
-            return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+            return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
         }
 
         SubscribedToReviewEmails = EditUser.SubscribedToReviewEmails;
@@ -289,7 +300,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
                 pending.Adds.Add(new PendingGrant { ProfileId = ProfileId, RoleId = RoleId, SectionIds = sectionIds });
                 WritePending(pending);
 
-                return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
+                return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
             }
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
@@ -331,50 +342,75 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
             RemoveErrorMessage = "We could not remove this profile access. Try again later.";
         }
 
-        return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
+        return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
     }
 
-    /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/>.</summary>
+    /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/> and the sort.</summary>
     /// <param name="page">The 1-based page.</param>
     /// <returns>The page URL.</returns>
-    public string? BuildPageUrl(int page) => Url.Page(PageRoute, new { PageSize, PageNumber = page });
+    public string? BuildPageUrl(int page) => Url.Page(PageRoute, new { PageSize, PageNumber = page, SortColumn, SortDirection });
+
+    /// <summary>Builds the URL for a sortable column header: ascending for a new column, otherwise toggling the direction. Resets to page 1.</summary>
+    /// <param name="column">The column to sort by.</param>
+    /// <returns>The page URL.</returns>
+    public string? BuildSortUrl(ExternalUserSortColumn column) => Url.Page(PageRoute, new
+    {
+        PageSize,
+        PageNumber = 1,
+        SortColumn = column,
+        SortDirection = column == SortColumn && !IsSortDescending ? "Descending" : "Ascending"
+    });
+
+    /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
+    /// <param name="column">The column.</param>
+    /// <returns>"none" unless the list is sorted by <paramref name="column"/>.</returns>
+    public string GetAriaSort(ExternalUserSortColumn column)
+    {
+        if (column != SortColumn)
+        {
+            return "none";
+        }
+
+        return IsSortDescending ? "descending" : "ascending";
+    }
 
     /// <summary>Builds the URL that opens the edit panel for one row.</summary>
     /// <param name="userId">The user to edit.</param>
     /// <returns>The page URL.</returns>
-    public string? BuildEditUrl(Guid userId) => Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = userId, DiscardPending = true }, null, null, PanelId);
+    public string? BuildEditUrl(Guid userId) => Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = userId, DiscardPending = true }, null, null, PanelId);
 
     /// <summary>Builds the URL that opens the role and section permissions panel for an existing grant.</summary>
     /// <param name="profileId">The profile whose access is edited.</param>
     /// <returns>The page URL.</returns>
     public string? BuildAccessUrl(Guid profileId) =>
-        Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection, AccessProfileId = profileId }, null, null, AccessPanelId);
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection, AccessProfileId = profileId }, null, null, AccessPanelId);
 
     /// <summary>Builds the URL that closes the role and section permissions panel without saving.</summary>
     /// <returns>The page URL.</returns>
     public string? BuildCloseAccessUrl() =>
-        Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, null, null, PanelId);
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, null, null, PanelId);
 
     /// <summary>Builds the URL for a page of the edited user's profiles, preserving the page size and sort.</summary>
     /// <param name="page">The 1-based profile page.</param>
     /// <returns>The page URL.</returns>
     public string? BuildProfilePageUrl(int page) =>
-        Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = page, ProfileSortDirection }, null, null, PanelId);
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = page, ProfileSortDirection }, null, null, PanelId);
 
     /// <summary>Builds the URL that flips the profile title sort direction and returns to the first profile page.</summary>
     /// <returns>The page URL.</returns>
     public string? BuildProfileSortUrl() =>
-        Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = 1, ProfileSortDirection = IsProfileSortDescending ? "Ascending" : "Descending" }, null, null, PanelId);
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = 1, ProfileSortDirection = IsProfileSortDescending ? "Ascending" : "Descending" }, null, null, PanelId);
 
     /// <summary>Builds the URL that closes the edit panel.</summary>
     /// <returns>The page URL.</returns>
-    public string? BuildCloseUrl() => Url.Page(PageRoute, new { PageSize, PageNumber, DiscardPending = true });
+    public string? BuildCloseUrl() => Url.Page(PageRoute, new { PageSize, PageNumber, SortColumn, SortDirection, DiscardPending = true });
 
     private async Task LoadUsersAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var result = await externalUsersApiService.GetExternalUsersAsync(PageNumber, ResolvePageSize(PageSize), cancellationToken);
+            var result = await externalUsersApiService.GetExternalUsersAsync(
+                PageNumber, ResolvePageSize(PageSize), SortColumn, IsSortDescending, cancellationToken);
 
             TotalPages = result.TotalPages;
             PageNumber = Math.Clamp(PageNumber, 1, TotalPages);

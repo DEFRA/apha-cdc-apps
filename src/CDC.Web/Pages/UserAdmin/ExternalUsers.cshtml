@@ -1,8 +1,16 @@
 @page
+@using CDC.Common.Contracts
 @model CDC.Web.Pages.UserAdmin.ExternalUsersModel
 @{
     var hasError = Model.SaveError is not null || Model.AccessError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage);
     ViewData["Title"] = (hasError ? "Error: " : string.Empty) + "Maintain external users";
+
+    void SortableHeader(ExternalUserSortColumn column, string text)
+    {
+        <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(column)">
+            <a class="govuk-link govuk-link--no-visited-state app-sort-link" href="@Model.BuildSortUrl(column)">@text</a>
+        </th>
+    }
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
@@ -72,6 +80,8 @@
             </div>
             <form method="get" id="external-users-page-size-form">
                 <input type="hidden" name="PageNumber" value="1" />
+                <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
                 <noscript><button type="submit" class="govuk-button govuk-button--secondary">Apply</button></noscript>
             </form>
 
@@ -79,10 +89,10 @@
                 <caption class="govuk-table__caption govuk-visually-hidden">External users</caption>
                 <thead class="govuk-table__head">
                     <tr class="govuk-table__row">
-                        <th scope="col" class="govuk-table__header">Username</th>
-                        <th scope="col" class="govuk-table__header">Full name</th>
-                        <th scope="col" class="govuk-table__header">Organisation</th>
-                        <th scope="col" class="govuk-table__header">Edit</th>
+                        @{ SortableHeader(ExternalUserSortColumn.UserName, "Username"); }
+                        @{ SortableHeader(ExternalUserSortColumn.FullName, "Full name"); }
+                        @{ SortableHeader(ExternalUserSortColumn.Organisation, "Organisation"); }
+                        <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
                     </tr>
                 </thead>
                 <tbody class="govuk-table__body">
@@ -137,13 +147,15 @@
                         <form method="get" asp-page="/UserAdmin/ExternalUsers" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.AccessPanelId" class="app-external-user-add govuk-!-margin-bottom-6">
                             <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                             <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                            <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
                             <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
                             <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
                             <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
                             <input type="hidden" name="EditUserId" value="@Model.EditUser.Id" />
                             <div class="govuk-form-group govuk-!-margin-bottom-0">
                                 <div class="app-external-user-add__row">
-                                    <label class="govuk-label govuk-!-margin-bottom-0" for="AddProfileId">Select a profile to add</label>
+                                    <label class="govuk-label govuk-!-margin-bottom-0" for="AddProfileId">Select a profile to add:</label>
                                     <select class="govuk-select app-external-user-add__select" id="AddProfileId" name="AddProfileId" required>
                                         <option value="">Please select...</option>
                                         @foreach (var profile in Model.Access.AvailableProfiles)
@@ -177,6 +189,8 @@
                         <form method="get" asp-page="/UserAdmin/ExternalUsers" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PanelId" id="external-user-profiles-page-size-form">
                             <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                             <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                            <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
                             <input type="hidden" name="EditUserId" value="@Model.EditUser.Id" />
                             <input type="hidden" name="ProfilePageNumber" value="1" />
                             <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
@@ -209,6 +223,8 @@
                                                 <input type="hidden" name="ProfileId" value="@grant.ProfileId" />
                                                 <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                                                 <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                                <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                                                <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
                                                 <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
                                                 <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
                                                 <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
@@ -255,6 +271,8 @@
                         <input type="hidden" name="UserId" value="@Model.EditUser.Id" />
                         <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                         <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                        <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                        <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
                         <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
                         <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
                         <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
@@ -286,6 +304,8 @@
                             <input type="hidden" name="ProfileId" value="@Model.ProfileId" />
                             <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
                             <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                            <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                            <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
                             <input type="hidden" name="ProfilePageSize" value="@Model.ProfilePageSize" />
                             <input type="hidden" name="ProfilePageNumber" value="@Model.ProfilePageNumber" />
                             <input type="hidden" name="ProfileSortDirection" value="@Model.ProfileSortDirection" />
@@ -306,21 +326,25 @@
 
                             <h3 class="govuk-heading-m">Profile section permissions for @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(profileTitle)</h3>
 
-                            <div class="govuk-form-group @(roleMissing ? "govuk-form-group--error" : string.Empty)">
-                                <label class="govuk-label" for="RoleId">Role</label>
-                                @if (roleMissing)
-                                {
-                                    <p id="RoleId-error" class="govuk-error-message">
-                                        <span class="govuk-visually-hidden">Error:</span> @Model.AccessError
-                                    </p>
-                                }
-                                <select class="govuk-select @(roleMissing ? "govuk-select--error" : string.Empty)" id="RoleId" name="RoleId" aria-describedby="@(roleMissing ? "RoleId-error" : null)" data-module="app-contributor-role" data-permissions-target="app-external-user-sections">
-                                    <option value="" selected="@(Model.RoleId == Guid.Empty ? "selected" : null)">Please select...</option>
-                                    @foreach (var role in Model.ProfileUserRoles)
-                                    {
-                                        <option value="@role.Id" data-is-contributor="@role.IsContributor.ToString().ToLowerInvariant()" selected="@(role.Id == Model.RoleId ? "selected" : null)">@role.Name</option>
-                                    }
-                                </select>
+                            <div class="app-inline-fields">
+                                <div class="govuk-form-group @(roleMissing ? "govuk-form-group--error" : string.Empty)">
+                                    <label class="govuk-label" for="RoleId">Role:</label>
+                                    <div class="app-inline-fields__control">
+                                        @if (roleMissing)
+                                        {
+                                            <p id="RoleId-error" class="govuk-error-message">
+                                                <span class="govuk-visually-hidden">Error:</span> @Model.AccessError
+                                            </p>
+                                        }
+                                        <select class="govuk-select @(roleMissing ? "govuk-select--error" : string.Empty)" id="RoleId" name="RoleId" aria-describedby="@(roleMissing ? "RoleId-error" : null)" data-module="app-contributor-role" data-permissions-target="app-external-user-sections">
+                                            <option value="" selected="@(Model.RoleId == Guid.Empty ? "selected" : null)">Please select...</option>
+                                            @foreach (var role in Model.ProfileUserRoles)
+                                            {
+                                                <option value="@role.Id" data-is-contributor="@role.IsContributor.ToString().ToLowerInvariant()" selected="@(role.Id == Model.RoleId ? "selected" : null)">@role.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
                             <fieldset class="govuk-fieldset app-contributor-permissions-fieldset @(sectionsError ? "govuk-form-group--error" : string.Empty)" id="app-external-user-sections" tabindex="-1" hidden="@(Model.IsCurrentRoleContributor ? null : "hidden")">

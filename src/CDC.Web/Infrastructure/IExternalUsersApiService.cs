@@ -9,9 +9,12 @@ public interface IExternalUsersApiService
     /// <summary>Calls <c>GET /api/external-users</c>.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user on a single page.</param>
+    /// <param name="sortColumn">The column to sort by before paging.</param>
+    /// <param name="sortDescending">Whether to sort in descending order.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The requested page of external users.</returns>
-    Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
+        int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>PUT /api/external-users/{id}/review-email-subscription</c>.</summary>
     /// <param name="id">The user being changed.</param>

@@ -7,6 +7,22 @@ using Microsoft.Extensions.Options;
 
 namespace CDC.Web.Pages.HelpSupport;
 
+/// <summary>The column the static reports list is sorted by.</summary>
+public enum StaticReportSortColumn
+{
+    /// <summary>Sort by title (the default).</summary>
+    Title = 0,
+
+    /// <summary>Sort by major version number.</summary>
+    Version = 1,
+
+    /// <summary>Sort by whether the report is public.</summary>
+    Public = 2,
+
+    /// <summary>Sort by the date the version became effective, then the date it was superseded.</summary>
+    EffectiveDates = 3
+}
+
 /// <summary>
 /// Replaces the legacy <c>StaticReports.aspx</c> page: the static reports / "Help Using D2R2"
 /// user manuals list (<see cref="StaticReportId"/> absent), or one report's version history
@@ -63,11 +79,15 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
     public bool IsHistoryMode => StaticReportId.HasValue;
 
-    /// <summary>Gets or sets the Title sort direction, "Ascending" (the legacy default) or "Descending". Only the list is sortable, by Title.</summary>
+    /// <summary>Gets or sets the column the list is sorted by. Only the list is sortable, not a report's history.</summary>
+    [BindProperty(SupportsGet = true)]
+    public StaticReportSortColumn SortColumn { get; set; } = StaticReportSortColumn.Title;
+
+    /// <summary>Gets or sets the sort direction, "Ascending" (the legacy default) or "Descending".</summary>
     [BindProperty(SupportsGet = true)]
     public string? SortDirection { get; set; }
 
-    public bool IsTitleSortDescending => string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
+    public bool IsSortDescending => string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Gets or sets the number of rows shown per page, or "All" for no paging.</summary>
     [BindProperty(SupportsGet = true)]
@@ -204,14 +224,29 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
     /// <summary>Builds the querystring URL for a results page link, preserving the current mode and page size.</summary>
     public string? BuildPageUrl(int page) =>
-        Url.Page(PagePath, new { UserManual, StaticReportId, PageSize, PageNumber = page, SortDirection });
+        Url.Page(PagePath, new { UserManual, StaticReportId, PageSize, PageNumber = page, SortColumn, SortDirection });
 
-    /// <summary>Builds the Title header link URL, toggling the direction and resetting to page 1.</summary>
-    public string? BuildTitleSortUrl() =>
-        Url.Page(PagePath, new { UserManual, PageSize, PageNumber = 1, SortDirection = IsTitleSortDescending ? "Ascending" : "Descending" });
+    /// <summary>Builds a sortable header link URL: ascending for a new column, otherwise toggling the direction. Resets to page 1.</summary>
+    public string? BuildSortUrl(StaticReportSortColumn column) =>
+        Url.Page(PagePath, new
+        {
+            UserManual,
+            PageSize,
+            PageNumber = 1,
+            SortColumn = column,
+            SortDirection = column == SortColumn && !IsSortDescending ? "Descending" : "Ascending"
+        });
 
-    /// <summary>Gets the <c>aria-sort</c> value for the Title header.</summary>
-    public string TitleAriaSort => IsTitleSortDescending ? "descending" : "ascending";
+    /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
+    public string GetAriaSort(StaticReportSortColumn column)
+    {
+        if (column != SortColumn)
+        {
+            return "none";
+        }
+
+        return IsSortDescending ? "descending" : "ascending";
+    }
 
     /// <summary>Builds the "History" link URL for a report row, matching legacy's
     /// <c>StaticReports.aspx?StaticReportId=...&amp;UserManual=...</c>.</summary>
@@ -240,7 +275,7 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
         if (!IsHistoryMode)
         {
-            Reports = SortByTitle(Reports);
+            Reports = SortReports(Reports);
         }
 
         var pageSize = ResolvePageSize(PageSize);
@@ -293,10 +328,24 @@ public class StaticReportsModel : BreadcrumbPageModelBase
         Breadcrumb = new BreadcrumbViewModel(pageName, parentPageName, parentUrl);
     }
 
-    private IReadOnlyList<StaticReportListItemDto> SortByTitle(IReadOnlyList<StaticReportListItemDto> reports) =>
-        [.. IsTitleSortDescending
-            ? reports.OrderByDescending(report => report.Title, StringComparer.OrdinalIgnoreCase)
-            : reports.OrderBy(report => report.Title, StringComparer.OrdinalIgnoreCase)];
+    private IReadOnlyList<StaticReportListItemDto> SortReports(IReadOnlyList<StaticReportListItemDto> reports)
+    {
+        // A report still in effect has no end date, so it sorts after every superseded one.
+        var sorted = SortColumn switch
+        {
+            StaticReportSortColumn.Version => Order(reports, report => report.VersionMajor),
+            StaticReportSortColumn.Public => Order(reports, report => report.IsPublic),
+            StaticReportSortColumn.EffectiveDates => Order(reports, report => (report.EffectiveDateFrom, report.EffectiveDateTo ?? DateTime.MaxValue)),
+            _ => Order(reports, report => report.Title, StringComparer.OrdinalIgnoreCase)
+        };
+
+        // Title breaks ties between equal values so the order is stable between requests.
+        return [.. sorted.ThenBy(report => report.Title, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private IOrderedEnumerable<StaticReportListItemDto> Order<TKey>(
+        IEnumerable<StaticReportListItemDto> reports, Func<StaticReportListItemDto, TKey> key, IComparer<TKey>? comparer = null) =>
+        IsSortDescending ? reports.OrderByDescending(key, comparer) : reports.OrderBy(key, comparer);
 
     /// <summary>Resolves the "Items per page" selection to a page size, where 0 means "All" (no paging).</summary>
     private static int ResolvePageSize(string pageSize)

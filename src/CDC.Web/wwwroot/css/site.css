@@ -195,6 +195,24 @@ html {
   margin-top: 1.5rem;
 }
 
+/* Label, profile drop-down and Add button on one line; wraps on narrow screens. */
+.app-external-user-add__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.app-external-user-add__row .govuk-label {
+  flex: 0 0 auto;
+}
+
+.app-external-user-add__select {
+  flex: 0 1 30rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .app-profile-card {
   padding: 1rem 1.5rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
@@ -747,14 +765,20 @@ body {
   white-space: nowrap;
 }
 
-/* Sortable header that looks like normal header text (no link colour or underline). */
-.app-sortable-header--plain a,
-.app-sortable-header--plain a:visited {
-  color: inherit;
+/* Sortable column headers look like normal header text, underlined only on hover or focus. */
+.app-sortable-header a,
+.app-sortable-header a:link,
+.app-sortable-header a:visited,
+.app-sortable-header a:hover {
+  color: var(--govuk-text-colour, #0b0c0c);
   text-decoration: none;
 }
 
-.app-sortable-header--plain a:focus {
+.app-sortable-header a:hover {
+  text-decoration: underline;
+}
+
+.app-sortable-header a:focus {
   color: var(--govuk-focus-text-colour, #0b0c0c);
 }
 

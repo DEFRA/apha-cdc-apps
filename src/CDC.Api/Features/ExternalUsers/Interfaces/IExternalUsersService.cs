@@ -12,9 +12,12 @@ public interface IExternalUsersService
     /// <summary>Gets one page of external users.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user.</param>
+    /// <param name="sortColumn">The column to sort by before paging.</param>
+    /// <param name="sortDescending">Whether to sort in descending order.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The requested page.</returns>
-    Task<PagedResult<ExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken);
+    Task<PagedResult<ExternalUserDto>> GetExternalUsersAsync(
+        int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken);
 
     /// <summary>Subscribes or unsubscribes a user from review notification emails.</summary>
     /// <param name="command">The change to apply.</param>
