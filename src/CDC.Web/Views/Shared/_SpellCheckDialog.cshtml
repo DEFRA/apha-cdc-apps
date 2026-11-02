@@ -1,0 +1,52 @@
+@using Microsoft.AspNetCore.Antiforgery
+@inject IAntiforgery Antiforgery
+@{
+    var tokens = Antiforgery.GetAndStoreTokens(Context);
+}
+@* The dialog that spell-check.js opens from a "Spell check" button, replacing the legacy RadSpell dialog and keeping its wording
+   and its buttons. GOV.UK Frontend has no spell check or dialog component, so it is a native dialog styled as app-modal, like
+   _ConfirmActionModal and _SessionTimeout. The script fills in and shows each part as the check moves on. *@
+<dialog class="app-modal app-spell-dialog" id="spell-check-dialog" aria-labelledby="spell-check-title"
+        data-check-url="@Url.Action("Check", "SpellCheck")"
+        data-suggest-url="@Url.Action("Suggest", "SpellCheck")"
+        data-add-word-url="@Url.Action("AddCustomWord", "SpellCheck")"
+        data-antiforgery-header="@tokens.HeaderName"
+        data-antiforgery-token="@tokens.RequestToken">
+    <h2 class="govuk-heading-m" id="spell-check-title">Spell check</h2>
+
+    <output class="govuk-body app-spell-dialog__message" data-spell-message hidden></output>
+    <output class="govuk-visually-hidden" aria-live="polite" data-spell-announce></output>
+
+    <div class="app-spell-dialog__layout" data-spell-layout>
+        <div class="app-spell-dialog__fields" data-spell-workspace hidden>
+            <div class="govuk-form-group">
+                <p class="govuk-label govuk-label--s" id="spell-check-word-label">Not in dictionary:</p>
+                <button type="button" class="govuk-body govuk-!-margin-bottom-0 app-spell-dialog__context" id="spell-check-context" data-spell-context aria-labelledby="spell-check-word-label spell-check-context" aria-describedby="spell-check-word-hint"></button>
+                <input type="text" class="govuk-input" id="spell-check-edit" data-spell-edit aria-labelledby="spell-check-word-label" autocomplete="off" spellcheck="false" hidden />
+                <p class="govuk-visually-hidden" id="spell-check-word-hint">Select to type the correction yourself.</p>
+            </div>
+            <div class="govuk-form-group">
+                <label class="govuk-label govuk-label--s" for="spell-check-suggestions">Suggestions:</label>
+                <select class="govuk-select app-spell-dialog__suggestions" id="spell-check-suggestions" size="6" data-spell-suggestions></select>
+            </div>
+        </div>
+
+        <div class="app-spell-dialog__actions" data-spell-actions>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-action="ignore">Ignore</button>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-action="ignore-all">Ignore All</button>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-action="add-custom">Add Custom</button>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-action="change">Change</button>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-action="change-all">Change All</button>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-action="undo">Undo</button>
+            <button type="button" class="govuk-button" data-spell-action="close">Close</button>
+        </div>
+    </div>
+
+    <div data-spell-confirm hidden>
+        <p class="govuk-body" id="spell-check-confirm-message" data-spell-confirm-message></p>
+        <div class="govuk-button-group">
+            <button type="button" class="govuk-button" data-spell-confirm-yes aria-describedby="spell-check-confirm-message"></button>
+            <button type="button" class="govuk-button govuk-button--secondary" data-spell-confirm-no aria-describedby="spell-check-confirm-message"></button>
+        </div>
+    </div>
+</dialog>

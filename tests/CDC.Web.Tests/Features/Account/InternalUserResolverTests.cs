@@ -5,6 +5,8 @@ using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CDC.Web.Tests.Features.Account;
@@ -223,6 +225,33 @@ public class InternalUserResolverTests
         Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
     }
 
+    // A browser holds one sign-in at a time: signing in with Entra ID ends the external (CIDM) session.
+    [Fact]
+    public async Task ResolveAsync_EndsTheExternalSession_OnSuccess()
+    {
+        var user = new InternalUserDto { Id = Guid.NewGuid(), FullName = "Jane Internal", IsProfileEditor = true, IsPolicyProfileUser = false };
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Success, user));
+        var (accessor, authService) = FakeAuthenticationService.CreateAccessor();
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, accessor).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.Equal([CookieAuthenticationDefaults.AuthenticationScheme], authService.SignOutSchemes);
+    }
+
+    [Theory]
+    [InlineData(ResolveInternalUserOutcome.NotPermitted)]
+    [InlineData(ResolveInternalUserOutcome.Error)]
+    public async Task ResolveAsync_LeavesTheExternalSessionAlone_WhenSignInIsDenied(ResolveInternalUserOutcome outcome)
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(outcome, null));
+        var (accessor, authService) = FakeAuthenticationService.CreateAccessor();
+
+        var resolution = await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, accessor).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Empty(authService.SignOutCalls);
+    }
+
     // Test double for IApiClient recording the last resolve request and returning a scripted result
     // (or throwing a scripted exception, to exercise ResolveAsync's catch branch).
     private sealed class StubApiClient(ResolveInternalUserResult scriptedResult, Exception? thrownException = null) : IApiClient
@@ -252,6 +281,9 @@ public class InternalUserResolverTests
             Task.FromResult(new UpdateProfileTitleResult(UpdateProfileTitleOutcome.Error, "Not implemented in this fake."));
 
         public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ManageProfileViewModel?>(null);
+
+        public Task<ManageProfileViewModel?> GetManageProfileAsync(Guid profileId, Guid? profileVersionId, CancellationToken cancellationToken = default) =>
             Task.FromResult<ManageProfileViewModel?>(null);
 
         public Task<ResolveExternalUserResult> ResolveExternalUserAsync(

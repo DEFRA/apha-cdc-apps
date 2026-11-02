@@ -9,9 +9,10 @@ namespace CDC.Api.Features.ProfileSections;
 
 /// <summary>
 /// Default <see cref="IProfileReviewCommentService"/>. Matches the legacy <c>ReviewComment</c>
-/// rules: comments can be read by anyone who can view the version, can be added, edited and deleted only by a profile editor
-/// while the profile version is the current draft, and a comment can be edited or deleted only by its author and only while
-/// it has no replies.
+/// rules: comments can be read by anyone who can view the version, can be added and replied to by a profile editor or by a
+/// contributor or reviewer of the profile while the profile version is the current draft, and a comment can be edited or
+/// deleted only by its author and only while it has no replies. Clearing a section deletes all its comments, which only a
+/// profile editor can do.
 /// </summary>
 /// <param name="repository">Profile section data access.</param>
 /// <param name="versions">Reads a version's state and refuses what the signed-in user's role does not allow.</param>
@@ -162,7 +163,7 @@ public sealed class ProfileReviewCommentService(
     {
         var version = await versions.FindAsync(profileVersionId, cancellationToken);
 
-        if (version is not { } facts || !ProfileAccess.CanWriteReviewComments(userContext, facts))
+        if (version is not { } facts || !ProfileAccess.CanClearSection(userContext, facts))
         {
             logger.ReviewCommentChangeRefused(profileVersionId, "not an editable current draft, or not a profile editor");
 

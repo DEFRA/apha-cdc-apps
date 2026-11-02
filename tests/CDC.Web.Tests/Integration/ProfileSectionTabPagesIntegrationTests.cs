@@ -296,6 +296,8 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("name=\"Input.NoteText\"", body);
         Assert.Contains("data-richtext-command=\"link\"", body);
         Assert.Contains("data-spellcheck-target=\"Input_NoteText\"", body);
+        Assert.Contains("id=\"spell-check-dialog\"", body);
+        Assert.Contains("/js/spell-check.js", body);
         Assert.Contains("Question references</legend>", body);
         Assert.Contains("id=\"Input_QuestionIds_0\" name=\"Input.QuestionIds\"", body);
         Assert.Contains("1.1: Is it endemic?", body);
@@ -397,6 +399,8 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("name=\"Input.CommentText\"", body);
         Assert.Contains("data-richtext-command=\"link\"", body);
         Assert.Contains("data-spellcheck-target=\"Input_CommentText\"", body);
+        Assert.Contains("id=\"spell-check-dialog\"", body);
+        Assert.Contains("/js/spell-check.js", body);
         Assert.Contains("handler=Save", body);
         Assert.Contains("__RequestVerificationToken", body);
         Assert.Contains(">OK</button>", body);

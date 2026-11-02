@@ -5,16 +5,17 @@ using Microsoft.Extensions.Options;
 namespace CDC.Web.Authorization;
 
 /// <summary>
-/// A policy scheme that forwards to whichever sign-in cookie the request carries, so a page open to every
-/// signed-in user accepts an external (CIDM) user as well as an internal (Entra ID) one. The app's default
-/// scheme is Entra's cookie, which never sees a CIDM-only session.
+/// The app's default authentication scheme: a policy scheme that forwards to whichever sign-in cookie the request carries, so
+/// every page authenticates an external (CIDM) user with CIDM and an internal (Entra ID) user with Entra ID. A user a page
+/// refuses is shown the access-denied page, never sent to the other provider's sign-in.
 /// </summary>
 public static class InternalOrExternalAuthenticationScheme
 {
     public const string Name = "InternalOrExternal";
 
-    /// <summary>Entra's cookie unless the request carries only the CIDM cookie, so an anonymous request is still
-    /// challenged by Entra ID and a session holding both cookies is treated as internal.</summary>
+    /// <summary>Entra's cookie unless the request carries only the CIDM cookie, so an anonymous request is still challenged by
+    /// Entra ID. A sign-in ends the other provider's session (see <c>OtherSignInSession</c>), so a request holding both cookies
+    /// predates that and is treated as internal.</summary>
     internal static string SelectCookieScheme(HttpContext context)
     {
         var cookieOptions = context.RequestServices.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>();

@@ -13,9 +13,10 @@ public class AccountController : Controller
     private const string IdTokenName = "id_token";
 
     [AllowAnonymous]
-    public IActionResult Login()
+    public async Task<IActionResult> Login()
     {
-        if (User.Identity?.IsAuthenticated == true)
+        // Only a CIDM session counts: an internal (Entra ID) one does not make the user an external user.
+        if (await HasSessionAsync(CookieAuthenticationDefaults.AuthenticationScheme))
         {
             return RedirectToAction("External", LandingController);
         }
@@ -58,9 +59,10 @@ public class AccountController : Controller
     }
 
     [AllowAnonymous]
-    public IActionResult LoginInternal()
+    public async Task<IActionResult> LoginInternal()
     {
-        if (User.Identity?.IsAuthenticated == true)
+        // Only an Entra ID session counts: an external (CIDM) one does not make the user an internal user.
+        if (await HasSessionAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme))
         {
             return RedirectToAction("Internal", LandingController);
         }
@@ -119,4 +121,7 @@ public class AccountController : Controller
 
         return View();
     }
+
+    private async Task<bool> HasSessionAsync(string cookieScheme) =>
+        (await HttpContext.AuthenticateAsync(cookieScheme)).Succeeded;
 }

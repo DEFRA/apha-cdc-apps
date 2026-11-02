@@ -20,10 +20,10 @@ public sealed record ActingUser : BaseEntity
     /// <summary>Gets the CIDM identifier that marks the user as external, or <see langword="null"/>.</summary>
     public Guid? SsoUserIdExt { get; init; }
 
-    /// <summary>Gets the roles the user holds on profiles. Only an external user's roles count.</summary>
+    /// <summary>Gets the roles the user holds on profiles. Only the roles of an external user, or of an internal user with no global role, count.</summary>
     public IReadOnlyList<ProfileRoleAssignment> ProfileRoles { get; init; } = [];
 
-    /// <summary>Gets the sections the user is assigned to, across every profile. Only an external author's assignments count.</summary>
+    /// <summary>Gets the sections the user is assigned to, across every profile. Only the assignments of a contributor on the profile count.</summary>
     public IReadOnlyList<ProfileSectionAssignment> SectionAssignments { get; init; } = [];
 
     /// <summary>Gets the kind of user, decided by which sign-on identifier the row holds.</summary>

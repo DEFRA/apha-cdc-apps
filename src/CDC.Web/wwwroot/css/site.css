@@ -863,6 +863,88 @@ body {
   background-color: rgba(11, 12, 12, 0.8);
 }
 
+/* The spell check dialog (_SpellCheckDialog.cshtml, spell-check.js), laid out as the legacy RadSpell dialog was: the word in its
+   context and the suggestions on the left, and a column of buttons on the right. */
+.app-spell-dialog {
+  max-width: 640px;
+  /* So that its 90% width includes its padding and border, as it does while Bootstrap is also on the page. */
+  box-sizing: border-box;
+}
+
+.app-spell-dialog__message {
+  display: block;
+}
+
+/* The script hides the parts that do not suit the moment with the hidden attribute, which would lose to the display rules of these. */
+.app-spell-dialog__message[hidden],
+.app-spell-dialog__layout[hidden],
+.app-spell-dialog__context[hidden],
+.app-spell-dialog .govuk-input[hidden],
+.app-spell-dialog .govuk-button[hidden] {
+  display: none;
+}
+
+.app-spell-dialog__layout {
+  display: grid;
+  gap: 20px;
+}
+
+.app-spell-dialog__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.app-spell-dialog__actions .govuk-button {
+  margin-bottom: 0;
+}
+
+/* Beside a word, the buttons make a column of one width; with no word, Close is the one button and keeps the width of a button. */
+.app-spell-dialog__layout--word .app-spell-dialog__actions .govuk-button {
+  width: 100%;
+}
+
+@media (min-width: 40.0625em) {
+  .app-spell-dialog__layout--word {
+    grid-template-columns: minmax(0, 1fr) 9rem;
+  }
+}
+
+/* The word in its context: a button, so that selecting it with the mouse or the keyboard switches to typing the correction. It is
+   set in the GOV.UK body font by its govuk-body class, which a button would not otherwise take. */
+.app-spell-dialog__context {
+  display: block;
+  width: 100%;
+  min-height: 5rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  padding: 5px;
+  border: 2px solid var(--govuk-text-colour, #0b0c0c);
+  background-color: #ffffff;
+  text-align: left;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.app-spell-dialog__context:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px var(--govuk-text-colour, #0b0c0c);
+}
+
+/* Bold as well as underlined, so that the word is not picked out by its colour alone. */
+.app-spell-dialog__word {
+  font-weight: 700;
+  text-decoration: underline dotted #d4351c;
+  text-decoration-thickness: 2px;
+}
+
+.app-spell-dialog__suggestions {
+  width: 100%;
+  height: auto;
+}
+
 /* Makes a real <button> read and behave visually like a govuk-link, so a mutating action (one
    that must POST, not navigate via GET) still looks consistent with the other action links. */
 .app-link-button {

@@ -41,6 +41,12 @@ public static class ProfileReportStoredProcedures
     /// <summary>Reads the species that were prioritised for a profile version.</summary>
     public const string GetPrioritisedSpecies = "spgPrioritisedSpeciesByProfileVersionId";
 
+    /// <summary>Rebuilds one profile version's species prioritisation criteria from its answers.</summary>
+    public const string CalculatePrioritisation = "sppPrioritisationCalculation";
+
+    /// <summary>Rebuilds the category scores and ranks of every profile version from the criteria; takes no parameters.</summary>
+    public const string CalculatePrioritisationScore = "sppPrioritisationScore";
+
     /// <summary>Reads the profile sections whose reviews fall due in a date range for one user, for the disease reviews report.</summary>
     public const string GetDiseaseReviews = "spgaDiseaseReviews";
 }

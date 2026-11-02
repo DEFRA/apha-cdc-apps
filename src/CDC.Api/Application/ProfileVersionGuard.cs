@@ -33,6 +33,18 @@ public interface IProfileVersionGuard
     Task EnsureCanViewAsync(Guid profileVersionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Refuses a request to browse one version of a profile when it is a draft the acting user may not view, as the legacy site
+    /// refused a user who opened a draft they held no role on. A published version is open to everyone signed in.
+    /// </summary>
+    /// <param name="profileId">The profile the version is browsed under.</param>
+    /// <param name="profileVersionId">The version.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>A task that completes when the request is allowed.</returns>
+    /// <exception cref="NotFoundException">The version does not exist, or is not a version of the profile.</exception>
+    /// <exception cref="UnauthorizedAccessException">The version is a draft the user may not view.</exception>
+    Task EnsureCanBrowseAsync(Guid profileId, Guid profileVersionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Refuses a request to read the notes or review comments of a version when the acting user may not view the profile's
     /// drafts. They are working papers, so a published version's are no more open than a draft's.
     /// </summary>
@@ -64,6 +76,22 @@ public sealed class ProfileVersionGuard(IProfileReportRepository repository, IUs
     public async Task EnsureCanViewAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
         if (await FindAsync(profileVersionId, cancellationToken) is { } version && !ProfileAccess.CanView(userContext, version))
+        {
+            throw new UnauthorizedAccessException("The acting user may not view this draft profile version.");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task EnsureCanBrowseAsync(Guid profileId, Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var version = await RequireAsync(profileVersionId, cancellationToken);
+
+        if (version.ProfileId != profileId)
+        {
+            throw NotFoundException.For("Profile version", profileVersionId);
+        }
+
+        if (!ProfileAccess.CanView(userContext, version))
         {
             throw new UnauthorizedAccessException("The acting user may not view this draft profile version.");
         }

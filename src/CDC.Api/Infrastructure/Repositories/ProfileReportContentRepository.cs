@@ -198,6 +198,39 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     }
 
     /// <inheritdoc />
+    public async Task PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var storedProcedure = ProfileReportStoredProcedures.CalculatePrioritisation;
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                storedProcedure,
+                new { ProfileVersionId = profileVersionId },
+                transaction,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            storedProcedure = ProfileReportStoredProcedures.CalculatePrioritisationScore;
+            await connection.ExecuteAsync(new CommandDefinition(
+                storedProcedure,
+                transaction: transaction,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbException exception)
+        {
+            await RollbackAsync(transaction, cancellationToken);
+            logger.StoredProcedureFailed(exception, storedProcedure);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileQuestionGuidanceDto>> GetQuestionGuidanceAsync(IReadOnlyList<Guid> questionIds, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -494,6 +527,18 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
                 })
             ]
         };
+    }
+
+    private static async Task RollbackAsync(DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await transaction.RollbackAsync(cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            // The transaction was already rolled back by the server; nothing left to undo.
+        }
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)

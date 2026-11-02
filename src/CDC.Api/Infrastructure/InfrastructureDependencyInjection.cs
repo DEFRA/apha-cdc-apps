@@ -14,6 +14,7 @@ using CDC.Api.Features.ProfileSections.Interfaces;
 using CDC.Api.Features.ReferenceData.Interfaces;
 using CDC.Api.Features.ReviewNotifications.Interfaces;
 using CDC.Api.Features.Species.Interfaces;
+using CDC.Api.Features.SpellCheck.Interfaces;
 using CDC.Api.Features.StaticReports.Interfaces;
 using CDC.Api.Features.Users.Interfaces;
 using CDC.Api.Infrastructure.Repositories;
@@ -43,6 +44,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IProfileReportContentRepository, ProfileReportContentRepository>();
         services.AddScoped<IBespokeReportTemplateRepository, BespokeReportTemplateRepository>();
         services.AddScoped<IStaticReportRepository, StaticReportRepository>();
+        services.AddScoped<ICustomWordRepository, CustomWordRepository>();
         services.AddScoped<IDiseaseRankingRepository, DiseaseRankingRepository>();
         services.AddScoped<IPrioritisationVariablesRepository, PrioritisationVariablesRepository>();
         services.AddScoped<IDiseaseRankingFiltersRepository, DiseaseRankingFiltersRepository>();

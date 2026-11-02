@@ -2,8 +2,10 @@ using System.Security.Claims;
 using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Claims;
 using CDC.Auth.Cidm.Events;
+using CDC.Auth.Entra;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace CDC.Web.Features.Account;
@@ -13,11 +15,16 @@ namespace CDC.Web.Features.Account;
 /// sign-in (called from <c>CidmOpenIdConnectEvents.TokenValidated</c>, before the local cookie is
 /// written). Adds <see cref="ExternalUserClaimTypes.InternalUserId"/> and
 /// <see cref="ExternalUserClaimTypes.FullName"/> so the rest of the app - including the page
-/// header - never needs to call CDC.Api again to know who the user is.
+/// header - never needs to call CDC.Api again to know who the user is. A successful sign-in also ends any internal
+/// (Entra ID) session in the browser, so every later page authenticates with CIDM.
 /// </summary>
 /// <param name="apiClient">Calls CDC.Api's external-user resolve endpoint.</param>
 /// <param name="logger">Logs resolution failures so a sign-in landing on /Landing/Error is diagnosable.</param>
-public sealed partial class ExternalUserResolver(IApiClient apiClient, ILogger<ExternalUserResolver> logger) : ICidmExternalUserResolver
+/// <param name="httpContextAccessor">Reaches the sign-in request to end the internal session; none is ended without one.</param>
+public sealed partial class ExternalUserResolver(
+    IApiClient apiClient,
+    ILogger<ExternalUserResolver> logger,
+    IHttpContextAccessor? httpContextAccessor = null) : ICidmExternalUserResolver
 {
     /// <inheritdoc />
     public async Task<CidmExternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
@@ -88,7 +95,7 @@ public sealed partial class ExternalUserResolver(IApiClient apiClient, ILogger<E
             LogExternalUserResolutionRejected(cidmSsoId, result.Outcome);
         }
 
-        return result switch
+        var resolution = result switch
         {
             { Outcome: ResolveExternalUserOutcome.Success, User: not null } => CidmExternalUserResolution.Allow(
                 new Dictionary<string, string>
@@ -100,6 +107,13 @@ public sealed partial class ExternalUserResolver(IApiClient apiClient, ILogger<E
             { Outcome: ResolveExternalUserOutcome.NotPermitted } => CidmExternalUserResolution.Deny("/Account/NotPermitted"),
             _ => CidmExternalUserResolution.Deny("/Landing/Error")
         };
+
+        if (resolution.IsAllowed)
+        {
+            await OtherSignInSession.EndAsync(httpContextAccessor, EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        }
+
+        return resolution;
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to resolve external user (SsoUserIdExt={SsoUserIdExt}) against CDC.Api")]

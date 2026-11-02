@@ -3,6 +3,7 @@ using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileReports.Interfaces;
 using CDC.Common.Contracts;
+using MediatR;
 
 namespace CDC.Api.Features.ProfileReports;
 
@@ -91,6 +92,31 @@ public sealed class ProfileReportContentService(
         logger.BuiltProfilePrioritisationScores(profileVersionId, scores.CategoryScores.Count, scores.CriterionScores.Count);
 
         return Result.Success(scores);
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<Unit>> PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    {
+        var header = await reportRepository.GetProfileVersionHeaderAsync(profileVersionId, cancellationToken);
+
+        if (header is null)
+        {
+            return Result.NotFound<Unit>("The profile version does not exist.");
+        }
+
+        // Legacy CanPrioritiseProfile is the rule for creating a report: only the current version, by a profile editor for a published
+        // one and by anyone who can read a draft for a draft.
+        if (!ProfileAccess.CanCreateReports(userContext, ProfileVersionFacts.From(header)))
+        {
+            logger.PrioritiseProfileVersionRefused(profileVersionId);
+
+            return Result.Forbidden<Unit>("You do not have permission to prioritise this profile version.");
+        }
+
+        await contentRepository.PrioritiseProfileVersionAsync(profileVersionId, cancellationToken);
+        logger.PrioritisedProfileVersion(profileVersionId);
+
+        return Result.Success(Unit.Value);
     }
 
     /// <inheritdoc />

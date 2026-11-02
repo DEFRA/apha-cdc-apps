@@ -1,8 +1,10 @@
 // SearchFilters: repopulates the search results fragment via a background GET request when a
 // [data-app-search-auto-refresh] control changes or a results page link is followed, instead of a
 // full page reload - the modern equivalent of the legacy Profiles.Web Search.aspx UpdatePanel
-// partial postback. A filter change leaves the browser URL untouched, exactly as the legacy async
-// postback left it; a page link brings it up to date, as following the link used to.
+// partial postback. A filter change leaves a clean browser URL untouched, exactly as the legacy async
+// postback left it - the server remembers the filters, as the legacy session did. A page link brings the
+// URL up to date, as following the link used to, and so does a filter change once the URL carries a
+// search: otherwise coming back from a profile would ask for filters older than the ones last chosen.
 // The letter links submit the form, so they apply the filters as they are now.
 (function () {
     'use strict';
@@ -97,14 +99,16 @@
                 window.initFiltersToggles($results);
             }
 
-            if ($pageLink) {
+            if ($pageLink || window.location.search) {
                 // The address follows the page shown, as it did when the link loaded a whole page, so a refresh, or
-                // coming back from a profile, lands on the same page of the same search.
+                // coming back from a profile, lands on the same page of the same search. An address that carries a
+                // search is brought up to date for a filter change too, or it would win over the filters the server
+                // remembers with the ones the search was last run with.
                 window.history.replaceState(window.history.state, '', url.pathname + url.search);
+            }
 
-                if (window.appPaging) {
-                    window.appPaging.settle($results, $pageLink);
-                }
+            if ($pageLink && window.appPaging) {
+                window.appPaging.settle($results, $pageLink);
             }
         } catch {
             if (token === requestToken) {
