@@ -91,6 +91,87 @@ dotnet user-secrets set "Entra:ClientId" "<client-id>"
 dotnet user-secrets set "Entra:ClientSecret" "<client-secret>"
 ```
 
+## Review-due email notifications (CDC.Api)
+
+A scheduled job emails each subscribed user one reminder listing the profile sections due for review
+(ported from the legacy `ReviewEmailService`). Email is sent through [GOV.UK Notify](https://www.notifications.service.gov.uk)
+by `NotifyEmailSender`. The job runs from the same image as the API: passing `review-notifications` as the
+first argument runs it once and exits instead of starting Kestrel. In AWS it runs as an EventBridge
+Scheduler-triggered ECS Scheduled Task. Code lives in `src/CDC.Api/Features/ReviewNotifications/`.
+
+Users are selected by the database views `vwReviewEmailUsers`, `vwReviewEmailProfiles` and
+`vwReviewEmailProfileSections`, which apply the two-week reminder window and the subscription, Draft-state
+and not-Complete filters. Each user's profile roles are then mapped to a reviewer group
+(`Policy`, `AuthorTechnical`, `VeterinaryAdvisor`) via `ReviewNotifications:ReviewerGroups`.
+
+### Configuration
+
+Bound from `CDC.Api` configuration. Set secrets with `dotnet user-secrets` (or `Notify__ApiKey` etc. as
+environment variables); never commit them.
+
+| Config key                              | Purpose                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Notify:Enabled`                        | Must be `true`, otherwise every send throws and the job reports failure                  |
+| `Notify:ApiKey`                         | Notify API key (`{name}-{service id}-{secret}`). Use a **team-only or test key** locally |
+| `Notify:BaseUrl`                        | Defaults to `https://api.notifications.service.gov.uk`                                    |
+| `Notify:TemplateId`                     | Template with `((name))`, `((subject))` and `((body))` personalisation                   |
+| `ReviewNotifications:ReviewerGroups`    | Profile role names per reviewer group; a group with none configured is not emailed       |
+| `ReviewNotifications:InternalHomePageUrl` / `ExternalHomePageUrl` | Links in the email; omitted when empty                      |
+| `ReviewNotifications:SupportMailbox`    | Contact address shown in the email                                                       |
+| `ReviewNotifications:TestRecipient`     | Testing only. When set, every reminder goes to this address instead of the user's own    |
+
+The job also needs the `Database:*` settings described in `StartupChecks` (host, name, and user/password
+or `Database:IntegratedSecurity` for LocalDB) and `HealthCheck:ReadinessKey`, as for the API itself.
+
+> The `Notification` section in `src/CDC.Api/appsettings.json` does not match the `Notify` section the
+> code binds to, so the keys in that file are currently ignored. Use the `Notify:*` keys above.
+
+### Testing it locally
+
+1. Create a Notify service (or ask the team for one), add a **team and guest list** or **test** API key, and
+   create the email template(s) with the placeholders above.
+2. Set the config:
+
+   ```powershell
+   cd src/CDC.Api
+   dotnet user-secrets set "Notify:Enabled" "true"
+   dotnet user-secrets set "Notify:ApiKey" "<team-only-or-test-key>"
+   dotnet user-secrets set "Notify:TemplateId" "<template-id>"
+   dotnet user-secrets set "ReviewNotifications:TestRecipient" "<your-email-address>"
+   ```
+
+   With `TestRecipient` set, every reminder is sent to that address instead of the user's own (the job logs a
+   warning when it is active), so real users are never emailed. Leave it unset in deployed environments. A
+   team-only Notify key additionally restricts delivery to addresses on your Notify team/guest list, so add
+   your address there too.
+3. Make sure the target database has a user who is subscribed to reminders and has a Draft profile section
+   with a review date inside the two-week window, and a profile role listed under the matching
+   `ReviewerGroups` entry.
+4. Run the job once from the repo root:
+
+   ```powershell
+   dotnet run --project src/CDC.Api/CDC.Api.csproj -- review-notifications
+   ```
+
+5. Check the output. The log shows `ReminderSent` per user and a final `JobCompleted` with sent/failed
+   counts. The process exit code is `0` when every due reminder was sent and `1` if any failed (also when a
+   reviewer group is not configured). `echo $LASTEXITCODE` shows it in PowerShell. Check the recipient's
+   inbox and the Notify dashboard for delivery status.
+
+If no review is due the job logs that and sends nothing. Failure causes: a malformed `Notify:ApiKey`,
+`Notify:Enabled` left `false`, or Notify rejecting the template or recipient (the log includes Notify's error
+message but never the recipient address).
+
+### Automated tests
+
+These need no Notify key or database. Run from the repo root. The coverage gate (90% line) applies to the
+whole suite, so a filtered run needs it switched off with `/p:Threshold=0` or it fails despite every test
+passing:
+
+```powershell
+dotnet test tests/CDC.Api.Tests --filter "FullyQualifiedName~ReviewNotifications" /p:Threshold=0
+```
+
 ## Session timeout (CDC.Web)
 
 A signed-in session - an internal (Entra ID) or an external (CIDM) user's alike - ends after a period with no activity, as

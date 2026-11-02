@@ -1,6 +1,7 @@
 using CDC.Api.Application;
 using CDC.Api.Features.Health;
 using CDC.Api.Features.ReviewNotifications;
+using CDC.Api.Features.ReviewNotifications.Interfaces;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Swagger;
 using CDC.Api.Middleware;
@@ -41,10 +42,13 @@ builder.Services.AddSwaggerDocumentation();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
-// Scaffold for the review-due notification scheduled job (see ReviewNotificationsJob) -
-// registered here rather than in AddApplication/AddInfrastructure since it has no feature
-// service/repository pair yet, just a single job-mode entry point.
+// Review-due notification scheduled job (see ReviewNotificationsJob): a job-mode entry point
+// with no controller, so it is registered here rather than in AddApplication.
 builder.Services.AddScoped<ReviewNotificationsJob>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<ReviewNotificationsOptions>(builder.Configuration.GetSection(ReviewNotificationsOptions.SectionName));
+builder.Services.Configure<NotifyOptions>(builder.Configuration.GetSection(NotifyOptions.SectionName));
+builder.Services.AddHttpClient<IEmailSender, NotifyEmailSender>();
 
 var app = builder.Build();
 
@@ -54,9 +58,20 @@ var app = builder.Build();
 if (args.Length > 0 && args[0] == "review-notifications")
 {
     using var jobScope = app.Services.CreateScope();
-    var job = jobScope.ServiceProvider.GetRequiredService<ReviewNotificationsJob>();
-    var succeeded = await job.RunAsync(CancellationToken.None);
-    Environment.ExitCode = succeeded ? 0 : 1;
+    try
+    {
+        var job = jobScope.ServiceProvider.GetRequiredService<ReviewNotificationsJob>();
+        var succeeded = await job.RunAsync(CancellationToken.None);
+        Environment.ExitCode = succeeded ? 0 : 1;
+    }
+    catch (Exception ex)
+    {
+        // A non-zero exit marks the ECS task as failed so the CloudWatch alarm fires.
+        app.Logger.JobTerminated(ex);
+        Environment.ExitCode = 1;
+    }
+
+    await Log.CloseAndFlushAsync();
     return;
 }
 
