@@ -33,7 +33,10 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
             return await LinkOrDenyAsync(byEmail, command.SsoUserIdExt, cancellationToken);
         }
 
-        return Result.Success(await CreateAsync(command, cancellationToken));
+        // Self-registration is blocked: a profile editor must pre-register the user first.
+        logger.ExternalUserNotPreRegistered(command.SsoUserIdExt);
+        return Result.Forbidden<ExternalUser>(
+            $"The email address '{command.Email}' has not been pre-registered for external access.");
     }
 
     private async Task<Result<ExternalUser>> LinkOrDenyAsync(
@@ -55,30 +58,6 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
         await userRepository.UpdateSsoUserIdExtAsync(existingUser.Id, ssoUserIdExt, cancellationToken);
 
         return Result.Success(existingUser with { SsoUserIdExt = ssoUserIdExt });
-    }
-
-    private async Task<ExternalUser> CreateAsync(ResolveExternalUserCommand command, CancellationToken cancellationToken)
-    {
-        // UserName is set to the email address for new records, per the agreed convention; every
-        // other column is only ever populated from CIDM claims here, at creation time - later
-        // sign-ins never overwrite them again.
-        var newUser = new ExternalUser
-        {
-            Id = Guid.NewGuid(),
-            UserName = command.Email,
-            FullName = $"{command.FirstName} {command.LastName}".Trim(),
-            Organisation = command.Organisation,
-            EmailAddress = command.Email,
-            SsoUserIdExt = command.SsoUserIdExt,
-            SsoUserId = null,
-            IsProfileEditor = false,
-            IsPolicyProfileUser = false
-        };
-
-        var created = await userRepository.CreateExternalUserAsync(newUser, cancellationToken);
-        logger.CreatedNewExternalUser(created.Id);
-
-        return created;
     }
 
     /// <inheritdoc />

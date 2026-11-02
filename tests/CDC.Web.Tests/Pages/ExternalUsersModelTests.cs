@@ -45,6 +45,16 @@ public class ExternalUsersModelTests
 
         public Guid? DeletedProfileId { get; private set; }
 
+        public ExternalUserAccessResult PreRegisterResult { get; init; } = new(true, null);
+
+        public PreRegisterExternalUserContract? PreRegistered { get; private set; }
+
+        public Task<ExternalUserAccessResult> PreRegisterExternalUserAsync(PreRegisterExternalUserContract request, CancellationToken cancellationToken = default)
+        {
+            PreRegistered = request;
+            return Task.FromResult(PreRegisterResult);
+        }
+
         public Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult(new PagedResult<MaintainedExternalUserDto>
             {

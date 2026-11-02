@@ -13,6 +13,12 @@ public interface IExternalUsersApiService
     /// <returns>The requested page of external users.</returns>
     Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>POST /api/external-users</c>.</summary>
+    /// <param name="request">The user's details.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Whether the user was pre-registered, with a message when not.</returns>
+    Task<ExternalUserAccessResult> PreRegisterExternalUserAsync(PreRegisterExternalUserContract request, CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>PUT /api/external-users/{id}/review-email-subscription</c>.</summary>
     /// <param name="id">The user being changed.</param>
     /// <param name="subscribed">Whether the user should receive review notification emails.</param>

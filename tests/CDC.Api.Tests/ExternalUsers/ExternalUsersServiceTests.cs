@@ -67,6 +67,45 @@ public class ExternalUsersServiceTests
     }
 
     [Fact]
+    public async Task PreRegisterExternalUserAsync_CreatesUserWithEmailAsUserName()
+    {
+        repository
+            .Setup(repo => repo.PreRegisterExternalUserAsync(
+                It.IsAny<Guid>(), "jane@example.test", "Jane Doe", "Org", "jane@example.test", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await CreateService().PreRegisterExternalUserAsync(
+            new PreRegisterExternalUserCommand(" Jane Doe ", " jane@example.test ", " Org "), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_ReturnsConflict_WhenEmailAlreadyExists()
+    {
+        repository
+            .Setup(repo => repo.PreRegisterExternalUserAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await CreateService().PreRegisterExternalUserAsync(
+            new PreRegisterExternalUserCommand("Jane Doe", "jane@example.test", "Org"), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+    }
+
+    [Theory]
+    [InlineData("", "jane@example.test", "Org")]
+    [InlineData("Jane", "not-an-email", "Org")]
+    [InlineData("Jane", "jane@example.test", "")]
+    public void PreRegisterExternalUserCommandValidator_RejectsInvalidDetails(string fullName, string email, string organisation)
+    {
+        var result = new PreRegisterExternalUserCommandValidator().Validate(new PreRegisterExternalUserCommand(fullName, email, organisation));
+
+        result.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task SetReviewEmailSubscriptionAsync_ReturnsNotFound_WhenUserDoesNotExist()
     {
         repository

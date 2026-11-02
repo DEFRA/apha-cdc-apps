@@ -37,6 +37,24 @@ public sealed class ExternalUsersApiService(HttpClient httpClient) : IExternalUs
     }
 
     /// <inheritdoc />
+    public async Task<ExternalUserAccessResult> PreRegisterExternalUserAsync(PreRegisterExternalUserContract request, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync(BaseRoute, request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new ExternalUserAccessResult(true, null);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new ExternalUserAccessResult(false, "A user with this email address already exists."),
+            HttpStatusCode.BadRequest => new ExternalUserAccessResult(false, await ReadProblemDetailAsync(response, cancellationToken)),
+            _ => new ExternalUserAccessResult(false, "We could not register this user. Try again later.")
+        };
+    }
+
+    /// <inheritdoc />
     public async Task<bool> SetReviewEmailSubscriptionAsync(Guid id, bool subscribed, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PutAsJsonAsync(

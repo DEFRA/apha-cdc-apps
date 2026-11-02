@@ -39,6 +39,25 @@ public sealed class ExternalUsersController(ISender mediator) : ControllerBase
         return result.ToActionResult(this);
     }
 
+    /// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>
+    /// <param name="request">The user's details.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The user was pre-registered.</response>
+    /// <response code="400">The details are invalid.</response>
+    /// <response code="409">A user with the email address already exists.</response>
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> PreRegisterExternalUser(
+        [FromBody] PreRegisterExternalUserContract request, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(
+            new PreRegisterExternalUserCommand(request.FullName, request.EmailAddress, request.Organisation), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
     /// <summary>Subscribes or unsubscribes an external user from review notification emails.</summary>
     /// <param name="id">The user being changed.</param>
     /// <param name="request">The subscription to apply.</param>

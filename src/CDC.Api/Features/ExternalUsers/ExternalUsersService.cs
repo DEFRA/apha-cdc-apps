@@ -62,6 +62,28 @@ public sealed class ExternalUsersService(
     }
 
     /// <inheritdoc />
+    public async Task<Result<Unit>> PreRegisterExternalUserAsync(PreRegisterExternalUserCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var emailAddress = command.EmailAddress.Trim();
+        var id = Guid.NewGuid();
+
+        // UserName is the email address, per the convention used for CIDM-provisioned users.
+        var created = await repository.PreRegisterExternalUserAsync(
+            id, emailAddress, command.FullName.Trim(), command.Organisation.Trim(), emailAddress, cancellationToken);
+
+        if (!created)
+        {
+            return Result.Conflict<Unit>($"A user with the email address '{emailAddress}' already exists.");
+        }
+
+        logger.ExternalUserPreRegistered(id);
+
+        return Result.Success(Unit.Value);
+    }
+
+    /// <inheritdoc />
     public async Task<Result<ExternalUserProfileAccessContract>> GetProfileAccessAsync(Guid userId, CancellationToken cancellationToken)
     {
         if (!await IsExternalUserAsync(userId, cancellationToken))

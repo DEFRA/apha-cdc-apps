@@ -108,7 +108,7 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task ResolveExternalUserAsync_CreatesNewUser_WhenNoExistingRowMatches()
+    public async Task ResolveExternalUserAsync_ReturnsForbidden_WhenNoExistingRowMatches()
     {
         repository
             .Setup(repo => repo.GetBySsoUserIdExtAsync(SsoUserIdExt, It.IsAny<CancellationToken>()))
@@ -117,25 +117,10 @@ public class UserServiceTests
             .Setup(repo => repo.GetByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync((ExternalUser?)null);
 
-        ExternalUser? created = null;
-        repository
-            .Setup(repo => repo.CreateExternalUserAsync(It.IsAny<ExternalUser>(), It.IsAny<CancellationToken>()))
-            .Callback<ExternalUser, CancellationToken>((user, _) => created = user)
-            .ReturnsAsync((ExternalUser user, CancellationToken _) => user);
-
         var result = await CreateService().ResolveExternalUserAsync(Command(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        created.Should().NotBeNull();
-        created!.UserName.Should().Be("user@example.com");
-        created.EmailAddress.Should().Be("user@example.com");
-        created.FullName.Should().Be("Jane External");
-        created.Organisation.Should().Be("ACME Ltd");
-        created.SsoUserIdExt.Should().Be(SsoUserIdExt);
-        created.SsoUserId.Should().BeNull();
-        created.Id.Should().NotBe(Guid.Empty);
-
-        result.Value.Should().BeSameAs(created);
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.CreateExternalUserAsync(It.IsAny<ExternalUser>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
