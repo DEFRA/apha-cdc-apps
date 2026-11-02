@@ -12,6 +12,9 @@ public sealed class ReviewNotificationsOptions
     /// <summary>Internet-facing home page URL linked from the email; the link is omitted when empty.</summary>
     public string ExternalHomePageUrl { get; set; } = string.Empty;
 
+    /// <summary>When set, every reminder is sent to this address instead of the user's own. For testing only.</summary>
+    public string TestRecipient { get; set; } = string.Empty;
+
     /// <summary>Mailbox users are told to contact for access problems.</summary>
     public string SupportMailbox { get; set; } = "D2R2@defra.gov.uk";
 

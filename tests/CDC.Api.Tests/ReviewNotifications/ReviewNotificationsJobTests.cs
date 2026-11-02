@@ -58,6 +58,19 @@ public class ReviewNotificationsJobTests
     }
 
     [Fact]
+    public async Task RunAsync_SendsToTestRecipient_WhenConfigured()
+    {
+        options.TestRecipient = "tester@example.test";
+        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
+
+        await CreateJob().RunAsync(CancellationToken.None);
+
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "tester@example.test" && m.ToName == "Ann"), It.IsAny<CancellationToken>()), Times.Once);
+        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "ann@example.test"), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task RunAsync_SendsOnlyReviewTypesOfTheUsersGroup()
     {
         repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))

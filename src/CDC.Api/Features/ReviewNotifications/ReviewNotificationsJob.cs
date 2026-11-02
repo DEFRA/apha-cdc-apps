@@ -41,7 +41,13 @@ public sealed class ReviewNotificationsJob(
         }
 
         var today = timeProvider.GetLocalNow().DateTime;
+        var testRecipient = options.Value.TestRecipient;
         var failed = 0;
+
+        if (!string.IsNullOrWhiteSpace(testRecipient))
+        {
+            logger.TestRecipientActive();
+        }
         var sent = 0;
 
         foreach (var group in ReviewerGroups.Unconfigured(options.Value))
@@ -62,6 +68,12 @@ public sealed class ReviewNotificationsJob(
             try
             {
                 var message = ReviewEmailComposer.Compose(user, today, options.Value);
+
+                if (!string.IsNullOrWhiteSpace(testRecipient))
+                {
+                    message = message with { ToAddress = testRecipient };
+                }
+
                 await emailSender.SendAsync(message, cancellationToken);
                 logger.ReminderSent(user.Id);
                 sent++;
