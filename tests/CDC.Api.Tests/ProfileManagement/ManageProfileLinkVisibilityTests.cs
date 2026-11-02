@@ -111,7 +111,10 @@ public sealed class ManageProfileLinkVisibilityTests
     [Fact]
     public async Task CanEditProperties_IsFalse_WhenUserIsUserManagementSystem()
     {
-        SetUpProfile(CurrentSituationProfile(draftVersionId: ProfileManagementTestData.ProfileVersionId));
+        // A what-if scenario is editable with no draft, so only the user management system account stops the link here; a draft
+        // would not do, as a draft-only profile is refused to that account outright.
+        SetUpProfile(WhatIfScenarioProfile());
+        SetUpParentProfile(null);
 
         var visibility = await GetVisibilityAsync(TestUserContext.UserManagementSystem);
 
@@ -371,6 +374,8 @@ public sealed class ManageProfileLinkVisibilityTests
         public bool IsPolicyProfileUser { get; } = isPolicyProfileUser;
 
         public UserKind Kind => IsProfileEditor || IsPolicyProfileUser ? UserKind.Internal : UserKind.Unclassified;
+
+        public bool HoldsAnyProfileRole => false;
 
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
 

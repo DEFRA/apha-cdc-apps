@@ -582,6 +582,74 @@ public class ProfileReportContentServiceTests
         contentRepository.Verify(repo => repo.GetPrioritisationScoresAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task PrioritiseProfileVersionAsync_ReturnsNotFound_WhenTheVersionDoesNotExist()
+    {
+        reportRepository
+            .Setup(repo => repo.GetProfileVersionHeaderAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionHeader?)null);
+
+        var result = await CreateService().PrioritiseProfileVersionAsync(VersionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+        contentRepository.Verify(repo => repo.PrioritiseProfileVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, true, false)]
+    public async Task PrioritiseProfileVersionAsync_Recalculates_ForWhoeverMayCreateTheVersionsReports(
+        bool isEditor,
+        bool isPolicyUser,
+        bool holdsRole,
+        bool isPublished)
+    {
+        GivenUser(isEditor, isPolicyUser, holdsRole);
+        GivenHeader(isPublished);
+
+        var result = await CreateService().PrioritiseProfileVersionAsync(VersionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        contentRepository.Verify(repo => repo.PrioritiseProfileVersionAsync(VersionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(false, false, false, false, false)]
+    [InlineData(false, false, false, true, false)]
+    [InlineData(false, false, true, true, false)]
+    [InlineData(false, true, false, true, false)]
+    [InlineData(true, false, false, false, true)]
+    public async Task PrioritiseProfileVersionAsync_ReturnsForbidden_WhenTheUserMayNotCreateTheVersionsReports(
+        bool isEditor,
+        bool isPolicyUser,
+        bool holdsRole,
+        bool isPublished,
+        bool isSuperseded)
+    {
+        GivenUser(isEditor, isPolicyUser, holdsRole);
+        GivenHeader(isPublished, isSuperseded ? new DateTime(2026, 10, 1) : null);
+
+        var result = await CreateService().PrioritiseProfileVersionAsync(VersionId, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        contentRepository.Verify(repo => repo.PrioritiseProfileVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private void GivenUser(bool isEditor, bool isPolicyUser, bool holdsRole)
+    {
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(isEditor);
+        userContext.SetupGet(context => context.IsPolicyProfileUser).Returns(isPolicyUser);
+
+        if (holdsRole)
+        {
+            userContext
+                .Setup(context => context.GetProfileRole(ProfileReportTestData.ProfileId))
+                .Returns(new ProfileRoleAssignment(ProfileReportTestData.ProfileId, Guid.NewGuid(), "Policy author", true));
+        }
+    }
+
     private void GivenHeader(bool isPublished = false, DateTime? effectiveDateTo = null, string statusName = "Validation complete") =>
         reportRepository
             .Setup(repo => repo.GetProfileVersionHeaderAsync(VersionId, It.IsAny<CancellationToken>()))

@@ -4,6 +4,8 @@ using CDC.Auth.Entra.Claims;
 using CDC.Auth.Entra.Events;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace CDC.Web.Features.Account;
@@ -13,11 +15,16 @@ namespace CDC.Web.Features.Account;
 /// once per sign-in (called from <c>EntraOpenIdConnectEvents.TokenValidated</c>, before the local
 /// cookie is written). Adds <see cref="ExternalUserClaimTypes.InternalUserId"/> and
 /// <see cref="ExternalUserClaimTypes.FullName"/> so the rest of the app - including the page
-/// header - never needs to call CDC.Api again to know who the user is.
+/// header - never needs to call CDC.Api again to know who the user is. A successful sign-in also ends any external
+/// (CIDM) session in the browser, so every later page authenticates with Entra ID.
 /// </summary>
 /// <param name="apiClient">Calls CDC.Api's internal-user resolve endpoint.</param>
 /// <param name="logger">Logs resolution failures so a sign-in landing on /Landing/Error is diagnosable.</param>
-public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<InternalUserResolver> logger) : IEntraInternalUserResolver
+/// <param name="httpContextAccessor">Reaches the sign-in request to end the external session; none is ended without one.</param>
+public sealed partial class InternalUserResolver(
+    IApiClient apiClient,
+    ILogger<InternalUserResolver> logger,
+    IHttpContextAccessor? httpContextAccessor = null) : IEntraInternalUserResolver
 {
     /// <inheritdoc />
     public async Task<EntraInternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
@@ -93,7 +100,7 @@ public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<I
             LogInternalUserResolutionRejected(entraSsoId, result.Outcome);
         }
 
-        return result switch
+        var resolution = result switch
         {
             { Outcome: ResolveInternalUserOutcome.Success, User: not null } => EntraInternalUserResolution.Allow(
                 new Dictionary<string, string>
@@ -108,6 +115,13 @@ public sealed partial class InternalUserResolver(IApiClient apiClient, ILogger<I
             { Outcome: ResolveInternalUserOutcome.NotPermitted } => EntraInternalUserResolution.Deny("/Account/NotPermitted"),
             _ => EntraInternalUserResolution.Deny("/Landing/Error")
         };
+
+        if (resolution.IsAllowed)
+        {
+            await OtherSignInSession.EndAsync(httpContextAccessor, CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+
+        return resolution;
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Entra sign-in received for object id (oid) SsoUserIdInt={SsoUserIdInt}")]

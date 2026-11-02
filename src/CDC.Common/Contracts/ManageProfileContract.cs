@@ -134,7 +134,7 @@ public abstract record ManageProfileContract
 
     /// <summary>
     /// Gets a value indicating whether the user can edit at least one section of the current version: the version must be a
-    /// current (no effective-to date) Draft, and the user must be a profile editor or an author assigned to a section. Which
+    /// current (no effective-to date) Draft, and the user must be a profile editor or a contributor assigned to a section. Which
     /// sections they can edit is <see cref="CanEditAllSections"/> and <see cref="EditableSectionIds"/>.
     /// </summary>
     public bool CanEditProfileSection { get; init; }
@@ -146,18 +146,18 @@ public abstract record ManageProfileContract
     public bool CanEditAllSections { get; init; }
 
     /// <summary>
-    /// Gets the sections of the current draft that an external author is assigned to, and so may edit. Empty for a profile
+    /// Gets the sections of the current draft that a contributor is assigned to, and so may edit. Empty for a profile
     /// editor, who may edit every section (<see cref="CanEditAllSections"/>), and for anyone who may edit none.
     /// </summary>
     public IReadOnlyList<Guid> EditableSectionIds { get; init; } = [];
 
-    /// <summary>Gets a value indicating whether the user can edit the author review's frequency, next date and status.</summary>
+    /// <summary>Gets a value indicating whether the user can edit the author review's frequency, next date and status: a profile editor, on the current draft.</summary>
     public bool CanEditAuthorReviewDates { get; init; }
 
-    /// <summary>Gets a value indicating whether the user can edit the VA review's frequency, next date and status.</summary>
+    /// <summary>Gets a value indicating whether the user can edit the VA review's frequency, next date and status: a profile editor, on the current draft.</summary>
     public bool CanEditVaReviewDates { get; init; }
 
-    /// <summary>Gets a value indicating whether the user can edit the policy review's frequency, next date and status.</summary>
+    /// <summary>Gets a value indicating whether the user can edit the policy review's frequency, next date and status: a profile editor, on the current draft.</summary>
     public bool CanEditPolicyReviewDates { get; init; }
 
     /// <summary>
@@ -168,14 +168,15 @@ public abstract record ManageProfileContract
     public bool CanClearProfileSection { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the user can add, edit and delete review comments: a profile editor, on the current
-    /// draft. Anyone who can read the comments (<see cref="CanViewReviewComments"/>) reads them.
+    /// Gets a value indicating whether the user can add review comments, reply to them, and edit or delete their own: a profile
+    /// editor, or a contributor or reviewer of the profile, on the current draft. Anyone who can read the comments
+    /// (<see cref="CanViewReviewComments"/>) reads them.
     /// </summary>
     public bool CanAddReviewComments { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether the user can read the profile's notes (its "Profile references"): a profile editor, a
-    /// policy profile user, or an external user who holds a role on the profile.
+    /// policy profile user, or a user who holds a role on the profile.
     /// </summary>
     public bool CanViewNotes { get; init; }
 

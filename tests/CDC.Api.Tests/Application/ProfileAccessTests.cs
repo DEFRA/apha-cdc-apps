@@ -7,7 +7,8 @@ namespace CDC.Api.Tests.Application;
 
 /// <summary>
 /// Locks the role matrix: the profile editor (admin) and policy profile user are internal, global users; the technical,
-/// policy and VA authors and reviewers are external users whose permissions are defined at profile level.
+/// policy and VA authors and reviewers hold roles on individual profiles, as external users or as internal users with no
+/// global role.
 /// </summary>
 public class ProfileAccessTests
 {
@@ -20,6 +21,8 @@ public class ProfileAccessTests
     private const string VaAuthor = "VA author";
     private const string VaReviewer = "VA reviewer";
     private const string InternalWithNoRole = "Internal user with no role";
+    private const string InternalAuthor = "Internal user who is a technical author";
+    private const string InternalReviewer = "Internal user who is a technical reviewer";
     private const string ExternalOnAnotherProfile = "External user on another profile";
 
     private static readonly Guid ProfileId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
@@ -35,7 +38,7 @@ public class ProfileAccessTests
     public static TheoryData<string> EveryRole =>
     [
         Editor, PolicyUser, TechnicalAuthor, TechnicalReviewer, PolicyAuthor, PolicyReviewer, VaAuthor, VaReviewer,
-        InternalWithNoRole, ExternalOnAnotherProfile
+        InternalAuthor, InternalReviewer, InternalWithNoRole, ExternalOnAnotherProfile
     ];
 
     [Theory]
@@ -47,9 +50,11 @@ public class ProfileAccessTests
     [InlineData(PolicyReviewer, true)]
     [InlineData(VaAuthor, true)]
     [InlineData(VaReviewer, true)]
+    [InlineData(InternalAuthor, true)]
+    [InlineData(InternalReviewer, true)]
     [InlineData(InternalWithNoRole, false)]
     [InlineData(ExternalOnAnotherProfile, false)]
-    public void CanViewDraft_IsGrantedToGlobalUsersAndToExternalUsersWhoHoldARoleOnTheProfile(string role, bool expected)
+    public void CanViewDraft_IsGrantedToGlobalUsersAndToUsersWhoHoldARoleOnTheProfile(string role, bool expected)
     {
         ProfileAccess.CanViewDraft(User(role), ProfileId).Should().Be(expected);
         ProfileAccess.CanView(User(role), CurrentDraft).Should().Be(expected);
@@ -69,6 +74,7 @@ public class ProfileAccessTests
     [InlineData(PolicyUser, true)]
     [InlineData(TechnicalAuthor, false)]
     [InlineData(VaReviewer, false)]
+    [InlineData(InternalAuthor, false)]
     [InlineData(InternalWithNoRole, false)]
     public void IsGlobalUser_IsTrueOnlyForAnInternalProfileEditorOrPolicyProfileUser(string role, bool expected) =>
         ProfileAccess.IsGlobalUser(User(role)).Should().Be(expected);
@@ -82,6 +88,8 @@ public class ProfileAccessTests
     [InlineData(PolicyReviewer, true)]
     [InlineData(VaAuthor, true)]
     [InlineData(VaReviewer, true)]
+    [InlineData(InternalAuthor, true)]
+    [InlineData(InternalReviewer, true)]
     [InlineData(InternalWithNoRole, false)]
     [InlineData(ExternalOnAnotherProfile, false)]
     public void PrintingAndRunningReportsOnADraft_FollowTheRightToViewTheDraft(string role, bool expected)
@@ -107,6 +115,9 @@ public class ProfileAccessTests
     [InlineData(TechnicalReviewer, true, false)]
     [InlineData(PolicyReviewer, true, false)]
     [InlineData(VaReviewer, true, false)]
+    [InlineData(InternalAuthor, true, true)]
+    [InlineData(InternalAuthor, false, false)]
+    [InlineData(InternalReviewer, true, false)]
     [InlineData(InternalWithNoRole, true, false)]
     [InlineData(ExternalOnAnotherProfile, true, false)]
     public void CanEditSection_IsGrantedToTheEditorAndToAnAuthorAssignedToTheSection(string role, bool isAssignedSection, bool expected)
@@ -126,35 +137,16 @@ public class ProfileAccessTests
             ProfileAccess.CanEditSection(User(role), version, SectionId).Should().BeFalse();
             ProfileAccess.CanEditAnySection(User(role), version).Should().BeFalse();
             ProfileAccess.CanClearSection(User(role), version).Should().BeFalse();
-            ProfileAccess.CanEditAnyReviewDates(User(role), version).Should().BeFalse();
+            ProfileAccess.CanEditReviewDates(User(role), version).Should().BeFalse();
             ProfileAccess.CanChangeNotes(User(role), version).Should().BeFalse();
             ProfileAccess.CanWriteReviewComments(User(role), version).Should().BeFalse();
         }
     }
 
     [Theory]
-    [InlineData(Editor, ReviewType.Author, true)]
-    [InlineData(Editor, ReviewType.Va, true)]
-    [InlineData(Editor, ReviewType.Policy, true)]
-    [InlineData(PolicyUser, ReviewType.Author, false)]
-    [InlineData(PolicyUser, ReviewType.Va, false)]
-    [InlineData(PolicyUser, ReviewType.Policy, false)]
-    [InlineData(TechnicalAuthor, ReviewType.Author, true)]
-    [InlineData(TechnicalAuthor, ReviewType.Va, false)]
-    [InlineData(TechnicalAuthor, ReviewType.Policy, false)]
-    [InlineData(PolicyAuthor, ReviewType.Author, false)]
-    [InlineData(PolicyAuthor, ReviewType.Va, false)]
-    [InlineData(PolicyAuthor, ReviewType.Policy, true)]
-    [InlineData(VaAuthor, ReviewType.Author, false)]
-    [InlineData(VaAuthor, ReviewType.Va, true)]
-    [InlineData(VaAuthor, ReviewType.Policy, false)]
-    [InlineData(TechnicalReviewer, ReviewType.Author, false)]
-    [InlineData(PolicyReviewer, ReviewType.Policy, false)]
-    [InlineData(VaReviewer, ReviewType.Va, false)]
-    [InlineData(InternalWithNoRole, ReviewType.Author, false)]
-    [InlineData(ExternalOnAnotherProfile, ReviewType.Author, false)]
-    public void CanEditReviewDates_IsGrantedToTheEditorAndToAnAuthorForTheReviewTheirRoleOwns(string role, ReviewType reviewType, bool expected) =>
-        ProfileAccess.CanEditReviewDates(User(role), CurrentDraft, reviewType).Should().Be(expected);
+    [MemberData(nameof(EveryRole))]
+    public void CanEditReviewDates_IsForTheProfileEditorOnly(string role) =>
+        ProfileAccess.CanEditReviewDates(User(role), CurrentDraft).Should().Be(role == Editor);
 
     [Theory]
     [InlineData(Editor, true)]
@@ -165,23 +157,33 @@ public class ProfileAccessTests
     [InlineData(TechnicalReviewer, false)]
     [InlineData(PolicyReviewer, false)]
     [InlineData(VaReviewer, false)]
+    [InlineData(InternalAuthor, true)]
+    [InlineData(InternalReviewer, false)]
     [InlineData(InternalWithNoRole, false)]
     [InlineData(ExternalOnAnotherProfile, false)]
-    public void CanChangeNotes_IsGrantedToTheEditorAndToAnAuthorOfTheProfile(string role, bool expected)
-    {
+    public void CanChangeNotes_IsGrantedToTheEditorAndToAnAuthorOfTheProfile(string role, bool expected) =>
         ProfileAccess.CanChangeNotes(User(role), CurrentDraft).Should().Be(expected);
-        ProfileAccess.CanEditAnyReviewDates(User(role), CurrentDraft).Should().Be(expected);
-    }
 
     [Theory]
     [MemberData(nameof(EveryRole))]
-    public void ClearingASectionAndWritingReviewComments_AreForTheProfileEditorOnly(string role)
-    {
-        var expected = role == Editor;
+    public void ClearingASection_IsForTheProfileEditorOnly(string role) =>
+        ProfileAccess.CanClearSection(User(role), CurrentDraft).Should().Be(role == Editor);
 
-        ProfileAccess.CanClearSection(User(role), CurrentDraft).Should().Be(expected);
+    [Theory]
+    [InlineData(Editor, true)]
+    [InlineData(PolicyUser, false)]
+    [InlineData(TechnicalAuthor, true)]
+    [InlineData(PolicyAuthor, true)]
+    [InlineData(VaAuthor, true)]
+    [InlineData(TechnicalReviewer, true)]
+    [InlineData(PolicyReviewer, true)]
+    [InlineData(VaReviewer, true)]
+    [InlineData(InternalAuthor, true)]
+    [InlineData(InternalReviewer, true)]
+    [InlineData(InternalWithNoRole, false)]
+    [InlineData(ExternalOnAnotherProfile, false)]
+    public void WritingReviewComments_IsForTheEditorAndForAnyContributorOrReviewerOfTheProfile(string role, bool expected) =>
         ProfileAccess.CanWriteReviewComments(User(role), CurrentDraft).Should().Be(expected);
-    }
 
     [Theory]
     [InlineData(Editor, true, true, true)]
@@ -190,6 +192,8 @@ public class ProfileAccessTests
     [InlineData(PolicyUser, false, true, true)]
     [InlineData(TechnicalAuthor, true, true, false)]
     [InlineData(TechnicalAuthor, false, true, true)]
+    [InlineData(InternalAuthor, true, true, false)]
+    [InlineData(InternalAuthor, false, true, true)]
     [InlineData(VaReviewer, true, true, false)]
     [InlineData(VaReviewer, false, true, true)]
     [InlineData(InternalWithNoRole, false, true, false)]
@@ -210,6 +214,8 @@ public class ProfileAccessTests
     [InlineData(PolicyUser, ReviewType.Policy, false)]
     [InlineData(TechnicalAuthor, ReviewType.Author, true)]
     [InlineData(TechnicalAuthor, ReviewType.Va, false)]
+    [InlineData(InternalAuthor, ReviewType.Author, true)]
+    [InlineData(InternalAuthor, ReviewType.Va, false)]
     [InlineData(TechnicalReviewer, ReviewType.Author, true)]
     [InlineData(TechnicalReviewer, ReviewType.Policy, false)]
     [InlineData(PolicyAuthor, ReviewType.Policy, true)]
@@ -220,25 +226,56 @@ public class ProfileAccessTests
     [InlineData(VaReviewer, ReviewType.Author, false)]
     [InlineData(InternalWithNoRole, ReviewType.Author, false)]
     [InlineData(ExternalOnAnotherProfile, ReviewType.Author, false)]
-    public void ReceivesReviewEmails_IsForTheEditorAndForExternalUsersWithARoleOnTheProfileOwningThatReview(
+    public void ReceivesReviewEmails_IsForTheEditorAndForUsersWithARoleOnTheProfileOwningThatReview(
         string role,
         ReviewType reviewType,
         bool expected) =>
         ProfileAccess.ReceivesReviewEmails(User(role), ProfileId, reviewType).Should().Be(expected);
 
+    [Theory]
+    [MemberData(nameof(EveryRole))]
+    public void CanViewCustomWords_IsGrantedToEveryKnownUser(string role)
+    {
+        ProfileAccess.CanViewCustomWords(User(role)).Should().BeTrue();
+        ProfileAccess.CanViewCustomWords(new RequestUserContext()).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(Editor, true)]
+    [InlineData(PolicyUser, false)]
+    [InlineData(TechnicalAuthor, true)]
+    [InlineData(TechnicalReviewer, true)]
+    [InlineData(PolicyAuthor, true)]
+    [InlineData(PolicyReviewer, true)]
+    [InlineData(VaAuthor, true)]
+    [InlineData(VaReviewer, true)]
+    [InlineData(InternalAuthor, true)]
+    [InlineData(InternalReviewer, true)]
+    [InlineData(InternalWithNoRole, false)]
+    [InlineData(ExternalOnAnotherProfile, true)]
+    public void CanEditCustomWords_IsForTheEditorAndForAContributorOrReviewerOfAnyProfile(string role, bool expected)
+    {
+        ProfileAccess.CanEditCustomWords(User(role)).Should().Be(expected);
+        ProfileAccess.CanEditCustomWords(new RequestUserContext()).Should().BeFalse();
+    }
+
     [Fact]
     public void AUserManagementSystemAccount_IsRefusedEverything_EvenWithTheEditorFlag()
     {
         var user = new Mock<IUserContext>();
+        user.SetupGet(context => context.UserId).Returns(Guid.NewGuid());
         user.SetupGet(context => context.IsProfileEditor).Returns(true);
         user.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
         user.SetupGet(context => context.IsUserManagementSystem).Returns(true);
 
+        ProfileAccess.CanViewCustomWords(user.Object).Should().BeFalse();
+        ProfileAccess.CanEditCustomWords(user.Object).Should().BeFalse();
         ProfileAccess.IsGlobalUser(user.Object).Should().BeFalse();
         ProfileAccess.CanViewDraft(user.Object, ProfileId).Should().BeFalse();
         ProfileAccess.CanEditSection(user.Object, CurrentDraft, SectionId).Should().BeFalse();
         ProfileAccess.CanEditAnySection(user.Object, CurrentDraft).Should().BeFalse();
-        ProfileAccess.CanEditReviewDates(user.Object, CurrentDraft, ReviewType.Author).Should().BeFalse();
+        ProfileAccess.CanEditReviewDates(user.Object, CurrentDraft).Should().BeFalse();
+        ProfileAccess.CanWriteReviewComments(user.Object, CurrentDraft).Should().BeFalse();
         ProfileAccess.CanChangeNotes(user.Object, CurrentDraft).Should().BeFalse();
         ProfileAccess.CanCreateReports(user.Object, CurrentDraft).Should().BeFalse();
         ProfileAccess.ReceivesReviewEmails(user.Object, ProfileId, ReviewType.Author).Should().BeFalse();
@@ -249,7 +286,6 @@ public class ProfileAccessTests
     {
         var user = External(new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "Some other role", true));
 
-        ProfileAccess.CanEditAnyReviewDates(user, CurrentDraft).Should().BeFalse();
         ProfileAccess.ReceivesReviewEmails(user, ProfileId, ReviewType.Author).Should().BeFalse();
     }
 
@@ -261,9 +297,12 @@ public class ProfileAccessTests
             () => ProfileAccess.IsEditor(null!),
             () => ProfileAccess.IsPolicyUser(null!),
             () => ProfileAccess.IsAssigned(null!, ProfileId),
+            () => ProfileAccess.CanViewCustomWords(null!),
+            () => ProfileAccess.CanEditCustomWords(null!),
             () => ProfileAccess.CanEditSection(null!, CurrentDraft, SectionId),
             () => ProfileAccess.CanEditAnySection(null!, CurrentDraft),
-            () => ProfileAccess.CanEditReviewDates(null!, CurrentDraft, ReviewType.Author),
+            () => ProfileAccess.CanEditReviewDates(null!, CurrentDraft),
+            () => ProfileAccess.CanWriteReviewComments(null!, CurrentDraft),
             () => ProfileAccess.CanChangeNotes(null!, CurrentDraft),
             () => ProfileAccess.CanCreateReports(null!, CurrentDraft),
             () => ProfileAccess.ReceivesReviewEmails(null!, ProfileId, ReviewType.Author)
@@ -275,13 +314,15 @@ public class ProfileAccessTests
         }
     }
 
-    private static bool IsAuthorOnProfile(string role) => role is TechnicalAuthor or PolicyAuthor or VaAuthor;
+    private static bool IsAuthorOnProfile(string role) => role is TechnicalAuthor or PolicyAuthor or VaAuthor or InternalAuthor;
 
     private static RequestUserContext User(string role) => role switch
     {
         Editor => Context(Internal(isProfileEditor: true, isPolicyProfileUser: false)),
         PolicyUser => Context(Internal(isProfileEditor: false, isPolicyProfileUser: true)),
         InternalWithNoRole => Context(Internal(isProfileEditor: false, isPolicyProfileUser: false)),
+        InternalAuthor => Context(InternalWithProfileRole(new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), TechnicalAuthor, true))),
+        InternalReviewer => Context(InternalWithProfileRole(new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), TechnicalReviewer, false))),
         ExternalOnAnotherProfile => Context(ExternalUser(new ProfileRoleAssignment(OtherProfileId, Guid.NewGuid(), TechnicalAuthor, true))),
         TechnicalAuthor or PolicyAuthor or VaAuthor => Context(ExternalUser(new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), role, true))),
         TechnicalReviewer or PolicyReviewer or VaReviewer => Context(ExternalUser(new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), role, false))),
@@ -304,6 +345,13 @@ public class ProfileAccessTests
         IsProfileEditor = isProfileEditor,
         IsPolicyProfileUser = isPolicyProfileUser,
         SsoUserIdInt = Guid.NewGuid()
+    };
+
+    /// <summary>An internal user with no global role who holds the given role on the profile; an author is also assigned to <see cref="SectionId"/>.</summary>
+    private static ActingUser InternalWithProfileRole(ProfileRoleAssignment role) => Internal(isProfileEditor: false, isPolicyProfileUser: false) with
+    {
+        ProfileRoles = [role],
+        SectionAssignments = role.IsContributor ? [new ProfileSectionAssignment(role.ProfileId, SectionId)] : []
     };
 
     /// <summary>An external user holding the given role; an author is also assigned to <see cref="SectionId"/> on that profile.</summary>

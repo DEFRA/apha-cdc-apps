@@ -20,8 +20,16 @@ internal sealed class FakeProfileReportsApiService(
     ProfileQuestionGuidanceResult? guidance = null,
     Exception? throwOnGuidance = null,
     DiseaseReviewsReportResult? diseaseReviews = null,
-    Exception? throwOnDiseaseReviews = null) : IProfileReportsApiService
+    Exception? throwOnDiseaseReviews = null,
+    ProfileReportsOutcome prioritiseOutcome = ProfileReportsOutcome.Success,
+    Exception? throwOnPrioritise = null) : IProfileReportsApiService
 {
+    /// <summary>Gets the profile version passed to the prioritise call.</summary>
+    public Guid? PrioritisedVersionId { get; private set; }
+
+    /// <summary>Gets the calls made, in order: <c>Prioritise</c>, <c>Content</c> and <c>Scores</c>.</summary>
+    public List<string> Calls { get; } = [];
+
     /// <summary>Gets the dates and author passed to the disease reviews call.</summary>
     public (DateTime FromDate, DateTime ToDate, Guid AuthorId)? RequestedDiseaseReviews { get; private set; }
 
@@ -56,13 +64,26 @@ internal sealed class FakeProfileReportsApiService(
 
     public Task<ProfileReportContentResult> GetContentAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
     {
+        Calls.Add("Content");
         RequestedContentVersionId = profileVersionId;
 
         return throwOnContent is not null ? throw throwOnContent : Task.FromResult(content!);
     }
 
-    public Task<ProfilePrioritisationScoresResult> GetPrioritisationScoresAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
-        throwOnPrioritisationScores is not null ? throw throwOnPrioritisationScores : Task.FromResult(prioritisationScores!);
+    public Task<ProfilePrioritisationScoresResult> GetPrioritisationScoresAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("Scores");
+
+        return throwOnPrioritisationScores is not null ? throw throwOnPrioritisationScores : Task.FromResult(prioritisationScores!);
+    }
+
+    public Task<ProfileReportsOutcome> PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("Prioritise");
+        PrioritisedVersionId = profileVersionId;
+
+        return throwOnPrioritise is not null ? throw throwOnPrioritise : Task.FromResult(prioritiseOutcome);
+    }
 
     public Task<byte[]?> GetStoredReportAsync(Guid profileVersionId, Guid reportId, CancellationToken cancellationToken = default) =>
         throwOnStoredReport is not null ? throw throwOnStoredReport : Task.FromResult(storedReport);

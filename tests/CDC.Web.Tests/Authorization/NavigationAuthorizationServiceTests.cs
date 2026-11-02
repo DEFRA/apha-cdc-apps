@@ -31,18 +31,18 @@ public class NavigationAuthorizationServiceTests
     }
 
     [Fact]
-    public async Task PolicyProfileUser_CanSearchCompareVersionsRunReportsAndTheDiseaseRankingAndViewSpeciesData()
+    public async Task PolicyProfileUser_CanSearchRunReportsAndViewSpeciesDataButNotCompareVersionsOrTheDiseaseRanking()
     {
         var service = CreateService();
         var user = CreateUser(AuthorizationRoles.PolicyProfileUser);
 
         Assert.True(await service.CanViewProfileSearchAsync(user));
-        Assert.True(await service.CanViewProfileComparisonAsync(user));
         Assert.True(await service.CanViewReportsAsync(user));
         Assert.True(await service.CanViewSpeciesDataAsync(user));
-        Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
         Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewHelp));
 
+        Assert.False(await service.CanViewProfileComparisonAsync(user));
+        Assert.False(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
         Assert.False(await service.CanCreateProfileAsync(user));
         Assert.False(await service.CanManageSpeciesDataAsync(user));
         Assert.False(await service.CanEditUserGuidanceAsync(user));
@@ -53,7 +53,7 @@ public class NavigationAuthorizationServiceTests
     [Theory]
     [InlineData(null)]
     [InlineData("SomeCidmRole")]
-    public async Task SignedInUserWithNoGlobalRole_CanAccessOnlySearchHelpAndViewSpeciesData(string? role)
+    public async Task SignedInUserWithNoGlobalRole_CanAccessOnlySearchReportsHelpAndViewSpeciesData(string? role)
     {
         // No role models an internal user with limited access; an unnamed role models an external user whose CIDM role is not one of
         // AuthorizationRoles. An external user holds no global role: their rights are per profile, and CDC.Api applies them.
@@ -62,9 +62,9 @@ public class NavigationAuthorizationServiceTests
 
         Assert.True(await service.CanViewProfileSearchAsync(user));
         Assert.True(await service.CanViewSpeciesDataAsync(user));
+        Assert.True(await service.CanViewReportsAsync(user));
         Assert.True(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewHelp));
 
-        Assert.False(await service.CanViewReportsAsync(user));
         Assert.False(await service.CanAccessAsync(user, AuthorizationPolicies.CanViewDiseaseRankingReport));
         Assert.False(await service.CanCreateProfileAsync(user));
         Assert.False(await service.CanViewProfileComparisonAsync(user));
@@ -85,7 +85,6 @@ public class NavigationAuthorizationServiceTests
 
         Assert.False(await service.CanViewProfileComparisonAsync(user));
         Assert.False(await service.CanViewReviewTimingAsync(user));
-        Assert.False(await service.CanViewReportsAsync(user));
         Assert.False(await service.CanViewContributionsReportAsync(user));
         Assert.False(await service.CanViewBespokeReportAsync(user));
         Assert.False(await service.CanEditProfileAsync(user));

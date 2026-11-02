@@ -2,6 +2,7 @@ using CDC.Web.Models;
 using CDC.Web.Pages;
 using CDC.Web.Tests.Features.Landing;
 using CDC.Web.Tests.Pages;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -71,9 +72,18 @@ public class SurveillanceProfilesSearchModelTests
         Exception? throwOnSearchProfiles = null,
         IReadOnlyList<SpeciesDto>? species = null,
         Exception? throwOnGetAllSpecies = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ISession? session = null,
+        string? query = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
+        var httpContext = new DefaultHttpContext { Session = session ?? new FakeSession() };
+
+        if (query is not null)
+        {
+            httpContext.Request.QueryString = new QueryString(query);
+        }
+
         var pageModel = new SurveillanceProfilesSearchModel(
             new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles),
             new FakeSpeciesApiService(species, throwOnGetAllSpecies),
@@ -82,7 +92,7 @@ public class SurveillanceProfilesSearchModelTests
         {
             PageContext = new PageContext
             {
-                HttpContext = new DefaultHttpContext(),
+                HttpContext = httpContext,
                 ViewData = new ViewDataDictionary(modelMetadataProvider, new ModelStateDictionary())
             },
             MetadataProvider = modelMetadataProvider
@@ -125,6 +135,146 @@ public class SurveillanceProfilesSearchModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.True(pageModel.IsSearchPerformed);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_KeepsTheDefaultFilters_AndRemembersNothing_WhenNoFilterHasBeenChosen()
+    {
+        var session = new FakeSession();
+        var pageModel = CreatePageModel(session: session);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.True(pageModel.DisplayPublished);
+        Assert.False(pageModel.DisplayDraft);
+        Assert.False(pageModel.DisplayScenarios);
+        Assert.Equal("All", pageModel.SelectedLetter);
+        Assert.Empty(session.Keys);
+    }
+
+    // The legacy page kept the Display checkboxes and the letter in the session, so coming back from Browse profile found them as left.
+    [Fact]
+    public async Task OnGetAsync_BringsBackTheFiltersLastChosen_WhenTheAddressCarriesNone()
+    {
+        var session = new FakeSession();
+        var chosen = CreatePageModel(session: session, query: "?DisplayPublished=false&DisplayDraft=true&DisplayScenarios=true&SelectedLetter=B");
+        chosen.DisplayPublished = false;
+        chosen.DisplayDraft = true;
+        chosen.DisplayScenarios = true;
+        chosen.SelectedLetter = "B";
+        await chosen.OnGetAsync(CancellationToken.None);
+
+        var returning = CreatePageModel(session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.False(returning.DisplayPublished);
+        Assert.True(returning.DisplayDraft);
+        Assert.True(returning.DisplayScenarios);
+        Assert.Equal("B", returning.SelectedLetter);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_BringsBackTheFiltersForTheResultsToo()
+    {
+        var session = new FakeSession();
+        var chosen = CreatePageModel(session: session, query: "?SelectedLetter=B");
+        chosen.SelectedLetter = "B";
+        await chosen.OnGetAsync(CancellationToken.None);
+
+        var returning = CreatePageModel([Profile("Bovine tuberculosis"), Profile("Avian influenza")], session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal("Bovine tuberculosis", Assert.Single(returning.SearchResults).Title);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_PrefersTheFiltersInTheAddress_AndRemembersThemInPlaceOfTheEarlierOnes()
+    {
+        var session = new FakeSession();
+        var earlier = CreatePageModel(session: session, query: "?DisplayPublished=true&DisplayDraft=true&DisplayScenarios=true&SelectedLetter=B");
+        earlier.DisplayDraft = true;
+        earlier.DisplayScenarios = true;
+        earlier.SelectedLetter = "B";
+        await earlier.OnGetAsync(CancellationToken.None);
+
+        var later = CreatePageModel(session: session, query: "?DisplayPublished=true&DisplayDraft=false&DisplayScenarios=false&SelectedLetter=All");
+        await later.OnGetAsync(CancellationToken.None);
+        var returning = CreatePageModel(session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.False(later.DisplayDraft);
+        Assert.False(later.DisplayScenarios);
+        Assert.Equal("All", later.SelectedLetter);
+        Assert.True(returning.DisplayPublished);
+        Assert.False(returning.DisplayDraft);
+        Assert.False(returning.DisplayScenarios);
+        Assert.Equal("All", returning.SelectedLetter);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_FillsInOnlyTheFiltersTheAddressLeavesOut()
+    {
+        var session = new FakeSession();
+        var earlier = CreatePageModel(session: session, query: "?DisplayPublished=false&DisplayDraft=true&DisplayScenarios=true&SelectedLetter=C");
+        earlier.DisplayPublished = false;
+        earlier.DisplayDraft = true;
+        earlier.DisplayScenarios = true;
+        earlier.SelectedLetter = "C";
+        await earlier.OnGetAsync(CancellationToken.None);
+
+        var later = CreatePageModel(session: session, query: "?DisplayScenarios=false&SearchText=bovine");
+        later.SearchText = "bovine";
+        await later.OnGetAsync(CancellationToken.None);
+        var returning = CreatePageModel(session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.False(later.DisplayScenarios);
+        Assert.False(later.DisplayPublished);
+        Assert.True(later.DisplayDraft);
+        Assert.Equal("C", later.SelectedLetter);
+        Assert.False(returning.DisplayScenarios);
+        Assert.False(returning.DisplayPublished);
+        Assert.True(returning.DisplayDraft);
+        Assert.Equal("C", returning.SelectedLetter);
+    }
+
+    // As in legacy, only the Display checkboxes and the letter are kept; the keyword, sort order and page size start afresh.
+    [Fact]
+    public async Task OnGetAsync_DoesNotRemember_TheKeywordTheSortOrderOrThePageSize()
+    {
+        var session = new FakeSession();
+        var searched = CreatePageModel(session: session, query: "?SearchText=bovine&SortBy=Za&PageSize=30");
+        searched.SearchText = "bovine";
+        await searched.OnGetAsync(CancellationToken.None);
+
+        var returning = CreatePageModel(session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(session.Keys);
+        Assert.Null(returning.SearchText);
+        Assert.Equal("Az", returning.SortBy);
+        Assert.Equal("10", returning.PageSize);
+    }
+
+    // The alphabet links offer only "All" and A to Z; anything else typed into the address is not something to come back to.
+    [Theory]
+    [InlineData("B", "B")]
+    [InlineData("b", "B")]
+    [InlineData("All", "All")]
+    [InlineData("Bov", "All")]
+    [InlineData("1", "All")]
+    [InlineData("", "All")]
+    public async Task OnGetAsync_RemembersOnlyALetterTheAlphabetLinksOffer(string chosen, string expectedOnReturn)
+    {
+        var session = new FakeSession();
+        var earlier = CreatePageModel(session: session, query: $"?SelectedLetter={chosen}");
+        earlier.SelectedLetter = chosen;
+        await earlier.OnGetAsync(CancellationToken.None);
+
+        var returning = CreatePageModel(session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedOnReturn, returning.SelectedLetter);
     }
 
     [Fact]

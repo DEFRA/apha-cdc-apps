@@ -185,6 +185,34 @@ public class ProfileReportsControllerTests
     }
 
     [Fact]
+    public async Task PrioritiseProfileVersion_ReturnsNoContent_AndPrioritisesTheVersion()
+    {
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<PrioritiseProfileVersionCommand>(command => command.ProfileVersionId == ProfileReportTestData.ProfileVersionId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().PrioritiseProfileVersion(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Theory]
+    [InlineData(ResultStatus.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(ResultStatus.Forbidden, StatusCodes.Status403Forbidden)]
+    public async Task PrioritiseProfileVersion_ReturnsAProblem_WhenTheVersionCannotBePrioritised(ResultStatus status, int expectedStatusCode)
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<PrioritiseProfileVersionCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(status == ResultStatus.NotFound ? Result.NotFound<Unit>("no") : Result.Forbidden<Unit>("no"));
+
+        var response = await CreateController().PrioritiseProfileVersion(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        AssertProblem(response, expectedStatusCode);
+    }
+
+    [Fact]
     public async Task GetProfileReportContent_ReturnsOk()
     {
         var dto = new ProfileReportContentDto { ProfileVersionId = ProfileReportTestData.ProfileVersionId };

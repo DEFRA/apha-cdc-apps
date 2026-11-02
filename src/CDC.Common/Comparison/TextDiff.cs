@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
-using CDC.Web.Models;
 
-namespace CDC.Web.Infrastructure;
+namespace CDC.Common.Comparison;
 
 /// <summary>Word-level text comparison, standing in for the legacy diff-match-patch highlighting.</summary>
 public static partial class TextDiff

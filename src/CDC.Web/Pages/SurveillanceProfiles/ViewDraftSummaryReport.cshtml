@@ -1,0 +1,27 @@
+@page "{profileId:guid}/{report}"
+@model CDC.Web.Pages.SurveillanceProfiles.ViewDraftSummaryReportModel
+@{
+    ViewData["Title"] = Model.ErrorMessage is null ? Model.PageTitle : $"Error: {Model.PageTitle}";
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        @if (Model.ErrorMessage is not null)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="draft-summary-report-error-title">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title" id="draft-summary-report-error-title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@Model.ErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <h1 class="govuk-heading-l">@Model.PageTitle</h1>
+
+        <p class="govuk-body">
+            <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId">Back to the profile</a>
+        </p>
+    </div>
+</div>

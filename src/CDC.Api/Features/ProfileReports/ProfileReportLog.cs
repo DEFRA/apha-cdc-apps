@@ -47,4 +47,10 @@ internal static partial class ProfileReportLog
 
     [LoggerMessage(EventId = 6013, Level = LogLevel.Warning, Message = "The disease reviews report was refused: the user may not run it")]
     public static partial void DiseaseReviewsReportRefused(this ILogger logger);
+
+    [LoggerMessage(EventId = 6014, Level = LogLevel.Information, Message = "Recalculated the prioritisation scores for profile version {ProfileVersionId}")]
+    public static partial void PrioritisedProfileVersion(this ILogger logger, Guid profileVersionId);
+
+    [LoggerMessage(EventId = 6015, Level = LogLevel.Warning, Message = "Prioritising profile version {ProfileVersionId} was refused: the user may not prioritise it")]
+    public static partial void PrioritiseProfileVersionRefused(this ILogger logger, Guid profileVersionId);
 }

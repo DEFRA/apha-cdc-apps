@@ -50,6 +50,15 @@ public interface IProfileReportContentRepository
     /// <returns>The scores; empty lists when prioritisation has not been run for the version.</returns>
     Task<ProfilePrioritisationScoresDto> GetPrioritisationScoresAsync(Guid profileVersionId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Recalculates a profile version's prioritisation scores, as the legacy <c>PrioritiseProfileCommand</c> did, in one transaction:
+    /// <c>sppPrioritisationCalculation</c> for the version, then <c>sppPrioritisationScore</c>.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version to prioritise.</param>
+    /// <param name="cancellationToken">Cancels the database calls.</param>
+    /// <returns>A task that completes when the scores have been rebuilt.</returns>
+    Task PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken);
+
     /// <summary>Reads the user guidance of each given question via <c>spgProfileQuestion</c>.</summary>
     /// <param name="questionIds">The questions whose guidance is wanted.</param>
     /// <param name="cancellationToken">Cancels the database calls.</param>

@@ -25,7 +25,8 @@ public static class HeaderMenu
         [
             new("General reports", "/Reports/General", AuthorizationPolicies.CanViewReports),
             new("Questions and guidance reports", "/SurveillanceProfiles/EditUserGuidance", AuthorizationPolicies.CanEditUserGuidance),
-            new("Disease ranking report", "/Reports/DiseaseRanking", AuthorizationPolicies.CanViewDiseaseRankingReport),
+            // Shown to everyone, as in legacy: a profile editor gets the interactive report, anyone else the stored one.
+            new("Disease ranking report", "/Reports/DiseaseRanking", AuthorizationPolicies.CanViewReports),
         ]),
         new("Species Data",
         [

@@ -1,0 +1,41 @@
+@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Http.Extensions
+@using Microsoft.Extensions.Options
+@inject IOptions<SessionTimeoutOptions> SessionTimeoutAccessor
+@{
+    var sessionTimeout = SessionTimeoutAccessor.Value;
+    // Signing in again brings the user back to the page they were on - unless it was the answer to a form post, which cannot be asked
+    // for again with a plain request, when it brings them back to their home page instead.
+    var returnUrl = HttpMethods.IsGet(Context.Request.Method) ? Context.Request.GetEncodedPathAndQuery() : null;
+}
+@* The warning and expiry dialogs for a signed-in session, which session-timeout.js opens (they are never shown without it).
+   GOV.UK Frontend has no timeout component, so they are native dialogs styled as app-modal, like _ConfirmActionModal. *@
+<div hidden
+     data-session-timeout
+     data-status-url="@Url.Action("Status", "Session")"
+     data-extend-url="@Url.Action("Extend", "Session")"
+     data-idle-seconds="@((int)sessionTimeout.IdleTimeout.TotalSeconds)"
+     data-warning-seconds="@((int)sessionTimeout.WarningBeforeExpiry.TotalSeconds)"></div>
+
+<dialog class="app-modal" id="session-warning-dialog" role="alertdialog" aria-labelledby="session-warning-title" aria-describedby="session-warning-description">
+    <h2 class="govuk-heading-m" id="session-warning-title">Extend session?</h2>
+    <div id="session-warning-description">
+        <p class="govuk-body">Your session is about to expire.</p>
+        <p class="govuk-body">You will be signed out in <strong data-session-countdown>5 minutes</strong>.</p>
+        <p class="govuk-body">Any unsaved work will be lost.</p>
+        <p class="govuk-body">Do you want to extend your session?</p>
+    </div>
+    <p class="govuk-error-message" role="alert" data-session-extend-error hidden>
+        <span class="govuk-visually-hidden">Error:</span> Your session could not be extended. Try again.
+    </p>
+    <button type="button" class="govuk-button govuk-!-margin-bottom-0" data-session-extend>Yes, extend session</button>
+</dialog>
+
+<dialog class="app-modal" id="session-expired-dialog" role="alertdialog" aria-labelledby="session-expired-title" aria-describedby="session-expired-description">
+    <h2 class="govuk-heading-m" id="session-expired-title">Session expired</h2>
+    <p class="govuk-body" id="session-expired-description">Your session has expired. Sign in again to continue.</p>
+    <form method="get" asp-controller="Session" asp-action="SignInAgain">
+        <input type="hidden" name="returnUrl" value="@returnUrl" />
+        <button type="submit" class="govuk-button govuk-!-margin-bottom-0">Sign in again</button>
+    </form>
+</dialog>
