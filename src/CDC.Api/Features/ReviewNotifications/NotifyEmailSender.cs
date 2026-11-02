@@ -11,7 +11,7 @@ namespace CDC.Api.Features.ReviewNotifications;
 
 /// <summary>
 /// Sends mail through the GOV.UK Notify <c>v2/notifications/email</c> endpoint using a template
-/// with <c>((subject))</c>, <c>((name))</c> and <c>((body))</c> personalisation, plus <c>((link_to_file))</c> for the attachment template.
+/// with <c>((subject))</c>, <c>((name))</c> and <c>((body))</c> personalisation.
 /// </summary>
 /// <param name="httpClient">Client used for the Notify call.</param>
 /// <param name="options">Notify settings.</param>
@@ -37,18 +37,10 @@ public sealed class NotifyEmailSender(HttpClient httpClient, IOptions<NotifyOpti
             ["body"] = message.Body
         };
 
-        // A file only goes out through the template that has the link_to_file placeholder.
-        var attach = message.Attachment is not null && !string.IsNullOrWhiteSpace(settings.AttachmentTemplateId);
-
-        if (attach)
-        {
-            personalisation["link_to_file"] = new { file = Convert.ToBase64String(message.Attachment!.Content), filename = message.Attachment.FileName };
-        }
-
         var payload = new
         {
             email_address = message.ToAddress,
-            template_id = attach ? settings.AttachmentTemplateId : settings.TemplateId,
+            template_id = settings.TemplateId,
             personalisation
         };
 

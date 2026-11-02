@@ -50,36 +50,6 @@ public class NotifyEmailSenderTests
     }
 
     [Fact]
-    public async Task SendAsync_AddsFileLinkAndUsesTheAttachmentTemplate_WhenAttachmentGiven()
-    {
-        var handler = new RecordingHandler();
-        var settings = Settings();
-        settings.AttachmentTemplateId = "attachment-template";
-        var message = Message with { Attachment = new EmailAttachment("c.pdf", [1, 2, 3]) };
-
-        await CreateSender(handler, settings).SendAsync(message, CancellationToken.None);
-
-        using var json = JsonDocument.Parse(handler.Body);
-        json.RootElement.GetProperty("template_id").GetString().Should().Be("attachment-template");
-        var file = json.RootElement.GetProperty("personalisation").GetProperty("link_to_file");
-        file.GetProperty("file").GetString().Should().Be(Convert.ToBase64String([1, 2, 3]));
-        file.GetProperty("filename").GetString().Should().Be("c.pdf");
-    }
-
-    [Fact]
-    public async Task SendAsync_IgnoresTheAttachment_WhenNoAttachmentTemplateIsConfigured()
-    {
-        var handler = new RecordingHandler();
-        var message = Message with { Attachment = new EmailAttachment("c.pdf", [1]) };
-
-        await CreateSender(handler, Settings()).SendAsync(message, CancellationToken.None);
-
-        using var json = JsonDocument.Parse(handler.Body);
-        json.RootElement.GetProperty("template_id").GetString().Should().Be("template-id");
-        json.RootElement.GetProperty("personalisation").TryGetProperty("link_to_file", out _).Should().BeFalse();
-    }
-
-    [Fact]
     public async Task SendAsync_Throws_WhenDisabled()
     {
         var handler = new RecordingHandler();

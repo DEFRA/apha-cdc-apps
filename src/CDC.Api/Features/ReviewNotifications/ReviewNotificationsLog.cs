@@ -32,19 +32,4 @@ internal static partial class ReviewNotificationsLog
 
     [LoggerMessage(EventId = 7007, Level = LogLevel.Critical, Message = "Review notification job terminated unexpectedly")]
     public static partial void JobTerminated(this ILogger logger, Exception exception);
-
-    [LoggerMessage(EventId = 7008, Level = LogLevel.Error, Message = "Failed to build the comparison report for user {UserId}; the reminder is sent without it")]
-    public static partial void ComparisonReportFailed(this ILogger logger, Exception exception, Guid userId);
-
-    [LoggerMessage(EventId = 7009, Level = LogLevel.Warning, Message = "The comparison report for user {UserId} is {SizeBytes} bytes, over the Notify limit; the reminder is sent without it")]
-    public static partial void ComparisonReportTooLarge(this ILogger logger, Guid userId, int sizeBytes);
-
-    [LoggerMessage(EventId = 7010, Level = LogLevel.Information, Message = "No comparison report attached: Notify:AttachmentTemplateId is not set")]
-    public static partial void AttachmentsNotConfigured(this ILogger logger);
-
-    [LoggerMessage(EventId = 7011, Level = LogLevel.Information, Message = "No comparison for draft version {ProfileVersionId}: {Reason}")]
-    public static partial void ComparisonSkipped(this ILogger logger, Guid profileVersionId, string reason);
-
-    [LoggerMessage(EventId = 7012, Level = LogLevel.Information, Message = "Attaching a comparison report of {ComparisonCount} profile(s) for user {UserId}")]
-    public static partial void ComparisonAttached(this ILogger logger, int comparisonCount, Guid userId);
 }

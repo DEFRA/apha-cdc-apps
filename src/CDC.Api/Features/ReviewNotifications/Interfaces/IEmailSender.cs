@@ -14,10 +14,4 @@ public interface IEmailSender
 /// <param name="ToName">Recipient display name.</param>
 /// <param name="Subject">Subject line.</param>
 /// <param name="Body">Body in GOV.UK Notify markdown.</param>
-/// <param name="Attachment">Optional file sent as a Notify download link; it needs <c>Notify:AttachmentTemplateId</c>.</param>
-public sealed record EmailMessage(string ToAddress, string ToName, string Subject, string Body, EmailAttachment? Attachment = null);
-
-/// <summary>A file attached to an email.</summary>
-/// <param name="FileName">Name shown to the recipient.</param>
-/// <param name="Content">File bytes.</param>
-public sealed record EmailAttachment(string FileName, byte[] Content);
+public sealed record EmailMessage(string ToAddress, string ToName, string Subject, string Body);

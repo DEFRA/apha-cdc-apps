@@ -47,17 +47,6 @@ public class ReviewNotificationsJobTests
     }
 
     [Fact]
-    public async Task RunAsync_SendsNoAttachment_BecauseTheComparisonIsALink()
-    {
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test")]);
-
-        await CreateJob().RunAsync(CancellationToken.None);
-
-        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.Attachment == null), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
     public async Task RunAsync_SendsToTestRecipient_WhenConfigured()
     {
         options.TestRecipient = "tester@example.test";

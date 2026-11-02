@@ -42,10 +42,4 @@ public sealed class NotifyOptions
 
     /// <summary>Id of the email template that takes <c>name</c>, <c>subject</c> and <c>body</c> personalisation.</summary>
     public string TemplateId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Id of the template that also has a <c>((link_to_file))</c> placeholder, used for emails with an attachment.
-    /// Leave empty to send reminders without the comparison report.
-    /// </summary>
-    public string AttachmentTemplateId { get; set; } = string.Empty;
 }
