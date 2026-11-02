@@ -311,6 +311,24 @@ public class GlobalUsersModelTests
         Assert.NotNull(model.SuccessMessage);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Save_Edit_SendsReviewEmailSubscription(bool subscribe)
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api);
+        model.UserId = Guid.NewGuid();
+        model.FullName = "Jo Smith";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+        model.SubscribedToReviewEmails = subscribe;
+
+        await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.Equal(subscribe, api.Updated!.Value.Request.SubscribedToReviewEmails);
+    }
+
     [Fact]
     public async Task Save_Edit_CallsUpdate()
     {

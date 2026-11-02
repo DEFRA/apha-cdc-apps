@@ -105,6 +105,12 @@ public sealed class ReviewNotificationsRepositoryTests : IDisposable
         result.Should().BeEmpty();
     }
 
+    [Fact]
+    public void UsersQuery_ExcludesUnsubscribedUsers()
+    {
+        ReviewNotificationsRepository.UsersQuery.Should().Contain("SubscribedToReviewEmails = 1");
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;
