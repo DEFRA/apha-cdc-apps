@@ -27,7 +27,7 @@
         <h1 class="govuk-heading-l">Maintain external users</h1>
 
         <p class="govuk-body">
-            Use this function to grant external users access to one or more profiles.
+            Use this page to add external users and choose which surveillance profiles they can access. An external user must be added here before they can sign in to D2R2. Once they have been added, select Edit to give them access to profiles.
         </p>
 
         @if (!string.IsNullOrEmpty(Model.SuccessMessage))
@@ -40,78 +40,6 @@
                     <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
                 </div>
             </div>
-        }
-
-        @if (Model.ShowPreRegisterForm)
-        {
-            var fullNameError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.FullName));
-            var emailError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.EmailAddress));
-            var organisationError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.Organisation));
-
-            <form method="post" asp-page-handler="PreRegister" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterPanelId" id="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterPanelId" class="app-contributor-edit govuk-!-margin-bottom-6" novalidate>
-                @if (Model.PreRegisterError is not null || fullNameError is not null || emailError is not null || organisationError is not null)
-                {
-                    <div class="govuk-error-summary" data-module="govuk-error-summary">
-                        <div role="alert">
-                            <h2 class="govuk-error-summary__title">There is a problem</h2>
-                            <div class="govuk-error-summary__body">
-                                <ul class="govuk-list govuk-error-summary__list">
-                                    @if (Model.PreRegisterError is not null)
-                                    {
-                                        <li><a href="#NewUser_EmailAddress">@Model.PreRegisterError</a></li>
-                                    }
-                                    @if (fullNameError is not null)
-                                    {
-                                        <li><a href="#NewUser_FullName">@fullNameError</a></li>
-                                    }
-                                    @if (emailError is not null)
-                                    {
-                                        <li><a href="#NewUser_EmailAddress">@emailError</a></li>
-                                    }
-                                    @if (organisationError is not null)
-                                    {
-                                        <li><a href="#NewUser_Organisation">@organisationError</a></li>
-                                    }
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                }
-
-                <h2 class="govuk-heading-m">Pre-register external user</h2>
-
-                <div class="govuk-form-group @(fullNameError is not null ? "govuk-form-group--error" : string.Empty)">
-                    <label class="govuk-label" for="NewUser_FullName">Full name</label>
-                    @if (fullNameError is not null)
-                    {
-                        <p id="NewUser_FullName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @fullNameError</p>
-                    }
-                    <input class="govuk-input govuk-!-width-two-thirds @(fullNameError is not null ? "govuk-input--error" : string.Empty)" id="NewUser_FullName" name="NewUser.FullName" type="text" maxlength="100" value="@Model.NewUser.FullName" aria-describedby="@(fullNameError is not null ? "NewUser_FullName-error" : null)" />
-                </div>
-
-                <div class="govuk-form-group @(emailError is not null || Model.PreRegisterError is not null ? "govuk-form-group--error" : string.Empty)">
-                    <label class="govuk-label" for="NewUser_EmailAddress">Email address</label>
-                    @if (emailError is not null)
-                    {
-                        <p id="NewUser_EmailAddress-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @emailError</p>
-                    }
-                    <input class="govuk-input govuk-!-width-two-thirds @(emailError is not null || Model.PreRegisterError is not null ? "govuk-input--error" : string.Empty)" id="NewUser_EmailAddress" name="NewUser.EmailAddress" type="email" spellcheck="false" autocomplete="off" maxlength="50" value="@Model.NewUser.EmailAddress" aria-describedby="@(emailError is not null ? "NewUser_EmailAddress-error" : null)" />
-                </div>
-
-                <div class="govuk-form-group @(organisationError is not null ? "govuk-form-group--error" : string.Empty)">
-                    <label class="govuk-label" for="NewUser_Organisation">Organisation</label>
-                    @if (organisationError is not null)
-                    {
-                        <p id="NewUser_Organisation-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @organisationError</p>
-                    }
-                    <input class="govuk-input govuk-!-width-two-thirds @(organisationError is not null ? "govuk-input--error" : string.Empty)" id="NewUser_Organisation" name="NewUser.Organisation" type="text" maxlength="100" value="@Model.NewUser.Organisation" aria-describedby="@(organisationError is not null ? "NewUser_Organisation-error" : null)" />
-                </div>
-
-                <div class="app-contributor-edit__actions">
-                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0">Save</button>
-                    <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildClosePreRegisterUrl()">Cancel</a>
-                </div>
-            </form>
         }
 
         @if (Model.HasLoadError)
@@ -186,7 +114,7 @@
 
         @if (!Model.ShowPreRegisterForm)
         {
-            <a class="govuk-button govuk-button--secondary" role="button" draggable="false" data-module="govuk-button" href="@Model.BuildPreRegisterUrl()">Add</a>
+            <a class="govuk-button" role="button" draggable="false" data-module="govuk-button" href="@Model.BuildPreRegisterUrl()">Add<span class="govuk-visually-hidden"> external user</span></a>
         }
 
         @if (Model.EditUser is not null)
@@ -376,6 +304,78 @@
                     </div>
                 </form>
             </section>
+        }
+
+        @if (Model.ShowPreRegisterForm)
+        {
+            var fullNameError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.FullName));
+            var emailError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.EmailAddress));
+            var organisationError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.Organisation));
+
+            <form method="post" asp-page-handler="PreRegister" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterPanelId" id="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterPanelId" class="app-contributor-edit govuk-!-margin-top-6 govuk-!-margin-bottom-6" novalidate>
+                @if (Model.PreRegisterError is not null || fullNameError is not null || emailError is not null || organisationError is not null)
+                {
+                    <div class="govuk-error-summary" data-module="govuk-error-summary">
+                        <div role="alert">
+                            <h2 class="govuk-error-summary__title">There is a problem</h2>
+                            <div class="govuk-error-summary__body">
+                                <ul class="govuk-list govuk-error-summary__list">
+                                    @if (Model.PreRegisterError is not null)
+                                    {
+                                        <li><a href="#NewUser_EmailAddress">@Model.PreRegisterError</a></li>
+                                    }
+                                    @if (fullNameError is not null)
+                                    {
+                                        <li><a href="#NewUser_FullName">@fullNameError</a></li>
+                                    }
+                                    @if (emailError is not null)
+                                    {
+                                        <li><a href="#NewUser_EmailAddress">@emailError</a></li>
+                                    }
+                                    @if (organisationError is not null)
+                                    {
+                                        <li><a href="#NewUser_Organisation">@organisationError</a></li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <h2 class="govuk-heading-m">Add external user</h2>
+
+                <div class="govuk-form-group @(fullNameError is not null ? "govuk-form-group--error" : string.Empty)">
+                    <label class="govuk-label" for="NewUser_FullName">Full name</label>
+                    @if (fullNameError is not null)
+                    {
+                        <p id="NewUser_FullName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @fullNameError</p>
+                    }
+                    <input class="govuk-input govuk-!-width-two-thirds @(fullNameError is not null ? "govuk-input--error" : string.Empty)" id="NewUser_FullName" name="NewUser.FullName" type="text" maxlength="100" value="@Model.NewUser.FullName" aria-describedby="@(fullNameError is not null ? "NewUser_FullName-error" : null)" />
+                </div>
+
+                <div class="govuk-form-group @(emailError is not null || Model.PreRegisterError is not null ? "govuk-form-group--error" : string.Empty)">
+                    <label class="govuk-label" for="NewUser_EmailAddress">Email address</label>
+                    @if (emailError is not null)
+                    {
+                        <p id="NewUser_EmailAddress-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @emailError</p>
+                    }
+                    <input class="govuk-input govuk-!-width-two-thirds @(emailError is not null || Model.PreRegisterError is not null ? "govuk-input--error" : string.Empty)" id="NewUser_EmailAddress" name="NewUser.EmailAddress" type="email" spellcheck="false" autocomplete="off" maxlength="50" value="@Model.NewUser.EmailAddress" aria-describedby="@(emailError is not null ? "NewUser_EmailAddress-error" : null)" />
+                </div>
+
+                <div class="govuk-form-group @(organisationError is not null ? "govuk-form-group--error" : string.Empty)">
+                    <label class="govuk-label" for="NewUser_Organisation">Organisation</label>
+                    @if (organisationError is not null)
+                    {
+                        <p id="NewUser_Organisation-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @organisationError</p>
+                    }
+                    <input class="govuk-input govuk-!-width-two-thirds @(organisationError is not null ? "govuk-input--error" : string.Empty)" id="NewUser_Organisation" name="NewUser.Organisation" type="text" maxlength="100" value="@Model.NewUser.Organisation" aria-describedby="@(organisationError is not null ? "NewUser_Organisation-error" : null)" />
+                </div>
+
+                <div class="app-contributor-edit__actions">
+                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0">Save</button>
+                    <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildClosePreRegisterUrl()">Cancel</a>
+                </div>
+            </form>
         }
     </div>
 </div>
