@@ -35,6 +35,7 @@ There is no journal table, so track what has been run here:
 | 0073-CreateSpiInternalUser.sql | Y | | | |
 | 0074-CreateSpgActingUser.sql | Y | | | |
 | 0075-CreateSpiExternalUserPreRegistration.sql | Y | | | |
+| 0076-AlterSpgUserByEmailAddressReturnSsoUserIdInt.sql | | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by
