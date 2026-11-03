@@ -16,8 +16,11 @@ internal static partial class UserLog
     [LoggerMessage(EventId = 8002, Level = LogLevel.Warning, Message = "Email claim matched user {UserId}, which is not an external user - denying CIDM sign-in")]
     public static partial void EmailMatchedNonExternalUser(this ILogger logger, Guid userId);
 
-    [LoggerMessage(EventId = 8004, Level = LogLevel.Warning, Message = "No pre-registered user matched the CIDM SSO id {SsoUserIdExt} or email claim - denying CIDM sign-in")]
+    [LoggerMessage(EventId = 8004, Level = LogLevel.Warning, Message = "CIDM sign-in denied: the account (SSO id {SsoUserIdExt}) is not authorised because no pre-registered user matches its SSO id or email address")]
     public static partial void ExternalUserNotPreRegistered(this ILogger logger, Guid ssoUserIdExt);
+
+    [LoggerMessage(EventId = 8009, Level = LogLevel.Information, Message = "Internal profile editor {UserId} matched by email on CIDM sign-in; signing in without storing a CIDM SSO id")]
+    public static partial void InternalProfileEditorSignedInThroughCidm(this ILogger logger, Guid userId);
 
     [LoggerMessage(EventId = 8003, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);

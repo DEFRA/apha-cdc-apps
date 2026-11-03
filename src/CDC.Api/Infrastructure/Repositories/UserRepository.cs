@@ -279,6 +279,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
             EmailAddress = row.EmailAddress ?? string.Empty,
             SsoUserIdExt = row.SsoUserIdExt ?? Guid.Empty,
             SsoUserId = row.SsoUserId,
+            SsoUserIdInt = row.SsoUserIdInt,
             IsProfileEditor = row.IsProfileEditor,
             IsPolicyProfileUser = row.IsPolicyProfileUser
         };
@@ -331,6 +332,7 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         public string? EmailAddress { get; init; } // NOSONAR
         public Guid? SsoUserIdExt { get; init; } // NOSONAR
         public Guid? SsoUserId { get; init; } // NOSONAR
+        public Guid? SsoUserIdInt { get; init; } // NOSONAR
         public bool IsProfileEditor { get; init; } // NOSONAR
         public bool IsPolicyProfileUser { get; init; } // NOSONAR
     }

@@ -46,9 +46,17 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
     {
         // SsoUserId is the pre-existing (legacy, pre-CIDM) signal that a row is an external user -
         // a row found only by email with no SsoUserId belongs to an internal-only account, and
-        // must not be linked to an external CIDM identity.
+        // must not be linked to an external CIDM identity. The one exception is an internal profile
+        // editor, who signs in through CIDM to manage external users' organisation accounts: they are
+        // let in without a CIDM id being stored, so the row stays an internal user.
         if (!existingUser.SsoUserId.HasValue)
         {
+            if (existingUser.SsoUserIdInt.HasValue && existingUser.IsProfileEditor)
+            {
+                logger.InternalProfileEditorSignedInThroughCidm(existingUser.Id);
+                return Result.Success(existingUser);
+            }
+
             logger.EmailMatchedNonExternalUser(existingUser.Id);
             return Result.Forbidden<ExternalUser>(
                 $"The email address '{existingUser.EmailAddress}' belongs to an existing account that is not permitted to sign in externally.");
