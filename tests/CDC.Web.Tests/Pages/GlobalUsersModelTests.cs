@@ -98,6 +98,55 @@ public class GlobalUsersModelTests
         };
     }
 
+    [Fact]
+    public void UrlBuilders_PassTheListStateToTheUrlHelper()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService());
+        var url = new StubUrlHelper();
+        model.Url = url;
+        model.PageNumber = 3;
+        model.SortColumn = GlobalUserSortColumn.FullName;
+        model.SortDirection = "Ascending";
+        var userId = Guid.NewGuid();
+
+        model.BuildPageUrl(2);
+        Assert.Equal(2, url.LastValues!["PageNumber"]);
+
+        model.BuildSortUrl(GlobalUserSortColumn.FullName);
+        Assert.Equal("Descending", url.LastValues["SortDirection"]);
+
+        model.BuildSortUrl(GlobalUserSortColumn.UserName);
+        Assert.Equal("Ascending", url.LastValues["SortDirection"]);
+
+        model.BuildEditUrl(userId);
+        Assert.Equal(userId, url.LastValues["EditUserId"]);
+
+        model.BuildCloseUrl();
+        Assert.Equal(3, url.LastValues["PageNumber"]);
+    }
+
+    private sealed class StubUrlHelper : IUrlHelper
+    {
+        public ActionContext ActionContext { get; } = new() { RouteData = new Microsoft.AspNetCore.Routing.RouteData() };
+
+        public Microsoft.AspNetCore.Routing.RouteValueDictionary? LastValues { get; private set; }
+
+        public string? Action(Microsoft.AspNetCore.Mvc.Routing.UrlActionContext actionContext) => "/url";
+
+        public string? Content(string? contentPath) => contentPath;
+
+        public bool IsLocalUrl(string? url) => true;
+
+        public string? Link(string? routeName, object? values) => "/url";
+
+        public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext)
+        {
+            LastValues = new Microsoft.AspNetCore.Routing.RouteValueDictionary(routeContext.Values);
+
+            return "/url";
+        }
+    }
+
     private sealed class FakeTempDataProvider : ITempDataProvider
     {
         public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();

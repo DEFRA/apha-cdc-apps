@@ -751,6 +751,74 @@ public class ExternalUsersModelTests
         Assert.Equal("/UserAdmin/ExternalUsers?x=1", model.BuildCloseUrl());
     }
 
+    [Fact]
+    public void ProfileUrlBuilders_PassTheProfilePagingAndSortToTheUrlHelper()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService());
+        var url = new StubUrlHelper("/UserAdmin/ExternalUsers");
+        model.Url = url;
+        model.ProfileSortDirection = "Ascending";
+
+        model.BuildProfilePageUrl(4);
+        Assert.Equal(4, url.LastValues!["ProfilePageNumber"]);
+
+        model.BuildProfileSortUrl();
+        Assert.Equal("Descending", url.LastValues["ProfileSortDirection"]);
+
+        model.ProfileSortDirection = "Descending";
+        model.BuildProfileSortUrl();
+        Assert.Equal("Ascending", url.LastValues["ProfileSortDirection"]);
+    }
+
+    [Fact]
+    public void PagedProfiles_IsEmpty_WhenNoAccessIsLoaded()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService());
+
+        Assert.Empty(model.PagedProfiles);
+        Assert.Equal(1, model.ProfileTotalPages);
+    }
+
+    [Theory]
+    [InlineData("Ascending", "ascending", "Anthrax")]
+    [InlineData("Descending", "descending", "Brucellosis")]
+    public async Task PagedProfiles_SortsByTitleInTheRequestedDirection(string direction, string ariaSort, string expectedFirst)
+    {
+        var user = User();
+        var single = AccessWithOneGrant();
+        var access = new ExternalUserProfileAccessContract
+        {
+            Profiles =
+            [
+                .. single.Profiles,
+                new ExternalUserProfileGrantContract { ProfileId = Guid.NewGuid(), Title = "Brucellosis", RoleId = ReviewerRoleId, RoleName = "Profile reviewer" }
+            ],
+            AvailableProfiles = single.AvailableProfiles
+        };
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [user], Access = access });
+        model.EditUserId = user.Id;
+        model.ProfileSortDirection = direction;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ariaSort, model.ProfileTitleAriaSort);
+        Assert.Equal(expectedFirst, model.PagedProfiles[0].Title);
+    }
+
+    [Fact]
+    public async Task PagedProfiles_ReturnsEveryProfile_WhenProfilePageSizeIsAll()
+    {
+        var user = User();
+        var model = CreatePageModel(new FakeExternalUsersApiService { Users = [user], Access = AccessWithOneGrant() });
+        model.EditUserId = user.Id;
+        model.ProfilePageSize = "All";
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Single(model.PagedProfiles);
+        Assert.Equal(1, model.ProfileTotalPages);
+    }
+
     private sealed class FakeSession : ISession
     {
         private readonly Dictionary<string, byte[]> _store = [];

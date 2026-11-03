@@ -23,6 +23,10 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
     private const string PageRoute = "/UserAdmin/ExternalUsers";
 
+    private const string Ascending = "Ascending";
+
+    private const string Descending = "Descending";
+
     private const string PendingSessionKey = "ExternalUserPendingAccess";
 
     private static readonly Action<ILogger, Exception?> LogFailedToLoadUsersMessage =
@@ -71,10 +75,10 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
     /// <summary>Gets or sets the sort direction of the list of users: "Ascending" or "Descending".</summary>
     [BindProperty(SupportsGet = true)]
-    public string SortDirection { get; set; } = "Ascending";
+    public string SortDirection { get; set; } = Ascending;
 
     /// <summary>Gets a value indicating whether the list of users is sorted in descending order.</summary>
-    public bool IsSortDescending => string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
+    public bool IsSortDescending => string.Equals(SortDirection, Descending, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Gets or sets the number of profile rows shown per page in the edit panel, or "All".</summary>
     [BindProperty(SupportsGet = true)]
@@ -86,7 +90,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
     /// <summary>Gets or sets the title sort direction of the edited user's profiles: Ascending or Descending.</summary>
     [BindProperty(SupportsGet = true)]
-    public string ProfileSortDirection { get; set; } = "Ascending";
+    public string ProfileSortDirection { get; set; } = Ascending;
 
     /// <summary>Gets or sets a value indicating whether any staged profile changes are thrown away on load.</summary>
     [BindProperty(SupportsGet = true)]
@@ -157,7 +161,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     public int TotalPages { get; private set; } = 1;
 
     /// <summary>Gets a value indicating whether profiles are sorted by title in descending order.</summary>
-    public bool IsProfileSortDescending => string.Equals(ProfileSortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
+    public bool IsProfileSortDescending => string.Equals(ProfileSortDirection, Descending, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Gets the total number of pages of the edited user's profiles.</summary>
     public int ProfileTotalPages
@@ -358,7 +362,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         PageSize,
         PageNumber = 1,
         SortColumn = column,
-        SortDirection = column == SortColumn && !IsSortDescending ? "Descending" : "Ascending"
+        SortDirection = column == SortColumn && !IsSortDescending ? Descending : Ascending
     });
 
     /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
@@ -399,7 +403,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Builds the URL that flips the profile title sort direction and returns to the first profile page.</summary>
     /// <returns>The page URL.</returns>
     public string? BuildProfileSortUrl() =>
-        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = 1, ProfileSortDirection = IsProfileSortDescending ? "Ascending" : "Descending" }, null, null, PanelId);
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = 1, ProfileSortDirection = IsProfileSortDescending ? Ascending : Descending }, null, null, PanelId);
 
     /// <summary>Builds the URL that closes the edit panel.</summary>
     /// <returns>The page URL.</returns>
