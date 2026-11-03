@@ -1,3 +1,4 @@
+using System.Data.Common;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.Users.Commands;
@@ -13,6 +14,9 @@ namespace CDC.Api.Features.Users;
 /// <param name="logger">Structured logger.</param>
 public sealed class UserService(IUserRepository userRepository, ILogger<UserService> logger) : IUserService
 {
+    // [dbo].[User].EmailAddress is varchar(50).
+    private const int EmailAddressMaxLength = 50;
+
     /// <inheritdoc />
     public async Task<Result<ExternalUser>> ResolveExternalUserAsync(
         ResolveExternalUserCommand command,
@@ -75,23 +79,54 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var user = await FindOrCreateInternalUserAsync(command, cancellationToken);
+        await RecordEmailAddressAsync(user, command.Email, cancellationToken);
+
+        return Result.Success(user);
+    }
+
+    private async Task<InternalUser> FindOrCreateInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken)
+    {
         var bySsoId = await userRepository.GetBySsoUserIdIntAsync(command.SsoUserIdInt, cancellationToken);
         if (bySsoId is not null)
         {
             logger.MatchedBySsoUserIdInt(bySsoId.Id);
-            return Result.Success(bySsoId);
+            return bySsoId;
         }
 
         var byUserName = await userRepository.GetByUserNameAsync(command.UserName, cancellationToken);
         if (byUserName is null)
         {
-            return Result.Success(await CreateInternalUserAsync(command, cancellationToken));
+            return await CreateInternalUserAsync(command, cancellationToken);
         }
 
         logger.MatchedByUserNameBackfillingSsoUserIdInt(byUserName.Id);
         await userRepository.UpdateSsoUserIdIntAsync(byUserName.Id, command.SsoUserIdInt, cancellationToken);
 
-        return Result.Success(byUserName with { SsoUserIdInt = command.SsoUserIdInt });
+        return byUserName with { SsoUserIdInt = command.SsoUserIdInt };
+    }
+
+    // CIDM sign-in finds a user by email address, and an internal row has none until it is recorded here. Only a missing
+    // address is filled in, and a failure must never stop the user signing in.
+    private async Task RecordEmailAddressAsync(InternalUser user, string? email, CancellationToken cancellationToken)
+    {
+        var emailAddress = email?.Trim();
+        if (string.IsNullOrEmpty(emailAddress) || emailAddress.Length > EmailAddressMaxLength || !string.IsNullOrWhiteSpace(user.EmailAddress))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await userRepository.UpdateEmailAddressAsync(user.Id, emailAddress, cancellationToken))
+            {
+                logger.RecordedInternalUserEmailAddress(user.Id);
+            }
+        }
+        catch (DbException exception)
+        {
+            logger.FailedToRecordInternalUserEmailAddress(exception, user.Id);
+        }
     }
 
     private async Task<InternalUser> CreateInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken)

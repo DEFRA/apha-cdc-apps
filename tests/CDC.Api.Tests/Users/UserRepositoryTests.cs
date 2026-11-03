@@ -379,6 +379,58 @@ public class UserRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetBySsoUserIdIntAsync_MapsTheEmailAddress_WhenTheRowHoldsOne()
+    {
+        connection.Script(UserStoredProcedures.GetUserAuthorisation, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet([.. InternalUserColumns, "EmailAddress"],
+                [
+                    [UserId, @"DEFRA\jdoe", "Jane Internal", false, false, SsoUserIdInt, "jane@example.test"]
+                ])
+            ]
+        });
+
+        var user = await CreateRepository().GetBySsoUserIdIntAsync(SsoUserIdInt, CancellationToken.None);
+
+        user!.EmailAddress.Should().Be("jane@example.test");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UpdateEmailAddressAsync_ExecutesWithExpectedParameters_AndReturnsWhetherItWasRecorded(bool recorded)
+    {
+        connection.Script(UserStoredProcedures.UpdateEmailAddress, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Recorded"], [[recorded]])]
+        });
+
+        var result = await CreateRepository().UpdateEmailAddressAsync(UserId, "jane@example.test", CancellationToken.None);
+
+        result.Should().Be(recorded);
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(UserStoredProcedures.UpdateEmailAddress);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters.Should().ContainKey("Id").WhoseValue.Should().Be(UserId);
+        executed.Parameters.Should().ContainKey("EmailAddress").WhoseValue.Should().Be("jane@example.test");
+    }
+
+    [Fact]
+    public async Task UpdateEmailAddressAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.UpdateEmailAddress, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().UpdateEmailAddressAsync(UserId, "jane@example.test", CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
     public async Task GetBySsoUserIdIntAsync_Throws_WhenConnectionFactoryDoesNotReturnADbConnection()
     {
         var repository = new UserRepository(new NonDbConnectionFactory(), logger.Object);

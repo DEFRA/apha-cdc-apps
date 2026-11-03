@@ -176,6 +176,26 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     }
 
     /// <inheritdoc />
+    public async Task<bool> UpdateEmailAddressAsync(Guid id, string emailAddress, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            return await connection.QuerySingleAsync<bool>(new CommandDefinition(
+                UserStoredProcedures.UpdateEmailAddress,
+                new { Id = id, EmailAddress = emailAddress },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.UpdateEmailAddress);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<InternalUser> CreateInternalUserAsync(InternalUser newUser, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(newUser);
@@ -296,7 +316,8 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         FullName = row.FullName ?? string.Empty,
         SsoUserIdInt = row.SsoUserIdInt,
         IsProfileEditor = row.IsProfileEditor,
-        IsPolicyProfileUser = row.IsPolicyProfileUser
+        IsPolicyProfileUser = row.IsPolicyProfileUser,
+        EmailAddress = row.EmailAddress
     };
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -345,5 +366,6 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
         public Guid? SsoUserIdInt { get; init; } // NOSONAR
         public bool IsProfileEditor { get; init; } // NOSONAR
         public bool IsPolicyProfileUser { get; init; } // NOSONAR
+        public string? EmailAddress { get; init; } // NOSONAR
     }
 }

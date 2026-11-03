@@ -22,6 +22,12 @@ internal static partial class UserLog
     [LoggerMessage(EventId = 8009, Level = LogLevel.Information, Message = "Internal profile editor {UserId} matched by email on CIDM sign-in; signing in without storing a CIDM SSO id")]
     public static partial void InternalProfileEditorSignedInThroughCidm(this ILogger logger, Guid userId);
 
+    [LoggerMessage(EventId = 8010, Level = LogLevel.Information, Message = "Recorded the email address of internal user {UserId} from the Entra sign-in")]
+    public static partial void RecordedInternalUserEmailAddress(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 8011, Level = LogLevel.Warning, Message = "Could not record the email address of internal user {UserId}; signing in without it")]
+    public static partial void FailedToRecordInternalUserEmailAddress(this ILogger logger, Exception exception, Guid userId);
+
     [LoggerMessage(EventId = 8003, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);
 
