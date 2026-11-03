@@ -488,7 +488,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
         /// <summary>Gets or sets the user's email address.</summary>
         [Required(ErrorMessage = "Enter the email address")]
-        [EmailAddress(ErrorMessage = "Enter a valid email address")]
+        [EmailAddress(ErrorMessage = "Enter an email address in the correct format e.g. name@example.com")]
         [StringLength(50, ErrorMessage = "The email address must be 50 characters or fewer")]
         public string EmailAddress { get; set; } = string.Empty;
 

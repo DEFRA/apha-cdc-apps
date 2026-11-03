@@ -14,7 +14,7 @@ public sealed class PreRegisterExternalUserCommandValidator : AbstractValidator<
 
         RuleFor(command => command.EmailAddress)
             .NotEmpty().WithMessage("Enter the email address.")
-            .EmailAddress().WithMessage("Enter a valid email address.")
+            .EmailAddress().WithMessage("Enter an email address in the correct format e.g. name@example.com")
             .MaximumLength(50).WithMessage("The email address must be 50 characters or fewer.");
 
         RuleFor(command => command.Organisation)

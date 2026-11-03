@@ -42,11 +42,7 @@
             </div>
         }
 
-        @if (!Model.ShowPreRegisterForm)
-        {
-            <a class="govuk-button govuk-button--secondary" role="button" draggable="false" data-module="govuk-button" href="@Model.BuildPreRegisterUrl()">Pre-register external user</a>
-        }
-        else
+        @if (Model.ShowPreRegisterForm)
         {
             var fullNameError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.FullName));
             var emailError = Model.GetPreRegisterFieldError(nameof(CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterInput.EmailAddress));
@@ -186,6 +182,11 @@
                 LandmarkLabel = "External users pages"
             };
             <partial name="_Pagination" model="pagination" />
+        }
+
+        @if (!Model.ShowPreRegisterForm)
+        {
+            <a class="govuk-button govuk-button--secondary" role="button" draggable="false" data-module="govuk-button" href="@Model.BuildPreRegisterUrl()">Add</a>
         }
 
         @if (Model.EditUser is not null)
