@@ -17,12 +17,15 @@ public sealed class ExternalUsersApiService(HttpClient httpClient) : IExternalUs
     private const string BaseRoute = "/api/external-users";
 
     /// <inheritdoc />
-    public async Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
+        int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
     {
         var url = QueryHelpers.AddQueryString(BaseRoute, new Dictionary<string, string?>
         {
             ["pageNumber"] = pageNumber.ToString(CultureInfo.InvariantCulture),
-            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
+            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
+            ["sortColumn"] = sortColumn.ToString(),
+            ["sortDescending"] = sortDescending ? "true" : "false"
         });
 
         var result = await httpClient.GetFromJsonAsync<PagedResult<MaintainedExternalUserDto>>(url, cancellationToken);

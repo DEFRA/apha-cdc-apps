@@ -35,8 +35,14 @@ public class GlobalUsersModelTests
 
         public Guid? DeletedId { get; private set; }
 
-        public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
-            Throw
+        public (GlobalUserSortColumn Column, bool Descending)? RequestedSort { get; private set; }
+
+        public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
+            int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
+        {
+            RequestedSort = (sortColumn, sortDescending);
+
+            return Throw
                 ? Task.FromException<PagedResult<GlobalUserDto>>(new HttpRequestException("boom"))
                 : Task.FromResult(new PagedResult<GlobalUserDto>
                 {
@@ -45,6 +51,7 @@ public class GlobalUsersModelTests
                     PageSize = pageSize,
                     TotalRecords = Users.Count
                 });
+        }
 
         public Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken = default) =>
             ThrowOnActions ? Task.FromException<GlobalUserLookupResult>(new HttpRequestException("boom")) : Task.FromResult(Lookup);
@@ -91,6 +98,55 @@ public class GlobalUsersModelTests
         };
     }
 
+    [Fact]
+    public void UrlBuilders_PassTheListStateToTheUrlHelper()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService());
+        var url = new StubUrlHelper();
+        model.Url = url;
+        model.PageNumber = 3;
+        model.SortColumn = GlobalUserSortColumn.FullName;
+        model.SortDirection = "Ascending";
+        var userId = Guid.NewGuid();
+
+        model.BuildPageUrl(2);
+        Assert.Equal(2, url.LastValues!["PageNumber"]);
+
+        model.BuildSortUrl(GlobalUserSortColumn.FullName);
+        Assert.Equal("Descending", url.LastValues["SortDirection"]);
+
+        model.BuildSortUrl(GlobalUserSortColumn.UserName);
+        Assert.Equal("Ascending", url.LastValues["SortDirection"]);
+
+        model.BuildEditUrl(userId);
+        Assert.Equal(userId, url.LastValues["EditUserId"]);
+
+        model.BuildCloseUrl();
+        Assert.Equal(3, url.LastValues["PageNumber"]);
+    }
+
+    private sealed class StubUrlHelper : IUrlHelper
+    {
+        public ActionContext ActionContext { get; } = new() { RouteData = new Microsoft.AspNetCore.Routing.RouteData() };
+
+        public Microsoft.AspNetCore.Routing.RouteValueDictionary? LastValues { get; private set; }
+
+        public string? Action(Microsoft.AspNetCore.Mvc.Routing.UrlActionContext actionContext) => "/url";
+
+        public string? Content(string? contentPath) => contentPath;
+
+        public bool IsLocalUrl(string? url) => true;
+
+        public string? Link(string? routeName, object? values) => "/url";
+
+        public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext)
+        {
+            LastValues = new Microsoft.AspNetCore.Routing.RouteValueDictionary(routeContext.Values);
+
+            return "/url";
+        }
+    }
+
     private sealed class FakeTempDataProvider : ITempDataProvider
     {
         public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
@@ -119,6 +175,64 @@ public class GlobalUsersModelTests
 
         Assert.Equal(2, model.Users.Count);
         Assert.False(model.HasLoadError);
+    }
+
+    [Fact]
+    public async Task OnGet_SortsByFullNameAscending_ByDefault()
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api);
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal((GlobalUserSortColumn.FullName, false), api.RequestedSort);
+        Assert.Equal("ascending", model.GetAriaSort(GlobalUserSortColumn.FullName));
+        Assert.Equal("none", model.GetAriaSort(GlobalUserSortColumn.UserName));
+    }
+
+    [Fact]
+    public async Task OnGet_PassesTheRequestedSortToTheApi()
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api);
+        model.SortColumn = GlobalUserSortColumn.Organisation;
+        model.SortDirection = "Descending";
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal((GlobalUserSortColumn.Organisation, true), api.RequestedSort);
+        Assert.Equal("descending", model.GetAriaSort(GlobalUserSortColumn.Organisation));
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_ShowsEditHeading_ForAnExistingUser()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService
+        {
+            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.ExistingUser, Id = Guid.NewGuid(), UserName = @"DEFRA\jsmith" }
+        });
+        model.UserName = @"DEFRA\jsmith";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.True(model.IsNewUser);
+        Assert.True(model.IsExistingUser);
+        Assert.Equal("Edit profile editor", model.PanelHeading);
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_ShowsAddHeading_ForANewUser()
+    {
+        var model = CreatePageModel(new FakeGlobalUsersApiService
+        {
+            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NewUser, Id = Guid.NewGuid(), UserName = @"DEFRA\newuser" }
+        });
+        model.UserName = @"DEFRA\newuser";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.False(model.IsExistingUser);
+        Assert.Equal("Add global user", model.PanelHeading);
     }
 
     [Fact]
@@ -244,6 +358,24 @@ public class GlobalUsersModelTests
         Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("Jo Smith", api.AddedRequest!.FullName);
         Assert.NotNull(model.SuccessMessage);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Save_Edit_SendsReviewEmailSubscription(bool subscribe)
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api);
+        model.UserId = Guid.NewGuid();
+        model.FullName = "Jo Smith";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+        model.SubscribedToReviewEmails = subscribe;
+
+        await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.Equal(subscribe, api.Updated!.Value.Request.SubscribedToReviewEmails);
     }
 
     [Fact]

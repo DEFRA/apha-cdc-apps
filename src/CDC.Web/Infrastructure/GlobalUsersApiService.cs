@@ -17,12 +17,15 @@ public sealed class GlobalUsersApiService(HttpClient httpClient) : IGlobalUsersA
     private const string BaseRoute = "/api/global-users";
 
     /// <inheritdoc />
-    public async Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
+        int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
     {
         var url = QueryHelpers.AddQueryString(BaseRoute, new Dictionary<string, string?>
         {
             ["pageNumber"] = pageNumber.ToString(CultureInfo.InvariantCulture),
-            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
+            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
+            ["sortColumn"] = sortColumn.ToString(),
+            ["sortDescending"] = sortDescending ? "true" : "false"
         });
 
         var result = await httpClient.GetFromJsonAsync<PagedResult<GlobalUserDto>>(url, cancellationToken);

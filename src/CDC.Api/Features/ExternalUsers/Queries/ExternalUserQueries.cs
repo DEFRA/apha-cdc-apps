@@ -9,7 +9,13 @@ namespace CDC.Api.Features.ExternalUsers.Queries;
 /// <summary>Retrieves one page of external users.</summary>
 /// <param name="PageNumber">The 1-based page to return.</param>
 /// <param name="PageSize">Items per page, or 0/negative for every user on a single page.</param>
-public sealed record GetExternalUsersQuery(int PageNumber, int PageSize) : IRequest<Result<PagedResult<ExternalUserDto>>>;
+/// <param name="SortColumn">The column to sort by before paging.</param>
+/// <param name="SortDescending">Whether to sort in descending order.</param>
+public sealed record GetExternalUsersQuery(
+    int PageNumber,
+    int PageSize,
+    ExternalUserSortColumn SortColumn = ExternalUserSortColumn.None,
+    bool SortDescending = false) : IRequest<Result<PagedResult<ExternalUserDto>>>;
 
 /// <summary>Handles <see cref="GetExternalUsersQuery"/>.</summary>
 /// <param name="service">External users application service.</param>
@@ -18,7 +24,8 @@ public sealed class GetExternalUsersQueryHandler(IExternalUsersService service)
 {
     /// <inheritdoc />
     public async Task<Result<PagedResult<ExternalUserDto>>> Handle(GetExternalUsersQuery request, CancellationToken cancellationToken) =>
-        Result.Success(await service.GetExternalUsersAsync(request.PageNumber, request.PageSize, cancellationToken));
+        Result.Success(await service.GetExternalUsersAsync(
+            request.PageNumber, request.PageSize, request.SortColumn, request.SortDescending, cancellationToken));
 }
 
 /// <summary>Retrieves the profiles an external user can access, and those still available to grant.</summary>

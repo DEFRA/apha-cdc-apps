@@ -29,10 +29,12 @@ public class ExternalUsersControllerTests
     {
         var page = new PagedResult<ExternalUserDto> { Items = [], PageNumber = 2, PageSize = 10, TotalRecords = 0 };
         mediator.Setup(sender => sender.Send(
-                It.Is<GetExternalUsersQuery>(query => query.PageNumber == 2 && query.PageSize == 10), It.IsAny<CancellationToken>()))
+                It.Is<GetExternalUsersQuery>(query =>
+                    query.PageNumber == 2 && query.PageSize == 10 && query.SortColumn == ExternalUserSortColumn.FullName && query.SortDescending),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(page));
 
-        var response = await CreateController().GetExternalUsers(2, 10, CancellationToken.None);
+        var response = await CreateController().GetExternalUsers(2, 10, ExternalUserSortColumn.FullName, sortDescending: true, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(page);
     }
@@ -136,7 +138,7 @@ public class ExternalUsersControllerTests
         var access = new ExternalUserProfileAccessContract();
         var id = Guid.NewGuid();
         var profileId = Guid.NewGuid();
-        service.Setup(s => s.GetExternalUsersAsync(1, 10, It.IsAny<CancellationToken>())).ReturnsAsync(page);
+        service.Setup(s => s.GetExternalUsersAsync(1, 10, ExternalUserSortColumn.None, false, It.IsAny<CancellationToken>())).ReturnsAsync(page);
         service.Setup(s => s.GetProfileAccessAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(access));
         service.Setup(s => s.SetReviewEmailSubscriptionAsync(It.IsAny<SetExternalUserSubscriptionCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Unit.Value));

@@ -6,6 +6,7 @@ using CDC.Api.Features.ExternalUsers.Interfaces;
 using CDC.Api.Features.ProfileContributors.Commands;
 using CDC.Api.Features.ProfileContributors.Dtos;
 using CDC.Api.Features.ProfileContributors.Interfaces;
+using CDC.Common.Contracts;
 using FluentAssertions;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -38,10 +39,33 @@ public class ExternalUsersServiceTests
             .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User("a", true), User("b", false), User("c", true)]);
 
-        var result = await CreateService().GetExternalUsersAsync(pageNumber: 2, pageSize: 2, CancellationToken.None);
+        var result = await CreateService().GetExternalUsersAsync(
+            pageNumber: 2, pageSize: 2, ExternalUserSortColumn.None, sortDescending: false, CancellationToken.None);
 
         result.Items.Should().ContainSingle().Which.SubscribedToReviewEmails.Should().BeTrue();
         result.TotalRecords.Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData(ExternalUserSortColumn.UserName, false, new[] { "a", "b", "c" })]
+    [InlineData(ExternalUserSortColumn.UserName, true, new[] { "c", "b", "a" })]
+    [InlineData(ExternalUserSortColumn.FullName, false, new[] { "a", "b", "c" })]
+    [InlineData(ExternalUserSortColumn.Organisation, true, new[] { "c", "b", "a" })]
+    [InlineData(ExternalUserSortColumn.None, true, new[] { "b", "c", "a" })]
+    public async Task GetExternalUsersAsync_SortsBeforePaging(ExternalUserSortColumn column, bool descending, string[] expectedOrder)
+    {
+        repository
+            .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                User("b", false) with { Organisation = "Org B" },
+                User("c", false) with { Organisation = "Org C" },
+                User("a", false) with { Organisation = "org a" }
+            ]);
+
+        var result = await CreateService().GetExternalUsersAsync(1, 0, column, descending, CancellationToken.None);
+
+        result.Items.Select(user => user.UserName).Should().Equal(expectedOrder);
     }
 
     [Theory]

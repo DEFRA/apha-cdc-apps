@@ -1,8 +1,7 @@
 @page
 @model CDC.Web.Pages.Reports.GeneralModel
 @{
-    ViewData["Title"] = PaginationViewModel.TitleWithPage(
-        Model.IsHistoryPage ? $"History for {Model.ReportTitle}" : "General reports", Model.PageNumber, Model.TotalPages);
+    ViewData["Title"] = Model.IsHistoryPage ? $"History for {Model.ReportTitle}" : "General reports";
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />

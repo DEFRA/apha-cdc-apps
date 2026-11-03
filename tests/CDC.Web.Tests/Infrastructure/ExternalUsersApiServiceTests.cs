@@ -16,9 +16,9 @@ public class ExternalUsersApiServiceTests
         const string json = """{"items":[{"fullName":"Jo Smith"}],"pageNumber":2,"pageSize":10,"totalRecords":11}""";
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
 
-        var result = await CreateClient(handler).GetExternalUsersAsync(2, 10);
+        var result = await CreateClient(handler).GetExternalUsersAsync(2, 10, ExternalUserSortColumn.Organisation, sortDescending: true);
 
-        Assert.Equal("/api/external-users?pageNumber=2&pageSize=10", handler.LastRequestUri!.PathAndQuery);
+        Assert.Equal("/api/external-users?pageNumber=2&pageSize=10&sortColumn=Organisation&sortDescending=true", handler.LastRequestUri!.PathAndQuery);
         Assert.Equal("Jo Smith", Assert.Single(result.Items).FullName);
     }
 
@@ -27,7 +27,7 @@ public class ExternalUsersApiServiceTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var result = await client.GetExternalUsersAsync(3, 15);
+        var result = await client.GetExternalUsersAsync(3, 15, ExternalUserSortColumn.None, sortDescending: false);
 
         Assert.Empty(result.Items);
         Assert.Equal(3, result.PageNumber);

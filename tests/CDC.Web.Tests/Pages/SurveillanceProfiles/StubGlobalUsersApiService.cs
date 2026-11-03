@@ -12,7 +12,7 @@ internal sealed class StubGlobalUsersApiService(IReadOnlyList<GlobalUserDto> use
     /// <summary>Gets the page number and size most recently asked for.</summary>
     public (int PageNumber, int PageSize)? RequestedPage { get; private set; }
 
-    public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
     {
         RequestedPage = (pageNumber, pageSize);
 

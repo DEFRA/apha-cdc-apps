@@ -6,7 +6,6 @@
 @{
     Layout = "_Layout";
     var pageTitle = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
-    pageTitle = PaginationViewModel.TitleWithPage(pageTitle, Model.ListPageNumber, Model.ListTotalPages);
     ViewData["Title"] = Model.HasFormErrors ? $"Error: {pageTitle}" : pageTitle;
 
     var body = RenderBody();
