@@ -416,10 +416,6 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     public string? GetPreRegisterFieldError(string field) =>
         ModelState.TryGetValue($"{nameof(NewUser)}.{field}", out var entry) ? entry.Errors.FirstOrDefault()?.ErrorMessage : null;
 
-    /// <summary>Builds the URL that opens the pre-registration form.</summary>
-    /// <returns>The page URL.</returns>
-    public string? BuildPreRegisterUrl() => Url.Page(PageRoute, null, new { ShowPreRegisterForm = true }, null, null, PreRegisterPanelId);
-
     /// <summary>Builds the URL that closes the pre-registration form.</summary>
     /// <returns>The page URL.</returns>
     public string? BuildClosePreRegisterUrl() => Url.Page(PageRoute, new { PageSize, PageNumber });

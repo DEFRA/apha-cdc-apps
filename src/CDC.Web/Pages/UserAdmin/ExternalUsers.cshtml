@@ -123,7 +123,10 @@
 
         @if (!Model.ShowPreRegisterForm)
         {
-            <a class="govuk-button" role="button" draggable="false" data-module="govuk-button" href="@Model.BuildPreRegisterUrl()">Add<span class="govuk-visually-hidden"> external user</span></a>
+            <form method="get" asp-page="/UserAdmin/ExternalUsers" asp-fragment="@CDC.Web.Pages.UserAdmin.ExternalUsersModel.PreRegisterPanelId">
+                <input type="hidden" name="ShowPreRegisterForm" value="true" />
+                <button type="submit" class="govuk-button" data-module="govuk-button">Add<span class="govuk-visually-hidden"> external user</span></button>
+            </form>
         }
 
         @if (Model.EditUser is not null)
