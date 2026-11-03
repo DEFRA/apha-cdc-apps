@@ -220,16 +220,15 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
                 FieldErrors = new Dictionary<string, string> { [UserNameField] = "SSO users cannot be given global access rights." };
                 break;
 
+            case GlobalUserLookupOutcome.NotFound:
+                FieldErrors = new Dictionary<string, string> { [UserNameField] = "The user is not currently in the profiles system." };
+                break;
+
             case GlobalUserLookupOutcome.InvalidFormat:
                 FieldErrors = new Dictionary<string, string> { [UserNameField] = "Enter a username in the format Domain\\UserId." };
                 break;
 
             default:
-                if (result.Outcome == GlobalUserLookupOutcome.NewUser)
-                {
-                    LookupWarning = "The user is not currently in the profiles system.";
-                }
-
                 IsNewUser = true;
                 IsExistingUser = result.Outcome == GlobalUserLookupOutcome.ExistingUser;
                 UserId = result.Id;
