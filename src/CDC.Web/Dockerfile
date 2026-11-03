@@ -51,7 +51,7 @@ COPY --from=build /app/publish .
 RUN powershell -NoProfile -ExecutionPolicy Bypass -File .\playwright.ps1 install chromium
 
 # Fails the build if the browser cannot print a page; DEBUG logs the browser's exit code and errors to the build output.
-RUN set DEBUG=pw:browser&& powershell -NoProfile -ExecutionPolicy Bypass -File .\playwright.ps1 pdf about:blank C:\smoke.pdf && del C:\smoke.pdf
+RUN set DEBUG=pw:browser&& powershell -NoProfile -ExecutionPolicy Bypass -File .\playwright.ps1 pdf about:blank smoke.pdf && del smoke.pdf
 
 USER $APP_UID
 ENTRYPOINT ["dotnet", "CDC.Web.dll"]
