@@ -323,7 +323,6 @@ public class GlobalUsersModelTests
         Assert.True(model.ShowForm);
         Assert.True(model.IsNewUser);
         Assert.Equal(id, model.UserId);
-        Assert.Null(model.LookupWarning);
     }
 
     [Fact]

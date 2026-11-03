@@ -137,9 +137,6 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets a value indicating whether the add/edit form (role, names) is shown.</summary>
     public bool ShowForm { get; private set; }
 
-    /// <summary>Gets the non-blocking warning shown when the looked-up username is not yet in the system.</summary>
-    public string? LookupWarning { get; private set; }
-
     /// <summary>Gets the per-field validation errors, keyed by the field's element id.</summary>
     public IReadOnlyDictionary<string, string> FieldErrors { get; private set; } = new Dictionary<string, string>();
 

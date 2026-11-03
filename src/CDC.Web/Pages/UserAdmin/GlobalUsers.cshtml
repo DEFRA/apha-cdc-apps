@@ -220,17 +220,6 @@
 
                 <h2 class="govuk-body">@Model.PanelHeading</h2>
 
-                @if (!string.IsNullOrEmpty(Model.LookupWarning))
-                {
-                    <div class="govuk-warning-text">
-                        <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
-                        <strong class="govuk-warning-text__text">
-                            <span class="govuk-visually-hidden">Warning</span>
-                            @Model.LookupWarning
-                        </strong>
-                    </div>
-                }
-
                 @{
                     var roleError = Model.FieldErrors.GetValueOrDefault("Role");
                     var fullNameError = Model.FieldErrors.GetValueOrDefault("FullName");
