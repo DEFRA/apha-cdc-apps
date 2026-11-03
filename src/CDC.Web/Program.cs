@@ -12,6 +12,7 @@ using CDC.Web.Features.Health;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Infrastructure.Reports;
+using CDC.Web.Infrastructure.SpellCheck;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -234,6 +235,20 @@ builder.Services.AddHttpClient<IDiseaseRankingFiltersApiService, DiseaseRankingF
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
+// The spell check dialog on the profile text fields: the English dictionary is embedded in this app and read on first use, and the
+// custom dictionary (the words users add with "Add Custom") lives in CDC.Api, which this holds for a minute at a time. Adding a
+// word is not retried: a replay of an attempt that succeeded and still timed out would add it twice.
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ISpellingWordList, HunspellWordList>();
+builder.Services.AddHttpClient<ICustomWordsApiService, CustomWordsApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
+builder.Services.AddScoped<ISpellCheckService, SpellCheckService>();
+
 builder.Services.AddHealthChecks()
     .AddCheck<ApiConnectivityHealthCheck>("api-connectivity");
 
@@ -249,12 +264,15 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
 });
 
 // External-user auth (CIDM OIDC) and internal-user auth (Entra ID OIDC) each register their own
-// Cookie + OIDC scheme pair additively, so they coexist without conflicting. AddEntraAuthentication
-// must run AFTER AddCidmAuthentication - whichever call registers last wins the app-wide default
-// scheme, and this app is predominantly used by internal (Entra-authenticated) staff, so Entra's
-// cookie should be the fallback for every page that doesn't explicitly request CIDM.
+// Cookie + OIDC scheme pair additively, so they coexist without conflicting. Neither is the app's default scheme:
+// AddCdcWebAuthorization makes InternalOrExternalAuthenticationScheme the default, so every request is authenticated
+// with whichever session cookie it carries and a signed-in user is never sent to the other provider's sign-in.
 builder.AddCidmAuthentication();
 builder.AddEntraAuthentication();
+
+// How long a signed-in session may sit idle - the lifetime of both sign-in cookies, which any request renews - and how long before
+// it ends the user is asked whether to extend it. See SessionController and wwwroot/js/session-timeout.js for the dialogs.
+builder.Services.AddSessionTimeout(builder.Configuration);
 
 // Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see
 // CidmOpenIdConnectEvents.TokenValidated, which calls this via ICidmExternalUserResolver.
@@ -270,9 +288,8 @@ builder.Services.AddSingleton<IUserDisplayNameService, UserDisplayNameService>()
 
 // Authenticated by default - every page must opt OUT with [AllowAnonymous] rather than every new
 // page having to remember to opt IN with [Authorize]. Health/Account/Landing's public pages are
-// the only pages so far explicitly marked anonymous. The CIDM-specific external-user journey
-// (LandingController.External) overrides this with its own explicit [Authorize(AuthenticationSchemes = ...)]
-// attribute, since the fallback below resolves to Entra's cookie scheme.
+// the only pages so far explicitly marked anonymous. The external landing page (LandingController.External) names the
+// CIDM cookie in its own [Authorize(AuthenticationSchemes = ...)], so a user signed in only with Entra ID is sent to CIDM.
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()

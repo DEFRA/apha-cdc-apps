@@ -38,10 +38,12 @@ public class GlobalUsersControllerTests
     public async Task GetGlobalUsers_ReturnsOk()
     {
         var page = new PagedResult<GlobalUserDto> { Items = [], PageNumber = 1, PageSize = 10, TotalRecords = 0 };
-        mediator.Setup(sender => sender.Send(It.IsAny<GetGlobalUsersQuery>(), It.IsAny<CancellationToken>()))
+        mediator.Setup(sender => sender.Send(
+                It.Is<GetGlobalUsersQuery>(query => query.SortColumn == GlobalUserSortColumn.Role && query.SortDescending),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(page));
 
-        var response = await CreateController().GetGlobalUsers(1, 10, CancellationToken.None);
+        var response = await CreateController().GetGlobalUsers(1, 10, GlobalUserSortColumn.Role, sortDescending: true, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(page);
     }
@@ -104,7 +106,7 @@ public class GlobalUsersControllerTests
         var page = new PagedResult<GlobalUserDto> { Items = [], PageNumber = 1, PageSize = 10, TotalRecords = 0 };
         var lookup = new GlobalUserLookupResult();
         var id = Guid.NewGuid();
-        service.Setup(s => s.GetGlobalUsersAsync(1, 10, It.IsAny<CancellationToken>())).ReturnsAsync(page);
+        service.Setup(s => s.GetGlobalUsersAsync(1, 10, GlobalUserSortColumn.FullName, false, It.IsAny<CancellationToken>())).ReturnsAsync(page);
         service.Setup(s => s.LookupAsync("u", It.IsAny<CancellationToken>())).ReturnsAsync(lookup);
         service.Setup(s => s.SaveAsync(It.IsAny<SaveGlobalUserCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));
         service.Setup(s => s.DeleteAsync(It.IsAny<DeleteGlobalUserCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));

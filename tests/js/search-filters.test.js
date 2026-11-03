@@ -56,6 +56,32 @@ describe('search-filters', () => {
     expect(window.location.href).toBe(urlBefore);
   });
 
+  // The server remembers the filters for an address with none; an address that carries a search would win over
+  // that with the filters the search was run with, so it follows the change.
+  it('brings an address that already carries a search up to date with the filters, so coming back from a profile finds them', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('<p>New results</p>') }));
+    window.history.replaceState(null, '', '/SurveillanceProfiles/Search?DisplayPublished=true&SelectedLetter=B');
+
+    const { displayDraft, results } = buildForm();
+    toggle(displayDraft);
+    await vi.waitFor(() => expect(results.innerHTML).toBe('<p>New results</p>'));
+
+    expect(window.location.pathname).toBe('/SurveillanceProfiles/Search');
+    expect(Object.fromEntries(new URLSearchParams(window.location.search)))
+      .toEqual({ DisplayPublished: 'true', DisplayDraft: 'true' });
+  });
+
+  it('leaves the address that carries a search alone when the filter change cannot be fetched', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, text: () => Promise.resolve('') }));
+    window.history.replaceState(null, '', '/SurveillanceProfiles/Search?DisplayPublished=true&SelectedLetter=B');
+
+    const { displayDraft, results } = buildForm();
+    toggle(displayDraft);
+    await vi.waitFor(() => expect(results.textContent).toContain('There is a problem'));
+
+    expect(window.location.search).toBe('?DisplayPublished=true&SelectedLetter=B');
+  });
+
   it('disables the auto-refresh controls and marks the results as busy while the request is in flight', async () => {
     let resolveFetch;
     vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => { resolveFetch = resolve; })));

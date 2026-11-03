@@ -34,4 +34,10 @@ internal static partial class GlobalUsersLog
 
     [LoggerMessage(EventId = 1408, Level = LogLevel.Information, Message = "Revoked global role for user {UserId}")]
     public static partial void RevokedGlobalUser(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1409, Level = LogLevel.Warning, Message = "Microsoft Graph lookup failed; the new user's details were left blank")]
+    public static partial void GraphLookupFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 1410, Level = LogLevel.Information, Message = "Microsoft Graph lookup found a match: {Found}")]
+    public static partial void GraphLookupCompleted(this ILogger logger, bool found);
 }

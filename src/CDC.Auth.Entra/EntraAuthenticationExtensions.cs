@@ -26,10 +26,9 @@ public static class EntraAuthenticationExtensions
     /// <param name="builder">The host builder to register authentication services on.</param>
     /// <returns>The same builder, for chaining.</returns>
     /// <remarks>
-    /// Call this AFTER any other <c>Add*Authentication</c> extension that also calls
-    /// <c>AddAuthentication(defaultScheme)</c> (e.g. <c>AddCidmAuthentication</c>) - whichever is
-    /// registered last wins the app-wide default scheme, and this app is predominantly used by
-    /// internal (Entra-authenticated) staff, so Entra's cookie should be the fallback.
+    /// Like <c>AddCidmAuthentication</c>, this sets the app-wide default scheme to its own cookie, so the call registered last
+    /// wins. An app hosting both identity providers chooses its own default afterwards (CDC.Web does, in
+    /// <c>AddCdcWebAuthorization</c>), so each request is authenticated with the session cookie it carries.
     /// </remarks>
     public static WebApplicationBuilder AddEntraAuthentication(this WebApplicationBuilder builder)
     {

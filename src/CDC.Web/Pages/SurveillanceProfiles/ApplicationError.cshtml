@@ -1,0 +1,44 @@
+@page
+@model CDC.Web.Pages.SurveillanceProfiles.ApplicationErrorModel
+@{
+    ViewData["Title"] = "Application error";
+}
+@section Breadcrumbs {
+    <partial name="_Breadcrumb" model="Model.Breadcrumb" />
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+        <h1 class="govuk-heading-xl">Application error</h1>
+
+        <p class="govuk-body">An error has occurred. Please contact the system administrator if this problem persists.</p>
+
+        @if (Model.HasTechnicalDetails)
+        {
+            <h2 class="govuk-heading-m">Technical details</h2>
+
+            <dl class="govuk-summary-list">
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">User</dt>
+                    <dd class="govuk-summary-list__value">@Model.UserDescription</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Error type</dt>
+                    <dd class="govuk-summary-list__value">@Model.ErrorType</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Error location</dt>
+                    <dd class="govuk-summary-list__value">@Model.ErrorLocation</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Time of error</dt>
+                    <dd class="govuk-summary-list__value">@Model.TimeOfError</dd>
+                </div>
+                <div class="govuk-summary-list__row">
+                    <dt class="govuk-summary-list__key">Details</dt>
+                    <dd class="govuk-summary-list__value">@Model.Details</dd>
+                </div>
+            </dl>
+        }
+    </div>
+</div>

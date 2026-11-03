@@ -15,6 +15,7 @@ public class AccountController : Controller
     [AllowAnonymous]
     public async Task<IActionResult> Login()
     {
+        // Only a CIDM session counts: an internal (Entra ID) one does not make the user an external user.
         if (await HasSessionAsync(CookieAuthenticationDefaults.AuthenticationScheme))
         {
             return RedirectToAction("External", LandingController);
@@ -66,6 +67,7 @@ public class AccountController : Controller
     [AllowAnonymous]
     public async Task<IActionResult> LoginInternal()
     {
+        // Only an Entra ID session counts: an external (CIDM) one does not make the user an internal user.
         if (await HasSessionAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme))
         {
             return RedirectToAction("Internal", LandingController);
@@ -132,9 +134,6 @@ public class AccountController : Controller
         return RedirectToAction("Index", LandingController);
     }
 
-    private async Task<bool> HasSessionAsync(string cookieScheme) =>
-        (await HttpContext.AuthenticateAsync(cookieScheme)).Succeeded;
-
     // Reached when ICidmExternalUserResolver denies sign-in (the email claim matched an existing
     // non-external user) - no local cookie exists at this point, since TokenValidated redirects
     // here before the OIDC handler ever signs the principal into the cookie scheme.
@@ -152,4 +151,7 @@ public class AccountController : Controller
 
         return View();
     }
+
+    private async Task<bool> HasSessionAsync(string cookieScheme) =>
+        (await HttpContext.AuthenticateAsync(cookieScheme)).Succeeded;
 }

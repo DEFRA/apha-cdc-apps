@@ -21,17 +21,19 @@ public sealed class ExternalUsersService(
     : IExternalUsersService
 {
     /// <inheritdoc />
-    public async Task<PagedResult<ExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedResult<ExternalUserDto>> GetExternalUsersAsync(
+        int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken)
     {
         var users = await repository.GetExternalUsersAsync(cancellationToken);
         logger.RetrievedExternalUsers(users.Count);
 
         var effectivePageNumber = Math.Max(1, pageNumber);
         var effectivePageSize = Math.Max(0, pageSize);
+        var sorted = Sort(users, sortColumn, sortDescending);
 
         var page = effectivePageSize > 0
-            ? users.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize)
-            : users;
+            ? sorted.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize)
+            : sorted;
 
         return new PagedResult<ExternalUserDto>
         {
@@ -176,6 +178,26 @@ public sealed class ExternalUsersService(
 
     private async Task<bool> IsExternalUserAsync(Guid userId, CancellationToken cancellationToken) =>
         (await repository.GetExternalUsersAsync(cancellationToken)).Any(user => user.Id == userId);
+
+    private static IEnumerable<ExternalUserAccount> Sort(IEnumerable<ExternalUserAccount> users, ExternalUserSortColumn column, bool descending)
+    {
+        Func<ExternalUserAccount, string>? key = column switch
+        {
+            ExternalUserSortColumn.UserName => user => user.UserName,
+            ExternalUserSortColumn.FullName => user => user.FullName,
+            ExternalUserSortColumn.Organisation => user => user.Organisation,
+            _ => null
+        };
+
+        if (key is null)
+        {
+            return users;
+        }
+
+        return descending
+            ? users.OrderByDescending(key, StringComparer.OrdinalIgnoreCase)
+            : users.OrderBy(key, StringComparer.OrdinalIgnoreCase);
+    }
 
     private static ExternalUserDto ToDto(ExternalUserAccount user) => new()
     {

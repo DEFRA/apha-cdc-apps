@@ -103,6 +103,7 @@ public partial class EditUserGuidanceIntegrationTests
         Assert.Contains("&lt;p&gt;Say yes.&lt;/p&gt;</textarea>", page);
         Assert.Contains("data-richtext-command=\"link\" data-richtext-target=\"Input_UserGuidance\"", page);
         Assert.Contains("data-spellcheck-target=\"Input_UserGuidance-editor\"", page);
+        Assert.Contains("id=\"spell-check-dialog\"", page);
         Assert.Contains($"name=\"Input.RowVersion\" value=\"{Convert.ToBase64String(RowVersion)}\"", page);
         Assert.Contains($"name=\"QuestionId\" value=\"{FirstQuestionId}\"", page);
         Assert.Contains(">OK</button>", page);

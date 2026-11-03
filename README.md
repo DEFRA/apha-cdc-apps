@@ -91,6 +91,154 @@ dotnet user-secrets set "Entra:ClientId" "<client-id>"
 dotnet user-secrets set "Entra:ClientSecret" "<client-secret>"
 ```
 
+## Review-due email notifications (CDC.Api)
+
+A scheduled job emails each subscribed user one reminder listing the profile sections due for review
+(ported from the legacy `ReviewEmailService`). Email is sent through [GOV.UK Notify](https://www.notifications.service.gov.uk)
+by `NotifyEmailSender`. The job runs from the same image as the API: passing `review-notifications` as the
+first argument runs it once and exits instead of starting Kestrel. In AWS it runs as an EventBridge
+Scheduler-triggered ECS Scheduled Task. Code lives in `src/CDC.Api/Features/ReviewNotifications/`.
+
+Users are selected by the database views `vwReviewEmailUsers`, `vwReviewEmailProfiles` and
+`vwReviewEmailProfileSections`, which apply the two-week reminder window and the subscription, Draft-state
+and not-Complete filters. Each user's profile roles are then mapped to a reviewer group
+(`Policy`, `AuthorTechnical`, `VeterinaryAdvisor`) via `ReviewNotifications:ReviewerGroups`.
+
+### Configuration
+
+Bound from `CDC.Api` configuration. Set secrets with `dotnet user-secrets` (or `Notify__ApiKey` etc. as
+environment variables); never commit them.
+
+| Config key                              | Purpose                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Notify:Enabled`                        | Must be `true`, otherwise every send throws and the job reports failure                  |
+| `Notify:ApiKey`                         | Notify API key (`{name}-{service id}-{secret}`). Use a **team-only or test key** locally |
+| `Notify:BaseUrl`                        | Defaults to `https://api.notifications.service.gov.uk`                                    |
+| `Notify:TemplateId`                     | Template with `((name))`, `((subject))` and `((body))` personalisation                   |
+| `ReviewNotifications:ReviewerGroups`    | Profile role names per reviewer group; a group with none configured is not emailed       |
+| `ReviewNotifications:InternalHomePageUrl` / `ExternalHomePageUrl` | Links in the email; omitted when empty                      |
+| `ReviewNotifications:SupportMailbox`    | Contact address shown in the email                                                       |
+| `ReviewNotifications:TestRecipient`     | Testing only. When set, every reminder goes to this address instead of the user's own    |
+
+The job also needs the `Database:*` settings described in `StartupChecks` (host, name, and user/password
+or `Database:IntegratedSecurity` for LocalDB) and `HealthCheck:ReadinessKey`, as for the API itself.
+
+> The `Notification` section in `src/CDC.Api/appsettings.json` does not match the `Notify` section the
+> code binds to, so the keys in that file are currently ignored. Use the `Notify:*` keys above.
+
+### Testing it locally
+
+1. Create a Notify service (or ask the team for one), add a **team and guest list** or **test** API key, and
+   create the email template(s) with the placeholders above.
+2. Set the config:
+
+   ```powershell
+   cd src/CDC.Api
+   dotnet user-secrets set "Notify:Enabled" "true"
+   dotnet user-secrets set "Notify:ApiKey" "<team-only-or-test-key>"
+   dotnet user-secrets set "Notify:TemplateId" "<template-id>"
+   dotnet user-secrets set "ReviewNotifications:TestRecipient" "<your-email-address>"
+   ```
+
+   With `TestRecipient` set, every reminder is sent to that address instead of the user's own (the job logs a
+   warning when it is active), so real users are never emailed. Leave it unset in deployed environments. A
+   team-only Notify key additionally restricts delivery to addresses on your Notify team/guest list, so add
+   your address there too.
+3. Make sure the target database has a user who is subscribed to reminders and has a Draft profile section
+   with a review date inside the two-week window, and a profile role listed under the matching
+   `ReviewerGroups` entry.
+4. Run the job once from the repo root:
+
+   ```powershell
+   dotnet run --project src/CDC.Api/CDC.Api.csproj -- review-notifications
+   ```
+
+5. Check the output. The log shows `ReminderSent` per user and a final `JobCompleted` with sent/failed
+   counts. The process exit code is `0` when every due reminder was sent and `1` if any failed (also when a
+   reviewer group is not configured). `echo $LASTEXITCODE` shows it in PowerShell. Check the recipient's
+   inbox and the Notify dashboard for delivery status.
+
+If no review is due the job logs that and sends nothing. Failure causes: a malformed `Notify:ApiKey`,
+`Notify:Enabled` left `false`, or Notify rejecting the template or recipient (the log includes Notify's error
+message but never the recipient address).
+
+### Automated tests
+
+These need no Notify key or database. Run from the repo root. The coverage gate (90% line) applies to the
+whole suite, so a filtered run needs it switched off with `/p:Threshold=0` or it fails despite every test
+passing:
+
+```powershell
+dotnet test tests/CDC.Api.Tests --filter "FullyQualifiedName~ReviewNotifications" /p:Threshold=0
+```
+
+## Session timeout (CDC.Web)
+
+A signed-in session - an internal (Entra ID) or an external (CIDM) user's alike - ends after a period with no activity, as
+the legacy application's 20-minute session did. Any request to CDC.Web is activity and renews the session (the sign-in
+cookie is re-issued at most once every twentieth of the timeout); asking how long a session has left is not, so it can never
+keep an idle session alive. Five minutes before a session ends, the user is asked "Extend session?"; once it has ended, a
+"Session expired" dialog sends them back through sign-in to the page they were on. The dialogs are built into every page
+that has a signed-in user (`_SessionTimeout.cshtml`, `wwwroot/js/session-timeout.js`, `SessionController`).
+
+Both settings are optional - the defaults reproduce the legacy behaviour - and are validated on startup, so the app will not
+start with values that would end a session without a user being able to respond to the warning:
+
+| Config key                           | Default    | Purpose                                                                                                             |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `SessionTimeout:IdleTimeout`         | `00:20:00` | How long a session may sit idle before the user has to sign in again (the lifetime of both sign-in cookies)         |
+| `SessionTimeout:WarningBeforeExpiry` | `00:05:00` | How long before the session ends the user is asked whether to extend it: at least 20 seconds, shorter than the idle timeout |
+
+
+## Spell check (CDC.Web)
+
+The "Spell check" button of a profile text field - a text or long-text answer on Edit Profile Questions, the user guidance on
+Edit questions and guidance, a source of further information, a review comment - opens a dialog that replaces the legacy
+RadSpell one. It stops at each misspelt word, in its context and with the dictionary's suggestions, and offers Ignore, Ignore
+All, Add Custom, Change, Change All, Undo and Close, as the legacy dialog did. A check that runs to the end applies its changes;
+closing part-way asks whether to apply them. A page with a Spell check button includes `_SpellCheckDialog.cshtml` and
+`wwwroot/js/spell-check.js`.
+
+The dictionary is on the server, so the check does not depend on the browser. `SpellCheckController` (`/SpellCheck/Check`,
+`/SpellCheck/Suggest` and `/SpellCheck/AddCustomWord`; JSON, for signed-in users, with the antiforgery token in a header) checks
+words against an American English (`en_US`, as the legacy control was set to) Hunspell dictionary embedded in CDC.Web and read
+with WeCantSpell.Hunspell. The words added with Add Custom are the legacy `SpellCustomWord` table, reached through CDC.Api
+(`GET` and `POST /api/spell-check/custom-words`): anyone signed in has the custom words, and, as in legacy, only a profile
+editor, or a contributor or reviewer of any profile, may add one.
+
+WeCantSpell.Hunspell is tri-licensed (MPL 1.1, GPL 2.0 or LGPL 2.1, at the user's choice), and the MPL is the one that suits this
+app. The dictionary is derived from SCOWL, and its licence, `src/CDC.Web/Infrastructure/SpellCheck/Dictionaries/en_US.license.txt`,
+is published with the app. There are no configuration keys; to check another language, embed its `.aff` and `.dic` files in place
+of `en_US.*` (the resource names are in `HunspellWordList`).
+
+## Microsoft Graph (CDC.Api)
+
+`CDC.Graph` is a shared client for Microsoft Graph using the app's own identity (client credentials, no
+signed-in user). It requests a token from `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token`
+once, caches it in memory, renews it shortly before it expires, and attaches it to every Graph call, so
+feature code only asks for data: inject `IGraphClient`. It is registered in `CDC.Api` with
+`AddGraphClient()`.
+
+Today it pre-fills the full name and organisation when adding a global user whose username is not yet in
+the system (`onPremisesSamAccountName` match, using `companyName`, falling back to `department`). If Graph
+is off, fails, or finds zero or several matches, the lookup behaves as before and the details are typed in.
+
+| Config key           | Purpose                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| `Graph:Enabled`      | `false` by default. When false, no other key is needed.          |
+| `Graph:TenantId`     | Entra ID tenant ID (required when enabled)                       |
+| `Graph:ClientId`     | App registration client ID (required when enabled)               |
+| `Graph:ClientSecret` | App registration client secret (required when enabled; a secret) |
+
+The app registration needs the **Application** permission `User.Read.All` with admin consent. Locally:
+
+```powershell
+cd src/CDC.Api
+dotnet user-secrets set "Graph:Enabled" "true"
+dotnet user-secrets set "Graph:TenantId" "<tenant-id>"
+dotnet user-secrets set "Graph:ClientId" "<client-id>"
+dotnet user-secrets set "Graph:ClientSecret" "<client-secret>"
+```
 
 ## Code style & pre-commit checks
 

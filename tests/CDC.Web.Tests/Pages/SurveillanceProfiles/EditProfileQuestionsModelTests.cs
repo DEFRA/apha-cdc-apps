@@ -1,3 +1,4 @@
+using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
@@ -37,7 +38,8 @@ public class EditProfileQuestionsModelTests
         ProfileVersionValidationStatusDto? validationStatus = null,
         ProfileSectionValidationResultDto? sectionValidationResult = null,
         ProfileSectionWriteResult? clearResult = null,
-        Exception? throwOnClearProfileVersionSection = null)
+        Exception? throwOnClearProfileVersionSection = null,
+        Exception? throwOnGetProfileSectionAnswers = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -50,7 +52,8 @@ public class EditProfileQuestionsModelTests
                 validationStatus: validationStatus,
                 sectionValidationResult: sectionValidationResult,
                 clearResult: clearResult,
-                throwOnClearProfileVersionSection: throwOnClearProfileVersionSection),
+                throwOnClearProfileVersionSection: throwOnClearProfileVersionSection,
+                throwOnGetProfileSectionAnswers: throwOnGetProfileSectionAnswers),
             new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
@@ -206,6 +209,32 @@ public class EditProfileQuestionsModelTests
     public async Task OnGetAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
     {
         var pageModel = CreatePageModel(throwOnGetManageProfile: new HttpRequestException("connection refused"));
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_SendsTheUserToTheApplicationErrorPage_WhenCdcApiRefusesThemTheQuestions()
+    {
+        var pageModel = CreatePageModel(Profile(), metadata: TwoSectionMetadata(), throwOnGetProfileSectionAnswers: ProfileTabTestData.Refused());
+        var tempData = ProfileTabTestData.WithTempData(pageModel);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        ProfileTabTestData.AssertSentToTheApplicationErrorPage(result, tempData);
+        Assert.True(pageModel.HasError);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ReturnsPageWithHasError_WhenLoadingTheQuestionsFailsForAnyOtherReason()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            metadata: TwoSectionMetadata(),
+            throwOnGetProfileSectionAnswers: new HttpRequestException("boom", null, HttpStatusCode.InternalServerError));
 
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 

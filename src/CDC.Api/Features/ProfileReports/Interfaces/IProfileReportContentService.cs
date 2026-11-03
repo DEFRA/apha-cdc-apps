@@ -1,5 +1,6 @@
 using CDC.Api.Domain.Common;
 using CDC.Common.Contracts;
+using MediatR;
 
 namespace CDC.Api.Features.ProfileReports.Interfaces;
 
@@ -17,6 +18,15 @@ public interface IProfileReportContentService
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The scores (empty when prioritisation has not been run); not found when the profile version does not exist.</returns>
     Task<Result<ProfilePrioritisationScoresDto>> GetProfilePrioritisationScoresAsync(Guid profileVersionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Recalculates a profile version's prioritisation scores, as the legacy draft summary prioritisation report did before it was built.
+    /// Only the current version can be prioritised, by the users who may create its reports.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version to prioritise.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A successful result once the scores have been rebuilt; not found when the profile version does not exist; forbidden when the user may not prioritise it.</returns>
+    Task<Result<Unit>> PrioritiseProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken);
 
     /// <summary>Gets the user guidance the bespoke report prints under its guidance headings.</summary>
     /// <param name="questionIds">The questions whose guidance is wanted.</param>

@@ -167,6 +167,54 @@ public class ApiClientTests
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetManageProfileAsync(Guid.NewGuid()));
     }
 
+    // The profile pages send the user to the Application error page on this status, so it has to reach them.
+    [Fact]
+    public async Task GetManageProfileAsync_ThrowsWithTheForbiddenStatusCode_WhenCdcApiRefusesTheProfile()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Forbidden, string.Empty));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetManageProfileAsync(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.Forbidden, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_NamesTheVersion_WhenTheUserFollowedAVersionsLink()
+    {
+        var profileId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, ProfileJson);
+        var client = CreateClient(handler);
+
+        await client.GetManageProfileAsync(profileId, versionId);
+
+        Assert.Equal($"/api/profiles/{profileId}/manage", handler.LastRequestUri!.AbsolutePath);
+        Assert.Equal($"?profileVersionId={versionId}", handler.LastRequestUri.Query);
+    }
+
+    [Fact]
+    public async Task GetManageProfileAsync_NamesNoVersion_WhenNoneWasFollowed()
+    {
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, ProfileJson);
+        var client = CreateClient(handler);
+
+        await client.GetManageProfileAsync(Guid.NewGuid(), null);
+
+        Assert.Equal(string.Empty, handler.LastRequestUri!.Query);
+    }
+
+    private const string ProfileJson = """
+        {
+          "profileId": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+          "profileTitle": "Bovine Tuberculosis",
+          "scenarioTitle": "Default Scenario",
+          "latestPublishedVersionPublic": "Version 5",
+          "latestPublishedVersionDefraNetOnly": "Version 7",
+          "latestDraftVersion": "Version 8",
+          "profileStatus": "Draft"
+        }
+        """;
+
     [Fact]
     public async Task GetProfileStatusTypesAsync_DeserialisesTheResponseBody()
     {

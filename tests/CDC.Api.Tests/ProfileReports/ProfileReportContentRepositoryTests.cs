@@ -433,6 +433,47 @@ public class ProfileReportContentRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    [Fact]
+    public async Task PrioritiseProfileVersionAsync_RunsTheCalculationThenTheScore_InOneCommittedTransaction()
+    {
+        var versionId = Guid.NewGuid();
+        connection.Script(ProfileReportStoredProcedures.CalculatePrioritisation, new FakeCommandScript());
+        connection.Script(ProfileReportStoredProcedures.CalculatePrioritisationScore, new FakeCommandScript());
+
+        await CreateRepository().PrioritiseProfileVersionAsync(versionId, CancellationToken.None);
+
+        connection.Executed.Select(command => command.CommandText).Should().Equal(
+            ProfileReportStoredProcedures.CalculatePrioritisation,
+            ProfileReportStoredProcedures.CalculatePrioritisationScore);
+        connection.Executed.Should().OnlyContain(command => command.HadTransaction && command.CommandType == CommandType.StoredProcedure);
+        connection.Executed[0].Parameters["ProfileVersionId"].Should().Be(versionId);
+        connection.Executed[1].Parameters.Should().BeEmpty();
+        var transaction = connection.Transactions.Should().ContainSingle().Subject;
+        transaction.Committed.Should().BeTrue();
+        transaction.RolledBack.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task PrioritiseProfileVersionAsync_RollsBackAndRethrows_WhenEitherProcedureFails(int failingProcedure)
+    {
+        connection.Script(
+            ProfileReportStoredProcedures.CalculatePrioritisation,
+            failingProcedure == 1 ? new FakeCommandScript { Throws = new FakeDbException("boom") } : new FakeCommandScript());
+        connection.Script(
+            ProfileReportStoredProcedures.CalculatePrioritisationScore,
+            failingProcedure == 2 ? new FakeCommandScript { Throws = new FakeDbException("boom") } : new FakeCommandScript());
+
+        var act = () => CreateRepository().PrioritiseProfileVersionAsync(Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        connection.Executed.Should().HaveCount(failingProcedure);
+        var transaction = connection.Transactions.Should().ContainSingle().Subject;
+        transaction.RolledBack.Should().BeTrue();
+        transaction.Committed.Should().BeFalse();
+    }
+
     private static string[] Columns(int count) => [.. Enumerable.Range(0, count).Select(index => $"C{index}")];
 
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory

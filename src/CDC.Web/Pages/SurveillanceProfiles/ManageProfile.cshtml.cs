@@ -1,16 +1,19 @@
 using CDC.Auth.Cidm;
 using CDC.Common.Contracts;
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace CDC.Web.Pages.SurveillanceProfiles;
 
 /// <summary>
-/// Razor Page for managing a profile. Replaces the legacy <c>ManageProfile.aspx</c>.
+/// Razor Page for managing a profile. Replaces the legacy <c>ManageProfile.aspx</c>, which only a profile editor could open.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanEditProfile)]
 public class ManageProfileModel : PageModel
 {
     private static readonly Action<ILogger, Guid, Exception?> LogProfileNotFoundMessage =

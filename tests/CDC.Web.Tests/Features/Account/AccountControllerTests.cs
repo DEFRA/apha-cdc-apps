@@ -26,10 +26,10 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public async Task Login_WhenAlreadySignedInExternally_RedirectsToLandingExternal()
+    public async Task Login_WhenACidmSessionExists_RedirectsToLandingExternal()
     {
         var controller = CreateController(out var authService);
-        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SuccessfulSession(CookieAuthenticationDefaults.AuthenticationScheme);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
 
         var result = await controller.Login();
 
@@ -42,7 +42,7 @@ public class AccountControllerTests
     public async Task Login_WhenSignedInInternally_RedirectsToAlreadySignedInInsteadOfChallenging()
     {
         var controller = CreateController(out var authService);
-        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SuccessfulSession(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
         var result = await controller.Login();
 
@@ -141,10 +141,10 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public async Task LoginInternal_WhenAlreadySignedInInternally_RedirectsToLandingInternal()
+    public async Task LoginInternal_WhenAnEntraSessionExists_RedirectsToLandingInternal()
     {
         var controller = CreateController(out var authService);
-        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SuccessfulSession(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
         var result = await controller.LoginInternal();
 
@@ -157,7 +157,7 @@ public class AccountControllerTests
     public async Task LoginInternal_WhenSignedInExternally_RedirectsToAlreadySignedInInsteadOfChallenging()
     {
         var controller = CreateController(out var authService);
-        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SuccessfulSession(CookieAuthenticationDefaults.AuthenticationScheme);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
 
         var result = await controller.LoginInternal();
 
@@ -169,7 +169,7 @@ public class AccountControllerTests
     public async Task AlreadySignedIn_WhenSignedInInternally_ShowsInternalSessionWithInternalHome()
     {
         var controller = CreateController(out var authService);
-        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SuccessfulSession(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
         var result = await controller.AlreadySignedIn();
 
@@ -182,7 +182,7 @@ public class AccountControllerTests
     public async Task AlreadySignedIn_WhenSignedInExternally_ShowsExternalSessionWithExternalHome()
     {
         var controller = CreateController(out var authService);
-        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SuccessfulSession(CookieAuthenticationDefaults.AuthenticationScheme);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
 
         var result = await controller.AlreadySignedIn();
 
@@ -265,9 +265,8 @@ public class AccountControllerTests
         }
     }
 
-    private static AuthenticateResult SuccessfulSession(string scheme) =>
-        AuthenticateResult.Success(new AuthenticationTicket(
-            new ClaimsPrincipal(new ClaimsIdentity(authenticationType: scheme)), new AuthenticationProperties(), scheme));
+    private static AuthenticateResult SignedIn(string scheme) =>
+        AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(authenticationType: scheme)), scheme));
 
     private static DefaultHttpContext CreateHttpContextWithFakeAuth(out FakeAuthenticationService authService)
     {

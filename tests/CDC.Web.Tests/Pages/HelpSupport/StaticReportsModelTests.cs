@@ -122,8 +122,43 @@ public class StaticReportsModelTests
         pageModel.SortDirection = current;
         pageModel.Url = new FakeUrlHelper(values => $"{values["SortDirection"]}");
 
-        Assert.Equal(expectedAria, pageModel.TitleAriaSort);
-        Assert.Equal(expectedNextDirection, pageModel.BuildTitleSortUrl());
+        Assert.Equal(expectedAria, pageModel.GetAriaSort(StaticReportSortColumn.Title));
+        Assert.Equal("none", pageModel.GetAriaSort(StaticReportSortColumn.Version));
+        Assert.Equal(expectedNextDirection, pageModel.BuildSortUrl(StaticReportSortColumn.Title));
+    }
+
+    [Fact]
+    public void BuildSortUrl_StartsAscending_ForAnotherColumn()
+    {
+        var pageModel = CreatePageModel();
+        pageModel.SortColumn = StaticReportSortColumn.Title;
+        pageModel.SortDirection = "Descending";
+        pageModel.Url = new FakeUrlHelper(values => $"{values["SortColumn"]}-{values["SortDirection"]}");
+
+        Assert.Equal("Version-Ascending", pageModel.BuildSortUrl(StaticReportSortColumn.Version));
+    }
+
+    [Theory]
+    [InlineData(StaticReportSortColumn.Version, false, new[] { "V3", "V1", "V2" })]
+    [InlineData(StaticReportSortColumn.Version, true, new[] { "V2", "V1", "V3" })]
+    [InlineData(StaticReportSortColumn.Public, false, new[] { "V2", "V1", "V3" })]
+    [InlineData(StaticReportSortColumn.EffectiveDates, false, new[] { "V3", "V1", "V2" })]
+    [InlineData(StaticReportSortColumn.EffectiveDates, true, new[] { "V1", "V2", "V3" })]
+    public async Task OnGetAsync_SortsByTheChosenColumn(StaticReportSortColumn column, bool descending, string[] expectedTitles)
+    {
+        var older = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var pageModel = CreatePageModel(
+        [
+            Report("V1") with { VersionMajor = 2, IsPublic = true },
+            Report("V2") with { VersionMajor = 3, IsPublic = false },
+            Report("V3") with { VersionMajor = 1, IsPublic = true, EffectiveDateFrom = older, EffectiveDateTo = older.AddYears(1) }
+        ]);
+        pageModel.SortColumn = column;
+        pageModel.SortDirection = descending ? "Descending" : "Ascending";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedTitles, pageModel.PagedReports.Select(report => report.Title));
     }
 
     [Fact]

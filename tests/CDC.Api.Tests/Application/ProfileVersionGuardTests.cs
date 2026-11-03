@@ -135,6 +135,70 @@ public class ProfileVersionGuardTests
     }
 
     [Fact]
+    public async Task EnsureCanBrowseAsync_AllowsAPublishedVersion_ToAUserWithNoRoleOnTheProfile()
+    {
+        GivenVersion(isPublished: true);
+
+        var act = () => CreateGuard().EnsureCanBrowseAsync(ProfileId, VersionId, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task EnsureCanBrowseAsync_Throws_ForADraftOfAProfileTheUserHasNoRoleOn()
+    {
+        GivenVersion(isPublished: false);
+
+        var act = () => CreateGuard().EnsureCanBrowseAsync(ProfileId, VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task EnsureCanBrowseAsync_AllowsADraft_ToAnExternalUserWhoHoldsARoleOnTheProfile()
+    {
+        GivenVersion(isPublished: false);
+        GivenAnExternalUserWithARoleOnTheProfile();
+
+        var act = () => CreateGuard().EnsureCanBrowseAsync(ProfileId, VersionId, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task EnsureCanBrowseAsync_AllowsADraft_ToAProfileEditor()
+    {
+        GivenVersion(isPublished: false);
+        userContext.SetupGet(context => context.IsProfileEditor).Returns(true);
+
+        var act = () => CreateGuard().EnsureCanBrowseAsync(ProfileId, VersionId, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task EnsureCanBrowseAsync_Throws_WhenTheVersionDoesNotExist()
+    {
+        repository
+            .Setup(repo => repo.GetProfileVersionHeaderAsync(VersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfileVersionHeader?)null);
+
+        var act = () => CreateGuard().EnsureCanBrowseAsync(ProfileId, VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task EnsureCanBrowseAsync_Throws_WhenTheVersionBelongsToAnotherProfile()
+    {
+        GivenVersion(isPublished: true);
+
+        var act = () => CreateGuard().EnsureCanBrowseAsync(Guid.NewGuid(), VersionId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
     public async Task EnsureCanViewNotesAsync_Throws_ForAPublishedVersionToo_WhenTheUserHasNoRoleOnTheProfile()
     {
         GivenVersion(isPublished: true);

@@ -943,42 +943,18 @@ public class ProfileSectionServiceTests
     }
 
     [Theory]
-    [InlineData("Technical author", ReviewType.Author)]
-    [InlineData("VA author", ReviewType.Va)]
-    [InlineData("Policy author", ReviewType.Policy)]
-    public async Task SaveProfileVersionRevisionDatesAsync_LetsAnAuthorChangeTheReviewTheirRoleOwns(string roleName, ReviewType reviewType)
+    [InlineData("Technical author")]
+    [InlineData("VA author")]
+    [InlineData("Policy author")]
+    public async Task SaveProfileVersionRevisionDatesAsync_Throws_ForAnAuthor(string roleName)
     {
         GivenAnExternalUser(roleName, isContributor: true, ProfileSectionTestData.SectionId);
-        SetupLookups();
-        SetupExistingRevision(ProfileSectionTestData.SectionId, new ProfileSectionRevisionInfo { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = RowVersion });
-        var written = CaptureWrittenUpdates();
-
-        await CreateService().SaveProfileVersionRevisionDatesAsync(
-            ProfileSectionTestData.ProfileVersionId, [ChangeOnly(reviewType)], CancellationToken.None);
-
-        written().Should().ContainSingle();
-    }
-
-    [Theory]
-    [InlineData("Technical author", ReviewType.Va)]
-    [InlineData("Technical author", ReviewType.Policy)]
-    [InlineData("VA author", ReviewType.Author)]
-    [InlineData("VA author", ReviewType.Policy)]
-    [InlineData("Policy author", ReviewType.Author)]
-    [InlineData("Policy author", ReviewType.Va)]
-    public async Task SaveProfileVersionRevisionDatesAsync_Throws_WhenAnAuthorChangesAReviewTheirRoleDoesNotOwn(string roleName, ReviewType reviewType)
-    {
-        GivenAnExternalUser(roleName, isContributor: true, ProfileSectionTestData.SectionId);
-        SetupLookups();
-        SetupExistingRevision(ProfileSectionTestData.SectionId, new ProfileSectionRevisionInfo { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = RowVersion });
 
         var act = () => CreateService().SaveProfileVersionRevisionDatesAsync(
-            ProfileSectionTestData.ProfileVersionId, [ChangeOnly(reviewType)], CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, [Input(ProfileSectionTestData.SectionId)], CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
-        repository.Verify(
-            repo => repo.UpdateProfileVersionSectionRevisionsAsync(It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ProfileSectionRevisionUpdate>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        repository.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -1021,14 +997,6 @@ public class ProfileSectionServiceTests
         repository.VerifyNoOtherCalls();
         contentRepository.VerifyNoOtherCalls();
     }
-
-    /// <summary>An input that changes the frequency of one review and nothing else.</summary>
-    private static ProfileSectionRevisionDatesInputDto ChangeOnly(ReviewType reviewType) => reviewType switch
-    {
-        ReviewType.Author => Input(ProfileSectionTestData.SectionId, authorFrequency: YearlyFrequencyId),
-        ReviewType.Va => Input(ProfileSectionTestData.SectionId, vaFrequency: YearlyFrequencyId),
-        _ => Input(ProfileSectionTestData.SectionId, policyFrequency: YearlyFrequencyId)
-    };
 
     private void SetupLookups()
     {
