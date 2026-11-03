@@ -14,15 +14,11 @@ namespace CDC.Web.Tests.Features.Account;
 public class AccountControllerTests
 {
     [Fact]
-    public void Login_WhenAnonymous_ChallengesCidmSchemeWithRedirectToLandingExternal()
+    public async Task Login_WhenAnonymous_ChallengesCidmSchemeWithRedirectToLandingExternal()
     {
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out _);
 
-        var result = controller.Login();
+        var result = await controller.Login();
 
         var challenge = Assert.IsType<ChallengeResult>(result);
         Assert.Equal([CidmAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
@@ -30,23 +26,28 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public void Login_WhenAlreadyAuthenticated_RedirectsToLandingExternal()
+    public async Task Login_WhenAlreadySignedInExternally_RedirectsToLandingExternal()
     {
-        var identity = new ClaimsIdentity(authenticationType: CookieAuthenticationDefaults.AuthenticationScheme);
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
-            },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SuccessfulSession(CookieAuthenticationDefaults.AuthenticationScheme);
 
-        var result = controller.Login();
+        var result = await controller.Login();
 
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal("External", redirect.ActionName);
         Assert.Equal("Landing", redirect.ControllerName);
+    }
+
+    [Fact]
+    public async Task Login_WhenSignedInInternally_RedirectsToAlreadySignedInInsteadOfChallenging()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SuccessfulSession(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+        var result = await controller.Login();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("AlreadySignedIn", redirect.ActionName);
     }
 
     [Fact]
@@ -128,15 +129,11 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public void LoginInternal_WhenAnonymous_ChallengesEntraSchemeWithRedirectToLandingInternal()
+    public async Task LoginInternal_WhenAnonymous_ChallengesEntraSchemeWithRedirectToLandingInternal()
     {
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out _);
 
-        var result = controller.LoginInternal();
+        var result = await controller.LoginInternal();
 
         var challenge = Assert.IsType<ChallengeResult>(result);
         Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
@@ -144,22 +141,65 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public void LoginInternal_WhenAlreadyAuthenticated_RedirectsToLandingInternal()
+    public async Task LoginInternal_WhenAlreadySignedInInternally_RedirectsToLandingInternal()
     {
-        var identity = new ClaimsIdentity(authenticationType: EntraAuthenticationDefaults.CookieAuthenticationScheme);
-        var controller = new AccountController
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
-            },
-            Url = new FakeUrlHelper()
-        };
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SuccessfulSession(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
-        var result = controller.LoginInternal();
+        var result = await controller.LoginInternal();
 
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal("Internal", redirect.ActionName);
+        Assert.Equal("Landing", redirect.ControllerName);
+    }
+
+    [Fact]
+    public async Task LoginInternal_WhenSignedInExternally_RedirectsToAlreadySignedInInsteadOfChallenging()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SuccessfulSession(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var result = await controller.LoginInternal();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("AlreadySignedIn", redirect.ActionName);
+    }
+
+    [Fact]
+    public async Task AlreadySignedIn_WhenSignedInInternally_ShowsInternalSessionWithInternalHome()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SuccessfulSession(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+        var result = await controller.AlreadySignedIn();
+
+        var model = Assert.IsType<AlreadySignedInViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("internal", model.SessionName);
+        Assert.Equal("Internal", model.HomeAction);
+    }
+
+    [Fact]
+    public async Task AlreadySignedIn_WhenSignedInExternally_ShowsExternalSessionWithExternalHome()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SuccessfulSession(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var result = await controller.AlreadySignedIn();
+
+        var model = Assert.IsType<AlreadySignedInViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("external", model.SessionName);
+        Assert.Equal("External", model.HomeAction);
+    }
+
+    [Fact]
+    public async Task AlreadySignedIn_WhenNotSignedIn_RedirectsToLandingIndex()
+    {
+        var controller = CreateController(out _);
+
+        var result = await controller.AlreadySignedIn();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Index", redirect.ActionName);
         Assert.Equal("Landing", redirect.ControllerName);
     }
 
@@ -203,6 +243,31 @@ public class AccountControllerTests
         var signOut = Assert.IsType<SignOutResult>(result);
         Assert.Equal("captured-id-token", signOut.Properties!.GetTokenValue("id_token"));
     }
+
+    private static AccountController CreateController(out FakeAuthenticationService authService)
+    {
+        var httpContext = CreateHttpContextWithFakeAuth(out authService);
+
+        return new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+            Url = new FakeUrlHelper(),
+            TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(httpContext, new NullTempDataProvider())
+        };
+    }
+
+    private sealed class NullTempDataProvider : Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider
+    {
+        public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
+
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values)
+        {
+        }
+    }
+
+    private static AuthenticateResult SuccessfulSession(string scheme) =>
+        AuthenticateResult.Success(new AuthenticationTicket(
+            new ClaimsPrincipal(new ClaimsIdentity(authenticationType: scheme)), new AuthenticationProperties(), scheme));
 
     private static DefaultHttpContext CreateHttpContextWithFakeAuth(out FakeAuthenticationService authService)
     {

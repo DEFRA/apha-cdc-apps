@@ -108,6 +108,44 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task ResolveExternalUserAsync_AllowsWithoutLinking_WhenMatchedByEmailAndInternalProfileEditor()
+    {
+        var existing = ExistingUser(ssoUserId: null) with { SsoUserIdInt = SsoUserIdInt, IsProfileEditor = true };
+
+        repository
+            .Setup(repo => repo.GetBySsoUserIdExtAsync(SsoUserIdExt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExternalUser?)null);
+        repository
+            .Setup(repo => repo.GetByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var result = await CreateService().ResolveExternalUserAsync(Command(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(existing);
+
+        repository.Verify(repo => repo.UpdateSsoUserIdExtAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsForbidden_WhenMatchedByEmailAndInternalButNotProfileEditor()
+    {
+        var existing = ExistingUser(ssoUserId: null) with { SsoUserIdInt = SsoUserIdInt, IsProfileEditor = false };
+
+        repository
+            .Setup(repo => repo.GetBySsoUserIdExtAsync(SsoUserIdExt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExternalUser?)null);
+        repository
+            .Setup(repo => repo.GetByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var result = await CreateService().ResolveExternalUserAsync(Command(), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.UpdateSsoUserIdExtAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ResolveExternalUserAsync_ReturnsForbidden_WhenNoExistingRowMatches()
     {
         repository

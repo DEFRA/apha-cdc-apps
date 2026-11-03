@@ -79,6 +79,31 @@ public class ExternalUserResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_AddsInternalProfileEditorClaim_OnlyWhenApiFlagsTheUser()
+    {
+        var principal = CreatePrincipal();
+        var user = new ExternalUserDto
+        {
+            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            FullName = "Pat Editor",
+            EmailAddress = "user@example.com",
+            Organisation = "APHA",
+            IsInternalProfileEditor = true
+        };
+        var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Success, user));
+
+        var resolution = await new ExternalUserResolver(apiClient, NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Equal(bool.TrueString, resolution.Claims![ExternalUserClaimTypes.IsInternalProfileEditor]);
+
+        var regularResolution = await new ExternalUserResolver(
+            new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Success, user with { IsInternalProfileEditor = false })),
+            NullLogger<ExternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.False(regularResolution.Claims!.ContainsKey(ExternalUserClaimTypes.IsInternalProfileEditor));
+    }
+
+    [Fact]
     public async Task ResolveAsync_DeniesToNotPermittedPage_WhenApiReturnsNotPermitted()
     {
         var principal = CreatePrincipal();

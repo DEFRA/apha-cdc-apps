@@ -15,8 +15,13 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
 
     public AuthenticateResult AuthenticateResultToReturn { get; set; } = AuthenticateResult.NoResult();
 
+    // A scheme listed here gets its own result; every other scheme gets AuthenticateResultToReturn.
+    public Dictionary<string, AuthenticateResult> AuthenticateResultsByScheme { get; } = [];
+
     public Task<AuthenticateResult> AuthenticateAsync(HttpContext context, string? scheme) =>
-        Task.FromResult(AuthenticateResultToReturn);
+        Task.FromResult(scheme is not null && AuthenticateResultsByScheme.TryGetValue(scheme, out var result)
+            ? result
+            : AuthenticateResultToReturn);
 
     public Task ChallengeAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) =>
         Task.CompletedTask;
