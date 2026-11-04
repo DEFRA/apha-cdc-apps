@@ -34,7 +34,7 @@
             @if (Model.CanClone)
             {
                 <span aria-hidden="true"> | </span>
-                <a class="govuk-link" href="#">Clone scenario</a>
+                <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileProperties" asp-route-cloneProfileVersionId="@Model.CurrentVersion?.VersionId" asp-route-scenario="1">Clone scenario</a>
             }
         </p>
     }
@@ -97,7 +97,7 @@
                                     @if (Model.CanClone)
                                     {
                                         <span aria-hidden="true"> | </span>
-                                        <a class="govuk-link" href="#">Clone scenario</a>
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileProperties" asp-route-cloneProfileVersionId="@row.Version.VersionId" asp-route-scenario="1">Clone scenario</a>
                                     }
                                 </p>
                             </div>
