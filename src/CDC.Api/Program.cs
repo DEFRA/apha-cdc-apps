@@ -36,8 +36,8 @@ StartupChecks.RequireReadinessKey(builder.Configuration);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 
-// Graph:Enabled/TenantId/ClientId/ClientSecret - same sourcing as Entra (ECS task definition secrets).
-// Disabled by default, in which case no credentials are needed and lookups skip Graph.
+// Graph always uses the shared Entra app registration values when the explicit Graph section is absent,
+// and the API should not carry a separate Graph feature flag or duplicate secret.
 builder.Services.AddGraphClient(builder.Configuration);
 
 builder.Services.AddControllers();
