@@ -50,6 +50,13 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancels the database call.</param>
     Task UpdateSsoUserIdIntAsync(Guid id, Guid ssoUserIdInt, CancellationToken cancellationToken);
 
+    /// <summary>Records an internal user's email address when none is held yet, via <c>spuUserEmailAddress</c>.</summary>
+    /// <param name="id">The row to update.</param>
+    /// <param name="emailAddress">The email address to record.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns><see langword="true"/> when the address was recorded; <see langword="false"/> when the row already holds one or another user holds this address.</returns>
+    Task<bool> UpdateEmailAddressAsync(Guid id, string emailAddress, CancellationToken cancellationToken);
+
     /// <summary>Inserts a brand-new internal user row, with no privileges, via <c>spiInternalUser</c>.</summary>
     /// <param name="newUser">The row to insert, including a client-assigned Id.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>

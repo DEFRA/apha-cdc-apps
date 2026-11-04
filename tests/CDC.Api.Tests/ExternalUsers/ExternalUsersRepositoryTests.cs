@@ -182,6 +182,53 @@ public class ExternalUsersRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task PreRegisterExternalUserAsync_PassesEveryParameter_AndReturnsTrueWhenCreated()
+    {
+        connection.Script("spiExternalUserPreRegistration", new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Created"], [[true]])]
+        });
+        var id = Guid.NewGuid();
+
+        var created = await CreateRepository().PreRegisterExternalUserAsync(
+            id, "jane@example.test", "Jane Doe", "Org", "jane@example.test", CancellationToken.None);
+
+        created.Should().BeTrue();
+        var recorded = connection.Executed.Should().ContainSingle().Subject;
+        recorded.CommandType.Should().Be(CommandType.StoredProcedure);
+        recorded.Parameters["Id"].Should().Be(id);
+        recorded.Parameters["UserName"].Should().Be("jane@example.test");
+        recorded.Parameters["FullName"].Should().Be("Jane Doe");
+        recorded.Parameters["Organisation"].Should().Be("Org");
+        recorded.Parameters["EmailAddress"].Should().Be("jane@example.test");
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_ReturnsFalse_WhenTheEmailOrUserNameIsAlreadyUsed()
+    {
+        connection.Script("spiExternalUserPreRegistration", new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Created"], [[false]])]
+        });
+
+        var created = await CreateRepository().PreRegisterExternalUserAsync(
+            Guid.NewGuid(), "jane@example.test", "Jane Doe", "Org", "jane@example.test", CancellationToken.None);
+
+        created.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_Rethrows_WhenTheDatabaseFails()
+    {
+        connection.Script("spiExternalUserPreRegistration", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().PreRegisterExternalUserAsync(
+            Guid.NewGuid(), "jane@example.test", "Jane Doe", "Org", "jane@example.test", CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
     public async Task GetExternalUsersAsync_Rethrows_WhenTheConnectionCannotBeOpened()
     {
         connection.ThrowOnOpen = new FakeDbException("cannot open");

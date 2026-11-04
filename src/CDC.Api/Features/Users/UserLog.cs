@@ -16,8 +16,17 @@ internal static partial class UserLog
     [LoggerMessage(EventId = 8002, Level = LogLevel.Warning, Message = "Email claim matched user {UserId}, which is not an external user - denying CIDM sign-in")]
     public static partial void EmailMatchedNonExternalUser(this ILogger logger, Guid userId);
 
-    [LoggerMessage(EventId = 8004, Level = LogLevel.Information, Message = "No existing user matched the CIDM SSO id or email claim; creating external user {UserId}")]
-    public static partial void CreatedNewExternalUser(this ILogger logger, Guid userId);
+    [LoggerMessage(EventId = 8004, Level = LogLevel.Warning, Message = "CIDM sign-in denied: the account (SSO id {SsoUserIdExt}) is not authorised because no pre-registered user matches its SSO id or email address")]
+    public static partial void ExternalUserNotPreRegistered(this ILogger logger, Guid ssoUserIdExt);
+
+    [LoggerMessage(EventId = 8009, Level = LogLevel.Information, Message = "Internal profile editor {UserId} matched by email on CIDM sign-in; signing in without storing a CIDM SSO id")]
+    public static partial void InternalProfileEditorSignedInThroughCidm(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 8010, Level = LogLevel.Information, Message = "Recorded the email address of internal user {UserId} from the Entra sign-in")]
+    public static partial void RecordedInternalUserEmailAddress(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 8011, Level = LogLevel.Warning, Message = "Could not record the email address of internal user {UserId}; signing in without it")]
+    public static partial void FailedToRecordInternalUserEmailAddress(this ILogger logger, Exception exception, Guid userId);
 
     [LoggerMessage(EventId = 8003, Level = LogLevel.Error, Message = "Stored procedure {StoredProcedure} failed")]
     public static partial void StoredProcedureFailed(this ILogger logger, Exception exception, string storedProcedure);

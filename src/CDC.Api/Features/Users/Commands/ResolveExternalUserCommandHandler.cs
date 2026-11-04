@@ -33,7 +33,8 @@ public sealed class ResolveExternalUserCommandHandler(IUserService userService)
             Id = user.Id,
             FullName = user.FullName,
             EmailAddress = user.EmailAddress,
-            Organisation = user.Organisation
+            Organisation = user.Organisation,
+            IsInternalProfileEditor = user.SsoUserIdInt.HasValue && user.IsProfileEditor
         });
     }
 }

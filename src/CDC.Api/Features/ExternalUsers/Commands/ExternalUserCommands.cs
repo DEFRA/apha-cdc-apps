@@ -19,6 +19,22 @@ public sealed class SetExternalUserSubscriptionCommandHandler(IExternalUsersServ
         service.SetReviewEmailSubscriptionAsync(request, cancellationToken);
 }
 
+/// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>
+/// <param name="FullName">The user's full name.</param>
+/// <param name="EmailAddress">The user's email address, which CIDM sign-in is matched against.</param>
+/// <param name="Organisation">The user's organisation.</param>
+public sealed record PreRegisterExternalUserCommand(string FullName, string EmailAddress, string Organisation) : IRequest<Result<Unit>>;
+
+/// <summary>Handles <see cref="PreRegisterExternalUserCommand"/>.</summary>
+/// <param name="service">External users application service.</param>
+public sealed class PreRegisterExternalUserCommandHandler(IExternalUsersService service)
+    : IRequestHandler<PreRegisterExternalUserCommand, Result<Unit>>
+{
+    /// <inheritdoc />
+    public Task<Result<Unit>> Handle(PreRegisterExternalUserCommand request, CancellationToken cancellationToken) =>
+        service.PreRegisterExternalUserAsync(request, cancellationToken);
+}
+
 /// <summary>Grants an external user a role and section permissions on a profile, or changes an existing grant.</summary>
 /// <param name="UserId">The external user.</param>
 /// <param name="ProfileId">The profile being granted.</param>

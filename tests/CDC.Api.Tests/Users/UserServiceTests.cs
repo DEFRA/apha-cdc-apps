@@ -3,6 +3,7 @@ using CDC.Api.Domain.Entities;
 using CDC.Api.Features.Users;
 using CDC.Api.Features.Users.Commands;
 using CDC.Api.Features.Users.Interfaces;
+using CDC.Api.Tests.Fakes;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -108,7 +109,45 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task ResolveExternalUserAsync_CreatesNewUser_WhenNoExistingRowMatches()
+    public async Task ResolveExternalUserAsync_AllowsWithoutLinking_WhenMatchedByEmailAndInternalProfileEditor()
+    {
+        var existing = ExistingUser(ssoUserId: null) with { SsoUserIdInt = SsoUserIdInt, IsProfileEditor = true };
+
+        repository
+            .Setup(repo => repo.GetBySsoUserIdExtAsync(SsoUserIdExt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExternalUser?)null);
+        repository
+            .Setup(repo => repo.GetByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var result = await CreateService().ResolveExternalUserAsync(Command(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(existing);
+
+        repository.Verify(repo => repo.UpdateSsoUserIdExtAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsForbidden_WhenMatchedByEmailAndInternalButNotProfileEditor()
+    {
+        var existing = ExistingUser(ssoUserId: null) with { SsoUserIdInt = SsoUserIdInt, IsProfileEditor = false };
+
+        repository
+            .Setup(repo => repo.GetBySsoUserIdExtAsync(SsoUserIdExt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ExternalUser?)null);
+        repository
+            .Setup(repo => repo.GetByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var result = await CreateService().ResolveExternalUserAsync(Command(), CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.UpdateSsoUserIdExtAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResolveExternalUserAsync_ReturnsForbidden_WhenNoExistingRowMatches()
     {
         repository
             .Setup(repo => repo.GetBySsoUserIdExtAsync(SsoUserIdExt, It.IsAny<CancellationToken>()))
@@ -117,25 +156,10 @@ public class UserServiceTests
             .Setup(repo => repo.GetByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync((ExternalUser?)null);
 
-        ExternalUser? created = null;
-        repository
-            .Setup(repo => repo.CreateExternalUserAsync(It.IsAny<ExternalUser>(), It.IsAny<CancellationToken>()))
-            .Callback<ExternalUser, CancellationToken>((user, _) => created = user)
-            .ReturnsAsync((ExternalUser user, CancellationToken _) => user);
-
         var result = await CreateService().ResolveExternalUserAsync(Command(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        created.Should().NotBeNull();
-        created!.UserName.Should().Be("user@example.com");
-        created.EmailAddress.Should().Be("user@example.com");
-        created.FullName.Should().Be("Jane External");
-        created.Organisation.Should().Be("ACME Ltd");
-        created.SsoUserIdExt.Should().Be(SsoUserIdExt);
-        created.SsoUserId.Should().BeNull();
-        created.Id.Should().NotBe(Guid.Empty);
-
-        result.Value.Should().BeSameAs(created);
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        repository.Verify(repo => repo.CreateExternalUserAsync(It.IsAny<ExternalUser>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -164,6 +188,111 @@ public class UserServiceTests
         IsProfileEditor = false,
         IsPolicyProfileUser = false
     };
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_RecordsTheTrimmedEmailAddress_WhenTheMatchedUserHasNone()
+    {
+        var existing = ExistingInternalUser(SsoUserIdInt);
+        repository
+            .Setup(repo => repo.GetBySsoUserIdIntAsync(SsoUserIdInt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+        repository
+            .Setup(repo => repo.UpdateEmailAddressAsync(UserId, "jane@example.test", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand() with { Email = " jane@example.test " }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.UpdateEmailAddressAsync(UserId, "jane@example.test", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_RecordsTheEmailAddress_WhenTheUserIsMatchedByUserName()
+    {
+        repository
+            .Setup(repo => repo.GetBySsoUserIdIntAsync(SsoUserIdInt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InternalUser?)null);
+        repository
+            .Setup(repo => repo.GetByUserNameAsync(@"DEFRA\jdoe", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ExistingInternalUser(ssoUserIdInt: null));
+        repository
+            .Setup(repo => repo.UpdateSsoUserIdIntAsync(UserId, SsoUserIdInt, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        repository
+            .Setup(repo => repo.UpdateEmailAddressAsync(UserId, "jane@example.test", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand() with { Email = "jane@example.test" }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.UpdateEmailAddressAsync(UserId, "jane@example.test", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_RecordsTheEmailAddress_ForANewlyCreatedUser()
+    {
+        GivenNoInternalUserMatches();
+        InternalUser? created = null;
+        repository
+            .Setup(repo => repo.CreateInternalUserAsync(It.IsAny<InternalUser>(), It.IsAny<CancellationToken>()))
+            .Callback<InternalUser, CancellationToken>((user, _) => created = user)
+            .ReturnsAsync((InternalUser user, CancellationToken _) => user);
+        repository
+            .Setup(repo => repo.UpdateEmailAddressAsync(It.IsAny<Guid>(), "jane@example.test", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await CreateService().ResolveInternalUserAsync(InternalCommand() with { Email = "jane@example.test" }, CancellationToken.None);
+
+        repository.Verify(repo => repo.UpdateEmailAddressAsync(created!.Id, "jane@example.test", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_DoesNotReplaceAnEmailAddressTheUserAlreadyHolds()
+    {
+        var existing = ExistingInternalUser(SsoUserIdInt) with { EmailAddress = "held@example.test" };
+        repository
+            .Setup(repo => repo.GetBySsoUserIdIntAsync(SsoUserIdInt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand() with { Email = "jane@example.test" }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.UpdateEmailAddressAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.test")]
+    public async Task ResolveInternalUserAsync_DoesNotRecordAnEmailAddress_WhenThereIsNoUsableOne(string? email)
+    {
+        repository
+            .Setup(repo => repo.GetBySsoUserIdIntAsync(SsoUserIdInt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ExistingInternalUser(SsoUserIdInt));
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand() with { Email = email }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.UpdateEmailAddressAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResolveInternalUserAsync_StillSignsTheUserIn_WhenRecordingTheEmailAddressFails()
+    {
+        var existing = ExistingInternalUser(SsoUserIdInt);
+        repository
+            .Setup(repo => repo.GetBySsoUserIdIntAsync(SsoUserIdInt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+        repository
+            .Setup(repo => repo.UpdateEmailAddressAsync(UserId, "jane@example.test", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new FakeDbException("boom"));
+
+        var result = await CreateService().ResolveInternalUserAsync(InternalCommand() with { Email = "jane@example.test" }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(existing);
+    }
 
     [Fact]
     public async Task ResolveInternalUserAsync_ReturnsExistingUser_WhenMatchedBySsoUserIdInt()

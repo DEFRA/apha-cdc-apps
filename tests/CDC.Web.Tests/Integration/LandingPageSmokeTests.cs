@@ -322,16 +322,24 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Equal("/Landing/External", response.Headers.Location!.ToString());
     }
 
-    // Choosing to sign in as an internal user goes to Entra ID even when an external session exists.
+    // Choosing to sign in as an internal user while an external session exists is stopped, and the user is shown the session they hold.
     [Fact]
-    public async Task ExternalUser_ChoosingToSignInAsAnInternalUser_IsSentToEntraId()
+    public async Task ExternalUser_ChoosingToSignInAsAnInternalUser_IsToldToUseADifferentBrowser()
     {
         var client = await _factory.SignedInExternalClientAsync();
 
         var response = await client.GetAsync("/Account/LoginInternal");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString());
+        Assert.Equal("/Account/AlreadySignedIn", response.Headers.Location!.OriginalString);
+
+        var page = await client.GetAsync(response.Headers.Location);
+        var html = await page.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("You are signed in as an external user", html);
+        Assert.Contains("Use a different browser, not a tab", html);
+        Assert.Contains("href=\"/Landing/External\"", html);
     }
 }
 
@@ -392,16 +400,24 @@ public class LandingInternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.StartsWith(CdcWebTestFactory.FakeAuthorizationEndpoint, response.Headers.Location!.ToString());
     }
 
-    // Choosing to sign in as an external user goes to CIDM even when an internal session exists.
+    // Choosing to sign in as an external user while an internal session exists is stopped, and the user is shown the session they hold.
     [Fact]
-    public async Task InternalUser_ChoosingToSignInAsAnExternalUser_IsSentToCidm()
+    public async Task InternalUser_ChoosingToSignInAsAnExternalUser_IsToldToUseADifferentBrowser()
     {
         var client = await _factory.SignedInInternalClientAsync();
 
         var response = await client.GetAsync("/Account/Login");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.StartsWith(CdcWebTestFactory.FakeAuthorizationEndpoint, response.Headers.Location!.ToString());
+        Assert.Equal("/Account/AlreadySignedIn", response.Headers.Location!.OriginalString);
+
+        var page = await client.GetAsync(response.Headers.Location);
+        var html = await page.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("You are signed in as an internal user", html);
+        Assert.Contains("Use a different browser, not a tab", html);
+        Assert.Contains("href=\"/Landing/Internal\"", html);
     }
 }
 

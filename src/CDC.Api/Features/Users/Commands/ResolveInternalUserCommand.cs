@@ -27,4 +27,10 @@ public sealed record ResolveInternalUserCommand : IRequest<Result<InternalUserDt
     /// FullName then comes from that row instead.
     /// </summary>
     public required string FullName { get; init; }
+
+    /// <summary>
+    /// Gets the Entra ID email claim, when the token carries one. It is recorded on the user's row if that row holds
+    /// no email address yet, so the user can later sign in through CIDM, which matches users by email address.
+    /// </summary>
+    public string? Email { get; init; }
 }

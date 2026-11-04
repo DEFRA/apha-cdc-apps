@@ -72,6 +72,48 @@ public class InternalUserResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_SendsNoEmail_WhenTheTokenCarriesNone()
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.Null(apiClient.LastRequest!.Email);
+    }
+
+    [Theory]
+    [InlineData("email", "jane@example.test", "jane@example.test")]
+    [InlineData("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress", " jane@example.test ", "jane@example.test")]
+    [InlineData("upn", "jane@upn.example.test", "jane@upn.example.test")]
+    [InlineData("preferred_username", "jane@signin.example.test", "jane@signin.example.test")]
+    [InlineData("preferred_username", "jdoe", null)]
+    [InlineData("email", "   ", null)]
+    public async Task ResolveAsync_SendsTheEmailFromTheTokenOnlyWhenItLooksLikeAnEmailAddress(string claimType, string claimValue, string? expected)
+    {
+        var principal = CreatePrincipal();
+        ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(claimType, claimValue));
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Equal(expected, apiClient.LastRequest!.Email);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_PrefersTheEmailClaimOverTheSignInName()
+    {
+        var principal = CreatePrincipal();
+        var identity = (ClaimsIdentity)principal.Identity!;
+        identity.AddClaim(new Claim("preferred_username", "signin@example.test"));
+        identity.AddClaim(new Claim("email", "mail@example.test"));
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Equal("mail@example.test", apiClient.LastRequest!.Email);
+    }
+
+    [Fact]
     public async Task ResolveAsync_Allows_WithNoRole_WhenApiReturnsALimitedAccessUser()
     {
         var principal = CreatePrincipal();
