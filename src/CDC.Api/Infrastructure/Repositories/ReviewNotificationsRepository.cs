@@ -12,7 +12,10 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
 public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectionFactory) : IReviewNotificationsRepository
 {
-    internal const string UsersQuery = "SELECT Id, FullName, EmailAddress FROM dbo.vwReviewEmailUsers";
+    // The subscription check is repeated here so unsubscribed users are excluded even if the view definition drifts.
+    internal const string UsersQuery =
+        "SELECT v.Id, v.FullName, v.EmailAddress FROM dbo.vwReviewEmailUsers v " +
+        "INNER JOIN dbo.[User] u ON u.Id = v.Id WHERE u.SubscribedToReviewEmails = 1";
 
     // HasPublishedVersion mirrors how spgProfile finds the current published version.
     internal const string ProfilesQuery =

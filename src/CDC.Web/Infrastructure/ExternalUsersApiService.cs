@@ -17,12 +17,15 @@ public sealed class ExternalUsersApiService(HttpClient httpClient) : IExternalUs
     private const string BaseRoute = "/api/external-users";
 
     /// <inheritdoc />
-    public async Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
+        int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
     {
         var url = QueryHelpers.AddQueryString(BaseRoute, new Dictionary<string, string?>
         {
             ["pageNumber"] = pageNumber.ToString(CultureInfo.InvariantCulture),
-            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
+            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
+            ["sortColumn"] = sortColumn.ToString(),
+            ["sortDescending"] = sortDescending ? "true" : "false"
         });
 
         var result = await httpClient.GetFromJsonAsync<PagedResult<MaintainedExternalUserDto>>(url, cancellationToken);
@@ -33,6 +36,24 @@ public sealed class ExternalUsersApiService(HttpClient httpClient) : IExternalUs
             PageNumber = pageNumber,
             PageSize = pageSize,
             TotalRecords = 0
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<ExternalUserAccessResult> PreRegisterExternalUserAsync(PreRegisterExternalUserContract request, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync(BaseRoute, request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new ExternalUserAccessResult(true, null);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new ExternalUserAccessResult(false, "A user with this email address already exists."),
+            HttpStatusCode.BadRequest => new ExternalUserAccessResult(false, await ReadProblemDetailAsync(response, cancellationToken)),
+            _ => new ExternalUserAccessResult(false, "We could not register this user. Try again later.")
         };
     }
 

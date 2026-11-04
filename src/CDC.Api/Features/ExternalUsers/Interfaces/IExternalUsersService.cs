@@ -12,15 +12,24 @@ public interface IExternalUsersService
     /// <summary>Gets one page of external users.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user.</param>
+    /// <param name="sortColumn">The column to sort by before paging.</param>
+    /// <param name="sortDescending">Whether to sort in descending order.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The requested page.</returns>
-    Task<PagedResult<ExternalUserDto>> GetExternalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken);
+    Task<PagedResult<ExternalUserDto>> GetExternalUsersAsync(
+        int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken);
 
     /// <summary>Subscribes or unsubscribes a user from review notification emails.</summary>
     /// <param name="command">The change to apply.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>Success, or not found when the user does not exist.</returns>
     Task<Result<Unit>> SetReviewEmailSubscriptionAsync(SetExternalUserSubscriptionCommand command, CancellationToken cancellationToken);
+
+    /// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>
+    /// <param name="command">The user's details.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>Success, or a conflict when the email address is already registered.</returns>
+    Task<Result<Unit>> PreRegisterExternalUserAsync(PreRegisterExternalUserCommand command, CancellationToken cancellationToken);
 
     /// <summary>Gets the profiles an external user can access, and the profiles still available to grant.</summary>
     /// <param name="userId">The external user.</param>

@@ -64,7 +64,7 @@ public partial class MaintainContributorsIntegrationTests
         Assert.Contains("Pirbright Institute", body);
         Assert.Contains("Technical author", body);
         Assert.Contains("govuk-pagination", body);
-        Assert.Contains("(page 2 of 3) - D2R2</title>", body);
+        Assert.DoesNotContain("(page 2 of 3)", body);
         Assert.Contains(">Add<", body);
         PagedRegionAssert.ContainsPagination(body, "contributors-region");
     }

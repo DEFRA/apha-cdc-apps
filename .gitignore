@@ -30,6 +30,7 @@ coverage.cobertura.xml
 coverage/
 **/TestResults/
 *.trx
+*.txt
 
 # SonarCloud scanner working directory
 .sonarqube/

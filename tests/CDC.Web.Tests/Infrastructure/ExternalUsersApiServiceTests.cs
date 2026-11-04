@@ -16,9 +16,9 @@ public class ExternalUsersApiServiceTests
         const string json = """{"items":[{"fullName":"Jo Smith"}],"pageNumber":2,"pageSize":10,"totalRecords":11}""";
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
 
-        var result = await CreateClient(handler).GetExternalUsersAsync(2, 10);
+        var result = await CreateClient(handler).GetExternalUsersAsync(2, 10, ExternalUserSortColumn.Organisation, sortDescending: true);
 
-        Assert.Equal("/api/external-users?pageNumber=2&pageSize=10", handler.LastRequestUri!.PathAndQuery);
+        Assert.Equal("/api/external-users?pageNumber=2&pageSize=10&sortColumn=Organisation&sortDescending=true", handler.LastRequestUri!.PathAndQuery);
         Assert.Equal("Jo Smith", Assert.Single(result.Items).FullName);
     }
 
@@ -27,7 +27,7 @@ public class ExternalUsersApiServiceTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var result = await client.GetExternalUsersAsync(3, 15);
+        var result = await client.GetExternalUsersAsync(3, 15, ExternalUserSortColumn.None, sortDescending: false);
 
         Assert.Empty(result.Items);
         Assert.Equal(3, result.PageNumber);
@@ -152,6 +152,56 @@ public class ExternalUsersApiServiceTests
         Assert.Equal(expected, deleted);
         Assert.Equal(HttpMethod.Delete, handler.LastMethod);
         Assert.Equal($"/api/external-users/{UserId}/profile-access/{ProfileId}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_PostsTheDetails_AndReportsSuccess()
+    {
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+        var request = new PreRegisterExternalUserContract { FullName = "Jane Doe", EmailAddress = "jane@example.test", Organisation = "Org" };
+
+        var result = await CreateClient(handler).PreRegisterExternalUserAsync(request);
+
+        Assert.True(result.Succeeded);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal(HttpMethod.Post, handler.LastMethod);
+        Assert.Equal("/api/external-users", handler.LastRequestUri!.AbsolutePath);
+        Assert.Contains("\"emailAddress\":\"jane@example.test\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"fullName\":\"Jane Doe\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"organisation\":\"Org\"", handler.LastRequestBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_ReportsDuplicateEmail_OnConflict()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, string.Empty));
+
+        var result = await client.PreRegisterExternalUserAsync(new PreRegisterExternalUserContract());
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("A user with this email address already exists.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_ReturnsProblemDetail_OnBadRequest()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.BadRequest, """{"detail":"Enter the full name."}"""));
+
+        var result = await client.PreRegisterExternalUserAsync(new PreRegisterExternalUserContract());
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Enter the full name.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserAsync_ReturnsGenericMessage_OnOtherFailureStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        var result = await client.PreRegisterExternalUserAsync(new PreRegisterExternalUserContract());
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("We could not register this user. Try again later.", result.ErrorMessage);
     }
 
     private static ExternalUsersApiService CreateClient(HttpMessageHandler handler) =>

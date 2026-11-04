@@ -5,6 +5,7 @@ using CDC.Api.Features.GlobalUsers;
 using CDC.Api.Features.GlobalUsers.Commands;
 using CDC.Api.Features.GlobalUsers.Interfaces;
 using CDC.Common.Contracts;
+using CDC.Graph;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -14,8 +15,9 @@ namespace CDC.Api.Tests.GlobalUsers;
 public class GlobalUsersServiceTests
 {
     private readonly Mock<IGlobalUsersRepository> repository = new(MockBehavior.Strict);
+    private readonly Mock<IGraphClient> graph = new();
 
-    private GlobalUsersService CreateService() => new(repository.Object, NullLogger<GlobalUsersService>.Instance);
+    private GlobalUsersService CreateService() => new(repository.Object, graph.Object, NullLogger<GlobalUsersService>.Instance);
 
     private static GlobalUser User(string userName, GlobalUserRole role = GlobalUserRole.ProfileEditor, bool isSso = false) => new()
     {
@@ -45,11 +47,61 @@ public class GlobalUsersServiceTests
             .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User(@"D\a"), User(@"D\b"), User(@"D\c")]);
 
-        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 2, pageSize: 2, CancellationToken.None);
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 2, pageSize: 2, GlobalUserSortColumn.UserName, sortDescending: false, CancellationToken.None);
 
         result.Items.Should().ContainSingle().Which.UserName.Should().Be(@"D\c");
         result.TotalRecords.Should().Be(3);
         result.TotalPages.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsByFullNameBeforePaging_ByDefault()
+    {
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\c"), User(@"D\a"), User(@"D\b")]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 2, GlobalUserSortColumn.FullName, sortDescending: false, CancellationToken.None);
+
+        result.Items.Select(user => user.UserName).Should().Equal(@"D\a", @"D\b");
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsDescending()
+    {
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\a"), User(@"D\c"), User(@"D\b")]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.UserName, sortDescending: true, CancellationToken.None);
+
+        result.Items.Select(user => user.UserName).Should().Equal(@"D\c", @"D\b", @"D\a");
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsRoleByName()
+    {
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\editor", GlobalUserRole.ProfileEditor), User(@"D\policy", GlobalUserRole.PolicyProfileUser)]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.Role, sortDescending: false, CancellationToken.None);
+
+        result.Items.Select(user => user.Role).Should().Equal(GlobalUserRole.PolicyProfileUser, GlobalUserRole.ProfileEditor);
+    }
+
+    [Fact]
+    public async Task GetGlobalUsersAsync_SortsByOrganisation()
+    {
+        var apha = User(@"D\a");
+        var defra = User(@"D\b") with { Organisation = "Defra" };
+        repository
+            .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([defra, apha]);
+
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.Organisation, sortDescending: false, CancellationToken.None);
+
+        result.Items.Select(user => user.Organisation).Should().Equal("APHA", "Defra");
     }
 
     [Fact]
@@ -59,7 +111,7 @@ public class GlobalUsersServiceTests
             .Setup(repo => repo.GetGlobalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User(@"D\a"), User(@"D\b"), User(@"D\c")]);
 
-        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, CancellationToken.None);
+        var result = await CreateService().GetGlobalUsersAsync(pageNumber: 1, pageSize: 0, GlobalUserSortColumn.FullName, sortDescending: false, CancellationToken.None);
 
         result.Items.Should().HaveCount(3);
         result.TotalPages.Should().Be(1);
@@ -117,6 +169,62 @@ public class GlobalUsersServiceTests
         result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
         result.Id.Should().NotBeEmpty();
         result.UserName.Should().Be(@"DEFRA\new.user");
+        result.FullName.Should().BeEmpty();
+        result.Organisation.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_PrefillsANewUser_FromTheDirectory()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+        graph.Setup(client => client.FindUserBySamAccountNameAsync("new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GraphUser("id-1", "new.user", null, "  New", "User  "));
+
+        var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
+
+        result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
+        result.FullName.Should().Be("New User");
+        result.Organisation.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_TruncatesDirectoryValuesToTheSavedLength()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+        graph.Setup(client => client.FindUserBySamAccountNameAsync("new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GraphUser("id-1", null, null, new string('n', 150), null));
+
+        var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
+
+        result.FullName.Should().HaveLength(100);
+        result.Organisation.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_StillReturnsANewUser_WhenTheDirectoryLookupFails()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+        graph.Setup(client => client.FindUserBySamAccountNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new GraphException("down"));
+
+        var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
+
+        result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
+        result.FullName.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LookupAsync_DoesNotAskTheDirectory_ForAnExistingOrMalformedUser()
+    {
+        repository.Setup(repo => repo.FindUserByUsernameAsync("nodomain", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserVerification?)null);
+
+        await CreateService().LookupAsync("nodomain", CancellationToken.None);
+
+        graph.Verify(client => client.FindUserBySamAccountNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

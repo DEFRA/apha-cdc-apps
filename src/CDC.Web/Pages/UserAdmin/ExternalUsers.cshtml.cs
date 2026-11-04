@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using CDC.Common.Contracts;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
@@ -20,7 +22,16 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets the element id of the role and section permissions panel.</summary>
     public const string AccessPanelId = "external-user-access-panel";
 
+    /// <summary>Gets the element id of the pre-registration form.</summary>
+    public const string PreRegisterPanelId = "external-user-preregister";
+
     private const string PageRoute = "/UserAdmin/ExternalUsers";
+
+    private const string Ascending = "Ascending";
+
+    private const string Descending = "Descending";
+
+    private const string PendingSessionKey = "ExternalUserPendingAccess";
 
     private static readonly Action<ILogger, Exception?> LogFailedToLoadUsersMessage =
         LoggerMessage.Define(LogLevel.Error, new EventId(1, nameof(LogFailedToLoadUsersMessage)), "Failed to load external users");
@@ -32,6 +43,8 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(4, nameof(LogFailedToSaveAccessMessage)), "Failed to save profile access for external user '{UserId}'");
     private static readonly Action<ILogger, Guid, Exception?> LogFailedToDeleteAccessMessage =
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(5, nameof(LogFailedToDeleteAccessMessage)), "Failed to remove profile access for external user '{UserId}'");
+    private static readonly Action<ILogger, Exception?> LogFailedToPreRegisterMessage =
+        LoggerMessage.Define(LogLevel.Error, new EventId(6, nameof(LogFailedToPreRegisterMessage)), "Failed to pre-register external user");
 
     private readonly IExternalUsersApiService externalUsersApiService;
     private readonly IProfileContributorsApiService profileContributorsApiService;
@@ -62,6 +75,33 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
+    /// <summary>Gets or sets the column the list of users is sorted by. Defaults to full name, as for global users.</summary>
+    [BindProperty(SupportsGet = true)]
+    public ExternalUserSortColumn SortColumn { get; set; } = ExternalUserSortColumn.FullName;
+
+    /// <summary>Gets or sets the sort direction of the list of users: "Ascending" or "Descending".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string SortDirection { get; set; } = Ascending;
+
+    /// <summary>Gets a value indicating whether the list of users is sorted in descending order.</summary>
+    public bool IsSortDescending => string.Equals(SortDirection, Descending, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Gets or sets the number of profile rows shown per page in the edit panel, or "All".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string ProfilePageSize { get; set; } = PageSizeOptions[0];
+
+    /// <summary>Gets or sets the current 1-based page of the edited user's profiles.</summary>
+    [BindProperty(SupportsGet = true)]
+    public int ProfilePageNumber { get; set; } = 1;
+
+    /// <summary>Gets or sets the title sort direction of the edited user's profiles: Ascending or Descending.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string ProfileSortDirection { get; set; } = Ascending;
+
+    /// <summary>Gets or sets a value indicating whether any staged profile changes are thrown away on load.</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool DiscardPending { get; set; }
+
     /// <summary>Gets or sets the user whose edit panel is open, if any.</summary>
     [BindProperty(SupportsGet = true)]
     public Guid? EditUserId { get; set; }
@@ -73,6 +113,14 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets or sets the profile being added for the user, if any.</summary>
     [BindProperty(SupportsGet = true)]
     public Guid? AddProfileId { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the pre-registration form is open.</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool ShowPreRegisterForm { get; set; }
+
+    /// <summary>Gets or sets the details of the external user being pre-registered.</summary>
+    [BindProperty]
+    public PreRegisterInput NewUser { get; set; } = new();
 
     /// <summary>Gets or sets the identifier of the user being saved.</summary>
     [BindProperty]
@@ -126,11 +174,56 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets the total number of result pages.</summary>
     public int TotalPages { get; private set; } = 1;
 
+    /// <summary>Gets a value indicating whether profiles are sorted by title in descending order.</summary>
+    public bool IsProfileSortDescending => string.Equals(ProfileSortDirection, Descending, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Gets the total number of pages of the edited user's profiles.</summary>
+    public int ProfileTotalPages
+    {
+        get
+        {
+            var size = ResolvePageSize(ProfilePageSize);
+            var count = Access?.Profiles.Count ?? 0;
+
+            return size == 0 ? 1 : Math.Max(1, (int)Math.Ceiling(count / (double)size));
+        }
+    }
+
+    /// <summary>Gets the current page of the edited user's profiles, sorted by title.</summary>
+    public IReadOnlyList<ExternalUserProfileGrantContract> PagedProfiles
+    {
+        get
+        {
+            if (Access is null)
+            {
+                return [];
+            }
+
+            var plainTitle = (ExternalUserProfileGrantContract grant) => ProfileTitleHtmlFormatter.ToPlainText(grant.Title);
+            var sorted = IsProfileSortDescending
+                ? Access.Profiles.OrderByDescending(plainTitle, StringComparer.OrdinalIgnoreCase)
+                : Access.Profiles.OrderBy(plainTitle, StringComparer.OrdinalIgnoreCase);
+            var size = ResolvePageSize(ProfilePageSize);
+            var page = Math.Clamp(ProfilePageNumber, 1, ProfileTotalPages);
+
+            return size == 0 ? [.. sorted] : [.. sorted.Skip((page - 1) * size).Take(size)];
+        }
+    }
+
+    /// <summary>Gets the <c>aria-sort</c> value for the profile title column.</summary>
+    public string ProfileTitleAriaSort => IsProfileSortDescending ? "descending" : "ascending";
+
     /// <summary>Gets a value indicating whether the users failed to load.</summary>
     public bool HasLoadError { get; private set; }
 
     /// <summary>Gets a value indicating whether the edited user's profile access failed to load.</summary>
     public bool HasAccessLoadError { get; private set; }
+
+    /// <summary>Gets the error shown when the API rejected the pre-registration.</summary>
+    public string? PreRegisterError { get; private set; }
+
+    /// <summary>Gets a value indicating whether added, changed or removed profiles are waiting for OK.</summary>
+    public bool HasPendingChanges { get; private set; }
 
     /// <summary>Gets the error shown when saving the subscription failed.</summary>
     public string? SaveError { get; private set; }
@@ -146,6 +239,11 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
+        if (DiscardPending)
+        {
+            HttpContext.Session.Remove(PendingSessionKey);
+        }
+
         await LoadUsersAsync(cancellationToken);
 
         if (EditUserId is Guid editId && Users.FirstOrDefault(user => user.Id == editId) is { } user)
@@ -161,31 +259,20 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         return Page();
     }
 
-    /// <summary>Subscribes or unsubscribes the user in the edit panel from review notification emails.</summary>
+    /// <summary>Saves the review email subscription and every staged profile change.</summary>
     public async Task<IActionResult> OnPostSaveAsync(CancellationToken cancellationToken)
     {
-        var saved = false;
-
-        try
-        {
-            saved = await externalUsersApiService.SetReviewEmailSubscriptionAsync(UserId, SubscribedToReviewEmails, cancellationToken);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
-        {
-            LogFailedToSaveUserMessage(logger, UserId, exception);
-        }
-
-        if (saved)
+        if (await CommitPendingAsync(cancellationToken))
         {
             SuccessMessage = "Your changes were successfully saved";
 
-            return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+            return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
         }
 
         EditUserId = UserId;
         await LoadUsersAsync(cancellationToken);
         EditUser = Users.FirstOrDefault(user => user.Id == UserId);
-        SaveError = "We could not save your changes. Try again later.";
+        SaveError ??= "We could not save your changes. Try again later.";
 
         if (EditUser is not null)
         {
@@ -195,7 +282,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         return Page();
     }
 
-    /// <summary>Grants the user a role and section permissions on a profile, or changes an existing grant.</summary>
+    /// <summary>Stages a role and section permissions grant on a profile; nothing is saved until OK is pressed.</summary>
     public async Task<IActionResult> OnPostSaveAccessAsync(CancellationToken cancellationToken)
     {
         EditUserId = UserId;
@@ -204,7 +291,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
         if (EditUser is null)
         {
-            return RedirectToPage(PageRoute, new { PageNumber, PageSize });
+            return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
         }
 
         SubscribedToReviewEmails = EditUser.SubscribedToReviewEmails;
@@ -218,20 +305,24 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
                 ? SelectedSectionIds.Where(knownSectionIds.Contains).Distinct().ToList()
                 : [];
 
-            var result = await externalUsersApiService.SaveProfileAccessAsync(
-                UserId,
-                ProfileId,
-                new SaveExternalUserProfileAccessContract { RoleId = RoleId, SectionPermissionIds = sectionIds },
-                cancellationToken);
-
-            if (result.Succeeded)
+            if (ProfileUserRoles.All(role => role.Id != RoleId))
             {
-                SuccessMessage = "Your changes were successfully saved";
-
-                return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, EditUserId = UserId }, PanelId);
+                AccessError = "Please select a valid role.";
             }
+            else if (IsCurrentRoleContributor && sectionIds.Count == 0)
+            {
+                AccessError = "At least one section must be ticked.";
+            }
+            else
+            {
+                var pending = ReadPending();
+                pending.Deletes.Remove(ProfileId);
+                pending.Adds.RemoveAll(grant => grant.ProfileId == ProfileId);
+                pending.Adds.Add(new PendingGrant { ProfileId = ProfileId, RoleId = RoleId, SectionIds = sectionIds });
+                WritePending(pending);
 
-            AccessError = result.ErrorMessage;
+                return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
+            }
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
@@ -249,19 +340,22 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         return Page();
     }
 
-    /// <summary>Removes the user's access to a profile.</summary>
+    /// <summary>Stages the removal of the user's access to a profile; nothing is saved until OK is pressed.</summary>
     public async Task<IActionResult> OnPostDeleteAccessAsync(CancellationToken cancellationToken)
     {
         try
         {
-            if (await externalUsersApiService.DeleteProfileAccessAsync(UserId, ProfileId, cancellationToken))
+            var access = await externalUsersApiService.GetProfileAccessAsync(UserId, cancellationToken);
+            var pending = ReadPending();
+
+            pending.Adds.RemoveAll(grant => grant.ProfileId == ProfileId);
+
+            if (access?.Profiles.Any(profile => profile.ProfileId == ProfileId) == true && !pending.Deletes.Contains(ProfileId))
             {
-                SuccessMessage = "Profile access was successfully removed";
+                pending.Deletes.Add(ProfileId);
             }
-            else
-            {
-                RemoveErrorMessage = "We could not remove this profile access. Try again later.";
-            }
+
+            WritePending(pending);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
@@ -269,38 +363,129 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
             RemoveErrorMessage = "We could not remove this profile access. Try again later.";
         }
 
-        return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, EditUserId = UserId }, PanelId);
+        return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
     }
 
-    /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/>.</summary>
+    /// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>
+    public async Task<IActionResult> OnPostPreRegisterAsync(CancellationToken cancellationToken)
+    {
+        ShowPreRegisterForm = true;
+
+        // Only the pre-registration fields matter for this handler.
+        var hasInputErrors = ModelState.Keys
+            .Where(key => key.StartsWith(nameof(NewUser) + ".", StringComparison.Ordinal))
+            .Any(key => ModelState[key]?.Errors.Count > 0);
+
+        if (!hasInputErrors)
+        {
+            try
+            {
+                var result = await externalUsersApiService.PreRegisterExternalUserAsync(
+                    new PreRegisterExternalUserContract
+                    {
+                        FullName = NewUser.FullName.Trim(),
+                        EmailAddress = NewUser.EmailAddress.Trim(),
+                        Organisation = NewUser.Organisation.Trim()
+                    },
+                    cancellationToken);
+
+                if (result.Succeeded)
+                {
+                    SuccessMessage = "External user added. They can now sign in to D2R2, but cannot see any profiles until you give them access";
+
+                    return RedirectToPage(PageRoute);
+                }
+
+                PreRegisterError = result.ErrorMessage;
+            }
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+            {
+                LogFailedToPreRegisterMessage(logger, exception);
+                PreRegisterError = "We could not register this user. Try again later.";
+            }
+        }
+
+        await LoadUsersAsync(cancellationToken);
+
+        return Page();
+    }
+
+    /// <summary>Gets the field-level error for a pre-registration field.</summary>
+    /// <param name="field">The <see cref="PreRegisterInput"/> property name.</param>
+    /// <returns>The first error, or <see langword="null"/> when the field is valid.</returns>
+    public string? GetPreRegisterFieldError(string field) =>
+        ModelState.TryGetValue($"{nameof(NewUser)}.{field}", out var entry) ? entry.Errors.FirstOrDefault()?.ErrorMessage : null;
+
+    /// <summary>Builds the URL that closes the pre-registration form.</summary>
+    /// <returns>The page URL.</returns>
+    public string? BuildClosePreRegisterUrl() => Url.Page(PageRoute, new { PageSize, PageNumber });
+
+    /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/> and the sort.</summary>
     /// <param name="page">The 1-based page.</param>
     /// <returns>The page URL.</returns>
-    public string? BuildPageUrl(int page) => Url.Page(PageRoute, new { PageSize, PageNumber = page });
+    public string? BuildPageUrl(int page) => Url.Page(PageRoute, new { PageSize, PageNumber = page, SortColumn, SortDirection });
+
+    /// <summary>Builds the URL for a sortable column header: ascending for a new column, otherwise toggling the direction. Resets to page 1.</summary>
+    /// <param name="column">The column to sort by.</param>
+    /// <returns>The page URL.</returns>
+    public string? BuildSortUrl(ExternalUserSortColumn column) => Url.Page(PageRoute, new
+    {
+        PageSize,
+        PageNumber = 1,
+        SortColumn = column,
+        SortDirection = column == SortColumn && !IsSortDescending ? Descending : Ascending
+    });
+
+    /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
+    /// <param name="column">The column.</param>
+    /// <returns>"none" unless the list is sorted by <paramref name="column"/>.</returns>
+    public string GetAriaSort(ExternalUserSortColumn column)
+    {
+        if (column != SortColumn)
+        {
+            return "none";
+        }
+
+        return IsSortDescending ? "descending" : "ascending";
+    }
 
     /// <summary>Builds the URL that opens the edit panel for one row.</summary>
     /// <param name="userId">The user to edit.</param>
     /// <returns>The page URL.</returns>
-    public string? BuildEditUrl(Guid userId) => Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = userId }, null, null, PanelId);
+    public string? BuildEditUrl(Guid userId) => Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = userId, DiscardPending = true }, null, null, PanelId);
 
     /// <summary>Builds the URL that opens the role and section permissions panel for an existing grant.</summary>
     /// <param name="profileId">The profile whose access is edited.</param>
     /// <returns>The page URL.</returns>
     public string? BuildAccessUrl(Guid profileId) =>
-        Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = UserId, AccessProfileId = profileId }, null, null, AccessPanelId);
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection, AccessProfileId = profileId }, null, null, AccessPanelId);
 
     /// <summary>Builds the URL that closes the role and section permissions panel without saving.</summary>
     /// <returns>The page URL.</returns>
-    public string? BuildCloseAccessUrl() => Url.Page(PageRoute, null, new { PageSize, PageNumber, EditUserId = UserId }, null, null, PanelId);
+    public string? BuildCloseAccessUrl() =>
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, null, null, PanelId);
+
+    /// <summary>Builds the URL for a page of the edited user's profiles, preserving the page size and sort.</summary>
+    /// <param name="page">The 1-based profile page.</param>
+    /// <returns>The page URL.</returns>
+    public string? BuildProfilePageUrl(int page) =>
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = page, ProfileSortDirection }, null, null, PanelId);
+
+    /// <summary>Builds the URL that flips the profile title sort direction and returns to the first profile page.</summary>
+    /// <returns>The page URL.</returns>
+    public string? BuildProfileSortUrl() =>
+        Url.Page(PageRoute, null, new { PageSize, PageNumber, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber = 1, ProfileSortDirection = IsProfileSortDescending ? Ascending : Descending }, null, null, PanelId);
 
     /// <summary>Builds the URL that closes the edit panel.</summary>
     /// <returns>The page URL.</returns>
-    public string? BuildCloseUrl() => Url.Page(PageRoute, new { PageSize, PageNumber });
+    public string? BuildCloseUrl() => Url.Page(PageRoute, new { PageSize, PageNumber, SortColumn, SortDirection, DiscardPending = true });
 
     private async Task LoadUsersAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var result = await externalUsersApiService.GetExternalUsersAsync(PageNumber, ResolvePageSize(PageSize), cancellationToken);
+            var result = await externalUsersApiService.GetExternalUsersAsync(
+                PageNumber, ResolvePageSize(PageSize), SortColumn, IsSortDescending, cancellationToken);
 
             TotalPages = result.TotalPages;
             PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
@@ -320,6 +505,11 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         {
             Access = await externalUsersApiService.GetProfileAccessAsync(UserId, cancellationToken);
             HasAccessLoadError = Access is null;
+
+            if (Access is not null)
+            {
+                await ApplyPendingAsync(cancellationToken);
+            }
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
@@ -379,6 +569,127 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         }
     }
 
+    /// <summary>Overlays the staged adds, changes and removals on the saved profile access so the page shows the pending result.</summary>
+    private async Task ApplyPendingAsync(CancellationToken cancellationToken)
+    {
+        var pending = ReadPending();
+        HasPendingChanges = pending.Adds.Count + pending.Deletes.Count > 0;
+
+        if (!HasPendingChanges || Access is null)
+        {
+            return;
+        }
+
+        await LoadRolesAndSectionsAsync(cancellationToken);
+
+        var saved = Access;
+        var profiles = saved.Profiles
+            .Where(profile => !pending.Deletes.Contains(profile.ProfileId) && pending.Adds.All(grant => grant.ProfileId != profile.ProfileId))
+            .ToList();
+
+        foreach (var grant in pending.Adds)
+        {
+            var role = ProfileUserRoles.FirstOrDefault(candidate => candidate.Id == grant.RoleId);
+            var title = saved.Profiles.FirstOrDefault(profile => profile.ProfileId == grant.ProfileId)?.Title
+                ?? saved.AvailableProfiles.FirstOrDefault(profile => profile.Id == grant.ProfileId)?.Title
+                ?? string.Empty;
+
+            profiles.Add(new ExternalUserProfileGrantContract
+            {
+                ProfileId = grant.ProfileId,
+                Title = title,
+                RoleId = grant.RoleId,
+                RoleName = role?.Name ?? string.Empty,
+                IsContributor = role?.IsContributor ?? false,
+                SectionPermissionIds = grant.SectionIds
+            });
+        }
+
+        var available = saved.AvailableProfiles
+            .Where(profile => pending.Adds.All(grant => grant.ProfileId != profile.Id))
+            .Concat(saved.Profiles
+                .Where(profile => pending.Deletes.Contains(profile.ProfileId))
+                .Select(profile => new ProfileOptionContract { Id = profile.ProfileId, Title = profile.Title }))
+            .OrderBy(profile => ProfileTitleHtmlFormatter.ToPlainText(profile.Title), StringComparer.OrdinalIgnoreCase);
+
+        Access = new ExternalUserProfileAccessContract { Profiles = profiles, AvailableProfiles = [.. available] };
+    }
+
+    /// <summary>Applies the review email subscription and every staged profile change through the API.</summary>
+    private async Task<bool> CommitPendingAsync(CancellationToken cancellationToken)
+    {
+        var pending = ReadPending();
+
+        try
+        {
+            if (!await externalUsersApiService.SetReviewEmailSubscriptionAsync(UserId, SubscribedToReviewEmails, cancellationToken))
+            {
+                return false;
+            }
+
+            foreach (var profileId in pending.Deletes)
+            {
+                if (!await externalUsersApiService.DeleteProfileAccessAsync(UserId, profileId, cancellationToken))
+                {
+                    return false;
+                }
+            }
+
+            foreach (var grant in pending.Adds)
+            {
+                var result = await externalUsersApiService.SaveProfileAccessAsync(
+                    UserId,
+                    grant.ProfileId,
+                    new SaveExternalUserProfileAccessContract { RoleId = grant.RoleId, SectionPermissionIds = grant.SectionIds },
+                    cancellationToken);
+
+                if (!result.Succeeded)
+                {
+                    SaveError = result.ErrorMessage;
+
+                    return false;
+                }
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            LogFailedToSaveUserMessage(logger, UserId, exception);
+
+            return false;
+        }
+
+        HttpContext.Session.Remove(PendingSessionKey);
+
+        return true;
+    }
+
+    private PendingAccess ReadPending()
+    {
+        var json = HttpContext.Session.GetString(PendingSessionKey);
+        var pending = string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<PendingAccess>(json);
+
+        if (pending is not null && pending.UserId == UserId)
+        {
+            return pending;
+        }
+
+        HttpContext.Session.Remove(PendingSessionKey);
+
+        return new PendingAccess { UserId = UserId };
+    }
+
+    private void WritePending(PendingAccess pending)
+    {
+        if (pending.Adds.Count == 0 && pending.Deletes.Count == 0)
+        {
+            HttpContext.Session.Remove(PendingSessionKey);
+
+            return;
+        }
+
+        HttpContext.Session.SetString(PendingSessionKey, JsonSerializer.Serialize(pending));
+    }
+
     private async Task LoadRolesAndSectionsAsync(CancellationToken cancellationToken)
     {
         if (ProfileUserRoles.Count > 0)
@@ -401,5 +712,43 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         }
 
         return int.TryParse(pageSize, out var parsed) && parsed > 0 ? parsed : 10;
+    }
+
+    /// <summary>The details entered when pre-registering an external user.</summary>
+    public sealed class PreRegisterInput
+    {
+        /// <summary>Gets or sets the user's full name.</summary>
+        [Required(ErrorMessage = "Enter the full name")]
+        [StringLength(100, ErrorMessage = "The full name must be 100 characters or fewer")]
+        public string FullName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the user's email address.</summary>
+        [Required(ErrorMessage = "Enter the email address")]
+        [EmailAddress(ErrorMessage = "Enter an email address in the correct format e.g. name@example.com")]
+        [StringLength(50, ErrorMessage = "The email address must be 50 characters or fewer")]
+        public string EmailAddress { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the user's organisation.</summary>
+        [Required(ErrorMessage = "Enter the organisation")]
+        [StringLength(100, ErrorMessage = "The organisation must be 100 characters or fewer")]
+        public string Organisation { get; set; } = string.Empty;
+    }
+
+    private sealed class PendingAccess
+    {
+        public Guid UserId { get; set; }
+
+        public List<PendingGrant> Adds { get; set; } = [];
+
+        public List<Guid> Deletes { get; set; } = [];
+    }
+
+    private sealed class PendingGrant
+    {
+        public Guid ProfileId { get; set; }
+
+        public Guid RoleId { get; set; }
+
+        public List<Guid> SectionIds { get; set; } = [];
     }
 }

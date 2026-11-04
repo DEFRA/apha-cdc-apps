@@ -1,7 +1,15 @@
 @page
+@using CDC.Web.Pages.HelpSupport
 @model CDC.Web.Pages.HelpSupport.StaticReportsModel
 @{
     ViewData["Title"] = Model.Breadcrumb.PageName;
+
+    void SortableHeader(StaticReportSortColumn column, string text)
+    {
+        <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(column)">
+            <a class="govuk-link govuk-link--no-visited-state app-sort-link" href="@Model.BuildSortUrl(column)">@text</a>
+        </th>
+    }
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
@@ -74,6 +82,7 @@ else
     <form method="get" id="static-reports-form">
         <input type="hidden" name="UserManual" value="@Model.UserManual" />
         <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
+        <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
         <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
         <input type="hidden" id="PageNumber" name="PageNumber" value="1" />
         <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
@@ -96,21 +105,23 @@ else
                 @if (Model.IsHistoryMode)
                 {
                     <th scope="col" class="govuk-table__header">Title</th>
+                    <th scope="col" class="govuk-table__header">Version</th>
+                    @if (!Model.IsUserManual)
+                    {
+                        <th scope="col" class="govuk-table__header">Public?</th>
+                    }
+                    <th scope="col" class="govuk-table__header">Effective dates</th>
                 }
                 else
                 {
-                    <th scope="col" class="govuk-table__header app-sortable-header app-sortable-header--plain" aria-sort="@Model.TitleAriaSort">
-                        <a href="@Model.BuildTitleSortUrl()">Title</a>
-                    </th>
-                }
-                <th scope="col" class="govuk-table__header">Version</th>
-                @if (!Model.IsUserManual)
-                {
-                    <th scope="col" class="govuk-table__header">Public?</th>
-                }
-                <th scope="col" class="govuk-table__header">Effective dates</th>
-                @if (!Model.IsHistoryMode)
-                {
+                    SortableHeader(StaticReportSortColumn.Title, "Title");
+                    SortableHeader(StaticReportSortColumn.Version, "Version");
+                    if (!Model.IsUserManual)
+                    {
+                        SortableHeader(StaticReportSortColumn.Public, "Public?");
+                    }
+
+                    SortableHeader(StaticReportSortColumn.EffectiveDates, "Effective dates");
                     <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">History</span></th>
                     <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
                 }

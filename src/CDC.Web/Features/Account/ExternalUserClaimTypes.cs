@@ -32,4 +32,10 @@ public static class ExternalUserClaimTypes
     /// no matching row.
     /// </summary>
     public const string IsPolicyProfileUser = "isPolicyProfileUser";
+
+    /// <summary>
+    /// Present, as <c>true</c>, only when an internal profile editor signed in through CIDM. It is not a role and
+    /// grants nothing - it only lets the external home page remind them where to manage external users.
+    /// </summary>
+    public const string IsInternalProfileEditor = "isInternalProfileEditor";
 }

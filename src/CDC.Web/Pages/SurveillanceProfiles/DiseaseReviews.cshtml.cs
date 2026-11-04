@@ -1,4 +1,5 @@
 using System.Globalization;
+using CDC.Common.Contracts;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
@@ -183,7 +184,7 @@ public class DiseaseReviewsModel(
         try
         {
             // A page size of 0 asks for every user on one page.
-            Authors = (await globalUsersApiService.GetGlobalUsersAsync(1, 0, cancellationToken)).Items;
+            Authors = (await globalUsersApiService.GetGlobalUsersAsync(1, 0, GlobalUserSortColumn.FullName, false, cancellationToken)).Items;
 
             return true;
         }

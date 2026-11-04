@@ -3,7 +3,7 @@
 @model CDC.Web.Pages.SpeciesData.MaintainModel
 @{
     ViewData["Title"] = Model.ShowAuditTrail
-        ? PaginationViewModel.TitleWithPage("Species data audit trail", Model.AuditTrailPage, Model.AuditTrailTotalPages)
+        ? "Species data audit trail"
         : "Maintain species data";
 }
 @section Breadcrumbs {

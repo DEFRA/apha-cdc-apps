@@ -15,9 +15,12 @@ public interface IGlobalUsersService
     /// <summary>Gets one page of global users.</summary>
     /// <param name="pageNumber">The 1-based page to return. Clamped to at least 1.</param>
     /// <param name="pageSize">Items per page, or 0/negative to return every user on a single page.</param>
+    /// <param name="sortColumn">The column to sort by before paging.</param>
+    /// <param name="sortDescending">Whether to sort in descending order.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The requested page of users.</returns>
-    Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken);
+    Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
+        int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken);
 
     /// <summary>Classifies a username for the "Add global user" lookup step and returns the details to pre-fill.</summary>
     /// <param name="userName">The username to look up.</param>

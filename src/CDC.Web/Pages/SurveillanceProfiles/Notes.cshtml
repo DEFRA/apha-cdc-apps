@@ -2,7 +2,7 @@
 @model CDC.Web.Pages.SurveillanceProfiles.NotesModel
 @using CDC.Web.Infrastructure
 @{
-    ViewData["Title"] = PaginationViewModel.TitleWithPage("Profile references", Model.PageNumber, Model.TotalPages);
+    ViewData["Title"] = "Profile references";
 
     var subnavModel = new SectionSubnavViewModel(
         "Profile reference sections",

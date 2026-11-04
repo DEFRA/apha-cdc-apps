@@ -14,6 +14,12 @@ public sealed record ResolveInternalUserRequestDto
     /// <c>[dbo].[User]</c> row.
     /// </summary>
     public required string FullName { get; init; }
+
+    /// <summary>
+    /// Gets the user's email address from the token, or <see langword="null"/> when it carries none. CDC.Api records it
+    /// on the user's row when that row holds no email address yet.
+    /// </summary>
+    public string? Email { get; init; }
 }
 
 /// <summary>

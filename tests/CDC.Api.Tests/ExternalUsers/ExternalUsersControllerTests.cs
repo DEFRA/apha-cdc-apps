@@ -29,10 +29,12 @@ public class ExternalUsersControllerTests
     {
         var page = new PagedResult<ExternalUserDto> { Items = [], PageNumber = 2, PageSize = 10, TotalRecords = 0 };
         mediator.Setup(sender => sender.Send(
-                It.Is<GetExternalUsersQuery>(query => query.PageNumber == 2 && query.PageSize == 10), It.IsAny<CancellationToken>()))
+                It.Is<GetExternalUsersQuery>(query =>
+                    query.PageNumber == 2 && query.PageSize == 10 && query.SortColumn == ExternalUserSortColumn.FullName && query.SortDescending),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(page));
 
-        var response = await CreateController().GetExternalUsers(2, 10, CancellationToken.None);
+        var response = await CreateController().GetExternalUsers(2, 10, ExternalUserSortColumn.FullName, sortDescending: true, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(page);
     }
@@ -62,6 +64,46 @@ public class ExternalUsersControllerTests
             Guid.NewGuid(), new SetReviewEmailSubscriptionRequest(), CancellationToken.None);
 
         response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUser_SendsCommand_AndReturnsNoContent()
+    {
+        mediator.Setup(sender => sender.Send(
+                It.Is<PreRegisterExternalUserCommand>(command =>
+                    command.FullName == "Jane Doe" && command.EmailAddress == "jane@example.test" && command.Organisation == "Org"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().PreRegisterExternalUser(
+            new PreRegisterExternalUserContract { FullName = "Jane Doe", EmailAddress = "jane@example.test", Organisation = "Org" },
+            CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUser_ReturnsConflict_WhenTheEmailAlreadyExists()
+    {
+        mediator.Setup(sender => sender.Send(It.IsAny<PreRegisterExternalUserCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Conflict<Unit>("exists"));
+
+        var response = await CreateController().PreRegisterExternalUser(new PreRegisterExternalUserContract(), CancellationToken.None);
+
+        response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status409Conflict);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserCommandHandler_DelegatesToTheService()
+    {
+        var service = new Mock<IExternalUsersService>(MockBehavior.Strict);
+        var command = new PreRegisterExternalUserCommand("Jane Doe", "jane@example.test", "Org");
+        service.Setup(s => s.PreRegisterExternalUserAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));
+
+        var result = await new PreRegisterExternalUserCommandHandler(service.Object).Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        service.Verify(s => s.PreRegisterExternalUserAsync(command, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -136,7 +178,7 @@ public class ExternalUsersControllerTests
         var access = new ExternalUserProfileAccessContract();
         var id = Guid.NewGuid();
         var profileId = Guid.NewGuid();
-        service.Setup(s => s.GetExternalUsersAsync(1, 10, It.IsAny<CancellationToken>())).ReturnsAsync(page);
+        service.Setup(s => s.GetExternalUsersAsync(1, 10, ExternalUserSortColumn.None, false, It.IsAny<CancellationToken>())).ReturnsAsync(page);
         service.Setup(s => s.GetProfileAccessAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(access));
         service.Setup(s => s.SetReviewEmailSubscriptionAsync(It.IsAny<SetExternalUserSubscriptionCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Unit.Value));

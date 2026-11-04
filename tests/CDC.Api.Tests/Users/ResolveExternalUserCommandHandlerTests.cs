@@ -50,6 +50,33 @@ public class ResolveExternalUserCommandHandlerTests
         result.Value.FullName.Should().Be("Jane External");
         result.Value.EmailAddress.Should().Be("user@example.com");
         result.Value.Organisation.Should().Be("ACME Ltd");
+        result.Value.IsInternalProfileEditor.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_FlagsInternalProfileEditor_WhenRowIsInternalAndAProfileEditor()
+    {
+        var user = new ExternalUser
+        {
+            Id = UserId,
+            UserName = "DEFRA\\editor",
+            FullName = "Pat Editor",
+            Organisation = "APHA",
+            EmailAddress = "user@example.com",
+            SsoUserIdExt = Guid.Empty,
+            SsoUserId = null,
+            SsoUserIdInt = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            IsProfileEditor = true,
+            IsPolicyProfileUser = false
+        };
+
+        service
+            .Setup(svc => svc.ResolveExternalUserAsync(Command(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(user));
+
+        var result = await new ResolveExternalUserCommandHandler(service.Object).Handle(Command(), CancellationToken.None);
+
+        result.Value.IsInternalProfileEditor.Should().BeTrue();
     }
 
     [Fact]

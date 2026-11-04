@@ -12,6 +12,9 @@ internal static partial class ExternalUsersLog
     [LoggerMessage(EventId = 1502, Level = LogLevel.Information, Message = "Set review email subscription for external user {UserId} to {Subscribed}")]
     public static partial void ReviewEmailSubscriptionChanged(this ILogger logger, Guid userId, bool subscribed);
 
+    [LoggerMessage(EventId = 1505, Level = LogLevel.Information, Message = "Pre-registered external user {UserId}")]
+    public static partial void ExternalUserPreRegistered(this ILogger logger, Guid userId);
+
     [LoggerMessage(EventId = 1503, Level = LogLevel.Information, Message = "Saved profile access for external user {UserId} on profile {ProfileId}")]
     public static partial void ProfileAccessSaved(this ILogger logger, Guid userId, Guid profileId);
 
