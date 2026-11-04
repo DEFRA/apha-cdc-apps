@@ -9,6 +9,7 @@ using CDC.Web.Authorization;
 using CDC.Web.Features.Account;
 using CDC.Web.Features.DiseaseRanking;
 using CDC.Web.Features.Health;
+using CDC.Web.Features.LoadTesting;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Infrastructure.Reports;
@@ -34,6 +35,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
     .Enrich.WithEnvironmentName()
+    .EnrichWhenLoadTesting(context.Configuration)
     .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter())
     .WriteTo.Logger(loggerConfiguration => loggerConfiguration
         .MinimumLevel.Error()
@@ -274,6 +276,10 @@ builder.AddEntraAuthentication();
 // it ends the user is asked whether to extend it. See SessionController and wwwroot/js/session-timeout.js for the dialogs.
 builder.Services.AddSessionTimeout(builder.Configuration);
 
+// Off unless LoadTesting:Enabled is set (and only allowed in DEV, TEST, PRE-PROD or a local run). While on, Account/Login and
+// Account/LoginInternal sign in the configured external and internal user instead of going to CIDM or Entra ID - see the README.
+builder.Services.AddLoadTesting(builder.Configuration);
+
 // Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see
 // CidmOpenIdConnectEvents.TokenValidated, which calls this via ICidmExternalUserResolver.
 builder.Services.AddScoped<ICidmExternalUserResolver, ExternalUserResolver>();
@@ -332,6 +338,7 @@ app.UseSession();
 app.MapHealthEndpoints();
 
 app.UseAuthentication();
+app.UseLoadTesting();
 app.UseAuthorization();
 
 app.MapStaticAssets();

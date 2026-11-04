@@ -1,5 +1,6 @@
 using CDC.Auth.Cidm;
 using CDC.Auth.Entra;
+using CDC.Web.Features.LoadTesting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -7,18 +8,21 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CDC.Web.Features.Account;
 
-public class AccountController : Controller
+// loadTestSignIn is registered only while LoadTesting is switched on; while it is active, sign-in skips the identity provider.
+public class AccountController(ILoadTestSignIn? loadTestSignIn = null) : Controller
 {
     private const string LandingController = "Landing";
+    private const string ExternalHome = "External";
+    private const string InternalHome = "Internal";
     private const string IdTokenName = "id_token";
 
     [AllowAnonymous]
-    public async Task<IActionResult> Login()
+    public async Task<IActionResult> Login(string? returnUrl = null)
     {
         // Only a CIDM session counts: an internal (Entra ID) one does not make the user an external user.
         if (await HasSessionAsync(CookieAuthenticationDefaults.AuthenticationScheme))
         {
-            return RedirectToAction("External", LandingController);
+            return RedirectToAction(ExternalHome, LandingController);
         }
 
         // The internal and external sessions must not share a browser, so an internal user is stopped here.
@@ -27,9 +31,14 @@ public class AccountController : Controller
             return RedirectToAction(nameof(AlreadySignedIn));
         }
 
+        if (loadTestSignIn is { IsActive: true })
+        {
+            return LoadTestRedirect(await loadTestSignIn.SignInExternalAsync(HttpContext), returnUrl, ExternalHome);
+        }
+
         var properties = new AuthenticationProperties
         {
-            RedirectUri = Url.Action("External", LandingController)
+            RedirectUri = Url.Action(ExternalHome, LandingController)
         };
 
         return Challenge(properties, CidmAuthenticationDefaults.AuthenticationScheme);
@@ -38,6 +47,14 @@ public class AccountController : Controller
     [AllowAnonymous]
     public async Task<IActionResult> Logout()
     {
+        // There is no identity provider session to end while LoadTesting is active, only the local one.
+        if (loadTestSignIn is { IsActive: true })
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            return RedirectToAction(nameof(SignedOut));
+        }
+
         // Capture id_token_hint BEFORE clearing the cookie. OpenIdConnectHandler.HandleSignOutAsync
         // only reads id_token_hint from the AuthenticationProperties passed to SignOut() (empty here)
         // or, failing that, falls back to re-authenticating against the cookie scheme - which finds
@@ -65,12 +82,12 @@ public class AccountController : Controller
     }
 
     [AllowAnonymous]
-    public async Task<IActionResult> LoginInternal()
+    public async Task<IActionResult> LoginInternal(string? returnUrl = null)
     {
         // Only an Entra ID session counts: an external (CIDM) one does not make the user an internal user.
         if (await HasSessionAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme))
         {
-            return RedirectToAction("Internal", LandingController);
+            return RedirectToAction(InternalHome, LandingController);
         }
 
         // The internal and external sessions must not share a browser, so an external user is stopped here.
@@ -79,9 +96,14 @@ public class AccountController : Controller
             return RedirectToAction(nameof(AlreadySignedIn));
         }
 
+        if (loadTestSignIn is { IsActive: true })
+        {
+            return LoadTestRedirect(await loadTestSignIn.SignInInternalAsync(HttpContext), returnUrl, InternalHome);
+        }
+
         var properties = new AuthenticationProperties
         {
-            RedirectUri = Url.Action("Internal", LandingController)
+            RedirectUri = Url.Action(InternalHome, LandingController)
         };
 
         return Challenge(properties, EntraAuthenticationDefaults.AuthenticationScheme);
@@ -90,6 +112,13 @@ public class AccountController : Controller
     [AllowAnonymous]
     public async Task<IActionResult> LogoutInternal()
     {
+        if (loadTestSignIn is { IsActive: true })
+        {
+            await HttpContext.SignOutAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+            return RedirectToAction(nameof(SignedOut));
+        }
+
         // Same id_token_hint-before-clearing-cookie subtlety as Logout() above - OpenIdConnectHandler's
         // sign-out only reads id_token_hint off AuthenticationProperties or, failing that, the cookie
         // scheme, which finds nothing once that cookie has already been cleared.
@@ -123,12 +152,12 @@ public class AccountController : Controller
     {
         if (await HasSessionAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme))
         {
-            return View(new AlreadySignedInViewModel("internal", "Internal"));
+            return View(new AlreadySignedInViewModel("internal", InternalHome));
         }
 
         if (await HasSessionAsync(CookieAuthenticationDefaults.AuthenticationScheme))
         {
-            return View(new AlreadySignedInViewModel("external", "External"));
+            return View(new AlreadySignedInViewModel("external", ExternalHome));
         }
 
         return RedirectToAction("Index", LandingController);
@@ -150,6 +179,19 @@ public class AccountController : Controller
         Response.StatusCode = StatusCodes.Status403Forbidden;
 
         return View();
+    }
+
+    // After a LoadTesting sign-in, goes where the identity provider's callback would have: back to the page asked for, else the user's home page.
+    private IActionResult LoadTestRedirect(LoadTestSignInResult result, string? returnUrl, string homeAction)
+    {
+        if (!result.Succeeded)
+        {
+            return Redirect(result.DenialRedirectPath ?? "/");
+        }
+
+        var target = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action(homeAction, LandingController);
+
+        return LocalRedirect(target!);
     }
 
     private async Task<bool> HasSessionAsync(string cookieScheme) =>
