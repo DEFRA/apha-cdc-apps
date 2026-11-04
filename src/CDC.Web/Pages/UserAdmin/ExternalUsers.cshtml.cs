@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using CDC.Common.Contracts;
 using CDC.Web.Authorization.Constants;
@@ -21,6 +22,9 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets the element id of the role and section permissions panel.</summary>
     public const string AccessPanelId = "external-user-access-panel";
 
+    /// <summary>Gets the element id of the pre-registration form.</summary>
+    public const string PreRegisterPanelId = "external-user-preregister";
+
     private const string PageRoute = "/UserAdmin/ExternalUsers";
 
     private const string Ascending = "Ascending";
@@ -39,6 +43,8 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(4, nameof(LogFailedToSaveAccessMessage)), "Failed to save profile access for external user '{UserId}'");
     private static readonly Action<ILogger, Guid, Exception?> LogFailedToDeleteAccessMessage =
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(5, nameof(LogFailedToDeleteAccessMessage)), "Failed to remove profile access for external user '{UserId}'");
+    private static readonly Action<ILogger, Exception?> LogFailedToPreRegisterMessage =
+        LoggerMessage.Define(LogLevel.Error, new EventId(6, nameof(LogFailedToPreRegisterMessage)), "Failed to pre-register external user");
 
     private readonly IExternalUsersApiService externalUsersApiService;
     private readonly IProfileContributorsApiService profileContributorsApiService;
@@ -107,6 +113,14 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets or sets the profile being added for the user, if any.</summary>
     [BindProperty(SupportsGet = true)]
     public Guid? AddProfileId { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the pre-registration form is open.</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool ShowPreRegisterForm { get; set; }
+
+    /// <summary>Gets or sets the details of the external user being pre-registered.</summary>
+    [BindProperty]
+    public PreRegisterInput NewUser { get; set; } = new();
 
     /// <summary>Gets or sets the identifier of the user being saved.</summary>
     [BindProperty]
@@ -204,6 +218,9 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
     /// <summary>Gets a value indicating whether the edited user's profile access failed to load.</summary>
     public bool HasAccessLoadError { get; private set; }
+
+    /// <summary>Gets the error shown when the API rejected the pre-registration.</summary>
+    public string? PreRegisterError { get; private set; }
 
     /// <summary>Gets a value indicating whether added, changed or removed profiles are waiting for OK.</summary>
     public bool HasPendingChanges { get; private set; }
@@ -348,6 +365,60 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
         return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
     }
+
+    /// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>
+    public async Task<IActionResult> OnPostPreRegisterAsync(CancellationToken cancellationToken)
+    {
+        ShowPreRegisterForm = true;
+
+        // Only the pre-registration fields matter for this handler.
+        var hasInputErrors = ModelState.Keys
+            .Where(key => key.StartsWith(nameof(NewUser) + ".", StringComparison.Ordinal))
+            .Any(key => ModelState[key]?.Errors.Count > 0);
+
+        if (!hasInputErrors)
+        {
+            try
+            {
+                var result = await externalUsersApiService.PreRegisterExternalUserAsync(
+                    new PreRegisterExternalUserContract
+                    {
+                        FullName = NewUser.FullName.Trim(),
+                        EmailAddress = NewUser.EmailAddress.Trim(),
+                        Organisation = NewUser.Organisation.Trim()
+                    },
+                    cancellationToken);
+
+                if (result.Succeeded)
+                {
+                    SuccessMessage = "External user added. They can now sign in to D2R2, but cannot see any profiles until you give them access";
+
+                    return RedirectToPage(PageRoute);
+                }
+
+                PreRegisterError = result.ErrorMessage;
+            }
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+            {
+                LogFailedToPreRegisterMessage(logger, exception);
+                PreRegisterError = "We could not register this user. Try again later.";
+            }
+        }
+
+        await LoadUsersAsync(cancellationToken);
+
+        return Page();
+    }
+
+    /// <summary>Gets the field-level error for a pre-registration field.</summary>
+    /// <param name="field">The <see cref="PreRegisterInput"/> property name.</param>
+    /// <returns>The first error, or <see langword="null"/> when the field is valid.</returns>
+    public string? GetPreRegisterFieldError(string field) =>
+        ModelState.TryGetValue($"{nameof(NewUser)}.{field}", out var entry) ? entry.Errors.FirstOrDefault()?.ErrorMessage : null;
+
+    /// <summary>Builds the URL that closes the pre-registration form.</summary>
+    /// <returns>The page URL.</returns>
+    public string? BuildClosePreRegisterUrl() => Url.Page(PageRoute, new { PageSize, PageNumber });
 
     /// <summary>Builds the URL for a results page, preserving <see cref="PageSize"/> and the sort.</summary>
     /// <param name="page">The 1-based page.</param>
@@ -641,6 +712,26 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         }
 
         return int.TryParse(pageSize, out var parsed) && parsed > 0 ? parsed : 10;
+    }
+
+    /// <summary>The details entered when pre-registering an external user.</summary>
+    public sealed class PreRegisterInput
+    {
+        /// <summary>Gets or sets the user's full name.</summary>
+        [Required(ErrorMessage = "Enter the full name")]
+        [StringLength(100, ErrorMessage = "The full name must be 100 characters or fewer")]
+        public string FullName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the user's email address.</summary>
+        [Required(ErrorMessage = "Enter the email address")]
+        [EmailAddress(ErrorMessage = "Enter an email address in the correct format e.g. name@example.com")]
+        [StringLength(50, ErrorMessage = "The email address must be 50 characters or fewer")]
+        public string EmailAddress { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the user's organisation.</summary>
+        [Required(ErrorMessage = "Enter the organisation")]
+        [StringLength(100, ErrorMessage = "The organisation must be 100 characters or fewer")]
+        public string Organisation { get; set; } = string.Empty;
     }
 
     private sealed class PendingAccess

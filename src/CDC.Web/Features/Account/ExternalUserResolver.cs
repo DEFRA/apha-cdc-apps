@@ -97,13 +97,7 @@ public sealed partial class ExternalUserResolver(
 
         var resolution = result switch
         {
-            { Outcome: ResolveExternalUserOutcome.Success, User: not null } => CidmExternalUserResolution.Allow(
-                new Dictionary<string, string>
-                {
-                    [ExternalUserClaimTypes.InternalUserId] = result.User.Id.ToString(),
-                    [ExternalUserClaimTypes.FullName] = result.User.FullName,
-                    [ExternalUserClaimTypes.AuthenticationProvider] = CidmAuthenticationDefaults.AuthenticationScheme
-                }),
+            { Outcome: ResolveExternalUserOutcome.Success, User: not null } => CidmExternalUserResolution.Allow(BuildClaims(result.User)),
             { Outcome: ResolveExternalUserOutcome.NotPermitted } => CidmExternalUserResolution.Deny("/Account/NotPermitted"),
             _ => CidmExternalUserResolution.Deny("/Landing/Error")
         };
@@ -114,6 +108,23 @@ public sealed partial class ExternalUserResolver(
         }
 
         return resolution;
+    }
+
+    private static Dictionary<string, string> BuildClaims(ExternalUserDto user)
+    {
+        var claims = new Dictionary<string, string>
+        {
+            [ExternalUserClaimTypes.InternalUserId] = user.Id.ToString(),
+            [ExternalUserClaimTypes.FullName] = user.FullName,
+            [ExternalUserClaimTypes.AuthenticationProvider] = CidmAuthenticationDefaults.AuthenticationScheme
+        };
+
+        if (user.IsInternalProfileEditor)
+        {
+            claims[ExternalUserClaimTypes.IsInternalProfileEditor] = bool.TrueString;
+        }
+
+        return claims;
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to resolve external user (SsoUserIdExt={SsoUserIdExt}) against CDC.Api")]

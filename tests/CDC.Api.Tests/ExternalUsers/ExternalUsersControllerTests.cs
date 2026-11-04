@@ -67,6 +67,46 @@ public class ExternalUsersControllerTests
     }
 
     [Fact]
+    public async Task PreRegisterExternalUser_SendsCommand_AndReturnsNoContent()
+    {
+        mediator.Setup(sender => sender.Send(
+                It.Is<PreRegisterExternalUserCommand>(command =>
+                    command.FullName == "Jane Doe" && command.EmailAddress == "jane@example.test" && command.Organisation == "Org"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().PreRegisterExternalUser(
+            new PreRegisterExternalUserContract { FullName = "Jane Doe", EmailAddress = "jane@example.test", Organisation = "Org" },
+            CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUser_ReturnsConflict_WhenTheEmailAlreadyExists()
+    {
+        mediator.Setup(sender => sender.Send(It.IsAny<PreRegisterExternalUserCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Conflict<Unit>("exists"));
+
+        var response = await CreateController().PreRegisterExternalUser(new PreRegisterExternalUserContract(), CancellationToken.None);
+
+        response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status409Conflict);
+    }
+
+    [Fact]
+    public async Task PreRegisterExternalUserCommandHandler_DelegatesToTheService()
+    {
+        var service = new Mock<IExternalUsersService>(MockBehavior.Strict);
+        var command = new PreRegisterExternalUserCommand("Jane Doe", "jane@example.test", "Org");
+        service.Setup(s => s.PreRegisterExternalUserAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));
+
+        var result = await new PreRegisterExternalUserCommandHandler(service.Object).Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        service.Verify(s => s.PreRegisterExternalUserAsync(command, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetProfileAccess_ReturnsOk()
     {
         var id = Guid.NewGuid();

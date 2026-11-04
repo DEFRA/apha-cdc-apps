@@ -36,4 +36,11 @@ public static class EntraClaimTypes
     /// first '.' themselves (see <c>InternalUserResolver</c>).
     /// </summary>
     public const string OnPremisesDomainName = "onprem_domainname";
+
+    /// <summary>
+    /// The sign-in name Entra ID puts on every v2.0 id_token, normally the user's email address (UPN). Used as the
+    /// email address when the token carries no <c>email</c> or <c>upn</c> claim, which are optional claims that must be
+    /// configured on the app registration.
+    /// </summary>
+    public const string PreferredUsername = "preferred_username";
 }

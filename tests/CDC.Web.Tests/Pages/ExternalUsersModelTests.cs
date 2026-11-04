@@ -45,6 +45,23 @@ public class ExternalUsersModelTests
 
         public Guid? DeletedProfileId { get; private set; }
 
+        public ExternalUserAccessResult PreRegisterResult { get; init; } = new(true, null);
+
+        public Exception? ThrowOnPreRegister { get; init; }
+
+        public PreRegisterExternalUserContract? PreRegistered { get; private set; }
+
+        public Task<ExternalUserAccessResult> PreRegisterExternalUserAsync(PreRegisterExternalUserContract request, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnPreRegister is not null)
+            {
+                throw ThrowOnPreRegister;
+            }
+
+            PreRegistered = request;
+            return Task.FromResult(PreRegisterResult);
+        }
+
         public (ExternalUserSortColumn Column, bool Descending)? RequestedSort { get; private set; }
 
         public Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
@@ -736,6 +753,100 @@ public class ExternalUsersModelTests
         await model.OnGetAsync(CancellationToken.None);
 
         Assert.Single(model.Users);
+    }
+
+    [Fact]
+    public async Task OnPostPreRegister_SendsTrimmedDetails_AndRedirectsWithSuccessMessage()
+    {
+        var api = new FakeExternalUsersApiService();
+        var model = CreatePageModel(api);
+        model.NewUser = new ExternalUsersModel.PreRegisterInput { FullName = " Jane Doe ", EmailAddress = " jane@example.test ", Organisation = " Org " };
+
+        var result = await model.OnPostPreRegisterAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("Jane Doe", api.PreRegistered!.FullName);
+        Assert.Equal("jane@example.test", api.PreRegistered.EmailAddress);
+        Assert.Equal("Org", api.PreRegistered.Organisation);
+        Assert.Equal("External user added. They can now sign in to D2R2, but cannot see any profiles until you give them access", model.SuccessMessage);
+        Assert.Null(model.PreRegisterError);
+    }
+
+    [Fact]
+    public async Task OnPostPreRegister_ShowsTheApiMessage_AndKeepsTheFormOpen_WhenRejected()
+    {
+        var api = new FakeExternalUsersApiService { Users = [User()], PreRegisterResult = new ExternalUserAccessResult(false, "A user with this email address already exists.") };
+        var model = CreatePageModel(api);
+        model.NewUser = new ExternalUsersModel.PreRegisterInput { FullName = "Jane Doe", EmailAddress = "jane@example.test", Organisation = "Org" };
+
+        var result = await model.OnPostPreRegisterAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(model.ShowPreRegisterForm);
+        Assert.Equal("A user with this email address already exists.", model.PreRegisterError);
+        Assert.Null(model.SuccessMessage);
+        Assert.Single(model.Users);
+    }
+
+    [Theory]
+    [InlineData(typeof(HttpRequestException))]
+    [InlineData(typeof(TaskCanceledException))]
+    public async Task OnPostPreRegister_ShowsAGenericError_WhenTheApiCannotBeReached(Type exceptionType)
+    {
+        var api = new FakeExternalUsersApiService { ThrowOnPreRegister = (Exception)Activator.CreateInstance(exceptionType)! };
+        var model = CreatePageModel(api);
+        model.NewUser = new ExternalUsersModel.PreRegisterInput { FullName = "Jane Doe", EmailAddress = "jane@example.test", Organisation = "Org" };
+
+        var result = await model.OnPostPreRegisterAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("We could not register this user. Try again later.", model.PreRegisterError);
+    }
+
+    [Fact]
+    public async Task OnPostPreRegister_DoesNotCallTheApi_WhenAFieldIsInvalid()
+    {
+        var api = new FakeExternalUsersApiService();
+        var model = CreatePageModel(api);
+        model.ModelState.AddModelError("NewUser.EmailAddress", "Enter the email address");
+
+        var result = await model.OnPostPreRegisterAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(api.PreRegistered);
+        Assert.True(model.ShowPreRegisterForm);
+        Assert.Equal("Enter the email address", model.GetPreRegisterFieldError(nameof(ExternalUsersModel.PreRegisterInput.EmailAddress)));
+    }
+
+    [Fact]
+    public async Task OnPostPreRegister_IgnoresErrorsOnOtherFields()
+    {
+        var api = new FakeExternalUsersApiService();
+        var model = CreatePageModel(api);
+        model.ModelState.AddModelError("UserId", "unrelated");
+        model.NewUser = new ExternalUsersModel.PreRegisterInput { FullName = "Jane Doe", EmailAddress = "jane@example.test", Organisation = "Org" };
+
+        var result = await model.OnPostPreRegisterAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.NotNull(api.PreRegistered);
+    }
+
+    [Fact]
+    public void GetPreRegisterFieldError_ReturnsNull_WhenTheFieldIsValid()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService());
+
+        Assert.Null(model.GetPreRegisterFieldError(nameof(ExternalUsersModel.PreRegisterInput.FullName)));
+    }
+
+    [Fact]
+    public void BuildClosePreRegisterUrl_DelegatesToTheUrlHelper()
+    {
+        var model = CreatePageModel(new FakeExternalUsersApiService());
+        model.Url = new StubUrlHelper("/UserAdmin/ExternalUsers?PageSize=10");
+
+        Assert.Equal("/UserAdmin/ExternalUsers?PageSize=10", model.BuildClosePreRegisterUrl());
     }
 
     [Fact]

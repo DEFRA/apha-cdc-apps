@@ -38,17 +38,16 @@ public class AccountControllerTests
         Assert.Equal("Landing", redirect.ControllerName);
     }
 
-    // Choosing to sign in as an external user while signed in as an internal one goes to CIDM; the internal session is not mistaken for it.
     [Fact]
-    public async Task Login_WhenOnlyAnEntraSessionExists_StillChallengesCidm()
+    public async Task Login_WhenSignedInInternally_RedirectsToAlreadySignedInInsteadOfChallenging()
     {
         var controller = CreateController(out var authService);
         authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
 
         var result = await controller.Login();
 
-        var challenge = Assert.IsType<ChallengeResult>(result);
-        Assert.Equal([CidmAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("AlreadySignedIn", redirect.ActionName);
     }
 
     [Fact]
@@ -154,17 +153,54 @@ public class AccountControllerTests
         Assert.Equal("Landing", redirect.ControllerName);
     }
 
-    // Choosing to sign in as an internal user while signed in as an external one goes to Entra ID; the external session is not mistaken for it.
     [Fact]
-    public async Task LoginInternal_WhenOnlyACidmSessionExists_StillChallengesEntra()
+    public async Task LoginInternal_WhenSignedInExternally_RedirectsToAlreadySignedInInsteadOfChallenging()
     {
         var controller = CreateController(out var authService);
         authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
 
         var result = await controller.LoginInternal();
 
-        var challenge = Assert.IsType<ChallengeResult>(result);
-        Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], challenge.AuthenticationSchemes);
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("AlreadySignedIn", redirect.ActionName);
+    }
+
+    [Fact]
+    public async Task AlreadySignedIn_WhenSignedInInternally_ShowsInternalSessionWithInternalHome()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+        var result = await controller.AlreadySignedIn();
+
+        var model = Assert.IsType<AlreadySignedInViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("internal", model.SessionName);
+        Assert.Equal("Internal", model.HomeAction);
+    }
+
+    [Fact]
+    public async Task AlreadySignedIn_WhenSignedInExternally_ShowsExternalSessionWithExternalHome()
+    {
+        var controller = CreateController(out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var result = await controller.AlreadySignedIn();
+
+        var model = Assert.IsType<AlreadySignedInViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("external", model.SessionName);
+        Assert.Equal("External", model.HomeAction);
+    }
+
+    [Fact]
+    public async Task AlreadySignedIn_WhenNotSignedIn_RedirectsToLandingIndex()
+    {
+        var controller = CreateController(out _);
+
+        var result = await controller.AlreadySignedIn();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Index", redirect.ActionName);
+        Assert.Equal("Landing", redirect.ControllerName);
     }
 
     [Fact]
@@ -208,11 +244,26 @@ public class AccountControllerTests
         Assert.Equal("captured-id-token", signOut.Properties!.GetTokenValue("id_token"));
     }
 
-    private static AccountController CreateController(out FakeAuthenticationService authService) => new()
+    private static AccountController CreateController(out FakeAuthenticationService authService)
     {
-        ControllerContext = new ControllerContext { HttpContext = CreateHttpContextWithFakeAuth(out authService) },
-        Url = new FakeUrlHelper()
-    };
+        var httpContext = CreateHttpContextWithFakeAuth(out authService);
+
+        return new AccountController
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+            Url = new FakeUrlHelper(),
+            TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(httpContext, new NullTempDataProvider())
+        };
+    }
+
+    private sealed class NullTempDataProvider : Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider
+    {
+        public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
+
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values)
+        {
+        }
+    }
 
     private static AuthenticateResult SignedIn(string scheme) =>
         AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(authenticationType: scheme)), scheme));

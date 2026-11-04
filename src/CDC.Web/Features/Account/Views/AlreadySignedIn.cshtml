@@ -1,0 +1,16 @@
+@model CDC.Web.Features.Account.AlreadySignedInViewModel
+@{
+    ViewData["Title"] = $"You are signed in as an {Model.SessionName} user";
+    ViewData["HideAccountBar"] = true;
+    ViewData["HideFooterNavigation"] = true;
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <h1 class="govuk-heading-l">You are signed in as an @Model.SessionName user</h1>
+        <p class="govuk-body">You are logged in. Use a different browser, not a tab, to explore the other login journey if you are allowed.</p>
+        <a asp-controller="Landing" asp-action="@Model.HomeAction" class="govuk-button">
+            Go to the @Model.SessionName home page
+        </a>
+    </div>
+</div>

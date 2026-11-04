@@ -33,6 +33,9 @@ public sealed record ExternalUserDto
 
     /// <summary>Gets the user's organisation.</summary>
     public required string Organisation { get; init; }
+
+    /// <summary>Gets a value indicating whether the user is an internal profile editor signed in through CIDM.</summary>
+    public bool IsInternalProfileEditor { get; init; }
 }
 
 /// <summary>Outcome of <see cref="CDC.Web.Infrastructure.IApiClient.ResolveExternalUserAsync"/>.</summary>
