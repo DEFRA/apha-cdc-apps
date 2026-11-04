@@ -52,7 +52,7 @@
                         </select>
                     </div>
 
-                    <div class="govuk-form-group govuk-!-margin-bottom-0">
+                    <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
                         <label class="govuk-label" for="PageSize">Items per page:</label>
                         <select class="govuk-select" id="PageSize" name="PageSize" form="search-form" onchange="this.form.requestSubmit()">
                             @foreach (var option in CDC.Web.Pages.SurveillanceProfilesSearchModel.PageSizeOptions)

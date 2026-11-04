@@ -11,6 +11,8 @@ namespace CDC.Graph;
 /// <summary>Registers the shared Microsoft Graph client.</summary>
 public static class GraphServiceCollectionExtensions
 {
+    private const string EntraSectionName = "Entra";
+
     private static readonly Uri GraphBaseAddress = new("https://graph.microsoft.com/v1.0/");
 
     /// <summary>
@@ -26,8 +28,18 @@ public static class GraphServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         var section = configuration.GetSection(GraphOptions.SectionName);
+        var entraSection = configuration.GetSection(EntraSectionName);
 
-        services.AddOptions<GraphOptions>().Bind(section).ValidateOnStart();
+        // Graph reuses the Entra app registration unless Graph-specific credentials are supplied.
+        services.AddOptions<GraphOptions>()
+            .Bind(section)
+            .PostConfigure(options =>
+            {
+                options.TenantId = FirstNonEmpty(options.TenantId, entraSection[nameof(GraphOptions.TenantId)]);
+                options.ClientId = FirstNonEmpty(options.ClientId, entraSection[nameof(GraphOptions.ClientId)]);
+                options.ClientSecret = FirstNonEmpty(options.ClientSecret, entraSection[nameof(GraphOptions.ClientSecret)]);
+            })
+            .ValidateOnStart();
         services.AddSingleton<IValidateOptions<GraphOptions>, GraphOptionsValidator>();
 
         if (!section.GetValue<bool>(nameof(GraphOptions.Enabled)))
@@ -55,4 +67,7 @@ public static class GraphServiceCollectionExtensions
 
         return services;
     }
+
+    private static string FirstNonEmpty(string value, string? fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback ?? string.Empty : value;
 }
