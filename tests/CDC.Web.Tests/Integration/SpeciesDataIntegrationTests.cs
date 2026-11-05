@@ -321,8 +321,10 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("Reason for change", body);
     }
 
-    [Fact]
-    public async Task EditSpecies_RendersQuestionAccordionAndSectionPagination()
+    [Theory]
+    [InlineData(false, "species-accordion")]
+    [InlineData(true, "edit-species-accordion")]
+    public async Task EditSpecies_RendersQuestionAccordionAndSectionPagination(bool edit, string accordionId)
     {
         var sectionId = Guid.NewGuid();
         var questionId = Guid.NewGuid();
@@ -409,7 +411,7 @@ public partial class SpeciesDataIntegrationTests
             referenceValuesByTable: referenceValues));
         var client = await factory.SignedInClientAsync();
 
-        var response = await client.GetAsync($"/EditSpecies/{DairyId}");
+        var response = await client.GetAsync($"/EditSpecies/{DairyId}{(edit ? "?edit=true" : string.Empty)}");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -426,6 +428,74 @@ public partial class SpeciesDataIntegrationTests
         // The wrapper is what site.css keys on to put Previous and Next on the left and right of the panel.
         var wrapper = body.IndexOf("<div class=\"app-species-pagination\">", StringComparison.Ordinal);
         Assert.InRange(wrapper, 0, body.IndexOf("<nav class=\"govuk-pagination", StringComparison.Ordinal) - 1);
+
+        // The title is centred, and the accordion forgets which sub-sections were open so a section always opens collapsed, as the legacy page did.
+        Assert.Contains("<h1 class=\"govuk-heading-l govuk-!-text-align-centre\">", body);
+        Assert.Contains($"data-module=\"govuk-accordion\" data-remember-expanded=\"false\" id=\"{accordionId}\"", body);
+    }
+
+    // The legacy page showed a long answer in a fixed-height box that always scrolls, keeping its formatting but never a script.
+    [Fact]
+    public async Task EditSpecies_ShowsSupportingComments_InAScrollingBoxUnderItsLabel()
+    {
+        var sectionId = Guid.NewGuid();
+        var questionId = Guid.NewGuid();
+        var metadata = new SpeciesMetadataDto
+        {
+            Sections =
+            [
+                new SpeciesSectionMetadataDto
+                {
+                    Id = sectionId,
+                    Name = "Animal identification",
+                    ShortName = "Ident",
+                    SectionNumber = 1,
+                    Questions =
+                    [
+                        new SpeciesQuestionMetadataDto
+                        {
+                            Id = questionId,
+                            SectionId = sectionId,
+                            Name = "How many animals are there in GB?",
+                            ShortName = "Number",
+                            QuestionNumber = 2,
+                            Fields =
+                            [
+                                new SpeciesFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = questionId, Name = "Supporting comments", FieldNumber = 1, DataTypeName = "Long Text" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var answerData = new SpeciesAnswerDataDto
+        {
+            SpeciesId = DairyId,
+            SpeciesName = "Dairy cattle",
+            LastUpdated = [0, 0, 0, 0, 0, 0, 0, 1],
+            Sections =
+            [
+                new SpeciesSectionDto
+                {
+                    SectionId = sectionId,
+                    FieldValues =
+                    [
+                        new SpeciesFieldValueDto { QuestionId = questionId, FieldNumber = 1, TextValue = "<p>About <em>1,000</em> animals.</p><script>alert(1)</script>" }
+                    ]
+                }
+            ]
+        };
+        using var factory = CreateFactory(new FakeSpeciesApiService(Species, speciesMetadata: metadata, speciesAnswerData: answerData));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"/EditSpecies/{DairyId}");
+
+        Assert.Contains("<h3 class=\"govuk-heading-s govuk-!-margin-bottom-1\" id=\"species-accordion-field-1-2-0-label\">Supporting comments</h3>", body);
+        Assert.Contains(
+            "<section class=\"govuk-body-s app-readonly-long-text\" aria-labelledby=\"species-accordion-field-1-2-0-label\"><p>About <em>1,000</em> animals.</p></section>",
+            body);
+        Assert.DoesNotContain("<script>alert", body);
+        Assert.DoesNotContain("<dt class=\"govuk-summary-list__key\">Supporting comments</dt>", body);
     }
 
     [Fact]

@@ -1211,6 +1211,35 @@ body {
   border-top: 0;
 }
 
+/* A read-only long answer (species supporting comments): a fixed-height box that always shows its scrollbar, as the legacy page did. */
+.app-readonly-long-text {
+  box-sizing: border-box;
+  width: 95%;
+  height: 135px;
+  margin-bottom: 0;
+  padding: 5px;
+  overflow-y: scroll;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #fff;
+}
+
+.app-readonly-long-text p,
+.app-readonly-long-text ul,
+.app-readonly-long-text ol {
+  margin: 0 0 10px;
+}
+
+.app-readonly-long-text > :last-child {
+  margin-bottom: 0;
+}
+
+.app-readonly-long-text:focus {
+  outline: 3px solid var(--govuk-focus-colour, #fd0);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px var(--govuk-focus-text-colour, #0b0c0c);
+}
+
 .app-header__help-icon {
   height: 26px;
   width: 26px;

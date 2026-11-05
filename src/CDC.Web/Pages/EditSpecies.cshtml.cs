@@ -322,12 +322,20 @@ public class EditSpeciesModel : PageModel
 
     /// <summary>Builds one field's read-only view: a checkbox group for a "List" type field (its options
     /// come from the field's reference table, checked against the recorded
-    /// <see cref="SpeciesFieldValueDto.ListValue"/> rows), or a plain-text value for every other field type.</summary>
+    /// <see cref="SpeciesFieldValueDto.ListValue"/> rows), the sanitised rich text of a "Long Text" field
+    /// (legacy <c>LongTextProfileField</c>), or a plain-text value for every other field type.</summary>
     private static AccordionFieldView BuildFieldView(
         SpeciesFieldMetadataDto field,
         IReadOnlyList<SpeciesFieldValueDto> recordedValues,
         Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
     {
+        if (string.Equals(field.DataTypeName, "Long Text", StringComparison.OrdinalIgnoreCase))
+        {
+            var comment = recordedValues.Select(value => value.TextValue).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+            return new AccordionFieldView(field.Name, SpeciesCommentHtml.ToDisplayHtml(comment), true, []);
+        }
+
         if (field.ReferenceTableId == Guid.Empty || !referenceValuesByTable.TryGetValue(field.ReferenceTableId, out var options))
         {
             return new AccordionFieldView(field.Name, FormatFieldValues(recordedValues), false, []);
