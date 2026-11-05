@@ -7,6 +7,7 @@ using CDC.Web.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Polly;
 
 namespace CDC.Web.Features.Account;
 
@@ -85,13 +86,15 @@ public sealed partial class InternalUserResolver(
         {
             result = await apiClient.ResolveInternalUserAsync(request, cancellationToken);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException or ExecutionRejectedException)
         {
             // HttpRequestException: network/DNS failure, connection refused, or a non-success status
             // code once the resilience handler's retries are exhausted. TaskCanceledException: the
-            // resilience handler's own request timeout expired. NotSupportedException: the response
-            // was not valid JSON for the expected DTO. Without this, a CDC.Api connectivity problem
-            // during sign-in produces zero diagnostic trace - it just lands on /Landing/Error.
+            // request was cancelled. ExecutionRejectedException: the resilience handler's own timeout
+            // expired (TimeoutRejectedException, which is not a TaskCanceledException) or its circuit is
+            // open. NotSupportedException: the response was not valid JSON for the expected DTO.
+            // Without this, a CDC.Api connectivity problem during sign-in is logged as an Entra ID
+            // failure, with no mention of CDC.Api, before landing on /Landing/Error.
             LogInternalUserResolutionFailed(entraSsoId, exception);
             return EntraInternalUserResolution.Deny("/Landing/Error");
         }
