@@ -50,7 +50,7 @@
         <p class="govuk-body govuk-!-margin-bottom-1">@Model.ReviewStatus</p>
     }
 
-    @if (Model.NoVersionMessage is null)
+    @if (Model.ShowPreviousVersions)
     {
         <div data-module="app-filters-toggle">
             <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link

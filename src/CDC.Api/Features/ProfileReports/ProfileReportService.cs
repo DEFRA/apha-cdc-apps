@@ -220,16 +220,19 @@ public sealed class ProfileReportService(
             IsPublished = header.IsPublished,
             IsCurrent = header.IsCurrent,
             CanCreateReports = ProfileAccess.CanCreateReports(userContext, facts),
-            Reports = [.. listed.Select(report => new ProfileReportListItemDto
-            {
-                Id = report.Id,
-                ReportName = report.ReportName,
-                DisplayName = report.DisplayName,
-                HasPdfData = report.HasPdfData,
-                FileSize = report.FileSize
-            })]
+            Reports = [.. listed.Select(ToListItem)],
+            PrintOnlyReports = [.. reports.Except(listed).Select(ToListItem)]
         });
     }
+
+    private static ProfileReportListItemDto ToListItem(ProfileVersionReport report) => new()
+    {
+        Id = report.Id,
+        ReportName = report.ReportName,
+        DisplayName = report.DisplayName,
+        HasPdfData = report.HasPdfData,
+        FileSize = report.FileSize
+    };
 
     /// <inheritdoc />
     public Task<ProfilePrintVersionDto> GetProfilePrintVersionAsync(

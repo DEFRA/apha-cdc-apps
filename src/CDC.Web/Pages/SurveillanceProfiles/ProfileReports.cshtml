@@ -38,25 +38,49 @@
         {
             <h1 class="govuk-heading-l">@Model.PageTitle</h1>
 
-            @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+            @if (!string.IsNullOrEmpty(Model.SuccessMessage) || Model.GenerationSuccesses.Count > 0)
             {
                 <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="profile-reports-success-title" data-module="govuk-notification-banner">
                     <div class="govuk-notification-banner__header">
                         <h2 class="govuk-notification-banner__title" id="profile-reports-success-title">Success</h2>
                     </div>
                     <div class="govuk-notification-banner__content">
-                        <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+                        {
+                            <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
+                        }
+                        @if (Model.GenerationSuccesses.Count > 0)
+                        {
+                            <ul class="govuk-list" id="profile-reports-generated">
+                                @foreach (var message in Model.GenerationSuccesses)
+                                {
+                                    <li>@message</li>
+                                }
+                            </ul>
+                        }
                     </div>
                 </div>
             }
 
-            @if (!string.IsNullOrEmpty(Model.RegenerationErrorMessage) || !string.IsNullOrEmpty(Model.ErrorMessage))
+            @if (!string.IsNullOrEmpty(Model.RegenerationErrorMessage) || !string.IsNullOrEmpty(Model.ErrorMessage) || Model.GenerationFailures.Count > 0)
             {
                 <div class="govuk-error-summary" data-module="govuk-error-summary">
                     <div role="alert">
                         <h2 class="govuk-error-summary__title">There is a problem</h2>
                         <div class="govuk-error-summary__body">
-                            <p class="govuk-body">@(Model.RegenerationErrorMessage ?? Model.ErrorMessage)</p>
+                            @if (!string.IsNullOrEmpty(Model.RegenerationErrorMessage) || !string.IsNullOrEmpty(Model.ErrorMessage))
+                            {
+                                <p class="govuk-body">@(Model.RegenerationErrorMessage ?? Model.ErrorMessage)</p>
+                            }
+                            @if (Model.GenerationFailures.Count > 0)
+                            {
+                                <ul class="govuk-list govuk-error-summary__list" id="profile-reports-generation-failures">
+                                    @foreach (var message in Model.GenerationFailures)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                </ul>
+                            }
                         </div>
                     </div>
                 </div>

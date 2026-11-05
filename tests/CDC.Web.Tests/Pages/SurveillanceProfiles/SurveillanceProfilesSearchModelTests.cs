@@ -961,6 +961,45 @@ public class SurveillanceProfilesSearchModelTests
     }
 
     [Fact]
+    public void GetVersionGroups_DraftCard_HasNoCurrentVersion_WhenEveryDraftWasClosedByPublishing()
+    {
+        var published = Version(1) with { EffectiveToUtc = new DateTime(2026, 4, 11) };
+        var profile = Profile("A", draft: [published]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
+
+        var draftCard = Assert.Single(groups);
+        Assert.Null(draftCard.CurrentVersion);
+        Assert.Equal("(No current draft version)", draftCard.NoVersionMessage);
+        Assert.True(draftCard.ShowPreviousVersions);
+        Assert.Equal(published.VersionId, Assert.Single(draftCard.VersionHistory).Version.VersionId);
+    }
+
+    [Fact]
+    public void GetVersionGroups_DraftCard_SkipsAClosedDraft_ForTheCurrentOne()
+    {
+        var closed = Version(2) with { EffectiveToUtc = new DateTime(2026, 4, 11) };
+        var current = Version(1);
+        var profile = Profile("A", draft: [closed, current]);
+
+        var groups = SurveillanceProfilesSearchModel.GetVersionGroups(profile, displayPublished: false, displayDraft: true, now: Now);
+
+        var draftCard = Assert.Single(groups);
+        Assert.Equal(current.VersionId, draftCard.CurrentVersion!.VersionId);
+        Assert.Null(draftCard.NoVersionMessage);
+        Assert.Equal(2, draftCard.VersionHistory.Count);
+    }
+
+    [Fact]
+    public void GetVersionGroups_ShowsPreviousVersions_OnlyWhenThereIsSomethingToShow()
+    {
+        var empty = SurveillanceProfilesSearchModel.GetVersionGroups(
+            Profile("A"), displayPublished: true, displayDraft: true, now: Now);
+
+        Assert.All(empty, card => Assert.False(card.ShowPreviousVersions));
+    }
+
+    [Fact]
     public void GetVersionGroups_DraftCard_ShowsTheProfileStatusAndReview_EvenWithoutACurrentDraftVersion()
     {
         var profile = Profile("A", published: [Version(1)]) with { ProfileStatusName = "Active" };

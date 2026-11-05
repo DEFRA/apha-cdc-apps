@@ -45,6 +45,9 @@ internal sealed class FakeProfileReportsApiService(
     /// <summary>Gets the report id and name passed to the save call.</summary>
     public (Guid ReportId, string ReportName, byte[] Pdf)? Saved { get; private set; }
 
+    /// <summary>Gets the names of the reports passed to the save call, in order.</summary>
+    public List<string> SavedNames { get; } = [];
+
     public Task<ContributionsReportResult> GetContributionsReportAsync(Guid profileId, CancellationToken cancellationToken = default)
     {
         RequestedProfileId = profileId;
@@ -103,6 +106,7 @@ internal sealed class FakeProfileReportsApiService(
         CancellationToken cancellationToken = default)
     {
         Saved = (reportId, reportName, pdf);
+        SavedNames.Add(reportName);
 
         return throwOnSave is not null ? throw throwOnSave : Task.FromResult(saveOutcome);
     }
