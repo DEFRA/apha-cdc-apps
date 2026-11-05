@@ -86,18 +86,18 @@ public partial class CreateBespokeReportIntegrationTests
     }
 
     [Fact]
-    public async Task Page_StartsWithTheWholeTreeExpanded_SoTheToggleOffersToCloseAll()
+    public async Task Page_OpensTheTreeOneLevel_WithTheToggleStillOfferingToCloseAll()
     {
         using var factory = CreateFactory(new FakeBespokeReportTemplatesApiService());
         var client = await factory.SignedInClientAsync();
 
         var body = await client.GetStringAsync(PageUrl);
 
-        Assert.Contains("data-app-tree-action=\"toggle-all\" aria-expanded=\"true\"", body);
+        Assert.Contains("data-app-tree-action=\"toggle-all\" data-app-tree-close-all-while-any-open=\"true\" aria-expanded=\"true\"", body);
         Assert.Contains("<span class=\"app-tree__toggle-all-text\">Close all</span>", body);
         Assert.DoesNotContain(">Open all<", body);
-        // The profile and its one section; the guidance and question nodes under it are leaves.
-        Assert.Equal(2, Regex.Count(body, "data-app-tree-expanded=\"true\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        // Only the profile is open: its one section is closed, and the guidance and question nodes under that are leaves.
+        Assert.Equal(1, Regex.Count(body, "data-app-tree-expanded=\"true\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
     }
 
     [Fact]

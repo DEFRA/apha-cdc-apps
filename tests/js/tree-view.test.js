@@ -146,10 +146,9 @@ function buildTwoPanels() {
   return { toggleAll, label, group };
 }
 
-// The Search page's species filter: a multi-level tree that starts with every branch open, so its toggle reads "Close all".
-function buildSearchSpeciesFilter() {
-  const node = (id, children = '') => `
-    <li class="app-tree__item" data-app-tree-expanded="true">
+function treeNode(id, children = '', expanded = true) {
+  return `
+    <li class="app-tree__item" data-app-tree-expanded="${expanded}">
       <div class="app-tree__row">
         <div class="govuk-checkboxes__item app-tree__radio">
           <input class="govuk-checkboxes__input" id="species-${id}" name="species" type="checkbox" value="${id}">
@@ -158,19 +157,19 @@ function buildSearchSpeciesFilter() {
       </div>
       ${children && `<ul class="app-tree__group">${children}</ul>`}
     </li>`;
+}
 
+// A tree under its own "Close all", as the Search and Create bespoke report pages render one.
+function buildTreeUnderCloseAll(nodes, toggleAttributes = '') {
   document.body.innerHTML = `
     <form>
       <div class="app-tree__panel">
         <div class="app-tree__controls">
-          <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+          <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" ${toggleAttributes} aria-expanded="true">
             <span class="app-tree__toggle-all-text">Close all</span>
           </button>
         </div>
-        <ul class="app-tree" data-module="app-tree-view" data-app-tree-multiple="true">
-          ${node('animals', node('cattle', node('dairy')) + node('sheep'))}
-          ${node('poultry', node('chickens'))}
-        </ul>
+        <ul class="app-tree" data-module="app-tree-view" data-app-tree-multiple="true">${nodes}</ul>
       </div>
     </form>`;
 
@@ -183,8 +182,22 @@ function buildSearchSpeciesFilter() {
     toggleAll,
     label: () => toggleAll.querySelector('.app-tree__toggle-all-text').textContent,
     groups: () => Array.from(tree.querySelectorAll('.app-tree__group')).map((group) => group.hidden),
-    branchStates: () => Array.from(tree.querySelectorAll('.app-tree__toggle')).map((toggle) => toggle.getAttribute('aria-expanded'))
+    branchStates: () => Array.from(tree.querySelectorAll('.app-tree__toggle')).map((toggle) => toggle.getAttribute('aria-expanded')),
+    branchToggles: () => Array.from(tree.querySelectorAll('.app-tree__toggle'))
   };
+}
+
+// The Search page's species filter: a multi-level tree that starts with every branch open, so its toggle reads "Close all".
+function buildSearchSpeciesFilter() {
+  return buildTreeUnderCloseAll(
+    treeNode('animals', treeNode('cattle', treeNode('dairy')) + treeNode('sheep')) + treeNode('poultry', treeNode('chickens')));
+}
+
+// The Create bespoke report tree: only the profile is open, yet its toggle still reads "Close all".
+function buildBespokeReportTree() {
+  return buildTreeUnderCloseAll(
+    treeNode('profile', treeNode('section1', treeNode('question1') + treeNode('question2'), false) + treeNode('section2', treeNode('question3'), false)),
+    'data-app-tree-close-all-while-any-open="true"');
 }
 
 
@@ -227,6 +240,56 @@ describe('tree-view', () => {
     expect(label()).toBe('Close all');
     expect(toggleAll.getAttribute('aria-expanded')).toBe('true');
     expect(groups()).toEqual([false, false, false]);
+    expect(branchStates()).toEqual(['true', 'true', 'true']);
+  });
+
+  it('opens a tree one level but still starts as Close all, closing the entire tree from it and opening the entire tree from Open all', () => {
+    const { toggleAll, label, groups, branchStates } = buildBespokeReportTree();
+
+    expect(label()).toBe('Close all');
+    expect(toggleAll.getAttribute('aria-expanded')).toBe('true');
+    expect(groups()).toEqual([false, true, true]);
+
+    toggleAll.click();
+
+    expect(label()).toBe('Open all');
+    expect(toggleAll.getAttribute('aria-expanded')).toBe('false');
+    expect(groups()).toEqual([true, true, true]);
+    expect(branchStates()).toEqual(['false', 'false', 'false']);
+
+    toggleAll.click();
+
+    expect(label()).toBe('Close all');
+    expect(toggleAll.getAttribute('aria-expanded')).toBe('true');
+    expect(groups()).toEqual([false, false, false]);
+    expect(branchStates()).toEqual(['true', 'true', 'true']);
+  });
+
+  it('keeps offering to close such a tree while any branch is open, and offers to open it once every branch is closed', () => {
+    const { label, branchToggles } = buildBespokeReportTree();
+    const [profile, section] = branchToggles();
+
+    section.click();
+    expect(label()).toBe('Close all');
+
+    section.click();
+    expect(label()).toBe('Close all');
+
+    profile.click();
+    expect(label()).toBe('Open all');
+
+    profile.click();
+    expect(label()).toBe('Close all');
+  });
+
+  it('offers to open a tree that does not open one level as soon as any of its branches is closed', () => {
+    const { toggleAll, label, branchToggles, branchStates } = buildSearchSpeciesFilter();
+
+    branchToggles()[1].click();
+    expect(label()).toBe('Open all');
+
+    toggleAll.click();
+    expect(label()).toBe('Close all');
     expect(branchStates()).toEqual(['true', 'true', 'true']);
   });
 

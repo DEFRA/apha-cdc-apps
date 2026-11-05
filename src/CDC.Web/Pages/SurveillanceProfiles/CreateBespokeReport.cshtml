@@ -97,8 +97,8 @@
 
                         <div class="app-tree__panel app-tree__panel--wide">
                             <div class="app-tree__controls">
-                                @* The tree starts fully expanded (see BespokeReportTree.Build), so this starts as "Close all". *@
-                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+                                @* The tree opens one level, as in the legacy page, yet this starts as "Close all" (see tree-view.js). *@
+                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" data-app-tree-close-all-while-any-open="true" aria-expanded="true">
                                     <span class="app-tree__toggle-all-icon" aria-hidden="true">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
