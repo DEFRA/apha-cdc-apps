@@ -1,3 +1,4 @@
+using System.Data.Common;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.Users.Commands;
@@ -13,6 +14,9 @@ namespace CDC.Api.Features.Users;
 /// <param name="logger">Structured logger.</param>
 public sealed class UserService(IUserRepository userRepository, ILogger<UserService> logger) : IUserService
 {
+    // [dbo].[User].EmailAddress is varchar(50).
+    private const int EmailAddressMaxLength = 50;
+
     /// <inheritdoc />
     public async Task<Result<ExternalUser>> ResolveExternalUserAsync(
         ResolveExternalUserCommand command,
@@ -33,7 +37,10 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
             return await LinkOrDenyAsync(byEmail, command.SsoUserIdExt, cancellationToken);
         }
 
-        return Result.Success(await CreateAsync(command, cancellationToken));
+        // Self-registration is blocked: a profile editor must pre-register the user first.
+        logger.ExternalUserNotPreRegistered(command.SsoUserIdExt);
+        return Result.Forbidden<ExternalUser>(
+            $"The email address '{command.Email}' has not been pre-registered for external access.");
     }
 
     private async Task<Result<ExternalUser>> LinkOrDenyAsync(
@@ -43,9 +50,17 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
     {
         // SsoUserId is the pre-existing (legacy, pre-CIDM) signal that a row is an external user -
         // a row found only by email with no SsoUserId belongs to an internal-only account, and
-        // must not be linked to an external CIDM identity.
+        // must not be linked to an external CIDM identity. The one exception is an internal profile
+        // editor, who signs in through CIDM to manage external users' organisation accounts: they are
+        // let in without a CIDM id being stored, so the row stays an internal user.
         if (!existingUser.SsoUserId.HasValue)
         {
+            if (existingUser.SsoUserIdInt.HasValue && existingUser.IsProfileEditor)
+            {
+                logger.InternalProfileEditorSignedInThroughCidm(existingUser.Id);
+                return Result.Success(existingUser);
+            }
+
             logger.EmailMatchedNonExternalUser(existingUser.Id);
             return Result.Forbidden<ExternalUser>(
                 $"The email address '{existingUser.EmailAddress}' belongs to an existing account that is not permitted to sign in externally.");
@@ -57,30 +72,6 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
         return Result.Success(existingUser with { SsoUserIdExt = ssoUserIdExt });
     }
 
-    private async Task<ExternalUser> CreateAsync(ResolveExternalUserCommand command, CancellationToken cancellationToken)
-    {
-        // UserName is set to the email address for new records, per the agreed convention; every
-        // other column is only ever populated from CIDM claims here, at creation time - later
-        // sign-ins never overwrite them again.
-        var newUser = new ExternalUser
-        {
-            Id = Guid.NewGuid(),
-            UserName = command.Email,
-            FullName = $"{command.FirstName} {command.LastName}".Trim(),
-            Organisation = command.Organisation,
-            EmailAddress = command.Email,
-            SsoUserIdExt = command.SsoUserIdExt,
-            SsoUserId = null,
-            IsProfileEditor = false,
-            IsPolicyProfileUser = false
-        };
-
-        var created = await userRepository.CreateExternalUserAsync(newUser, cancellationToken);
-        logger.CreatedNewExternalUser(created.Id);
-
-        return created;
-    }
-
     /// <inheritdoc />
     public async Task<Result<InternalUser>> ResolveInternalUserAsync(
         ResolveInternalUserCommand command,
@@ -88,23 +79,54 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var user = await FindOrCreateInternalUserAsync(command, cancellationToken);
+        await RecordEmailAddressAsync(user, command.Email, cancellationToken);
+
+        return Result.Success(user);
+    }
+
+    private async Task<InternalUser> FindOrCreateInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken)
+    {
         var bySsoId = await userRepository.GetBySsoUserIdIntAsync(command.SsoUserIdInt, cancellationToken);
         if (bySsoId is not null)
         {
             logger.MatchedBySsoUserIdInt(bySsoId.Id);
-            return Result.Success(bySsoId);
+            return bySsoId;
         }
 
         var byUserName = await userRepository.GetByUserNameAsync(command.UserName, cancellationToken);
         if (byUserName is null)
         {
-            return Result.Success(await CreateInternalUserAsync(command, cancellationToken));
+            return await CreateInternalUserAsync(command, cancellationToken);
         }
 
         logger.MatchedByUserNameBackfillingSsoUserIdInt(byUserName.Id);
         await userRepository.UpdateSsoUserIdIntAsync(byUserName.Id, command.SsoUserIdInt, cancellationToken);
 
-        return Result.Success(byUserName with { SsoUserIdInt = command.SsoUserIdInt });
+        return byUserName with { SsoUserIdInt = command.SsoUserIdInt };
+    }
+
+    // CIDM sign-in finds a user by email address, and an internal row has none until it is recorded here. Only a missing
+    // address is filled in, and a failure must never stop the user signing in.
+    private async Task RecordEmailAddressAsync(InternalUser user, string? email, CancellationToken cancellationToken)
+    {
+        var emailAddress = email?.Trim();
+        if (string.IsNullOrEmpty(emailAddress) || emailAddress.Length > EmailAddressMaxLength || !string.IsNullOrWhiteSpace(user.EmailAddress))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await userRepository.UpdateEmailAddressAsync(user.Id, emailAddress, cancellationToken))
+            {
+                logger.RecordedInternalUserEmailAddress(user.Id);
+            }
+        }
+        catch (DbException exception)
+        {
+            logger.FailedToRecordInternalUserEmailAddress(exception, user.Id);
+        }
     }
 
     private async Task<InternalUser> CreateInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken)

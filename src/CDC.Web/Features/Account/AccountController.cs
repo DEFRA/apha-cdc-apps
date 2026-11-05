@@ -21,6 +21,12 @@ public class AccountController : Controller
             return RedirectToAction("External", LandingController);
         }
 
+        // The internal and external sessions must not share a browser, so an internal user is stopped here.
+        if (await HasSessionAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme))
+        {
+            return RedirectToAction(nameof(AlreadySignedIn));
+        }
+
         var properties = new AuthenticationProperties
         {
             RedirectUri = Url.Action("External", LandingController)
@@ -67,6 +73,12 @@ public class AccountController : Controller
             return RedirectToAction("Internal", LandingController);
         }
 
+        // The internal and external sessions must not share a browser, so an external user is stopped here.
+        if (await HasSessionAsync(CookieAuthenticationDefaults.AuthenticationScheme))
+        {
+            return RedirectToAction(nameof(AlreadySignedIn));
+        }
+
         var properties = new AuthenticationProperties
         {
             RedirectUri = Url.Action("Internal", LandingController)
@@ -102,6 +114,24 @@ public class AccountController : Controller
     public IActionResult SignedOut()
     {
         return View();
+    }
+
+    // Where Login/LoginInternal send a user who already holds the other kind of session. Which session they hold is read
+    // from the cookies here, never from the request, so the page cannot be made to claim a session the user does not have.
+    [AllowAnonymous]
+    public async Task<IActionResult> AlreadySignedIn()
+    {
+        if (await HasSessionAsync(EntraAuthenticationDefaults.CookieAuthenticationScheme))
+        {
+            return View(new AlreadySignedInViewModel("internal", "Internal"));
+        }
+
+        if (await HasSessionAsync(CookieAuthenticationDefaults.AuthenticationScheme))
+        {
+            return View(new AlreadySignedInViewModel("external", "External"));
+        }
+
+        return RedirectToAction("Index", LandingController);
     }
 
     // Reached when ICidmExternalUserResolver denies sign-in (the email claim matched an existing

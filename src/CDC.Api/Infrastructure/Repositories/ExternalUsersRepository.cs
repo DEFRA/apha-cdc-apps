@@ -18,6 +18,7 @@ public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFacto
 {
     private const string GetAllProcedure = "spgaSsoUserMaintenance";
     private const string SaveProcedure = "spiSsoUser";
+    private const string PreRegisterProcedure = "spiExternalUserPreRegistration";
     private const int UserNameMaxLength = 50;
     private const int EmailMaxLength = 50;
     private const int NameMaxLength = 100;
@@ -125,6 +126,34 @@ public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFacto
         catch (DbException exception)
         {
             logger.StoredProcedureFailed(exception, GetAllProcedure);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> PreRegisterExternalUserAsync(
+        Guid id, string userName, string fullName, string organisation, string emailAddress, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("@Id", id, DbType.Guid);
+            parameters.Add("@UserName", userName, DbType.AnsiString, size: UserNameMaxLength);
+            parameters.Add("@FullName", fullName, DbType.AnsiString, size: NameMaxLength);
+            parameters.Add("@Organisation", organisation, DbType.AnsiString, size: NameMaxLength);
+            parameters.Add("@EmailAddress", emailAddress, DbType.AnsiString, size: EmailMaxLength);
+
+            return await connection.QuerySingleAsync<bool>(new CommandDefinition(
+                PreRegisterProcedure,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, PreRegisterProcedure);
             throw;
         }
     }

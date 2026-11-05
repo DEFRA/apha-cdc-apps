@@ -331,7 +331,8 @@ jobs:
     needs: [changes, quality]
     if: needs.changes.outputs.components != '[]'
     runs-on: windows-2022
-    timeout-minutes: 20
+    # The web image's full Windows Server base is much larger than Server Core, so pulling, saving and uploading it takes longer.
+    timeout-minutes: 35
     permissions:
       contents: read
     strategy:

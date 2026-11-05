@@ -30,6 +30,11 @@ public sealed record ExternalUser : BaseEntity
     /// </summary>
     public required Guid? SsoUserId { get; init; }
 
+    /// <summary>
+    /// Gets the Entra ID identity, when the row belongs to an internal user. Only filled in for a row found by email address.
+    /// </summary>
+    public Guid? SsoUserIdInt { get; init; }
+
     /// <summary>Gets a value indicating whether the user can edit any profile.</summary>
     public required bool IsProfileEditor { get; init; }
 

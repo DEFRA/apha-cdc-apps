@@ -23,4 +23,7 @@ public sealed record InternalUser : BaseEntity
 
     /// <summary>Gets a value indicating whether the user has policy-level profile access.</summary>
     public required bool IsPolicyProfileUser { get; init; }
+
+    /// <summary>Gets the email address held for the user, when there is one.</summary>
+    public string? EmailAddress { get; init; }
 }

@@ -25,6 +25,12 @@ public interface IExternalUsersService
     /// <returns>Success, or not found when the user does not exist.</returns>
     Task<Result<Unit>> SetReviewEmailSubscriptionAsync(SetExternalUserSubscriptionCommand command, CancellationToken cancellationToken);
 
+    /// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>
+    /// <param name="command">The user's details.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>Success, or a conflict when the email address is already registered.</returns>
+    Task<Result<Unit>> PreRegisterExternalUserAsync(PreRegisterExternalUserCommand command, CancellationToken cancellationToken);
+
     /// <summary>Gets the profiles an external user can access, and the profiles still available to grant.</summary>
     /// <param name="userId">The external user.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>

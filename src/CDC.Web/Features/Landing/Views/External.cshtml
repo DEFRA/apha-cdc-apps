@@ -1,9 +1,31 @@
+@using CDC.Auth.Cidm
+@using CDC.Auth.Cidm.Options
+@using Microsoft.Extensions.Options
+@inject IOptions<CidmOptions> CidmOptionsAccessor
 @{
     ViewData["Title"] = "D2R2";
     var fullName = User.FindFirst(ExternalUserClaimTypes.FullName)?.Value;
+    var showInternalProfileEditorBanner =
+        User.HasClaim(ExternalUserClaimTypes.AuthenticationProvider, CidmAuthenticationDefaults.AuthenticationScheme)
+        && User.HasClaim(ExternalUserClaimTypes.IsInternalProfileEditor, bool.TrueString);
 }
 
 <h1 class="govuk-heading-l">@(string.IsNullOrEmpty(fullName) ? "Welcome" : $"Welcome, {fullName}")</h1>
+
+@if (showInternalProfileEditorBanner)
+{
+    <section class="govuk-notification-banner" aria-labelledby="app-profile-editor-banner-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title" id="app-profile-editor-banner-title">Important</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">
+                Use the <a class="govuk-notification-banner__link" href="@CidmOptionsAccessor.Value.AccountPortalUrl" target="_blank" rel="noopener noreferrer">CIDM account (opens in new tab)</a> link to go to CIDM account management and manage the external users.
+            </p>
+        </div>
+    </section>
+}
+
 <p class="govuk-body">D2R2 is a comprehensive, peer-reviewed animal disease database and risk ranking tool. It is focused on the UK situation. Its standardised approach facilitates a transparent mechanism for making policy decisions.</p>
 
 <div class="govuk-grid-row">

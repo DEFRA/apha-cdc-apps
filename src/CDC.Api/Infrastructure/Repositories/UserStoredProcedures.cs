@@ -32,6 +32,9 @@ public static class UserStoredProcedures
     /// <summary>Backfills SsoUserIdInt on a row previously matched by user name.</summary>
     public const string UpdateSsoUserIdInt = "spuUserSsoUserIdInt";
 
+    /// <summary>Records an internal user's email address when none is held yet.</summary>
+    public const string UpdateEmailAddress = "spuUserEmailAddress";
+
     /// <summary>Inserts a brand-new internal user row with no privileges.</summary>
     public const string CreateInternalUser = "spiInternalUser";
 }

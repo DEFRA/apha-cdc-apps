@@ -76,7 +76,8 @@ public sealed partial class InternalUserResolver(
         {
             SsoUserIdInt = entraSsoId,
             UserName = userName,
-            FullName = fullName
+            FullName = fullName,
+            Email = FindEmailAddress(principal)
         };
 
         ResolveInternalUserResult result;
@@ -123,6 +124,18 @@ public sealed partial class InternalUserResolver(
 
         return resolution;
     }
+
+    // The default inbound claim mapping remaps 'email' and 'upn' to long claim types, so both forms are checked. A
+    // sign-in name without an '@' (a bare account name) is not an email address, so it is not sent.
+    private static string? FindEmailAddress(ClaimsPrincipal principal) =>
+        new[]
+        {
+            principal.FindFirst(ClaimTypes.Email)?.Value,
+            principal.FindFirst("email")?.Value,
+            principal.FindFirst(ClaimTypes.Upn)?.Value,
+            principal.FindFirst("upn")?.Value,
+            principal.FindFirst(EntraClaimTypes.PreferredUsername)?.Value
+        }.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value) && value.Contains('@', StringComparison.Ordinal))?.Trim();
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Entra sign-in received for object id (oid) SsoUserIdInt={SsoUserIdInt}")]
     private partial void LogInternalSignInObjectId(Guid ssoUserIdInt);
