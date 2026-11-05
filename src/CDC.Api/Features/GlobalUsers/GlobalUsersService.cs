@@ -187,7 +187,12 @@ public sealed partial class GlobalUsersService(
             return new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.InvalidFormat };
         }
 
-        var directoryUser = await FindInDirectoryAsync(userName, cancellationToken);
+        var (directoryUser, lookupFailed) = await FindInDirectoryAsync(userName, cancellationToken);
+
+        if (directoryUser is null && !lookupFailed)
+        {
+            return new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NotFound };
+        }
 
         return new GlobalUserLookupResult
         {
@@ -200,8 +205,8 @@ public sealed partial class GlobalUsersService(
         };
     }
 
-    /// <summary>Looks a not-yet-known user up in the directory. A failure is logged and treated as "not found" so adding a user by hand still works.</summary>
-    private async Task<GraphUser?> FindInDirectoryAsync(string userName, CancellationToken cancellationToken)
+    /// <summary>Looks a not-yet-known user up in the directory. A failure is logged and flagged so adding a user by hand still works.</summary>
+    private async Task<(GraphUser? User, bool Failed)> FindInDirectoryAsync(string userName, CancellationToken cancellationToken)
     {
         // The directory matches on the logon name alone; the legacy DOMAIN\ prefix is not a Graph property.
         var samAccountName = userName[(userName.IndexOf('\\', StringComparison.Ordinal) + 1)..];
@@ -211,13 +216,13 @@ public sealed partial class GlobalUsersService(
             var user = await graphClient.FindUserBySamAccountNameAsync(samAccountName, cancellationToken);
             logger.GraphLookupCompleted(user is not null);
 
-            return user;
+            return (user, false);
         }
         catch (GraphException exception)
         {
             logger.GraphLookupFailed(exception);
 
-            return null;
+            return (null, true);
         }
     }
 

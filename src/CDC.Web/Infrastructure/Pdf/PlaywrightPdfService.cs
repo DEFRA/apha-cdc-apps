@@ -137,8 +137,7 @@ public sealed partial class PlaywrightPdfService : IPlaywrightPdfService, IAsync
 
     private static string Millimetres(double value) => string.Create(CultureInfo.InvariantCulture, $"{value}mm");
 
-    // No channel runs Playwright's headless shell. Channel "chromium" (the full browser) closed as soon as it opened a
-    // page in the Windows Server Core image, so set a channel only to use a browser that is installed on the host.
+    // No channel runs Playwright's headless shell; neither Chromium build runs in a Windows Server Core image (see the CDC.Web Dockerfile).
     internal static BrowserTypeLaunchOptions BuildLaunchOptions(string? browserChannel) => new()
     {
         Headless = true,
