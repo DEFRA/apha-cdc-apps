@@ -159,18 +159,14 @@ public class GlobalUsersServiceTests
     }
 
     [Fact]
-    public async Task LookupAsync_ReturnsNewUser_WhenUnknownButWellFormed()
+    public async Task LookupAsync_ReturnsNotFound_WhenInNeitherTheDatabaseNorTheDirectory()
     {
         repository.Setup(repo => repo.FindUserByUsernameAsync(@"DEFRA\new.user", It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserVerification?)null);
 
         var result = await CreateService().LookupAsync(@"DEFRA\new.user", CancellationToken.None);
 
-        result.Outcome.Should().Be(GlobalUserLookupOutcome.NewUser);
-        result.Id.Should().NotBeEmpty();
-        result.UserName.Should().Be(@"DEFRA\new.user");
-        result.FullName.Should().BeEmpty();
-        result.Organisation.Should().BeEmpty();
+        result.Outcome.Should().Be(GlobalUserLookupOutcome.NotFound);
     }
 
     [Fact]

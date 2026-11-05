@@ -73,7 +73,10 @@ public enum GlobalUserLookupOutcome
     Blocked = 3,
 
     /// <summary>The username belongs to an SSO user, who cannot be given global access rights.</summary>
-    SsoUser = 4
+    SsoUser = 4,
+
+    /// <summary>The username is in neither the database nor the directory.</summary>
+    NotFound = 5
 }
 
 /// <summary>
