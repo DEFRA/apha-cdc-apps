@@ -571,6 +571,28 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Equal("Cattle", pageModel.SelectedSpeciesLabel);
     }
 
+    // The legacy species selector opened every branch, so the whole tree is on show until the user closes it.
+    [Fact]
+    public async Task LoadSpeciesTreeAsync_StartsEveryBranchExpanded()
+    {
+        var animalsId = Guid.NewGuid();
+        var cattleId = Guid.NewGuid();
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = animalsId, ParentId = Guid.Empty, Description = "Animals", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = cattleId, ParentId = animalsId, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = cattleId, Description = "Dairy cattle", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel([], species: species);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var animals = Assert.Single(pageModel.SpeciesTree.Nodes);
+        var cattle = Assert.Single(animals.Children);
+        Assert.True(animals.Expanded);
+        Assert.True(cattle.Expanded);
+    }
+
     [Fact]
     public async Task LoadSpeciesTreeAsync_DefaultsLabel_WhenNoSpeciesSelected()
     {

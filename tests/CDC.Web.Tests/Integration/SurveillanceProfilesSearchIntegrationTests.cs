@@ -329,6 +329,30 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.False(IsChecked(page, "DisplayDraft"));
     }
 
+    // The legacy species selector opened every branch and offered "Close all"; closing and reopening are the tree script's job.
+    [Fact]
+    public async Task Search_ShowsTheSpeciesFilterFullyExpanded_WithTheToggleOfferingToCloseAll()
+    {
+        var animals = Guid.NewGuid();
+        var cattle = Guid.NewGuid();
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = animals, ParentId = Guid.Empty, Description = "Animals", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = cattle, ParentId = animals, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = cattle, Description = "Dairy cattle", IsActive = true, IsInUse = true }
+        ];
+        using var factory = CreateFactory(SearchResults, species);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.Contains("data-app-tree-action=\"toggle-all\" aria-expanded=\"true\"", page);
+        Assert.Contains("<span class=\"app-tree__toggle-all-text\">Close all</span>", page);
+        Assert.DoesNotContain("Open all", page);
+        Assert.Equal(3, Regex.Count(page, "class=\"app-tree__item\" data-app-tree-expanded=\"true\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.DoesNotContain("data-app-tree-expanded=\"false\"", page);
+    }
+
     private static bool IsChecked(string page, string checkboxId) =>
         Regex.IsMatch(page, $"<input[^>]* id=\"{checkboxId}\"[^>]* checked", RegexOptions.None, TimeSpan.FromSeconds(5));
 
@@ -481,14 +505,14 @@ public class SurveillanceProfilesSearchIntegrationTests
         return await response.Content.ReadAsStringAsync();
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults) =>
+    private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults, IReadOnlyList<SpeciesDto>? species = null) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
                 services.AddSingleton<IApiClient>(new FakeApiClient(searchResults));
                 services.RemoveAll<ISpeciesApiService>();
-                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
+                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService(species ?? []));
             }));
 
     private static async Task<string> GetResultsPartialAsync(bool isProfileEditor, bool isPolicyProfileUser)

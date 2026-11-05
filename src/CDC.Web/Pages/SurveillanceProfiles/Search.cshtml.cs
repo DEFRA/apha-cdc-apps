@@ -468,7 +468,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 FieldName = nameof(SelectedSpecies),
                 ItemNameSingular = SpeciesParameter,
                 ItemNamePlural = SpeciesParameter,
-                Nodes = SpeciesTreeBuilder.Build(species),
+                Nodes = SpeciesTreeBuilder.Build(species, expandAll: true),
                 EmptySelectionLabel = AnySpeciesLabel,
                 AllowMultipleSelection = true,
                 SelectedValues = SelectedSpecies.ToHashSet(StringComparer.OrdinalIgnoreCase)
