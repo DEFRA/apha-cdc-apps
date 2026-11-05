@@ -7,7 +7,6 @@ using CDC.Api.Infrastructure.Swagger;
 using CDC.Api.Middleware;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
-using CDC.Graph;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,10 +34,6 @@ StartupChecks.RequireReadinessKey(builder.Configuration);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
-
-// Graph always uses the shared Entra app registration values when the explicit Graph section is absent,
-// and the API should not carry a separate Graph feature flag or duplicate secret.
-builder.Services.AddGraphClient(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
