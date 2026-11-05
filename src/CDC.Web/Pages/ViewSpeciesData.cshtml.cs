@@ -51,7 +51,7 @@ public class ViewSpeciesDataModel(ISpeciesApiService speciesApiService, ILogger<
                 FieldName = SpeciesKey,
                 ItemNameSingular = SpeciesKey,
                 ItemNamePlural = SpeciesKey,
-                Nodes = SpeciesTreeBuilder.Build(species)
+                Nodes = SpeciesTreeBuilder.Build(species, expandAll: true)
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)

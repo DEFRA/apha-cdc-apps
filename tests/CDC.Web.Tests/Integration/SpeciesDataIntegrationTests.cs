@@ -167,6 +167,27 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("Cattle", body);
     }
 
+    // The legacy page opened every node and offered "Close all"; closing and reopening are the tree script's job.
+    [Fact]
+    public async Task ViewSpeciesData_ShowsTheTreeFullyExpanded_WithTheToggleOfferingToCloseAll()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            .. Species,
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = DairyId, Description = "Holstein", IsActive = true, IsInUse = true }
+        ];
+        using var factory = CreateFactory(new FakeSpeciesApiService(species));
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/ViewSpeciesData");
+
+        Assert.Contains("data-app-tree-action=\"toggle-all\" aria-expanded=\"true\"", page);
+        Assert.Contains("<span class=\"app-tree__toggle-all-text\">Close all</span>", page);
+        Assert.DoesNotContain("Open all", page);
+        Assert.Equal(3, Regex.Count(page, "class=\"app-tree__item\" data-app-tree-expanded=\"true\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.DoesNotContain("data-app-tree-expanded=\"false\"", page);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(ISpeciesApiService fakeService) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>

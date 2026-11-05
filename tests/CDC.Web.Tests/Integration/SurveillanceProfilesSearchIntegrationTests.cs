@@ -103,10 +103,37 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Equal(2, Regex.Count(body, ">Clone scenario</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
     }
 
-    // Legacy sent every Clone scenario link - the card's and each version row's, on the Published and the Draft card - to
-    // ProfileProperties.aspx with the version to clone as CloneProfileVersionId and Scenario=1.
+    // Legacy sent every Clone profile link - the card's and each version row's, on the Published and the Draft card - to
+    // ProfileProperties.aspx with the version to clone as CloneProfileVersionId, and no Scenario.
+    [Fact]
+    public async Task Search_SendsEveryCloneProfileLinkToProfileProperties_NamingTheVersionToClone()
+    {
+        var (body, clonedVersions) = await GetCloneLinkResultsAsync();
+
+        Assert.Equal(clonedVersions.Select(CloneProfileUrl), LinkTargets(body, "Clone profile"));
+    }
+
+    // The same links with Scenario=1, as legacy sent every Clone scenario link.
     [Fact]
     public async Task Search_SendsEveryCloneScenarioLinkToProfileProperties_NamingTheVersionToCloneAndScenarioOne()
+    {
+        var (body, clonedVersions) = await GetCloneLinkResultsAsync();
+
+        Assert.Equal(clonedVersions.Select(CloneScenarioUrl), LinkTargets(body, "Clone scenario"));
+    }
+
+    private static string CloneProfileUrl(Guid versionId) =>
+        $"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={versionId}";
+
+    private static string CloneScenarioUrl(Guid versionId) =>
+        $"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={versionId}&amp;scenario=1";
+
+    private static List<string> LinkTargets(string body, string linkText) =>
+        [.. Regex.Matches(body, $"href=\"([^\"]+)\">{linkText}</a>", RegexOptions.None, TimeSpan.FromSeconds(5)).Select(match => match.Groups[1].Value)];
+
+    // A profile with two Published versions and one Draft. Each card names its current version first, then every version of its
+    // history, newest first, so the versions the Clone links name run: Published card, its rows, Draft card, its rows.
+    private static async Task<(string Body, Guid[] ClonedVersions)> GetCloneLinkResultsAsync()
     {
         var olderVersionId = Guid.NewGuid();
         var draftVersionId = Guid.NewGuid();
@@ -119,18 +146,10 @@ public class SurveillanceProfilesSearchIntegrationTests
                 DraftVersions = [published with { VersionId = draftVersionId, VersionNumber = 3 }]
             }
         };
-
-        var body = await GetResultsPartialAsync(results, "?DisplayPublished=true&DisplayDraft=true");
-
-        var cloneScenarioLinks = Regex.Matches(body, "href=\"([^\"]+)\">Clone scenario</a>", RegexOptions.None, TimeSpan.FromSeconds(5))
-            .Select(match => match.Groups[1].Value);
-        // Each card names its current version first, then every version of its history, newest first.
         Guid[] clonedVersions = [VersionId, VersionId, olderVersionId, draftVersionId, draftVersionId];
-        Assert.Equal(clonedVersions.Select(CloneScenarioUrl), cloneScenarioLinks);
-    }
 
-    private static string CloneScenarioUrl(Guid versionId) =>
-        $"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={versionId}&amp;scenario=1";
+        return (await GetResultsPartialAsync(results, "?DisplayPublished=true&DisplayDraft=true"), clonedVersions);
+    }
 
     [Theory]
     [InlineData(false, true)]
