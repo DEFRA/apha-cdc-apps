@@ -8,6 +8,7 @@ COPY ["src/CDC.Web/CDC.Web.csproj", "src/CDC.Web/"]
 COPY ["src/CDC.Common/CDC.Common.csproj", "src/CDC.Common/"]
 COPY ["src/CDC.Auth.Cidm/CDC.Auth.Cidm.csproj", "src/CDC.Auth.Cidm/"]
 COPY ["src/CDC.Auth.Entra/CDC.Auth.Entra.csproj", "src/CDC.Auth.Entra/"]
+COPY ["src/CDC.Graph/CDC.Graph.csproj", "src/CDC.Graph/"]
 
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "src/CDC.Web/CDC.Web.csproj"

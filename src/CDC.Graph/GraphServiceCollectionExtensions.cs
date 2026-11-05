@@ -11,13 +11,11 @@ namespace CDC.Graph;
 /// <summary>Registers the shared Microsoft Graph client.</summary>
 public static class GraphServiceCollectionExtensions
 {
-    private const string EntraSectionName = "Entra";
-
     private static readonly Uri GraphBaseAddress = new("https://graph.microsoft.com/v1.0/");
 
     /// <summary>
-    /// Adds <see cref="IGraphClient"/>, bound to the <c>Graph</c> configuration section. When
-    /// <c>Graph:Enabled</c> is false a no-op client is registered and no credentials are required.
+    /// Adds <see cref="IGraphClient"/>, bound to the <c>Graph</c> configuration section and
+    /// falling back to the shared Entra app registration values when the explicit Graph values are absent.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configuration">The app configuration.</param>
@@ -28,26 +26,38 @@ public static class GraphServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         var section = configuration.GetSection(GraphOptions.SectionName);
-        var entraSection = configuration.GetSection(EntraSectionName);
 
-        // Graph reuses the Entra app registration unless Graph-specific credentials are supplied.
         services.AddOptions<GraphOptions>()
             .Bind(section)
-            .PostConfigure(options =>
+            .Configure(options =>
             {
-                options.TenantId = FirstNonEmpty(options.TenantId, entraSection[nameof(GraphOptions.TenantId)]);
-                options.ClientId = FirstNonEmpty(options.ClientId, entraSection[nameof(GraphOptions.ClientId)]);
-                options.ClientSecret = FirstNonEmpty(options.ClientSecret, entraSection[nameof(GraphOptions.ClientSecret)]);
+                var sharedTenantId = configuration["Entra:TenantId"]
+                    ?? configuration["SsoSettings:TenantId"]
+                    ?? string.Empty;
+                var sharedClientId = configuration["Entra:ClientId"]
+                    ?? configuration["SsoSettings:ClientId"]
+                    ?? string.Empty;
+                var sharedClientSecret = configuration["Entra:ClientSecret"]
+                    ?? configuration["SsoSettings:ClientSecret"]
+                    ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(options.TenantId) && !string.IsNullOrWhiteSpace(sharedTenantId))
+                {
+                    options.TenantId = sharedTenantId;
+                }
+
+                if (string.IsNullOrWhiteSpace(options.ClientId) && !string.IsNullOrWhiteSpace(sharedClientId))
+                {
+                    options.ClientId = sharedClientId;
+                }
+
+                if (string.IsNullOrWhiteSpace(options.ClientSecret) && !string.IsNullOrWhiteSpace(sharedClientSecret))
+                {
+                    options.ClientSecret = sharedClientSecret;
+                }
             })
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<GraphOptions>, GraphOptionsValidator>();
-
-        if (!section.GetValue<bool>(nameof(GraphOptions.Enabled)))
-        {
-            services.AddSingleton<IGraphClient, DisabledGraphClient>();
-
-            return services;
-        }
 
         // Singleton so the one credential's in-memory token cache is shared by every request.
         services.AddSingleton<TokenCredential>(provider =>
@@ -67,7 +77,4 @@ public static class GraphServiceCollectionExtensions
 
         return services;
     }
-
-    private static string FirstNonEmpty(string value, string? fallback) =>
-        string.IsNullOrWhiteSpace(value) ? fallback ?? string.Empty : value;
 }

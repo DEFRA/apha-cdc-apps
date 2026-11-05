@@ -8,11 +8,6 @@ public sealed class GraphOptionsValidator : IValidateOptions<GraphOptions>
     /// <inheritdoc />
     public ValidateOptionsResult Validate(string? name, GraphOptions options)
     {
-        if (!options.Enabled)
-        {
-            return ValidateOptionsResult.Success;
-        }
-
         var failures = new List<string>();
 
         RequireNotEmpty(options.TenantId, nameof(GraphOptions.TenantId), failures);
