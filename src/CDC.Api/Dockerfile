@@ -6,7 +6,6 @@ WORKDIR /src
 
 COPY ["src/CDC.Api/CDC.Api.csproj", "src/CDC.Api/"]
 COPY ["src/CDC.Common/CDC.Common.csproj", "src/CDC.Common/"]
-COPY ["src/CDC.Graph/CDC.Graph.csproj", "src/CDC.Graph/"]
 
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "src/CDC.Api/CDC.Api.csproj"

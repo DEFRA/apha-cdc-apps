@@ -5,6 +5,7 @@ using CDC.Auth.Entra;
 using CDC.Auth.Entra.Events;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
+using CDC.Graph;
 using CDC.Web.Authorization;
 using CDC.Web.Features.Account;
 using CDC.Web.Features.DiseaseRanking;
@@ -269,6 +270,9 @@ builder.Services.Configure<RazorViewEngineOptions>(options =>
 // with whichever session cookie it carries and a signed-in user is never sent to the other provider's sign-in.
 builder.AddCidmAuthentication();
 builder.AddEntraAuthentication();
+
+// Graph reuses the Entra app registration (Entra:TenantId/ClientId/ClientSecret) configured above, so no separate secret exists.
+builder.Services.AddGraphClient(builder.Configuration);
 
 // How long a signed-in session may sit idle - the lifetime of both sign-in cookies, which any request renews - and how long before
 // it ends the user is asked whether to extend it. See SessionController and wwwroot/js/session-timeout.js for the dialogs.

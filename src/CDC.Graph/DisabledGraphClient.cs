@@ -1,6 +1,6 @@
 namespace CDC.Graph;
 
-/// <summary>Used when <c>Graph:Enabled</c> is false: finds nobody, so callers fall back to their non-Graph behaviour.</summary>
+/// <summary>Compatibility no-op client retained for callers that need a safe fallback when Graph lookups are intentionally disabled elsewhere.</summary>
 internal sealed class DisabledGraphClient : IGraphClient
 {
     /// <inheritdoc />
