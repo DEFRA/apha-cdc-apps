@@ -652,6 +652,25 @@ body {
   align-items: flex-start;
 }
 
+/* "Create bespoke report": the template label and its drop-down share a line, as in the legacy page, and wrap on narrow screens. */
+.app-bespoke-template-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.app-bespoke-template-row .govuk-label {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.app-bespoke-template-row .govuk-select {
+  flex: 0 1 30rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Maintain species data: the tree and its action buttons sit side by side, with the
    buttons stacked vertically to the right - see Maintain.cshtml. Wraps to a stacked,
    full-width layout below tablet so the actions remain reachable on narrow viewports. */

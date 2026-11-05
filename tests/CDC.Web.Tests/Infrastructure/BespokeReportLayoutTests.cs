@@ -136,6 +136,15 @@ public class BespokeReportTreeTests
     }
 
     [Fact]
+    public void Build_StartsWithEveryBranchExpanded_SoTheToggleOffersToCloseAll()
+    {
+        var root = Assert.Single(BespokeReportTree.Build(Content, []).Nodes);
+
+        Assert.True(root.Expanded);
+        Assert.All(root.Children, section => Assert.True(section.Expanded));
+    }
+
+    [Fact]
     public void Build_TicksTheNodesOfASavedSelection()
     {
         var tree = BespokeReportTree.Build(

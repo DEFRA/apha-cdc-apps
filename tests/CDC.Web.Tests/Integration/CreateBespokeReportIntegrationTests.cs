@@ -70,6 +70,37 @@ public partial class CreateBespokeReportIntegrationTests
     }
 
     [Fact]
+    public async Task Page_PutsTheTemplateDropdownOnTheSameLineAsItsLabel()
+    {
+        using var factory = CreateFactory(new FakeBespokeReportTemplatesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync(PageUrl);
+
+        // site.css lays this row out with the label on the left and the drop-down to its right.
+        var row = body.IndexOf("<div class=\"govuk-form-group app-bespoke-template-row\">", StringComparison.Ordinal);
+        Assert.True(row >= 0, "The template label and drop-down are not in a row.");
+        var label = body.IndexOf("<label class=\"govuk-label\" for=\"TemplateId\">", row, StringComparison.Ordinal);
+        var dropdown = body.IndexOf("<select class=\"govuk-select\" id=\"TemplateId\"", row, StringComparison.Ordinal);
+        Assert.True(label > row && dropdown > label, "The drop-down does not follow its label in the row.");
+    }
+
+    [Fact]
+    public async Task Page_StartsWithTheWholeTreeExpanded_SoTheToggleOffersToCloseAll()
+    {
+        using var factory = CreateFactory(new FakeBespokeReportTemplatesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync(PageUrl);
+
+        Assert.Contains("data-app-tree-action=\"toggle-all\" aria-expanded=\"true\"", body);
+        Assert.Contains("<span class=\"app-tree__toggle-all-text\">Close all</span>", body);
+        Assert.DoesNotContain(">Open all<", body);
+        // The profile and its one section; the guidance and question nodes under it are leaves.
+        Assert.Equal(2, Regex.Count(body, "data-app-tree-expanded=\"true\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
     public async Task Page_WithATemplateSelected_ShowsItsTickedNodesAndTheTemplateButtons()
     {
         using var factory = CreateFactory(new FakeBespokeReportTemplatesApiService

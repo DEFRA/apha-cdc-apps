@@ -47,10 +47,12 @@ public static class BespokeReportTree
             // The legacy page ticked a node's parent whenever the node itself was ticked.
             var sectionValue = BespokeReportNodes.Value(section.Id, BespokeNodeType.Section);
             AddIf(selection.Sections.Contains(section.Id) || questionNodes.Exists(node => ticked.Contains(node.Value)), ticked, sectionValue);
+            // Every branch starts expanded, so the tree's "Open all"/"Close all" control starts as "Close all".
             sectionNodes.Add(new TreeNodeViewModel
             {
                 Value = sectionValue,
                 Label = $"{section.SectionNumber} : {ProfileTitleHtmlFormatter.ToPlainText(section.Name)}",
+                Expanded = true,
                 Children = questionNodes
             });
         }
