@@ -1195,6 +1195,22 @@ body {
   padding: 1rem;
 }
 
+/* Edit species data: Previous and Next sit at the left and right of the panel, as in the legacy page, not stacked. */
+.app-species-pagination .govuk-pagination--block {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: flex-start;
+}
+
+.app-species-pagination .govuk-pagination__next {
+  margin-left: auto;
+}
+
+/* The divider only separates stacked links. */
+.app-species-pagination .govuk-pagination--block .govuk-pagination__prev + .govuk-pagination__next {
+  border-top: 0;
+}
+
 .app-header__help-icon {
   height: 26px;
   width: 26px;

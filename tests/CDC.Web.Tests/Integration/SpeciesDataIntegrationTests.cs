@@ -422,6 +422,10 @@ public partial class SpeciesDataIntegrationTests
         Assert.Contains("<span class=\"govuk-pagination__link-label\">2. Movements</span>", body);
         Assert.Contains("Next<span class=\"govuk-visually-hidden\"> page</span>", body);
         Assert.DoesNotContain("rel=\"prev\"", body);
+
+        // The wrapper is what site.css keys on to put Previous and Next on the left and right of the panel.
+        var wrapper = body.IndexOf("<div class=\"app-species-pagination\">", StringComparison.Ordinal);
+        Assert.InRange(wrapper, 0, body.IndexOf("<nav class=\"govuk-pagination", StringComparison.Ordinal) - 1);
     }
 
     [Fact]
