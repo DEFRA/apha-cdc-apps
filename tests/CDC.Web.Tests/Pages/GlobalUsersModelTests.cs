@@ -323,22 +323,21 @@ public class GlobalUsersModelTests
         Assert.True(model.ShowForm);
         Assert.True(model.IsNewUser);
         Assert.Equal(id, model.UserId);
-        Assert.Null(model.LookupWarning);
     }
 
     [Fact]
-    public async Task Lookup_WarnsAndOpensForm_ForNewUser()
+    public async Task Lookup_ShowsNotInProfilesSystemError_WhenUserNotFound()
     {
         var model = CreatePageModel(new FakeGlobalUsersApiService
         {
-            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NewUser, Id = Guid.NewGuid(), UserName = @"DEFRA\new" }
+            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NotFound }
         });
         model.UserName = @"DEFRA\new";
 
         await model.OnPostLookupUserAsync(CancellationToken.None);
 
-        Assert.True(model.ShowForm);
-        Assert.NotNull(model.LookupWarning);
+        Assert.False(model.ShowForm);
+        Assert.Equal("The user is not currently in the profiles system.", model.FieldErrors["UserName"]);
     }
 
     [Fact]
