@@ -19,21 +19,17 @@ public class GraphRegistrationTests
     }
 
     [Fact]
-    public void Disabled_RegistersTheNoOpClient_AndNeedsNoCredentials()
+    public void Missing_Section_UsesSharedEntraValues_WhenAvailable()
     {
-        using var provider = Build(new() { ["Graph:Enabled"] = "false" });
+        using var provider = Build(new()
+        {
+            ["Entra:TenantId"] = "11111111-1111-1111-1111-111111111111",
+            ["Entra:ClientId"] = "22222222-2222-2222-2222-222222222222",
+            ["Entra:ClientSecret"] = "placeholder"
+        });
 
-        Assert.IsType<DisabledGraphClient>(provider.GetRequiredService<IGraphClient>());
-        Assert.Null(provider.GetService<IGraphTokenProvider>());
-        Assert.NotNull(provider.GetRequiredService<IOptions<GraphOptions>>().Value);
-    }
-
-    [Fact]
-    public void Missing_Section_IsTreatedAsDisabled()
-    {
-        using var provider = Build([]);
-
-        Assert.IsType<DisabledGraphClient>(provider.GetRequiredService<IGraphClient>());
+        Assert.IsType<GraphClient>(provider.GetRequiredService<IGraphClient>());
+        Assert.Same(provider.GetRequiredService<IGraphTokenProvider>(), provider.GetRequiredService<IGraphTokenProvider>());
     }
 
     [Fact]
@@ -41,7 +37,6 @@ public class GraphRegistrationTests
     {
         using var provider = Build(new()
         {
-            ["Graph:Enabled"] = "true",
             ["Graph:TenantId"] = "11111111-1111-1111-1111-111111111111",
             ["Graph:ClientId"] = "22222222-2222-2222-2222-222222222222",
             ["Graph:ClientSecret"] = "placeholder"
@@ -52,23 +47,33 @@ public class GraphRegistrationTests
     }
 
     [Fact]
+    public void Enabled_UsesSharedEntraValues_WhenGraphValuesAbsent()
+    {
+        using var provider = Build(new()
+        {
+            ["Graph:Enabled"] = "true",
+            ["Entra:TenantId"] = "11111111-1111-1111-1111-111111111111",
+            ["Entra:ClientId"] = "22222222-2222-2222-2222-222222222222",
+            ["Entra:ClientSecret"] = "shared-entra-client-secret"
+        });
+
+        var options = provider.GetRequiredService<IOptions<GraphOptions>>().Value;
+
+        Assert.Equal("11111111-1111-1111-1111-111111111111", options.TenantId);
+        Assert.Equal("22222222-2222-2222-2222-222222222222", options.ClientId);
+        Assert.Equal("shared-entra-client-secret", options.ClientSecret);
+    }
+
+    [Fact]
     public void Enabled_WithMissingCredentials_FailsOptionsValidation()
     {
-        using var provider = Build(new() { ["Graph:Enabled"] = "true", ["Graph:TenantId"] = "tenant" });
+        using var provider = Build(new() { ["Graph:TenantId"] = "tenant" });
 
         var exception = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<GraphOptions>>().Value);
 
         Assert.Contains(exception.Failures, failure => failure.Contains("ClientId", StringComparison.Ordinal));
         Assert.Contains(exception.Failures, failure => failure.Contains("ClientSecret", StringComparison.Ordinal));
         Assert.DoesNotContain(exception.Failures, failure => failure.Contains("TenantId", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void Disabled_IgnoresIncompleteCredentials()
-    {
-        using var provider = Build(new() { ["Graph:Enabled"] = "false", ["Graph:TenantId"] = "tenant" });
-
-        Assert.NotNull(provider.GetRequiredService<IOptions<GraphOptions>>().Value);
     }
 
     [Fact]
