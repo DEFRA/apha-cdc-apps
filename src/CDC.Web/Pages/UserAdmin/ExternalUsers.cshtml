@@ -92,6 +92,7 @@
                     <tr class="govuk-table__row">
                         @{ SortableHeader(ExternalUserSortColumn.UserName, "Username"); }
                         @{ SortableHeader(ExternalUserSortColumn.FullName, "Full name"); }
+                        @{ SortableHeader(ExternalUserSortColumn.EmailAddress, "Email"); }
                         @{ SortableHeader(ExternalUserSortColumn.Organisation, "Organisation"); }
                         <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
                     </tr>
@@ -102,6 +103,7 @@
                         <tr class="govuk-table__row">
                             <td class="govuk-table__cell">@user.UserName</td>
                             <td class="govuk-table__cell">@user.FullName</td>
+                            <td class="govuk-table__cell">@user.EmailAddress</td>
                             <td class="govuk-table__cell">@user.Organisation</td>
                             <td class="govuk-table__cell">
                                 <a class="govuk-link" href="@Model.BuildEditUrl(user.Id)">Edit<span class="govuk-visually-hidden"> @user.FullName</span></a>

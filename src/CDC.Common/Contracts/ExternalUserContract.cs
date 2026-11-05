@@ -13,7 +13,10 @@ public enum ExternalUserSortColumn
     FullName = 2,
 
     /// <summary>Sort by organisation.</summary>
-    Organisation = 3
+    Organisation = 3,
+
+    /// <summary>Sort by email address.</summary>
+    EmailAddress = 4
 }
 
 /// <summary>
@@ -30,6 +33,9 @@ public abstract record ExternalUserContract
 
     /// <summary>Gets the user's full name.</summary>
     public string FullName { get; init; } = string.Empty;
+
+    /// <summary>Gets the user's email address.</summary>
+    public string EmailAddress { get; init; } = string.Empty;
 
     /// <summary>Gets the user's organisation.</summary>
     public string Organisation { get; init; } = string.Empty;

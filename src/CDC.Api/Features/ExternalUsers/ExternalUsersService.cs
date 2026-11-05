@@ -185,6 +185,7 @@ public sealed class ExternalUsersService(
         {
             ExternalUserSortColumn.UserName => user => user.UserName,
             ExternalUserSortColumn.FullName => user => user.FullName,
+            ExternalUserSortColumn.EmailAddress => user => user.EmailAddress,
             ExternalUserSortColumn.Organisation => user => user.Organisation,
             _ => null
         };
@@ -204,6 +205,7 @@ public sealed class ExternalUsersService(
         Id = user.Id,
         UserName = user.UserName,
         FullName = user.FullName,
+        EmailAddress = user.EmailAddress,
         Organisation = user.Organisation,
         SubscribedToReviewEmails = user.SubscribedToReviewEmails
     };
