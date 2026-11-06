@@ -316,21 +316,8 @@ public partial class GeneralModel : BreadcrumbPageModelBase
             return reports;
         }
 
-        // A report still in effect has no end date, so it sorts after every superseded one.
-        var sorted = column switch
-        {
-            StaticReportSortColumn.Version => Order(reports, report => report.VersionMajor),
-            StaticReportSortColumn.Public => Order(reports, report => report.IsPublic),
-            StaticReportSortColumn.EffectiveDates => Order(reports, report => (report.EffectiveDateFrom, report.EffectiveDateTo ?? DateTime.MaxValue)),
-            _ => Order(reports, report => report.Title, StringComparer.OrdinalIgnoreCase)
-        };
-
-        return [.. sorted.ThenBy(report => report.Title, StringComparer.OrdinalIgnoreCase)];
+        return StaticReportSorter.Sort(reports, column, IsSortDescending);
     }
-
-    private IOrderedEnumerable<StaticReportListItemDto> Order<TKey>(
-        IEnumerable<StaticReportListItemDto> reports, Func<StaticReportListItemDto, TKey> key, IComparer<TKey>? comparer = null) =>
-        IsSortDescending ? reports.OrderByDescending(key, comparer) : reports.OrderBy(key, comparer);
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
         $"/static-reports/versions/{staticReportVersionId}/document?download=true";
