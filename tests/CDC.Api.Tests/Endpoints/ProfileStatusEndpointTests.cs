@@ -25,7 +25,6 @@ public class ProfileStatusEndpointTests : IClassFixture<WebApplicationFactory<Pr
         Environment.SetEnvironmentVariable("Database__User", "cdc-tests");
         Environment.SetEnvironmentVariable("Database__Password", "cdc-tests-password");
         Environment.SetEnvironmentVariable("HealthCheck__ReadinessKey", "local-dev-readiness-key");
-        Environment.SetEnvironmentVariable("Graph__Enabled", "false");
 
         _factory = factory;
     }

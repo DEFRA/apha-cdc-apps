@@ -227,7 +227,7 @@
         runAction(action) {
             if (action === 'toggle-all') {
                 const branches = this.items.filter((item) => this.group(item));
-                const expanded = !this.allExpanded(branches);
+                const expanded = !this.offersToClose(branches);
                 branches.forEach((item) => this.setExpanded(item, expanded, { silent: true }));
 
                 return;
@@ -282,6 +282,14 @@
             return branches.length > 0 && branches.every((item) => this.isExpanded(item));
         }
 
+        // "Close all" is offered once every branch is open, or - when the control has data-app-tree-close-all-while-any-open,
+        // as on a tree that starts open one level - while any branch is.
+        offersToClose(branches) {
+            const whileAnyOpen = this.$toggleAll?.dataset.appTreeCloseAllWhileAnyOpen === TRUE;
+
+            return whileAnyOpen ? branches.some((item) => this.isExpanded(item)) : this.allExpanded(branches);
+        }
+
         // Keeps the "Open all"/"Close all" control in sync whenever a branch's state changes,
         // whether that came from the control itself, a single node's toggle, or the keyboard.
         refreshToggleAllControl() {
@@ -290,7 +298,7 @@
             }
 
             const branches = this.items.filter((item) => this.group(item));
-            const expanded = this.allExpanded(branches);
+            const expanded = this.offersToClose(branches);
             const label = this.$toggleAll.querySelector('.app-tree__toggle-all-text');
 
             this.$toggleAll.setAttribute(EXPANDED, String(expanded));

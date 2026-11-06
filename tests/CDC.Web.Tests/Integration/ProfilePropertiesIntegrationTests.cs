@@ -118,15 +118,19 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-required-error\"", page);
     }
 
-    [Fact]
-    public async Task CloneScenarioPage_NamesTheScenarioTitleInTheLabelAndTheRequiredMessage()
+    // The Search page links to Clone scenario with the legacy Scenario=1; Manage profile uses true.
+    [Theory]
+    [InlineData("1")]
+    [InlineData("true")]
+    public async Task CloneScenarioPage_NamesTheScenarioTitleInTheLabelAndTheRequiredMessage(string scenario)
     {
         var properties = new FakeProfilePropertiesApiService(defaults: new NewProfileDefaultsDto { ScenarioTitle = "Outbreak", ParentTitle = "Anthrax" });
         using var factory = CreateFactory(properties);
         var client = await factory.SignedInClientAsync();
 
-        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={CloneVersionId}&scenario=true");
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={CloneVersionId}&scenario={scenario}");
 
+        Assert.Equal((CloneVersionId, true), properties.LastDefaultsRequest);
         Assert.Contains("for=\"ProfileTitleEditor\">Scenario title:</label>", page);
         Assert.Contains("Error:</span> You must enter a scenario title</p>", page);
         Assert.Contains("Outbreak</div>", page);

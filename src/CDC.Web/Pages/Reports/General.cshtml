@@ -69,7 +69,7 @@ else
             <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
         }
         <input type="hidden" name="PageNumber" value="1" />
-        <div class="govuk-form-group">
+        <div class="govuk-form-group app-label-select-inline">
             <label class="govuk-label" for="PageSize">Items per page:</label>
             <select class="govuk-select" id="PageSize" name="PageSize" onchange="this.form.requestSubmit()">
                 @foreach (var option in CDC.Web.Pages.Reports.GeneralModel.PageSizeOptions)

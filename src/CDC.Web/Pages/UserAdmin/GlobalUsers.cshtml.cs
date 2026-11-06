@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CDC.Common.Contracts;
+using CDC.Graph;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
@@ -34,14 +35,18 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(3, nameof(LogFailedToSaveUserMessage)), "Failed to save global user '{UserId}'");
     private static readonly Action<ILogger, Guid, Exception?> LogFailedToDeleteUserMessage =
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(4, nameof(LogFailedToDeleteUserMessage)), "Failed to delete global user '{UserId}'");
+    private static readonly Action<ILogger, Exception?> LogGraphLookupFailedMessage =
+        LoggerMessage.Define(LogLevel.Warning, new EventId(5, nameof(LogGraphLookupFailedMessage)), "Microsoft Graph lookup failed; the new user's details were left blank");
 
     private readonly IGlobalUsersApiService globalUsersApiService;
+    private readonly IGraphClient graphClient;
     private readonly ILogger<GlobalUsersModel> logger;
 
-    public GlobalUsersModel(IGlobalUsersApiService globalUsersApiService, ILogger<GlobalUsersModel> logger)
+    public GlobalUsersModel(IGlobalUsersApiService globalUsersApiService, IGraphClient graphClient, ILogger<GlobalUsersModel> logger)
         : base("Global users")
     {
         this.globalUsersApiService = globalUsersApiService;
+        this.graphClient = graphClient;
         this.logger = logger;
     }
 
@@ -137,9 +142,6 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets a value indicating whether the add/edit form (role, names) is shown.</summary>
     public bool ShowForm { get; private set; }
 
-    /// <summary>Gets the non-blocking warning shown when the looked-up username is not yet in the system.</summary>
-    public string? LookupWarning { get; private set; }
-
     /// <summary>Gets the per-field validation errors, keyed by the field's element id.</summary>
     public IReadOnlyDictionary<string, string> FieldErrors { get; private set; } = new Dictionary<string, string>();
 
@@ -210,6 +212,11 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
             return Page();
         }
 
+        if (result.Outcome == GlobalUserLookupOutcome.NewUser)
+        {
+            result = await EnrichFromDirectoryAsync(result, cancellationToken);
+        }
+
         switch (result.Outcome)
         {
             case GlobalUserLookupOutcome.Blocked:
@@ -220,16 +227,15 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
                 FieldErrors = new Dictionary<string, string> { [UserNameField] = "SSO users cannot be given global access rights." };
                 break;
 
+            case GlobalUserLookupOutcome.NotFound:
+                FieldErrors = new Dictionary<string, string> { [UserNameField] = "The user is not currently in the profiles system." };
+                break;
+
             case GlobalUserLookupOutcome.InvalidFormat:
                 FieldErrors = new Dictionary<string, string> { [UserNameField] = "Enter a username in the format Domain\\UserId." };
                 break;
 
             default:
-                if (result.Outcome == GlobalUserLookupOutcome.NewUser)
-                {
-                    LookupWarning = "The user is not currently in the profiles system.";
-                }
-
                 IsNewUser = true;
                 IsExistingUser = result.Outcome == GlobalUserLookupOutcome.ExistingUser;
                 UserId = result.Id;
@@ -409,6 +415,33 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         }
 
         return errors;
+    }
+
+    /// <summary>Pre-fills a new user's name from the directory. A failed lookup is logged and the name left blank, so adding by hand still works.</summary>
+    private async Task<GlobalUserLookupResult> EnrichFromDirectoryAsync(GlobalUserLookupResult result, CancellationToken cancellationToken)
+    {
+        // The directory matches on the logon name alone; the legacy DOMAIN\ prefix is not a Graph property.
+        var samAccountName = result.UserName[(result.UserName.IndexOf('\\', StringComparison.Ordinal) + 1)..];
+
+        try
+        {
+            var directoryUser = await graphClient.FindUserBySamAccountNameAsync(samAccountName, cancellationToken);
+
+            if (directoryUser is null)
+            {
+                return new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NotFound };
+            }
+
+            var name = directoryUser.DisplayName;
+
+            return result with { FullName = name.Length > NameMaxLength ? name[..NameMaxLength] : name };
+        }
+        catch (GraphException exception)
+        {
+            LogGraphLookupFailedMessage(logger, exception);
+
+            return result;
+        }
     }
 
     private async Task LoadUsersAsync(CancellationToken cancellationToken)

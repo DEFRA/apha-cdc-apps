@@ -91,7 +91,7 @@
         else
         {
             <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
-                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
                     <label class="govuk-label" for="PageSize">Items per page:</label>
                     <select class="govuk-select" id="PageSize" name="PageSize" form="global-users-page-size-form" onchange="this.form.requestSubmit()">
                         @foreach (var option in CDC.Web.Pages.UserAdmin.GlobalUsersModel.PageSizeOptions)
@@ -219,17 +219,6 @@
                 <input type="hidden" asp-for="SortDirection" />
 
                 <h2 class="govuk-body">@Model.PanelHeading</h2>
-
-                @if (!string.IsNullOrEmpty(Model.LookupWarning))
-                {
-                    <div class="govuk-warning-text">
-                        <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
-                        <strong class="govuk-warning-text__text">
-                            <span class="govuk-visually-hidden">Warning</span>
-                            @Model.LookupWarning
-                        </strong>
-                    </div>
-                }
 
                 @{
                     var roleError = Model.FieldErrors.GetValueOrDefault("Role");

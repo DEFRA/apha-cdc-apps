@@ -69,7 +69,7 @@
             <h2 class="govuk-heading-m">External users</h2>
 
             <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
-                <div class="govuk-form-group govuk-!-margin-bottom-0">
+                <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
                     <label class="govuk-label" for="PageSize">Items per page:</label>
                     <select class="govuk-select" id="PageSize" name="PageSize" form="external-users-page-size-form" onchange="this.form.requestSubmit()">
                         @foreach (var option in CDC.Web.Pages.UserAdmin.ExternalUsersModel.PageSizeOptions)
@@ -92,6 +92,7 @@
                     <tr class="govuk-table__row">
                         @{ SortableHeader(ExternalUserSortColumn.UserName, "Username"); }
                         @{ SortableHeader(ExternalUserSortColumn.FullName, "Full name"); }
+                        @{ SortableHeader(ExternalUserSortColumn.EmailAddress, "Email"); }
                         @{ SortableHeader(ExternalUserSortColumn.Organisation, "Organisation"); }
                         <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
                     </tr>
@@ -102,6 +103,7 @@
                         <tr class="govuk-table__row">
                             <td class="govuk-table__cell">@user.UserName</td>
                             <td class="govuk-table__cell">@user.FullName</td>
+                            <td class="govuk-table__cell">@user.EmailAddress</td>
                             <td class="govuk-table__cell">@user.Organisation</td>
                             <td class="govuk-table__cell">
                                 <a class="govuk-link" href="@Model.BuildEditUrl(user.Id)">Edit<span class="govuk-visually-hidden"> @user.FullName</span></a>
@@ -185,8 +187,8 @@
                     else
                     {
                         <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
-                            <div class="govuk-form-group govuk-!-margin-bottom-0">
-                                <label class="govuk-label" for="ProfilePageSize">Items per page:</label>
+                            <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
+                                <label class="govuk-label govuk-!-margin-bottom-0" for="ProfilePageSize">Items per page:</label>
                                 <select class="govuk-select" id="ProfilePageSize" name="ProfilePageSize" form="external-user-profiles-page-size-form" onchange="this.form.requestSubmit()">
                                     @foreach (var option in CDC.Web.Pages.UserAdmin.ExternalUsersModel.PageSizeOptions)
                                     {
@@ -379,7 +381,7 @@
                             </fieldset>
 
                             <div class="app-contributor-edit__actions">
-                                <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-requires-change>OK</button>
+                                <button type="submit" class="govuk-button govuk-!-margin-bottom-0">OK</button>
                                 <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" href="@Model.BuildCloseAccessUrl()">Cancel</a>
                             </div>
                         </form>

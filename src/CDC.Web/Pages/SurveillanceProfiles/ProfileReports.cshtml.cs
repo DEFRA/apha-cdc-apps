@@ -35,6 +35,11 @@ public class ProfileReportsModel(
     [BindProperty(SupportsGet = true)]
     public Guid ProfileVersionId { get; set; }
 
+    /// <summary>Gets or sets whether to generate every report when the page loads, set by Manage profile after a publish
+    /// as the legacy <c>PublishFlag</c> was. Read once, so refreshing the page does not generate them again.</summary>
+    [TempData]
+    public bool GenerateReports { get; set; }
+
     /// <summary>Gets or sets the message shown after a report was regenerated, carried across the redirect.</summary>
     [TempData]
     public string? SuccessMessage { get; set; }
@@ -58,13 +63,36 @@ public class ProfileReportsModel(
     /// <summary>Gets the report table's rows.</summary>
     public IReadOnlyList<ProfileReportRow> Rows { get; private set; } = [];
 
+    /// <summary>Gets the "{report}: Report generation succeeded" messages for the reports generated on load.</summary>
+    public IReadOnlyList<string> GenerationSuccesses { get; private set; } = [];
+
+    /// <summary>Gets the "{report}: Report generation failed" messages for the reports that could not be generated on load.</summary>
+    public IReadOnlyList<string> GenerationFailures { get; private set; } = [];
+
     /// <summary>Gets the page title, "Profile reports for {title} v{version}", as the legacy page set it.</summary>
     public string PageTitle => Overview is null
         ? "Profile reports"
         : $"Profile reports for {ProfileTitleHtmlFormatter.ToPlainText(Overview.FullTitle)} v{Overview.VersionLabel}";
 
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken) =>
-        await LoadAsync(cancellationToken) ?? Page();
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
+    {
+        var generateReports = GenerateReports;
+        GenerateReports = false;
+
+        var failure = await LoadAsync(cancellationToken);
+
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (generateReports && Overview!.CanCreateReports)
+        {
+            await GenerateAllAsync(cancellationToken);
+        }
+
+        return Page();
+    }
 
     /// <summary>Downloads a stored report PDF, named "{profile title}_{report name}" as the legacy page did.</summary>
     /// <param name="reportId">The report to download.</param>
@@ -137,6 +165,43 @@ public class ProfileReportsModel(
 
     private async Task RegenerateAsync(ProfileReportListItemDto report, CancellationToken cancellationToken)
     {
+        if (await TryGenerateAsync(report, cancellationToken))
+        {
+            SuccessMessage = $"{report.DisplayName}: Report generation succeeded";
+
+            return;
+        }
+
+        RegenerationErrorMessage = $"{report.DisplayName}: Report generation failed";
+    }
+
+    /// <summary>Generates and stores every report the version has, the full profile first, as the legacy page did after a publish.</summary>
+    private async Task GenerateAllAsync(CancellationToken cancellationToken)
+    {
+        var generated = new HashSet<Guid>();
+        var successes = new List<string>();
+        var failures = new List<string>();
+
+        foreach (var report in Overview!.PrintOnlyReports.Concat(Overview.Reports).Where(candidate => reportGenerator.CanGenerate(candidate.ReportName)))
+        {
+            if (await TryGenerateAsync(report, cancellationToken))
+            {
+                generated.Add(report.Id);
+                successes.Add($"{report.DisplayName}: Report generation succeeded");
+            }
+            else
+            {
+                failures.Add($"{report.DisplayName}: Report generation failed");
+            }
+        }
+
+        GenerationSuccesses = successes;
+        GenerationFailures = failures;
+        Rows = BuildRows(generated);
+    }
+
+    private async Task<bool> TryGenerateAsync(ProfileReportListItemDto report, CancellationToken cancellationToken)
+    {
         try
         {
             var pdf = await reportGenerator.GenerateAsync(report.ReportName, ProfileVersionId, cancellationToken);
@@ -144,9 +209,7 @@ public class ProfileReportsModel(
 
             if (outcome == ProfileReportsOutcome.Success)
             {
-                SuccessMessage = $"{report.DisplayName}: Report generation succeeded";
-
-                return;
+                return true;
             }
 
             logger.ProfileReportStoreRefused(report.ReportName, ProfileVersionId, outcome);
@@ -156,8 +219,17 @@ public class ProfileReportsModel(
             logger.ProfileReportRegenerationFailed(exception, report.ReportName, ProfileVersionId);
         }
 
-        RegenerationErrorMessage = $"{report.DisplayName}: Report generation failed";
+        return false;
     }
+
+    private List<ProfileReportRow> BuildRows(HashSet<Guid> generated) =>
+    [
+        .. Overview!.Reports.Select(report => new ProfileReportRow(
+            report.Id,
+            report.DisplayName,
+            report.HasPdfData || generated.Contains(report.Id),
+            Overview.CanCreateReports && reportGenerator.CanGenerate(report.ReportName)))
+    ];
 
     /// <summary>Loads the overview and what the user may do with it; returns a result only when the page cannot be shown.</summary>
     private async Task<IActionResult?> LoadAsync(CancellationToken cancellationToken)
@@ -191,14 +263,7 @@ public class ProfileReportsModel(
         Overview = result.Overview;
         ShowIntroText = !await navigationAuthorization.IsProfileEditorAsync(User);
         CanCreateBespokeReport = await navigationAuthorization.CanViewBespokeReportAsync(User);
-        Rows =
-        [
-            .. Overview!.Reports.Select(report => new ProfileReportRow(
-                report.Id,
-                report.DisplayName,
-                report.HasPdfData,
-                Overview.CanCreateReports && reportGenerator.CanGenerate(report.ReportName)))
-        ];
+        Rows = BuildRows(new HashSet<Guid>());
 
         return null;
     }

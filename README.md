@@ -75,9 +75,16 @@ are set:
 | `Entra:ClientId`     | Entra ID app registration client ID         |
 | `Entra:ClientSecret` | Entra ID app registration client secret     |
 
-For local development, set them via `dotnet user-secrets`. If you don't have real CIDM/Entra ID app
-registrations to hand, any non-empty placeholder values are enough to satisfy startup validation and run
-the app locally - sign-in itself just won't complete against a real identity provider:
+For local development, set the external (CIDM) values via `dotnet user-secrets` in `CDC.Web` and keep the
+shared Entra values in one place only. `dotnet user-secrets` is project-scoped, so `CDC.Web` and `CDC.Api`
+do not share the same secret store. If you want a single source for the Entra app registration, set the
+`Entra__TenantId`, `Entra__ClientId` and `Entra__ClientSecret` environment variables once for the user or
+container/host environment and remove the duplicate project-scoped values. The app reads those values from
+`IConfiguration` automatically.
+
+If you don't have real CIDM/Entra ID app registrations to hand, any non-empty placeholder values are enough
+to satisfy startup validation and run the app locally - sign-in itself just won't complete against a real
+identity provider:
 
 ```powershell
 cd src/CDC.Web
@@ -86,9 +93,6 @@ dotnet user-secrets set "Cidm:Policy" "<policy-name>"
 dotnet user-secrets set "Cidm:ClientId" "<client-id>"
 dotnet user-secrets set "Cidm:ClientSecret" "<client-secret>"
 dotnet user-secrets set "Cidm:ServiceId" "<service-id>"
-dotnet user-secrets set "Entra:TenantId" "<tenant-id>"
-dotnet user-secrets set "Entra:ClientId" "<client-id>"
-dotnet user-secrets set "Entra:ClientSecret" "<client-secret>"
 ```
 
 ## Review-due email notifications (CDC.Api)
@@ -246,13 +250,13 @@ app. The dictionary is derived from SCOWL, and its licence, `src/CDC.Web/Infrast
 is published with the app. There are no configuration keys; to check another language, embed its `.aff` and `.dic` files in place
 of `en_US.*` (the resource names are in `HunspellWordList`).
 
-## Microsoft Graph (CDC.Api)
+## Microsoft Graph (CDC.Web)
 
 `CDC.Graph` is a shared client for Microsoft Graph using the app's own identity (client credentials, no
 signed-in user). It requests a token from `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token`
 once, caches it in memory, renews it shortly before it expires, and attaches it to every Graph call, so
-feature code only asks for data: inject `IGraphClient`. It is registered in `CDC.Api` with
-`AddGraphClient()`.
+feature code only asks for data: inject `IGraphClient`. It is registered in `CDC.Web` with
+`AddGraphClient()`; `CDC.Api` does not use Graph and holds no Entra or Graph secret.
 
 Today it pre-fills the full name and organisation when adding a global user whose username is not yet in
 the system (`onPremisesSamAccountName` match, using `companyName`, falling back to `department`). If Graph
@@ -260,19 +264,17 @@ is off, fails, or finds zero or several matches, the lookup behaves as before an
 
 | Config key           | Purpose                                                          |
 | -------------------- | ---------------------------------------------------------------- |
-| `Graph:Enabled`      | `false` by default. When false, no other key is needed.          |
-| `Graph:TenantId`     | Entra ID tenant ID (required when enabled)                       |
-| `Graph:ClientId`     | App registration client ID (required when enabled)               |
-| `Graph:ClientSecret` | App registration client secret (required when enabled; a secret) |
+| `Entra:TenantId`     | Shared Entra ID tenant ID for the app registration used by sign-in and Graph |
+| `Entra:ClientId`     | Shared Entra app registration client ID                                         |
+| `Entra:ClientSecret` | Shared Entra app registration secret used for both sign-in and Graph           |
 
-The app registration needs the **Application** permission `User.Read.All` with admin consent. Locally:
+The app registration needs the **Application** permission `User.Read.All` with admin consent. Graph reuses the same Entra app registration as the internal sign-in flow, so keep only one secret in local user-secrets / environment variables. Locally:
 
 ```powershell
-cd src/CDC.Api
-dotnet user-secrets set "Graph:Enabled" "true"
-dotnet user-secrets set "Graph:TenantId" "<tenant-id>"
-dotnet user-secrets set "Graph:ClientId" "<client-id>"
-dotnet user-secrets set "Graph:ClientSecret" "<client-secret>"
+cd src/CDC.Web
+dotnet user-secrets set "Entra:TenantId" "<tenant-id>"
+dotnet user-secrets set "Entra:ClientId" "<client-id>"
+dotnet user-secrets set "Entra:ClientSecret" "<shared-client-secret>"
 ```
 
 ## Code style & pre-commit checks

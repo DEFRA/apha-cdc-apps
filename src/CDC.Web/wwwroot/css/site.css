@@ -143,6 +143,17 @@ html {
   min-width: 12rem;
 }
 
+/* Label to the left of the select, as in the legacy app. */
+.app-label-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-label-select-inline > .govuk-label {
+  margin-bottom: 0;
+}
+
 /* Edit profile contributor panel (see MaintainContributors.cshtml). */
 .app-contributor-edit {
   width: 100%;
@@ -195,6 +206,14 @@ html {
   margin-top: 1.5rem;
 }
 
+/* Stack OK/Cancel on narrow screens, as the legacy panel does. */
+@media (max-width: 40.0525em) {
+  .app-contributor-edit__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* Label, profile drop-down and Add button on one line; wraps on narrow screens. */
 .app-external-user-add__row {
   display: flex;
@@ -208,7 +227,7 @@ html {
 }
 
 .app-external-user-add__select {
-  flex: 0 1 30rem;
+  flex: 1 1 40rem;
   min-width: 0;
   max-width: 100%;
 }
@@ -642,6 +661,33 @@ body {
   display: flex;
   justify-content: flex-start;
   margin-bottom: 10px;
+}
+
+/* "Create bespoke report": the template buttons sit on the left and "Generate bespoke report" on the right. */
+.app-bespoke-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+/* "Create bespoke report": the template label and its drop-down share a line, as in the legacy page, and wrap on narrow screens. */
+.app-bespoke-template-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.app-bespoke-template-row .govuk-label {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.app-bespoke-template-row .govuk-select {
+  flex: 0 1 30rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Maintain species data: the tree and its action buttons sit side by side, with the
@@ -1185,6 +1231,51 @@ body {
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
   border-top: none;
   padding: 1rem;
+}
+
+/* Edit species data: Previous and Next sit at the left and right of the panel, as in the legacy page, not stacked. */
+.app-species-pagination .govuk-pagination--block {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: flex-start;
+}
+
+.app-species-pagination .govuk-pagination__next {
+  margin-left: auto;
+}
+
+/* The divider only separates stacked links. */
+.app-species-pagination .govuk-pagination--block .govuk-pagination__prev + .govuk-pagination__next {
+  border-top: 0;
+}
+
+/* A read-only long answer (species supporting comments): a fixed-height box that always shows its scrollbar, as the legacy page did. */
+.app-readonly-long-text {
+  box-sizing: border-box;
+  width: 95%;
+  height: 135px;
+  margin-bottom: 0;
+  padding: 5px;
+  overflow-y: scroll;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #fff;
+}
+
+.app-readonly-long-text p,
+.app-readonly-long-text ul,
+.app-readonly-long-text ol {
+  margin: 0 0 10px;
+}
+
+.app-readonly-long-text > :last-child {
+  margin-bottom: 0;
+}
+
+.app-readonly-long-text:focus {
+  outline: 3px solid var(--govuk-focus-colour, #fd0);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px var(--govuk-focus-text-colour, #0b0c0c);
 }
 
 .app-header__help-icon {

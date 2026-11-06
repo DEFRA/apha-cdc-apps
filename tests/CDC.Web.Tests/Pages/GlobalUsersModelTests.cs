@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CDC.Common.Contracts;
+using CDC.Graph;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -75,7 +76,23 @@ public class GlobalUsersModelTests
         }
     }
 
-    private static GlobalUsersModel CreatePageModel(FakeGlobalUsersApiService api, bool signedInAsCurrentUser = true)
+    private sealed class FakeGraphClient : IGraphClient
+    {
+        public GraphUser? User { get; init; } = new("id-1", "newuser", null, "  New", "User  ");
+
+        public bool Throw { get; init; }
+
+        public string? RequestedSamAccountName { get; private set; }
+
+        public Task<GraphUser?> FindUserBySamAccountNameAsync(string samAccountName, CancellationToken cancellationToken)
+        {
+            RequestedSamAccountName = samAccountName;
+
+            return Throw ? Task.FromException<GraphUser?>(new GraphException("down")) : Task.FromResult(User);
+        }
+    }
+
+    private static GlobalUsersModel CreatePageModel(FakeGlobalUsersApiService api, bool signedInAsCurrentUser = true, IGraphClient? graph = null)
     {
         var provider = new EmptyModelMetadataProvider();
         var httpContext = new DefaultHttpContext();
@@ -86,7 +103,7 @@ public class GlobalUsersModelTests
                 [new Claim(ExternalUserClaimTypes.InternalUserId, CurrentUserId.ToString())], "test"));
         }
 
-        return new GlobalUsersModel(api, NullLogger<GlobalUsersModel>.Instance)
+        return new GlobalUsersModel(api, graph ?? new FakeGraphClient(), NullLogger<GlobalUsersModel>.Instance)
         {
             PageContext = new PageContext
             {
@@ -236,6 +253,60 @@ public class GlobalUsersModelTests
     }
 
     [Fact]
+    public async Task OnPostLookupUser_PrefillsTheName_FromTheDirectory()
+    {
+        var graph = new FakeGraphClient();
+        var model = CreatePageModel(NewUserApi(), graph: graph);
+        model.UserName = @"DEFRA\newuser";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.Equal("newuser", graph.RequestedSamAccountName);
+        Assert.Equal("New User", model.FullName);
+        Assert.True(model.ShowForm);
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_TruncatesTheDirectoryName()
+    {
+        var model = CreatePageModel(NewUserApi(), graph: new FakeGraphClient { User = new GraphUser("id-1", null, null, new string('n', 150), null) });
+        model.UserName = @"DEFRA\newuser";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.Equal(100, model.FullName.Length);
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_ShowsNotInProfilesSystemError_WhenTheDirectoryHasNoMatch()
+    {
+        var model = CreatePageModel(NewUserApi(), graph: new FakeGraphClient { User = null });
+        model.UserName = @"DEFRA\newuser";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.True(model.ShowLookup);
+        Assert.Equal("The user is not currently in the profiles system.", model.FieldErrors["UserName"]);
+    }
+
+    [Fact]
+    public async Task OnPostLookupUser_StillOpensTheForm_WhenTheDirectoryLookupFails()
+    {
+        var model = CreatePageModel(NewUserApi(), graph: new FakeGraphClient { Throw = true });
+        model.UserName = @"DEFRA\newuser";
+
+        await model.OnPostLookupUserAsync(CancellationToken.None);
+
+        Assert.True(model.ShowForm);
+        Assert.Empty(model.FullName);
+    }
+
+    private static FakeGlobalUsersApiService NewUserApi() => new()
+    {
+        Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NewUser, Id = Guid.NewGuid(), UserName = @"DEFRA\newuser" }
+    };
+
+    [Fact]
     public async Task OnGet_SetsLoadError_WhenApiFails()
     {
         var model = CreatePageModel(new FakeGlobalUsersApiService { Throw = true });
@@ -323,22 +394,21 @@ public class GlobalUsersModelTests
         Assert.True(model.ShowForm);
         Assert.True(model.IsNewUser);
         Assert.Equal(id, model.UserId);
-        Assert.Null(model.LookupWarning);
     }
 
     [Fact]
-    public async Task Lookup_WarnsAndOpensForm_ForNewUser()
+    public async Task Lookup_ShowsNotInProfilesSystemError_WhenUserNotFound()
     {
         var model = CreatePageModel(new FakeGlobalUsersApiService
         {
-            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NewUser, Id = Guid.NewGuid(), UserName = @"DEFRA\new" }
+            Lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NotFound }
         });
         model.UserName = @"DEFRA\new";
 
         await model.OnPostLookupUserAsync(CancellationToken.None);
 
-        Assert.True(model.ShowForm);
-        Assert.NotNull(model.LookupWarning);
+        Assert.False(model.ShowForm);
+        Assert.Equal("The user is not currently in the profiles system.", model.FieldErrors["UserName"]);
     }
 
     [Fact]
