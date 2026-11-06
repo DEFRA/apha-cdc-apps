@@ -19,16 +19,12 @@ else
 {
     <h1 class="govuk-heading-l">General reports</h1>
     <p class="govuk-body">
-        These general reports have been created for publication on this website. They were created using information held
-        in the D2R2 database.
-    </p>
-    <p class="govuk-body">
-        Standard reports on a specific disease, such as the summary prioritisation report, summary report or questions and
-        answers, are available from <a class="govuk-link" asp-page="/SurveillanceProfiles/Search">search disease profiles</a>.
-    </p>
-    <p class="govuk-body">
-        If the report you need is not listed, email
-        <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>.
+        Below is the list of general reports that have been created for publication on this website. These reports have
+        been generated from information held within the D2R2 Database. If you want a standard report on a specific disease
+        (i.e. the summary prioritisation report, summary report or the Q&amp;A) then these can be located via the
+        search disease profiles link. If the report you are
+        seeking is not one of these three and is not listed below then please contact us using the following email address:
+        <a class="govuk-link" href="mailto:D2R2@defra.gov.uk">D2R2@defra.gov.uk</a>
     </p>
 }
 
@@ -63,7 +59,7 @@ else
 }
 else
 {
-    <form method="get" asp-page="/Reports/General" class="app-page-size-toolbar govuk-!-margin-bottom-3">
+    <form method="get" asp-page="/Reports/General" class="app-contributors-toolbar govuk-!-margin-bottom-3">
         @if (Model.IsHistoryPage)
         {
             <input type="hidden" name="StaticReportId" value="@Model.StaticReportId" />
@@ -87,7 +83,7 @@ else
             <tr class="govuk-table__row">
                 <th scope="col" class="govuk-table__header">Title</th>
                 <th scope="col" class="govuk-table__header">Version</th>
-                <th scope="col" class="govuk-table__header">Public status</th>
+                <th scope="col" class="govuk-table__header">Public?</th>
                 <th scope="col" class="govuk-table__header">Effective dates</th>
                 <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
@@ -100,7 +96,7 @@ else
                         <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" download>@report.Title<span class="govuk-visually-hidden"> version @($"{report.VersionMajor}.0") (PDF download)</span></a>
                     </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
-                    <td class="govuk-table__cell">@(report.IsPublic ? "Public" : "Not public")</td>
+                    <td class="govuk-table__cell">@(report.IsPublic ? "Yes" : "No")</td>
                     <td class="govuk-table__cell">@CDC.Web.Pages.Reports.GeneralModel.FormatEffectiveDates(report)</td>
                     <td class="govuk-table__cell">
                         @if (Model.CanMakePublic(report))
@@ -131,9 +127,9 @@ else
             <tr class="govuk-table__row">
                 <th scope="col" class="govuk-table__header">Title</th>
                 <th scope="col" class="govuk-table__header">Version</th>
-                <th scope="col" class="govuk-table__header">Public status</th>
+                <th scope="col" class="govuk-table__header">Public?</th>
                 <th scope="col" class="govuk-table__header">Effective dates</th>
-                <th scope="col" class="govuk-table__header">Actions</th>
+                <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
         </thead>
         <tbody class="govuk-table__body">
@@ -144,7 +140,7 @@ else
                         <a class="govuk-link" href="@Model.GetDocumentUrl(report.Id)" download>@report.Title</a>
                     </td>
                     <td class="govuk-table__cell">@($"{report.VersionMajor}.0")</td>
-                    <td class="govuk-table__cell">@(report.IsPublic ? "Public" : "Not public")</td>
+                    <td class="govuk-table__cell">@(report.IsPublic ? "Yes" : "No")</td>
                     <td class="govuk-table__cell">@CDC.Web.Pages.Reports.GeneralModel.FormatEffectiveDates(report)</td>
                     <td class="govuk-table__cell">
                         <a class="govuk-link govuk-!-margin-right-3" asp-page="/Reports/General" asp-route-staticReportId="@report.StaticReportId">History</a>
