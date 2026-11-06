@@ -193,6 +193,41 @@ start with values that would end a session without a user being able to respond 
 | `SessionTimeout:IdleTimeout`         | `00:20:00` | How long a session may sit idle before the user has to sign in again (the lifetime of both sign-in cookies)         |
 | `SessionTimeout:WarningBeforeExpiry` | `00:05:00` | How long before the session ends the user is asked whether to extend it: at least 20 seconds, shorter than the idle timeout |
 
+## Load testing (CDC.Web)
+
+`LoadTesting` lets a load test, or a developer, reach every page without signing in through Entra ID or CIDM. While it is on,
+**Continue as internal user** (`/Account/LoginInternal`) signs in one configured internal user and **Continue as external user**
+(`/Account/Login`) one configured external user, with no redirect to the identity provider; a request for a page that needs a
+user is sent to the matching sign-in and returned to the page; sign-out ends only the local session. Each user goes through
+`InternalUserResolver` or `ExternalUserResolver` as after a real sign-in, so their roles are what their `[dbo].[User]` row says
+(an internal user's two flags; an external user's roles are per profile). Change a role in the row and the user's next sign-in
+picks it up. Nothing changes in CDC.Api, which never authenticated callers.
+
+It is a deliberate hole in authentication, so it is off unless switched on, refused where it must not run, and time-boxed.
+Set it with environment variables on the task (or `dotnet user-secrets` / the git-ignored `src/CDC.Web/appsettings.Development.json`
+locally) and never commit it - a test fails if a committed `appsettings.json`, Dockerfile, workflow or launch profile mentions it:
+
+| Config key                     | Default | Purpose                                                                                                                                                         |
+| ------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LoadTesting:Enabled`          | `false` | Switches the bypass on                                                                                                                                          |
+| `LoadTesting:ExpiresAtUtc`     | none    | When it switches itself off, ISO 8601 (`2026-11-12T18:00:00Z`). Required in a deployed environment, at most 7 days ahead. After it, sign-in goes to the identity providers again and sessions it created end on their next request |
+| `LoadTesting:InternalUserName` | none    | `[dbo].[User].UserName` of the internal user to sign in as                                                                                                      |
+| `LoadTesting:InternalSsoUserId` | none   | That user's `SsoUserIdInt` (Entra ID object id), so CDC.Api matches the existing row and leaves it unchanged                                                    |
+| `LoadTesting:ExternalUserEmail` | none   | Email address of the pre-registered external user to sign in as                                                                                                 |
+| `LoadTesting:ExternalSsoUserId` | none   | That user's `SsoUserIdExt` (CIDM subject id)                                                                                                                    |
+| `Deployment:Environment`       | none    | `DEV`, `TEST`, `PRE-PROD` or `PROD`; set on every ECS task definition (the tasks all run as `Production`, so only this tells the environments apart)           |
+
+All of the user settings are required once it is on. Find the ids with `SELECT UserName, SsoUserIdInt, SsoUserIdExt FROM [dbo].[User] WHERE UserName IN (...)`.
+Startup fails if it is on in `PROD`, in a deployment other than `DEV`, `TEST` and `PRE-PROD`, or outside a local `Development` run
+without `Deployment:Environment`; a local run needs neither a deployment nor an expiry. While it is on, the app logs warning
+`9500` at startup, tags every log event `LoadTesting=true`, logs each sign-in (`9501`) by opaque user id, and shows a banner on every page.
+
+Around the app (not in this repo): limit the environment's ingress (WAF or security group) to the load generator and named
+testers, because while it is on every visitor can sign in as these users and nobody can sign in as themselves; alarm on log
+event `9500` and page if it appears in `PROD`; make the pipeline reject `LoadTesting__*` in the `PROD` task definition; and use
+masked or synthetic data. A load script signs in with a GET of `/Account/LoginInternal` or `/Account/Login`, keeps the cookie, and
+fetches the antiforgery token from a page before it posts a form. Everything it writes is recorded against the configured users.
+
 
 ## Spell check (CDC.Web)
 
