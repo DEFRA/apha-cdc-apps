@@ -204,30 +204,31 @@ else
                 </div>
             }
 
-            <h2 class="govuk-heading-m">Upload a report</h2>
+            <h2 class="govuk-heading-m">Upload a static report</h2>
 
-            <div class="govuk-form-group @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-form-group--error")">
-                <label class="govuk-label govuk-label--s" for="ReportFile">Report file</label>
-                <div id="ReportFile-hint" class="govuk-hint">The file must be a PDF.</div>
-                @if (!string.IsNullOrEmpty(Model.UploadError))
-                {
-                    <p id="ReportFile-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @Model.UploadError</p>
-                }
-                <input class="govuk-file-upload @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-file-upload--error")" id="ReportFile" name="ReportFile" type="file" accept=".pdf,application/pdf" aria-describedby="ReportFile-hint@(string.IsNullOrEmpty(Model.UploadError) ? "" : " ReportFile-error")" />
-            </div>
+            <div class="app-upload-form">
+                <label class="govuk-label app-upload-form__label" for="ReportFile">Report file:</label>
+                <div class="app-upload-form__field govuk-form-group @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-form-group--error")">
+                    @if (!string.IsNullOrEmpty(Model.UploadError))
+                    {
+                        <p id="ReportFile-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @Model.UploadError</p>
+                    }
+                    <input class="govuk-file-upload @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-file-upload--error")" id="ReportFile" name="ReportFile" type="file" accept=".pdf,application/pdf"@(string.IsNullOrEmpty(Model.UploadError) ? "" : " aria-describedby=\"ReportFile-error\"") />
+                </div>
 
-            <div class="govuk-form-group">
-                <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
-                    <div class="govuk-checkboxes__item">
-                        <input class="govuk-checkboxes__input" id="MakePublic" name="MakePublic" type="checkbox" value="true" @(Model.MakePublic ? "checked" : null) />
-                        <label class="govuk-label govuk-checkboxes__label" for="MakePublic">Make report public (this cannot be undone)</label>
+                <div class="app-upload-form__field govuk-form-group">
+                    <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="MakePublic" name="MakePublic" type="checkbox" value="true" @(Model.MakePublic ? "checked" : null) />
+                            <label class="govuk-label govuk-checkboxes__label" for="MakePublic">Make report public (this cannot be undone)</label>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="govuk-button-group">
-                <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
-                <a class="govuk-link" asp-page="/Reports/General">Cancel</a>
+                <div class="app-upload-form__field govuk-button-group">
+                    <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
+                    <a class="govuk-button govuk-button--secondary" role="button" draggable="false" data-module="govuk-button" asp-page="/Reports/General">Cancel</a>
+                </div>
             </div>
         </form>
     }

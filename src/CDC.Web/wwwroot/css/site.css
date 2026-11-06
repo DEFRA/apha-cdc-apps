@@ -1495,6 +1495,39 @@ body {
   max-width: 100%;
 }
 
+/* General reports upload: label in a narrow left column, file input, checkbox and buttons stacked in the right,
+   matching the legacy StaticReports panel. */
+.app-upload-form {
+  display: grid;
+  grid-template-columns: 20% 80%;
+  gap: 0 10px;
+  align-items: start;
+}
+
+.app-upload-form__label {
+  padding-top: 7px;
+  margin-bottom: 0;
+}
+
+.app-upload-form__field {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.app-upload-form .govuk-button-group {
+  justify-content: flex-end;
+}
+
+@media (max-width: 40.0525em) {
+  .app-upload-form {
+    grid-template-columns: 1fr;
+  }
+
+  .app-upload-form__field {
+    grid-column: auto;
+  }
+}
+
 /* Add / Edit name/parent: label and field pairs in a four-column grid, matching the legacy
    MaintainSpeciesData page (old name | new name, then old parent | new parent, then a
    full-width reason for change and the buttons). */
