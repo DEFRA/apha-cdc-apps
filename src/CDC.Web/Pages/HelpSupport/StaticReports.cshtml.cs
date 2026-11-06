@@ -330,22 +330,8 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
     private IReadOnlyList<StaticReportListItemDto> SortReports(IReadOnlyList<StaticReportListItemDto> reports)
     {
-        // A report still in effect has no end date, so it sorts after every superseded one.
-        var sorted = SortColumn switch
-        {
-            StaticReportSortColumn.Version => Order(reports, report => report.VersionMajor),
-            StaticReportSortColumn.Public => Order(reports, report => report.IsPublic),
-            StaticReportSortColumn.EffectiveDates => Order(reports, report => (report.EffectiveDateFrom, report.EffectiveDateTo ?? DateTime.MaxValue)),
-            _ => Order(reports, report => report.Title, StringComparer.OrdinalIgnoreCase)
-        };
-
-        // Title breaks ties between equal values so the order is stable between requests.
-        return [.. sorted.ThenBy(report => report.Title, StringComparer.OrdinalIgnoreCase)];
+        return StaticReportSorter.Sort(reports, SortColumn, IsSortDescending);
     }
-
-    private IOrderedEnumerable<StaticReportListItemDto> Order<TKey>(
-        IEnumerable<StaticReportListItemDto> reports, Func<StaticReportListItemDto, TKey> key, IComparer<TKey>? comparer = null) =>
-        IsSortDescending ? reports.OrderByDescending(key, comparer) : reports.OrderBy(key, comparer);
 
     /// <summary>Resolves the "Items per page" selection to a page size, where 0 means "All" (no paging).</summary>
     private static int ResolvePageSize(string pageSize)
