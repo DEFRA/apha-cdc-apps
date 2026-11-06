@@ -33,7 +33,7 @@ public class DiseaseRankingIntegrationTests
         Title = "Issues ranked for Terrestrial Diseases",
         Subtitle = "Subtitle text",
         FooterTitle = "Footer title.",
-        FileName = $"DiseaseRankingReport_{kind}_Terrestrial",
+        FileName = "DiseaseRankingReport_Terrestrial",
         TopTables =
         [
             new DiseaseRankingTopTableDto
@@ -115,7 +115,7 @@ public class DiseaseRankingIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("DiseaseRankingReport_Scored_Terrestrial.pdf", response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName);
+        Assert.Matches(@"^DiseaseRankingReport_Terrestrial_\d{2}_\d{2}_\d{4}_\d{2}_\d{2}_\d{2}\.pdf$", response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName);
         Assert.Equal(PdfBytes, await response.Content.ReadAsByteArrayAsync());
         Assert.Equal(("terrestrial", DiseaseRankingReportKind.Scored), api.LastReportRequest);
         Assert.Matches(@"^Footer title\. Generated: \d{2}/\d{2}/\d{4}\.$", pdf.LastFooter);

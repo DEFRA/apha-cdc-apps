@@ -50,6 +50,8 @@ public sealed class DiseaseRankingPdfService(
         var generatedOn = timeProvider.GetLocalNow().ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
         var content = await pdfRenderer.RenderAsync(html, $"{report.FooterTitle} Generated: {generatedOn}.", cancellationToken);
 
-        return new GeneratedPdf($"{report.FileName}.pdf", content);
+        var producedAt = timeProvider.GetLocalNow().ToString("dd_MM_yyyy_HH_mm_ss", System.Globalization.CultureInfo.InvariantCulture);
+
+        return new GeneratedPdf($"{report.FileName}_{producedAt}.pdf", content);
     }
 }

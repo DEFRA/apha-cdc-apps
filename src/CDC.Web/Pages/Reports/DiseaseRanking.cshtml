@@ -70,7 +70,7 @@
                 </p>
             }
             <div class="app-select-with-actions">
-                <select class="govuk-select @(scoredError is null ? null : "govuk-select--error")" id="scored-report" name="ScoredReportKey"
+                <select class="govuk-select @(scoredError is null ? null : "govuk-select--error")" id="scored-report" name="ScoredReportKey" data-auto-submit
                         aria-describedby="scored-report-hint@(scoredError is null ? null : " scored-report-error")">
                     <option value="">Select a report</option>
                     @foreach (var option in Model.Options)
@@ -78,7 +78,7 @@
                         <option value="@option.Key" selected="@(option.Key == Model.ScoredReportKey)">@option.Label</option>
                     }
                 </select>
-                <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button">Download PDF</button>
+                <noscript><button type="submit" class="govuk-button govuk-!-margin-bottom-0">Download PDF</button></noscript>
                 <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
                    asp-page="/Reports/EditDiseaseRankingFilters">Edit filters<span class="govuk-visually-hidden"> for scored RFI graphs</span></a>
             </div>
@@ -100,7 +100,7 @@
                 </p>
             }
             <div class="app-select-with-actions">
-                <select class="govuk-select @(rankedError is null ? null : "govuk-select--error")" id="ranked-report" name="RankedReportKey"
+                <select class="govuk-select @(rankedError is null ? null : "govuk-select--error")" id="ranked-report" name="RankedReportKey" data-auto-submit
                         aria-describedby="ranked-report-hint@(rankedError is null ? null : " ranked-report-error")">
                     <option value="">Select a report</option>
                     @foreach (var option in Model.Options)
@@ -108,10 +108,14 @@
                         <option value="@option.Key" selected="@(option.Key == Model.RankedReportKey)">@option.Label</option>
                     }
                 </select>
-                <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button">Download PDF</button>
+                <noscript><button type="submit" class="govuk-button govuk-!-margin-bottom-0">Download PDF</button></noscript>
                 <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
                    asp-page="/Reports/EditDiseaseRankingFilters">Edit filters<span class="govuk-visually-hidden"> for ranked RFI graphs</span></a>
             </div>
         </div>
     </form>
+}
+
+@section Scripts {
+    <script src="~/js/auto-submit-select.js" asp-append-version="true"></script>
 }

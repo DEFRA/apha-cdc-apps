@@ -17,12 +17,12 @@ public class DiseaseRankingPdfServiceTests
     [Fact]
     public async Task GenerateAsync_RendersTheReportThroughTheViewAndPdfRenderer()
     {
-        api.Report = new DiseaseRankingReportDto { Title = "Title", FooterTitle = "RFI scoring report for Terrestrial.", FileName = "DiseaseRankingReport_Scored_Terrestrial" };
+        api.Report = new DiseaseRankingReportDto { Title = "Title", FooterTitle = "RFI scoring report for Terrestrial.", FileName = "DiseaseRankingReport_Terrestrial" };
 
         var generated = await CreateService().GenerateAsync("terrestrial", DiseaseRankingReportKind.Scored, CancellationToken.None);
 
         Assert.NotNull(generated);
-        Assert.Equal("DiseaseRankingReport_Scored_Terrestrial.pdf", generated.FileName);
+        Assert.Equal("DiseaseRankingReport_Terrestrial_13_10_2026_09_00_00.pdf", generated.FileName);
         Assert.Equal(PdfBytes, generated.Content);
         Assert.Equal(DiseaseRankingPdfService.ViewPath, views.LastViewPath);
         Assert.Same(api.Report, views.LastModel);
