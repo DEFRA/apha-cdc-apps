@@ -7,10 +7,12 @@
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 @functions {
-    private Microsoft.AspNetCore.Html.IHtmlContent SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn column, string text) =>
-        new Microsoft.AspNetCore.Html.HtmlString(
-            $"<th scope=\"col\" class=\"govuk-table__header app-sortable-header\" aria-sort=\"{Model.GetAriaSort(column)}\">" +
-            $"<a class=\"govuk-link govuk-link--no-visited-state app-sort-link\" href=\"{System.Net.WebUtility.HtmlEncode(Model.BuildSortUrl(column))}\">{System.Net.WebUtility.HtmlEncode(text)}</a></th>");
+    private void SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn column, string text)
+    {
+        <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(column)">
+            <a class="govuk-link govuk-link--no-visited-state app-sort-link" href="@Model.BuildSortUrl(column)">@text</a>
+        </th>
+    }
 }
 
 @if (Model.IsHistoryPage)
@@ -91,10 +93,10 @@ else
     <table class="govuk-table">
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Title, "Title")
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Version, "Version")
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Public, "Public?")
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.EffectiveDates, "Effective dates")
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Title, "Title"); }
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Version, "Version"); }
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Public, "Public?"); }
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.EffectiveDates, "Effective dates"); }
                 <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
         </thead>
@@ -135,10 +137,10 @@ else
     <table class="govuk-table">
         <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Title, "Title")
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Version, "Version")
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Public, "Public?")
-                @SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.EffectiveDates, "Effective dates")
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Title, "Title"); }
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Version, "Version"); }
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.Public, "Public?"); }
+                @{ SortableHeader(CDC.Web.Pages.HelpSupport.StaticReportSortColumn.EffectiveDates, "Effective dates"); }
                 <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
         </thead>

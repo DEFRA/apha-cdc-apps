@@ -299,8 +299,15 @@ public partial class GeneralModel : BreadcrumbPageModelBase
             SortDirection = column == SortColumn && !IsSortDescending ? "Descending" : "Ascending"
         });
 
-    public string GetAriaSort(StaticReportSortColumn column) =>
-        column != SortColumn ? "none" : IsSortDescending ? "descending" : "ascending";
+    public string GetAriaSort(StaticReportSortColumn column)
+    {
+        if (column != SortColumn)
+        {
+            return "none";
+        }
+
+        return IsSortDescending ? "descending" : "ascending";
+    }
 
     private IReadOnlyList<StaticReportListItemDto> SortReports(IReadOnlyList<StaticReportListItemDto> reports)
     {
