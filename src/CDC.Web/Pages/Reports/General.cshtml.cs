@@ -1,6 +1,7 @@
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using CDC.Web.Pages.HelpSupport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -36,6 +37,15 @@ public partial class GeneralModel : BreadcrumbPageModelBase
 
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
+
+    /// <summary>Gets or sets the sort column; null keeps the order returned by the API.</summary>
+    [BindProperty(SupportsGet = true)]
+    public StaticReportSortColumn? SortColumn { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? SortDirection { get; set; }
+
+    public bool IsSortDescending => string.Equals(SortDirection, "Descending", StringComparison.OrdinalIgnoreCase);
 
     public static IReadOnlyList<string> PageSizeOptions { get; } = ["10", "15", "20", "30", "All"];
 
@@ -188,6 +198,7 @@ public partial class GeneralModel : BreadcrumbPageModelBase
             {
                 Reports = await apiClient.GetStaticReportHistoryAsync(StaticReportId!.Value, publicOnly: false, cancellationToken);
                 ReportTitle = Reports.Count > 0 ? Reports[0].Title : ReportsTitle;
+                Breadcrumb = new BreadcrumbViewModel($"History for {ReportTitle}", ReportsTitle, Url.Page(ReportsPage));
             }
             else
             {
@@ -200,6 +211,8 @@ public partial class GeneralModel : BreadcrumbPageModelBase
             LogLoadFailed(ex);
             Reports = [];
         }
+
+        Reports = SortReports(Reports);
 
         var pageSize = ResolvePageSize(PageSize);
         TotalPages = pageSize > 0 ? Math.Max(1, (int)Math.Ceiling(Reports.Count / (double)pageSize)) : 1;
@@ -273,7 +286,44 @@ public partial class GeneralModel : BreadcrumbPageModelBase
     }
 
     public string? BuildPageUrl(int page) =>
-        Url.Page(ReportsPage, new { StaticReportId, PageSize, PageNumber = page });
+        Url.Page(ReportsPage, new { StaticReportId, PageSize, PageNumber = page, SortColumn, SortDirection });
+
+    /// <summary>Builds a sortable header URL: ascending for a new column, otherwise toggling direction; resets to page 1.</summary>
+    public string? BuildSortUrl(StaticReportSortColumn column) =>
+        Url.Page(ReportsPage, new
+        {
+            StaticReportId,
+            PageSize,
+            PageNumber = 1,
+            SortColumn = column,
+            SortDirection = column == SortColumn && !IsSortDescending ? "Descending" : "Ascending"
+        });
+
+    public string GetAriaSort(StaticReportSortColumn column) =>
+        column != SortColumn ? "none" : IsSortDescending ? "descending" : "ascending";
+
+    private IReadOnlyList<StaticReportListItemDto> SortReports(IReadOnlyList<StaticReportListItemDto> reports)
+    {
+        if (SortColumn is not StaticReportSortColumn column)
+        {
+            return reports;
+        }
+
+        // A report still in effect has no end date, so it sorts after every superseded one.
+        var sorted = column switch
+        {
+            StaticReportSortColumn.Version => Order(reports, report => report.VersionMajor),
+            StaticReportSortColumn.Public => Order(reports, report => report.IsPublic),
+            StaticReportSortColumn.EffectiveDates => Order(reports, report => (report.EffectiveDateFrom, report.EffectiveDateTo ?? DateTime.MaxValue)),
+            _ => Order(reports, report => report.Title, StringComparer.OrdinalIgnoreCase)
+        };
+
+        return [.. sorted.ThenBy(report => report.Title, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private IOrderedEnumerable<StaticReportListItemDto> Order<TKey>(
+        IEnumerable<StaticReportListItemDto> reports, Func<StaticReportListItemDto, TKey> key, IComparer<TKey>? comparer = null) =>
+        IsSortDescending ? reports.OrderByDescending(key, comparer) : reports.OrderBy(key, comparer);
 
     public string GetDocumentUrl(Guid staticReportVersionId) =>
         $"/static-reports/versions/{staticReportVersionId}/document?download=true";

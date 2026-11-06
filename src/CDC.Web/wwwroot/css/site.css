@@ -950,6 +950,19 @@ body {
   cursor: pointer;
 }
 
+.govuk-link.app-link-button:not(:focus) {
+  color: #1d70b8;
+}
+
+.govuk-link.app-link-button:not(:focus):hover {
+  color: #003078;
+}
+
+.app-table__cell--dates {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
    between "Open all" (pointing down) and "Close all" (pointing up). */
 .app-tree__toggle-all-icon {
