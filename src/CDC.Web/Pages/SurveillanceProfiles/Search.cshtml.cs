@@ -383,7 +383,10 @@ public class SurveillanceProfilesSearchModel : PageModel
         string typeLabel,
         string noVersionMessage)
     {
-        var current = versions.MaxBy(SortKey);
+        // As in legacy, the current version is the one with no end date. A draft that has been published is closed,
+        // so a profile published from its draft has no current draft version.
+        var current = versions.Where(version => version.EffectiveToUtc is null).MaxBy(SortKey);
+        var isDraftCard = typeLabel == DraftLabel;
 
         return new ProfileVersionGroupViewModel
         {
@@ -402,7 +405,9 @@ public class SurveillanceProfilesSearchModel : PageModel
             ProfileId = lineageId,
             NoVersionMessage = current is null ? $"({noVersionMessage})" : null,
             // "View reports" links to a published version's report; the Draft card has none.
-            ShowViewReportsLink = typeLabel != DraftLabel
+            ShowViewReportsLink = !isDraftCard,
+            // Legacy still offered the earlier drafts on a Draft card with no current draft version.
+            ShowPreviousVersions = current is not null || (isDraftCard && versions.Count > 0)
         };
     }
 
@@ -468,7 +473,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 FieldName = nameof(SelectedSpecies),
                 ItemNameSingular = SpeciesParameter,
                 ItemNamePlural = SpeciesParameter,
-                Nodes = SpeciesTreeBuilder.Build(species),
+                Nodes = SpeciesTreeBuilder.Build(species, expandAll: true),
                 EmptySelectionLabel = AnySpeciesLabel,
                 AllowMultipleSelection = true,
                 SelectedValues = SelectedSpecies.ToHashSet(StringComparer.OrdinalIgnoreCase)
@@ -678,6 +683,9 @@ public sealed record ProfileVersionGroupViewModel
 
     /// <summary>Whether the "View reports" link is shown - Draft cards have no report to view.</summary>
     public bool ShowViewReportsLink { get; init; } = true;
+
+    /// <summary>Whether the "Show previous versions" panel is shown.</summary>
+    public bool ShowPreviousVersions { get; init; } = true;
 
     /// <summary>Whether the "Clone profile" and "Clone scenario" links are shown - only to a user who may create a profile.</summary>
     public bool CanClone { get; init; }

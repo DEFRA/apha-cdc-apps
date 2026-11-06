@@ -99,6 +99,42 @@ public class EditSpeciesModelTests
         ]
     };
 
+    private static SpeciesMetadataDto MetadataWithSupportingComments() => new()
+    {
+        Sections =
+        [
+            new SpeciesSectionMetadataDto
+            {
+                Id = MovementsSectionId,
+                Name = "Movements",
+                ShortName = "Move",
+                SectionNumber = 2,
+                Questions =
+                [
+                    new SpeciesQuestionMetadataDto
+                    {
+                        Id = QuestionId,
+                        SectionId = MovementsSectionId,
+                        Name = "Are there records of the movements?",
+                        ShortName = "Records",
+                        QuestionNumber = 2,
+                        Fields =
+                        [
+                            new SpeciesFieldMetadataDto
+                            {
+                                Id = Guid.NewGuid(),
+                                QuestionId = QuestionId,
+                                Name = "Supporting comments",
+                                FieldNumber = 1,
+                                DataTypeName = "Long Text"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
     [Fact]
     public async Task OnGetAsync_ReturnsNotFound_WhenTheSpeciesDoesNotExist()
     {
@@ -213,6 +249,43 @@ public class EditSpeciesModelTests
 
         var field = Assert.Single(Assert.Single(pageModel.Questions).Fields);
         Assert.Equal("Yes", field.ValueDisplay);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsALongTextField_AsSanitisedHtml()
+    {
+        var answerData = AnswerData(
+        [
+            new SpeciesSectionDto
+            {
+                SectionId = MovementsSectionId,
+                FieldValues =
+                [
+                    new SpeciesFieldValueDto { QuestionId = QuestionId, FieldNumber = 1, TextValue = "<p>Exports <em>rose</em></p><script>alert(1)</script>" }
+                ]
+            }
+        ]);
+        var pageModel = CreatePageModel(answerData, speciesMetadata: MetadataWithSupportingComments(), section: "movements");
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var field = Assert.Single(Assert.Single(pageModel.Questions).Fields);
+        Assert.Equal("Supporting comments", field.Label);
+        Assert.True(field.IsHtml);
+        Assert.Equal("<p>Exports <em>rose</em></p>", field.ValueDisplay);
+        Assert.Empty(field.Options);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsAnEmptyBox_ForALongTextFieldWithNoAnswer()
+    {
+        var pageModel = CreatePageModel(AnswerData(), speciesMetadata: MetadataWithSupportingComments(), section: "movements");
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var field = Assert.Single(Assert.Single(pageModel.Questions).Fields);
+        Assert.True(field.IsHtml);
+        Assert.Equal(string.Empty, field.ValueDisplay);
     }
 
     [Fact]

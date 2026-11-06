@@ -7,7 +7,10 @@ using CDC.Web.Models;
 using CDC.Web.Tests.Pages;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace CDC.Web.Tests.Features.Account;
 
@@ -267,6 +270,50 @@ public class InternalUserResolverTests
         Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
     }
 
+    // The resilience handler gives up with its own Polly exceptions, which are neither an HttpRequestException nor a TaskCanceledException.
+    [Fact]
+    public Task ResolveAsync_DeniesAndLogsTheFailure_WhenTheResilienceHandlerTimesOut() =>
+        AssertDeniedAndLoggedAsync(new TimeoutRejectedException("The operation didn't complete within the allowed timeout of '00:00:30'.", new TaskCanceledException()));
+
+    [Fact]
+    public Task ResolveAsync_DeniesAndLogsTheFailure_WhenTheResilienceHandlersCircuitIsOpen() =>
+        AssertDeniedAndLoggedAsync(new BrokenCircuitException("The circuit is now open and is not allowing calls."));
+
+    // What a sign-in sees when CDC.Api cannot be reached: the real pipeline's timeout, not a hand-built exception.
+    [Fact]
+    public async Task ResolveAsync_DeniesAndLogsTheFailure_WhenARealResiliencePipelineTimesOutWaitingForCdcApi()
+    {
+        var services = new ServiceCollection();
+        services.AddHttpClient<IApiClient, ApiClient>(client => client.BaseAddress = new Uri("http://cdc-api.test"))
+            .ConfigurePrimaryHttpMessageHandler(() => new NeverAnsweringHandler())
+            .AddStandardResilienceHandler(options =>
+            {
+                options.AttemptTimeout.Timeout = TimeSpan.FromMilliseconds(100);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromMilliseconds(500);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(1);
+            });
+        await using var provider = services.BuildServiceProvider();
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
+
+        var resolution = await new InternalUserResolver(provider.GetRequiredService<IApiClient>(), logger).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
+        Assert.Contains(logger.Messages, message => message.Contains("Failed to resolve internal user", StringComparison.Ordinal));
+    }
+
+    private static async Task AssertDeniedAndLoggedAsync(Exception failure)
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null), failure);
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
+
+        var resolution = await new InternalUserResolver(apiClient, logger).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
+        Assert.Contains(logger.Messages, message => message.Contains($"Failed to resolve internal user (SsoUserIdInt={SsoUserIdInt})", StringComparison.Ordinal));
+    }
+
     // A browser holds one sign-in at a time: signing in with Entra ID ends the external (CIDM) session.
     [Fact]
     public async Task ResolveAsync_EndsTheExternalSession_OnSuccess()
@@ -292,6 +339,17 @@ public class InternalUserResolverTests
 
         Assert.False(resolution.IsAllowed);
         Assert.Empty(authService.SignOutCalls);
+    }
+
+    // Holds every request until the caller gives up, as a CDC.Api whose address silently drops connections does.
+    private sealed class NeverAnsweringHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+
+            return new HttpResponseMessage();
+        }
     }
 
     // Test double for IApiClient recording the last resolve request and returning a scripted result

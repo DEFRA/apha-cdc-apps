@@ -31,6 +31,26 @@ public class ViewSpeciesDataModelTests
         Assert.Equal("Dairy cattle", child.Label);
     }
 
+    // The legacy page opened every node, not just the top level.
+    [Fact]
+    public async Task OnGetAsync_ExpandsEveryBranchOfTheTree()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = DairyId, ParentId = CattleId, Description = "Dairy cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = DairyId, Description = "Holstein", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(species));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var cattle = Assert.Single(pageModel.SpeciesTree.Nodes);
+        var dairy = Assert.Single(cattle.Children);
+        Assert.True(cattle.Expanded);
+        Assert.True(dairy.Expanded);
+    }
+
     [Fact]
     public async Task OnGetAsync_SetsError_WhenApiCallFails()
     {

@@ -191,6 +191,23 @@ public class ProfileReportServiceTests
         report.HasPdfData.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task GetProfileReportsOverview_ReturnsTheFullProfileAsAPrintOnlyReport()
+    {
+        GivenHeader(isPublished: false, effectiveDateTo: null);
+        repository
+            .Setup(repo => repo.GetProfileVersionReportsAsync(ProfileReportTestData.ProfileVersionId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                ProfileReportTestData.ProfileVersionReport(),
+                ProfileReportTestData.ProfileVersionReport() with { Id = Guid.NewGuid(), ReportName = "SummaryProfileGUID", DisplayName = "Summary profile" }
+            ]);
+
+        var result = await CreateService().GetProfileReportsOverviewAsync(ProfileReportTestData.ProfileVersionId, CancellationToken.None);
+
+        result.Value.PrintOnlyReports.Should().ContainSingle().Which.ReportName.Should().Be("FullProfileGUID");
+    }
+
     [Theory]
     [InlineData(true, false, true, false, false, true)]
     [InlineData(false, false, false, true, false, true)]

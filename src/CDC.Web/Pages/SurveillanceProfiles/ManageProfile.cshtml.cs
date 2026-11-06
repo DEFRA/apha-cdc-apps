@@ -112,6 +112,11 @@ public class ManageProfileModel : PageModel
     [TempData]
     public string? SuccessMessage { get; set; }
 
+    /// <summary>Gets or sets whether the Profile reports page generates every report of the new version when it loads (the legacy
+    /// <c>PublishFlag</c>), which reads the same TempData key.</summary>
+    [TempData]
+    public bool GenerateReports { get; set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         var loaded = await LoadProfileAsync(cancellationToken);
@@ -232,6 +237,7 @@ public class ManageProfileModel : PageModel
             case PublishProfileOutcome.Success:
                 LogPublishedProfileMessage(logger, ProfileId, isPublic, null);
                 SuccessMessage = successMessage;
+                GenerateReports = true;
 
                 return RedirectToPage("/SurveillanceProfiles/ProfileReports", new { profileVersionId = result.NewProfileVersionId });
 

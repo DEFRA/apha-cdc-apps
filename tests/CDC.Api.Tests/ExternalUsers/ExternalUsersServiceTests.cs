@@ -46,11 +46,26 @@ public class ExternalUsersServiceTests
         result.TotalRecords.Should().Be(3);
     }
 
+    [Fact]
+    public async Task GetExternalUsersAsync_ReturnsTheEmailAddressOfEachUser()
+    {
+        repository
+            .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User("a", true) with { EmailAddress = "jo.smith@example.test" }]);
+
+        var result = await CreateService().GetExternalUsersAsync(
+            pageNumber: 1, pageSize: 10, ExternalUserSortColumn.None, sortDescending: false, CancellationToken.None);
+
+        result.Items.Should().ContainSingle().Which.EmailAddress.Should().Be("jo.smith@example.test");
+    }
+
     [Theory]
     [InlineData(ExternalUserSortColumn.UserName, false, new[] { "a", "b", "c" })]
     [InlineData(ExternalUserSortColumn.UserName, true, new[] { "c", "b", "a" })]
     [InlineData(ExternalUserSortColumn.FullName, false, new[] { "a", "b", "c" })]
     [InlineData(ExternalUserSortColumn.Organisation, true, new[] { "c", "b", "a" })]
+    [InlineData(ExternalUserSortColumn.EmailAddress, false, new[] { "a", "c", "b" })]
+    [InlineData(ExternalUserSortColumn.EmailAddress, true, new[] { "b", "c", "a" })]
     [InlineData(ExternalUserSortColumn.None, true, new[] { "b", "c", "a" })]
     public async Task GetExternalUsersAsync_SortsBeforePaging(ExternalUserSortColumn column, bool descending, string[] expectedOrder)
     {
@@ -58,9 +73,9 @@ public class ExternalUsersServiceTests
             .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
-                User("b", false) with { Organisation = "Org B" },
-                User("c", false) with { Organisation = "Org C" },
-                User("a", false) with { Organisation = "org a" }
+                User("b", false) with { Organisation = "Org B", EmailAddress = "z@example.test" },
+                User("c", false) with { Organisation = "Org C", EmailAddress = "Y@example.test" },
+                User("a", false) with { Organisation = "org a", EmailAddress = "x@example.test" }
             ]);
 
         var result = await CreateService().GetExternalUsersAsync(1, 0, column, descending, CancellationToken.None);

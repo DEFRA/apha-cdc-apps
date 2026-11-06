@@ -13,13 +13,15 @@ public class ExternalUsersApiServiceTests
     [Fact]
     public async Task GetExternalUsersAsync_RequestsThePageAndDeserialisesTheBody()
     {
-        const string json = """{"items":[{"fullName":"Jo Smith"}],"pageNumber":2,"pageSize":10,"totalRecords":11}""";
+        const string json = """{"items":[{"fullName":"Jo Smith","emailAddress":"jo.smith@example.test"}],"pageNumber":2,"pageSize":10,"totalRecords":11}""";
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
 
         var result = await CreateClient(handler).GetExternalUsersAsync(2, 10, ExternalUserSortColumn.Organisation, sortDescending: true);
 
         Assert.Equal("/api/external-users?pageNumber=2&pageSize=10&sortColumn=Organisation&sortDescending=true", handler.LastRequestUri!.PathAndQuery);
-        Assert.Equal("Jo Smith", Assert.Single(result.Items).FullName);
+        var user = Assert.Single(result.Items);
+        Assert.Equal("Jo Smith", user.FullName);
+        Assert.Equal("jo.smith@example.test", user.EmailAddress);
     }
 
     [Fact]

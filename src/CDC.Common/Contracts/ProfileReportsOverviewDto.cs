@@ -33,6 +33,12 @@ public sealed record ProfileReportsOverviewDto
 
     /// <summary>Gets the reports shown in the table, in display order.</summary>
     public IReadOnlyList<ProfileReportListItemDto> Reports { get; init; } = [];
+
+    /// <summary>
+    /// Gets the reports that are not listed in the table but are still generated when the version is published,
+    /// as the legacy page did: the full profile, which the legacy page printed from its own link.
+    /// </summary>
+    public IReadOnlyList<ProfileReportListItemDto> PrintOnlyReports { get; init; } = [];
 }
 
 /// <summary>One row of the "Profile reports" table.</summary>

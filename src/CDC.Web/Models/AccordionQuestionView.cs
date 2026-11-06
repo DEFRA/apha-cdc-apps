@@ -6,8 +6,8 @@ public sealed record AccordionFieldOptionView(string Text, bool IsChecked);
 /// <summary>
 /// One answered field rendered under a question in a questionnaire accordion (species data or
 /// profile questions). A field with options is rendered as a checkbox group ("List"/"MultiValueList"
-/// type); <see cref="IsHtml"/> marks rich/HTML content ("Long Text" type); otherwise
-/// <see cref="ValueDisplay"/> holds the plain-text answer.
+/// type); <see cref="IsHtml"/> marks rich/HTML content ("Long Text" type), which is rendered as it is and so
+/// must already be sanitised; otherwise <see cref="ValueDisplay"/> holds the plain-text answer.
 /// </summary>
 public sealed record AccordionFieldView(string Label, string? ValueDisplay, bool IsHtml, IReadOnlyList<AccordionFieldOptionView> Options);
 

@@ -5,7 +5,8 @@
 }
 else
 {
-    <div class="govuk-accordion" data-module="govuk-accordion" id="@(Model.IdPrefix)">
+    @* Remembered state would reopen the sub-sections of the previous section; the legacy page always opened collapsed. *@
+    <div class="govuk-accordion" data-module="govuk-accordion" data-remember-expanded="false" id="@(Model.IdPrefix)">
         @foreach (var question in Model.Questions)
         {
             var anchor = question.Number.Replace(".", "-");
@@ -18,8 +19,10 @@ else
                     </h2>
                 </div>
                 <div id="@(Model.IdPrefix)-content-@anchor" class="govuk-accordion__section-content">
-                    @foreach (var field in question.Fields)
+                    @for (var fieldIndex = 0; fieldIndex < question.Fields.Count; fieldIndex++)
                     {
+                        var field = question.Fields[fieldIndex];
+
                         if (field.Options.Count > 0)
                         {
                             <div class="govuk-form-group">
@@ -41,12 +44,16 @@ else
                         }
                         else if (field.IsHtml)
                         {
+                            var labelId = $"{Model.IdPrefix}-field-{anchor}-{fieldIndex}-label";
                             <div class="govuk-form-group">
                                 @if (!string.IsNullOrEmpty(field.Label))
                                 {
-                                    <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@field.Label</h3>
+                                    <h3 class="govuk-heading-s govuk-!-margin-bottom-1" id="@labelId">@field.Label</h3>
                                 }
-                                <div class="govuk-body">@Html.Raw(field.ValueDisplay)</div>
+                                @* The legacy page showed a long answer in a fixed-height box that always scrolls; the text is sanitised by the page model.
+                                   There is deliberately no tabindex: browsers make a scroller with nothing focusable inside it keyboard focusable themselves,
+                                   and Sonar rule S6845 (a Major issue, which fails the quality gate) rejects tabindex on a non-interactive element. *@
+                                <section class="govuk-body-s app-readonly-long-text" aria-labelledby="@(string.IsNullOrEmpty(field.Label) ? null : labelId)">@Html.Raw(field.ValueDisplay)</section>
                             </div>
                         }
                         else if (string.IsNullOrEmpty(field.Label))

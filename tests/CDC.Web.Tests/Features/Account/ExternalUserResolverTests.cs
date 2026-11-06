@@ -5,8 +5,11 @@ using CDC.Auth.Entra;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using CDC.Web.Tests.Pages;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace CDC.Web.Tests.Features.Account;
 
@@ -228,6 +231,27 @@ public class ExternalUserResolverTests
 
         Assert.False(resolution.IsAllowed);
         Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
+    }
+
+    // The resilience handler gives up with its own Polly exceptions, which are neither an HttpRequestException nor a TaskCanceledException.
+    [Fact]
+    public Task ResolveAsync_DeniesAndLogsTheFailure_WhenTheResilienceHandlerTimesOut() =>
+        AssertDeniedAndLoggedAsync(new TimeoutRejectedException("The operation didn't complete within the allowed timeout of '00:00:30'.", new TaskCanceledException()));
+
+    [Fact]
+    public Task ResolveAsync_DeniesAndLogsTheFailure_WhenTheResilienceHandlersCircuitIsOpen() =>
+        AssertDeniedAndLoggedAsync(new BrokenCircuitException("The circuit is now open and is not allowing calls."));
+
+    private static async Task AssertDeniedAndLoggedAsync(Exception failure)
+    {
+        var apiClient = new StubApiClient(new ResolveExternalUserResult(ResolveExternalUserOutcome.Error, null), failure);
+        var logger = new AlwaysEnabledLogger<ExternalUserResolver>();
+
+        var resolution = await new ExternalUserResolver(apiClient, logger).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Landing/Error", resolution.DenialRedirectPath);
+        Assert.Contains(logger.Messages, message => message.Contains($"Failed to resolve external user (SsoUserIdExt={SsoUserIdExt})", StringComparison.Ordinal));
     }
 
     // A browser holds one sign-in at a time: signing in with CIDM ends the internal (Entra ID) session.

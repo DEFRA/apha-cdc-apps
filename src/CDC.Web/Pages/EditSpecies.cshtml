@@ -61,7 +61,7 @@
 }
 else
 {
-    <h1 class="govuk-heading-l">@pageHeading - @speciesLabel</h1>
+    <h1 class="govuk-heading-l govuk-!-text-align-centre">@pageHeading - @speciesLabel</h1>
 
     @if (Model.SuccessMessage is not null)
     {
@@ -107,7 +107,9 @@ else
                 }
             </div>
 
-            <partial name="_SectionPagination" model="paginationModel" />
+            <div class="app-species-pagination">
+                <partial name="_SectionPagination" model="paginationModel" />
+            </div>
         </div>
     </div>
 }
