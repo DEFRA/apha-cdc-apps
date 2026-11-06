@@ -8,7 +8,8 @@ else
     <form method="post" asp-page-handler="Save" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key" asp-route-edit="true">
         <input type="hidden" name="LastUpdatedBase64" value="@Convert.ToBase64String(Model.AnswerDataLastUpdated)" />
 
-        <div class="govuk-accordion" data-module="govuk-accordion" id="edit-species-accordion">
+        @* Remembered state would reopen the sub-sections of the previous section; the legacy page always opened collapsed. *@
+        <div class="govuk-accordion" data-module="govuk-accordion" data-remember-expanded="false" id="edit-species-accordion">
             @foreach (var question in Model.EditableQuestions)
             {
                 var anchor = question.Number.Replace(".", "-");

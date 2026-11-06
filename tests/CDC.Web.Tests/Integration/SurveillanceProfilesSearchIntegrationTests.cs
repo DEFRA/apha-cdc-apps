@@ -103,6 +103,54 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Equal(2, Regex.Count(body, ">Clone scenario</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
     }
 
+    // Legacy sent every Clone profile link - the card's and each version row's, on the Published and the Draft card - to
+    // ProfileProperties.aspx with the version to clone as CloneProfileVersionId, and no Scenario.
+    [Fact]
+    public async Task Search_SendsEveryCloneProfileLinkToProfileProperties_NamingTheVersionToClone()
+    {
+        var (body, clonedVersions) = await GetCloneLinkResultsAsync();
+
+        Assert.Equal(clonedVersions.Select(CloneProfileUrl), LinkTargets(body, "Clone profile"));
+    }
+
+    // The same links with Scenario=1, as legacy sent every Clone scenario link.
+    [Fact]
+    public async Task Search_SendsEveryCloneScenarioLinkToProfileProperties_NamingTheVersionToCloneAndScenarioOne()
+    {
+        var (body, clonedVersions) = await GetCloneLinkResultsAsync();
+
+        Assert.Equal(clonedVersions.Select(CloneScenarioUrl), LinkTargets(body, "Clone scenario"));
+    }
+
+    private static string CloneProfileUrl(Guid versionId) =>
+        $"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={versionId}";
+
+    private static string CloneScenarioUrl(Guid versionId) =>
+        $"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={versionId}&amp;scenario=1";
+
+    private static List<string> LinkTargets(string body, string linkText) =>
+        [.. Regex.Matches(body, $"href=\"([^\"]+)\">{linkText}</a>", RegexOptions.None, TimeSpan.FromSeconds(5)).Select(match => match.Groups[1].Value)];
+
+    // A profile with two Published versions and one Draft. Each card names its current version first, then every version of its
+    // history, newest first, so the versions the Clone links name run: Published card, its rows, Draft card, its rows.
+    private static async Task<(string Body, Guid[] ClonedVersions)> GetCloneLinkResultsAsync()
+    {
+        var olderVersionId = Guid.NewGuid();
+        var draftVersionId = Guid.NewGuid();
+        var published = SearchResults[0].PublishedVersions[0];
+        var results = new[]
+        {
+            SearchResults[0] with
+            {
+                PublishedVersions = [published with { VersionNumber = 2 }, published with { VersionId = olderVersionId }],
+                DraftVersions = [published with { VersionId = draftVersionId, VersionNumber = 3 }]
+            }
+        };
+        Guid[] clonedVersions = [VersionId, VersionId, olderVersionId, draftVersionId, draftVersionId];
+
+        return (await GetResultsPartialAsync(results, "?DisplayPublished=true&DisplayDraft=true"), clonedVersions);
+    }
+
     [Theory]
     [InlineData(false, true)]
     [InlineData(false, false)]
@@ -300,6 +348,30 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.False(IsChecked(page, "DisplayDraft"));
     }
 
+    // The legacy species selector opened every branch and offered "Close all"; closing and reopening are the tree script's job.
+    [Fact]
+    public async Task Search_ShowsTheSpeciesFilterFullyExpanded_WithTheToggleOfferingToCloseAll()
+    {
+        var animals = Guid.NewGuid();
+        var cattle = Guid.NewGuid();
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = animals, ParentId = Guid.Empty, Description = "Animals", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = cattle, ParentId = animals, Description = "Cattle", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = cattle, Description = "Dairy cattle", IsActive = true, IsInUse = true }
+        ];
+        using var factory = CreateFactory(SearchResults, species);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.Contains("data-app-tree-action=\"toggle-all\" aria-expanded=\"true\"", page);
+        Assert.Contains("<span class=\"app-tree__toggle-all-text\">Close all</span>", page);
+        Assert.DoesNotContain("Open all", page);
+        Assert.Equal(3, Regex.Count(page, "class=\"app-tree__item\" data-app-tree-expanded=\"true\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.DoesNotContain("data-app-tree-expanded=\"false\"", page);
+    }
+
     private static bool IsChecked(string page, string checkboxId) =>
         Regex.IsMatch(page, $"<input[^>]* id=\"{checkboxId}\"[^>]* checked", RegexOptions.None, TimeSpan.FromSeconds(5));
 
@@ -452,14 +524,14 @@ public class SurveillanceProfilesSearchIntegrationTests
         return await response.Content.ReadAsStringAsync();
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults) =>
+    private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults, IReadOnlyList<SpeciesDto>? species = null) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
                 services.AddSingleton<IApiClient>(new FakeApiClient(searchResults));
                 services.RemoveAll<ISpeciesApiService>();
-                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService([]));
+                services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService(species ?? []));
             }));
 
     private static async Task<string> GetResultsPartialAsync(bool isProfileEditor, bool isPolicyProfileUser)

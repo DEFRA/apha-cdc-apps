@@ -58,6 +58,7 @@ public static class BespokeReportTree
         var rootValue = BespokeReportNodes.Value(content.ProfileVersionId, BespokeNodeType.Profile);
         AddIf(sectionNodes.Exists(node => ticked.Contains(node.Value)), ticked, rootValue);
 
+        // Only the profile starts expanded, as in the legacy page, so the tree opens one level.
         return new TreeViewViewModel
         {
             IdPrefix = IdPrefix,

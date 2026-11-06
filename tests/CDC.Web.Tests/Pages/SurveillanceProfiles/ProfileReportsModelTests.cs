@@ -19,6 +19,7 @@ namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
 public class ProfileReportsModelTests
 {
     private const string Summary = "SummaryProfileGUID";
+    private const string FullProfile = "FullProfileGUID";
     private static readonly Guid ProfileVersionId = Guid.NewGuid();
     private static readonly Guid ProfileId = Guid.NewGuid();
     private static readonly Guid StoredReportId = Guid.NewGuid();
@@ -115,6 +116,65 @@ public class ProfileReportsModelTests
 
         Assert.IsType<PageResult>(await model.OnGetAsync(CancellationToken.None));
         Assert.Equal(ProfileReportsModel.LoadFailureMessage, model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_GeneratesEveryReport_TheFullProfileFirst_WhenTheVersionWasJustPublished()
+    {
+        var api = CreateApi();
+        var model = CreatePageModel(api, new FakeGenerator(FullProfile, Summary, "QABriefGUID"));
+        model.GenerateReports = true;
+
+        var result = await model.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal([FullProfile, Summary, "QABriefGUID"], api.SavedNames);
+        Assert.Equal(
+            ["Full profile: Report generation succeeded", "Summary profile: Report generation succeeded", "QA brief: Report generation succeeded"],
+            model.GenerationSuccesses);
+        Assert.Empty(model.GenerationFailures);
+        Assert.False(model.GenerateReports);
+        Assert.All(model.Rows, row => Assert.True(row.CanDownload));
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ListsEachReportThatFailed_AndStillGeneratesTheRest()
+    {
+        var api = CreateApi();
+        var generator = new FakeGenerator(FullProfile, Summary, "QABriefGUID") { FailFor = Summary };
+        var model = CreatePageModel(api, generator);
+        model.GenerateReports = true;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(["Summary profile: Report generation failed"], model.GenerationFailures);
+        Assert.Equal(["Full profile: Report generation succeeded", "QA brief: Report generation succeeded"], model.GenerationSuccesses);
+        Assert.Equal([FullProfile, "QABriefGUID"], api.SavedNames);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_GeneratesNothing_WhenTheVersionWasNotJustPublished()
+    {
+        var api = CreateApi();
+        var model = CreatePageModel(api, new FakeGenerator(FullProfile, Summary));
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(api.SavedNames);
+        Assert.Empty(model.GenerationSuccesses);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_GeneratesNothing_WhenTheUserMayNotCreateReports()
+    {
+        var api = CreateApi(canCreate: false);
+        var model = CreatePageModel(api, new FakeGenerator(FullProfile, Summary));
+        model.GenerateReports = true;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(api.SavedNames);
+        Assert.False(model.GenerateReports);
     }
 
     [Fact]
@@ -274,6 +334,10 @@ public class ProfileReportsModelTests
         VersionLabel = "1.2",
         IsCurrent = true,
         CanCreateReports = canCreate,
+        PrintOnlyReports =
+        [
+            new ProfileReportListItemDto { Id = Guid.NewGuid(), ReportName = FullProfile, DisplayName = "Full profile" }
+        ],
         Reports =
         [
             new ProfileReportListItemDto { Id = StoredReportId, ReportName = Summary, DisplayName = "Summary profile", HasPdfData = true, FileSize = 10 },
@@ -314,13 +378,17 @@ public class ProfileReportsModelTests
 
         public Exception? ThrowOnGenerate { get; init; }
 
+        public string? FailFor { get; init; }
+
         public bool CanGenerate(string reportName) => supportedNames.Contains(reportName);
 
         public Task<byte[]> GenerateAsync(string reportName, Guid profileVersionId, CancellationToken cancellationToken)
         {
             RequestedProfileVersionId = profileVersionId;
 
-            return ThrowOnGenerate is not null ? throw ThrowOnGenerate : Task.FromResult(GeneratedPdf);
+            return ThrowOnGenerate is not null ? throw ThrowOnGenerate
+                : reportName == FailFor ? throw new InvalidOperationException("failed")
+                : Task.FromResult(GeneratedPdf);
         }
     }
 

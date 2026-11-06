@@ -27,14 +27,14 @@
             }
             @if (Model.CanClone)
             {
-                <a class="govuk-link" href="#">Clone profile</a>
+                <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileProperties" asp-route-cloneProfileVersionId="@Model.CurrentVersion?.VersionId">Clone profile</a>
                 <span aria-hidden="true"> | </span>
             }
             <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId" asp-route-profileVersionId="@Model.CurrentVersion?.VersionId">Browse profile</a>
             @if (Model.CanClone)
             {
                 <span aria-hidden="true"> | </span>
-                <a class="govuk-link" href="#">Clone scenario</a>
+                <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileProperties" asp-route-cloneProfileVersionId="@Model.CurrentVersion?.VersionId" asp-route-scenario="1">Clone scenario</a>
             }
         </p>
     }
@@ -50,7 +50,7 @@
         <p class="govuk-body govuk-!-margin-bottom-1">@Model.ReviewStatus</p>
     }
 
-    @if (Model.NoVersionMessage is null)
+    @if (Model.ShowPreviousVersions)
     {
         <div data-module="app-filters-toggle">
             <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link
@@ -90,14 +90,14 @@
                                     }
                                     @if (Model.CanClone)
                                     {
-                                        <a class="govuk-link" href="#">Clone profile</a>
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileProperties" asp-route-cloneProfileVersionId="@row.Version.VersionId">Clone profile</a>
                                         <span aria-hidden="true"> | </span>
                                     }
                                     <a class="govuk-link" asp-page="/SurveillanceProfiles/EditProfileQuestions" asp-route-profileId="@Model.ProfileId" asp-route-profileVersionId="@row.Version.VersionId">Browse profile</a>
                                     @if (Model.CanClone)
                                     {
                                         <span aria-hidden="true"> | </span>
-                                        <a class="govuk-link" href="#">Clone scenario</a>
+                                        <a class="govuk-link" asp-page="/SurveillanceProfiles/ProfileProperties" asp-route-cloneProfileVersionId="@row.Version.VersionId" asp-route-scenario="1">Clone scenario</a>
                                     }
                                 </p>
                             </div>

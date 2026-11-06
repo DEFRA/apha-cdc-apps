@@ -312,6 +312,7 @@ public class ManageProfileModelTests
         Assert.Equal("/SurveillanceProfiles/ProfileReports", redirect.PageName);
         Assert.Equal(newVersionId, Assert.Single(redirect.RouteValues!).Value);
         Assert.Equal("Successfully published this profile and made it public.", pageModel.SuccessMessage);
+        Assert.True(pageModel.GenerateReports);
         Assert.Null(pageModel.StatusMessage);
         Assert.Null(pageModel.StatusErrorMessage);
     }
@@ -330,6 +331,7 @@ public class ManageProfileModelTests
         Assert.IsType<PageResult>(result);
         Assert.Null(pageModel.StatusMessage);
         Assert.Null(pageModel.SuccessMessage);
+        Assert.False(pageModel.GenerateReports);
         Assert.Equal("This profile version is not eligible for publishing.", pageModel.StatusErrorMessage);
     }
 
@@ -358,6 +360,7 @@ public class ManageProfileModelTests
         Assert.Equal("/SurveillanceProfiles/ProfileReports", redirect.PageName);
         Assert.Equal(newVersionId, Assert.Single(redirect.RouteValues!).Value);
         Assert.Equal("Successfully published this profile but did not make it public.", pageModel.SuccessMessage);
+        Assert.True(pageModel.GenerateReports);
         Assert.Null(pageModel.StatusMessage);
         Assert.Null(pageModel.StatusErrorMessage);
     }

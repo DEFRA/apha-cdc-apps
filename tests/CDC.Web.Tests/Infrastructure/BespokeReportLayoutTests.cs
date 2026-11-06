@@ -136,6 +136,17 @@ public class BespokeReportTreeTests
     }
 
     [Fact]
+    public void Build_StartsWithOnlyTheProfileExpanded_SoTheTreeOpensOneLevel()
+    {
+        var root = Assert.Single(BespokeReportTree.Build(Content, []).Nodes);
+        var withASavedSelection = Assert.Single(BespokeReportTree.Build(Content, [BespokeReportNodes.Value(Description.Id, BespokeNodeType.Section)]).Nodes);
+
+        Assert.True(root.Expanded);
+        Assert.All(root.Children, section => Assert.False(section.Expanded));
+        Assert.All(withASavedSelection.Children, section => Assert.False(section.Expanded));
+    }
+
+    [Fact]
     public void Build_TicksTheNodesOfASavedSelection()
     {
         var tree = BespokeReportTree.Build(
