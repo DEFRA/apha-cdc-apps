@@ -143,6 +143,17 @@ html {
   min-width: 12rem;
 }
 
+/* Label to the left of the select, as in the legacy app. */
+.app-label-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-label-select-inline > .govuk-label {
+  margin-bottom: 0;
+}
+
 /* Edit profile contributor panel (see MaintainContributors.cshtml). */
 .app-contributor-edit {
   width: 100%;
@@ -195,6 +206,14 @@ html {
   margin-top: 1.5rem;
 }
 
+/* Stack OK/Cancel on narrow screens, as the legacy panel does. */
+@media (max-width: 40.0525em) {
+  .app-contributor-edit__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* Label, profile drop-down and Add button on one line; wraps on narrow screens. */
 .app-external-user-add__row {
   display: flex;
@@ -208,7 +227,7 @@ html {
 }
 
 .app-external-user-add__select {
-  flex: 0 1 30rem;
+  flex: 1 1 40rem;
   min-width: 0;
   max-width: 100%;
 }
