@@ -1,10 +1,11 @@
 @page
+@using CDC.Web.Pages.CrossProfileAdmin
 @model CDC.Web.Pages.CrossProfileAdmin.ReferenceDataAuditModel
 @{
     ViewData["Title"] = "Reference data audit trail";
 }
 @section Breadcrumbs {
-    <a class="govuk-back-link" asp-page="/CrossProfileAdmin/ReferenceData" asp-route-tableId="@Model.TableId">Back to reference data</a>
+    <a class="govuk-back-link" asp-page="/CrossProfileAdmin/ReferenceData" asp-route-tableId="@Model.TableId">Maintain reference data</a>
 }
 
 <div class="govuk-grid-row">
@@ -15,12 +16,49 @@
         }
         <h1 class="govuk-heading-l">Reference data audit trail</h1>
 
-        @if (Model.Entries.Count == 0)
+        @if (Model.LoadErrorMessage is not null)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@Model.LoadErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.Entries.Count == 0)
         {
             <p class="govuk-body">No changes have been recorded@(Model.Table is not null ? $" for {Model.Table.Name}" : string.Empty).</p>
         }
         else
         {
+            var pagination = new PaginationViewModel
+            {
+                CurrentPage = Model.PageNumber,
+                TotalPages = Model.TotalPages,
+                PageUrl = Model.BuildPageUrl,
+                LandmarkLabel = "Audit trail pages"
+            };
+
+            <div id="audit-trail-region" data-app-paged-region>
+            <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
+                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                    <select class="govuk-select" id="PageSize" name="PageSize" form="audit-trail-page-size-form" onchange="this.form.requestSubmit()">
+                        @foreach (var option in ReferenceDataPaging.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <form method="get" id="audit-trail-page-size-form" data-app-region-form>
+                <input type="hidden" name="tableId" value="@Model.TableId" />
+                <input type="hidden" name="PageNumber" value="1" />
+                <noscript><button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Update</button></noscript>
+            </form>
+
             <table class="govuk-table">
                 <caption class="govuk-visually-hidden">Reference data changes, most recent first</caption>
                 <thead class="govuk-table__head">
@@ -33,24 +71,28 @@
                     </tr>
                 </thead>
                 <tbody class="govuk-table__body">
-                    @foreach (var entry in Model.Entries)
+                    @foreach (var entry in Model.PagedEntries)
                     {
                         <tr class="govuk-table__row">
-                            <td class="govuk-table__cell">@entry.OldLookupValue</td>
-                            <td class="govuk-table__cell">@entry.NewLookupValue</td>
+                            <td class="govuk-table__cell">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(entry.OldLookupValue)</td>
+                            <td class="govuk-table__cell">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(entry.NewLookupValue)</td>
                             <td class="govuk-table__cell">@entry.UserFullName</td>
-                            <td class="govuk-table__cell">@entry.LogDate.UtcDateTime.ToString("d MMMM yyyy, HH:mm")</td>
+                            <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)</td>
                             <td class="govuk-table__cell">
                                 <a class="govuk-link govuk-link--no-visited-state"
                                    asp-page="/CrossProfileAdmin/ReferenceDataAuditDetails"
+                                   asp-route-tableId="@entry.ReferenceTableId"
                                    asp-route-auditId="@entry.Id">
-                                    View details<span class="govuk-visually-hidden"> of the change from @entry.OldLookupValue to @entry.NewLookupValue</span>
+                                    View details<span class="govuk-visually-hidden"> of the change from @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(entry.OldLookupValue) to @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(entry.NewLookupValue)</span>
                                 </a>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+
+            <partial name="_Pagination" model="pagination" />
+            </div>
         }
     </div>
 </div>

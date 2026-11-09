@@ -1515,7 +1515,8 @@ body {
    full-width reason for change and the buttons). */
 .app-legacy-form {
   display: grid;
-  grid-template-columns: 15% 35% 15% 35%;
+  /* fr, not %, so the gaps fit inside the width; minmax(0, ...) stops long content widening a column. */
+  grid-template-columns: minmax(0, 15fr) minmax(0, 35fr) minmax(0, 15fr) minmax(0, 35fr);
   gap: 15px 10px;
   align-items: start;
 }
@@ -1542,6 +1543,65 @@ body {
   background-color: #f3f2f1;
   overflow-x: auto;
   white-space: nowrap;
+}
+
+/* Rich text toolbar joined to the top of its editor, matching the legacy TinyMCE toolbar
+   (restored after commit 1f778a8 removed it). */
+.app-richtext-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: none;
+  padding: 0.25rem;
+  background-color: #f3f2f1;
+}
+
+.app-richtext-toolbar__button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #0b0c0c;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.app-richtext-toolbar__button:hover,
+.app-richtext-toolbar__button:focus {
+  border-color: var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-richtext-toolbar__button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-color: var(--govuk-border-colour, #b1b4b6);
+  background-color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.app-richtext-toolbar__button--italic {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.app-richtext-toolbar__divider {
+  width: 1px;
+  align-self: stretch;
+  background-color: var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-richtext-editor {
+  border: 1px solid var(--govuk-border-colour, #0b0c0c);
+  min-height: 150px;
+  padding: 0.5rem;
+  background-color: #fff;
+}
+
+.app-richtext-editor:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
 }
 
 /* Single-line editable box beneath its formatting toolbar; scrolls sideways when the name is long. */
@@ -1610,6 +1670,28 @@ body {
 
 .app-legacy-form__actions .govuk-button {
   margin-bottom: 0;
+}
+
+/* Buttons right-aligned under a full-width field, as on the legacy reference data panel. */
+.app-legacy-form__actions--wide {
+  grid-column: 2 / -1;
+}
+
+/* A value shown as plain text beside its label, level with the label's text. */
+.app-legacy-form__text {
+  padding-top: 7px;
+  overflow-wrap: anywhere;
+}
+
+/* Legacy gave the reference data "Reason for change" editor a 200px height. */
+.app-reference-value-form .app-richtext-editor--surface {
+  min-height: 200px;
+}
+
+/* Legacy left this label's cell at the default middle alignment, level with the middle of the box. */
+.app-legacy-form__label--middle {
+  align-self: center;
+  padding-top: 0;
 }
 
 @media (max-width: 40.0525em) {

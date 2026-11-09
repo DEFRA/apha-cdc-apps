@@ -181,6 +181,11 @@
     }
 
     function initialise(input) {
+        if (input.dataset.richtextReady) {
+            return;
+        }
+        input.dataset.richtextReady = 'true';
+        var maxLength = input.maxLength > 0 ? input.maxLength : MAX_LENGTH;
         var label = document.querySelector('label[for="' + input.id + '"]');
         var labelText = label ? label.textContent.trim().replace(/:$/, '') : 'Name';
 
@@ -248,7 +253,7 @@
             // Only italics are allowed, so the bold and underline shortcuts do nothing, as in legacy.
             if (event.key === 'Enter' || (modified && (key === 'b' || key === 'u'))) {
                 event.preventDefault();
-            } else if (!modified && event.key.length === 1 && serialise(editor).length >= MAX_LENGTH
+            } else if (!modified && event.key.length === 1 && serialise(editor).length >= maxLength
                 && window.getSelection().isCollapsed) {
                 event.preventDefault();
             }
@@ -264,12 +269,15 @@
         }
     }
 
-    function start() {
-        document.querySelectorAll('input[data-single-line-richtext]').forEach(initialise);
+    function start(root) {
+        (root || document).querySelectorAll('input[data-single-line-richtext]').forEach(initialise);
     }
 
+    // Content swapped in by paged-region.js (a section opened in place) has editors of its own to set up.
+    document.addEventListener('app:region-updated', function (event) { start(event.target); });
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
+        document.addEventListener('DOMContentLoaded', function () { start(); });
     } else {
         start();
     }
