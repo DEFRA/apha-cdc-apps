@@ -203,12 +203,20 @@ builder.Services.AddHttpClient<IBespokeReportTemplatesApiService, BespokeReportT
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
 
+// Draft prioritisation and score recalculation run every profile version through the scoring procedures, so allow up to the
+// legacy three minutes, and never retry them.
 builder.Services.AddHttpClient<IPrioritisationVariablesApiService, PrioritisationVariablesApiService>(client =>
 {
     client.BaseAddress = apiBaseUri;
 })
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
-    .AddStandardResilienceHandler();
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.DisableForUnsafeHttpMethods();
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(180);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(360);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(200);
+    });
 
 builder.Services.AddScoped<IProfileVersionComparisonService, ProfileVersionComparisonService>();
 

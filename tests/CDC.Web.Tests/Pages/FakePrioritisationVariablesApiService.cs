@@ -60,5 +60,54 @@ internal sealed class FakePrioritisationVariablesApiService(
         _rankingRange = rankingRange with { RowVersion = "CQoLDA0ODxA=" };
         return Task.FromResult(_rankingRange);
     }
+
+    public Exception? ThrowOnPrioritiseDraftProfiles { get; init; }
+
+    public Exception? ThrowOnRecalculateScores { get; init; }
+
+    public Exception? ThrowOnExport { get; init; }
+
+    public int DraftPrioritisationCount { get; private set; }
+
+    public int RecalculationCount { get; private set; }
+
+    public Task PrioritiseDraftProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnPrioritiseDraftProfiles is not null)
+        {
+            return Task.FromException(ThrowOnPrioritiseDraftProfiles);
+        }
+
+        DraftPrioritisationCount++;
+        return Task.CompletedTask;
+    }
+
+    public Task RecalculateScoresAsync(CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnRecalculateScores is not null)
+        {
+            return Task.FromException(ThrowOnRecalculateScores);
+        }
+
+        RecalculationCount++;
+        return Task.CompletedTask;
+    }
+
+    public Task<PrioritisationScoreExport?> ExportCategoryScoreDataAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnExport is not null)
+        {
+            return Task.FromException<PrioritisationScoreExport?>(ThrowOnExport);
+        }
+
+        return Task.FromResult(_categories.Any(category => category.Id == categoryId)
+            ? new PrioritisationScoreExport("a,b"u8.ToArray(), "Category.csv")
+            : null);
+    }
+
+    public Task<PrioritisationScoreExport> ExportNormalisedScoresAsync(CancellationToken cancellationToken = default) =>
+        ThrowOnExport is not null
+            ? Task.FromException<PrioritisationScoreExport>(ThrowOnExport)
+            : Task.FromResult(new PrioritisationScoreExport("a,b"u8.ToArray(), "NormalisedScoreSummary.csv"));
 }
 

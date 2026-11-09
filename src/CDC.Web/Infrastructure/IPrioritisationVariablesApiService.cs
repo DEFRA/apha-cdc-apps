@@ -36,7 +36,31 @@ public interface IPrioritisationVariablesApiService
     /// Thrown when another user has saved a change since the row version was read.
     /// </exception>
     Task<PrioritisationRankingRangeDto> UpdateRankingRangeAsync(PrioritisationRankingRangeDto rankingRange, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>POST /api/prioritisation-variables/draft-prioritisation</c>.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task PrioritiseDraftProfilesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>POST /api/prioritisation-variables/score-recalculation</c>.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task RecalculateScoresAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/prioritisation-variables/categories/{categoryId}/score-data</c>.</summary>
+    /// <param name="categoryId">The category to export.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The CSV file, or <see langword="null"/> when the category does not exist.</returns>
+    Task<PrioritisationScoreExport?> ExportCategoryScoreDataAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>GET /api/prioritisation-variables/normalised-scores</c>.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The CSV file.</returns>
+    Task<PrioritisationScoreExport> ExportNormalisedScoresAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>A CSV score export downloaded from CDC.Api.</summary>
+/// <param name="Content">The CSV bytes.</param>
+/// <param name="FileName">The download file name.</param>
+public sealed record PrioritisationScoreExport(byte[] Content, string FileName);
 
 /// <summary>
 /// Thrown when <c>PUT /api/prioritisation-variables/ranking-range</c> returns 409 Conflict

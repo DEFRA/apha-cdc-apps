@@ -41,4 +41,21 @@ public interface IPrioritisationVariablesRepository
     /// Thrown when the supplied row version no longer matches the stored value.
     /// </exception>
     Task<byte[]> UpdateRankingRangeAsync(int lowerBound, int upperBound, byte[] rowVersion, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Recalculates every current draft profile version in one transaction: <c>spgaCurrentProfile</c> ('Draft'),
+    /// <c>sppPrioritisationCalculation</c> per version, then <c>sppPrioritisationScore</c>.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the database calls.</param>
+    /// <returns>The number of draft profile versions recalculated.</returns>
+    Task<int> PrioritiseDraftProfilesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Recalculates the prioritisation scores of published profiles via <c>sppPrioritisationScore</c>.</summary>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    Task RecalculatePrioritisationScoresAsync(CancellationToken cancellationToken);
+
+    /// <summary>Reads the nine result sets of <c>spgaPrioritisationScoreData</c>.</summary>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The score data.</returns>
+    Task<PrioritisationScoreData> GetScoreDataAsync(CancellationToken cancellationToken);
 }

@@ -57,6 +57,49 @@ public class PrioritisationVariablesIntegrationTests
         Assert.Contains("Low", body);
     }
 
+    [Fact]
+    public async Task Get_RendersUpdateConfirmationAndCategoryActions_WhenACategoryIsSelected()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"/CrossProfileAdmin/PrioritisationVariables?SelectedCategoryId={CategoryId}");
+
+        Assert.Contains("Are you sure you want to update the global prioritisation variables?", body);
+        Assert.Contains("data-confirm-target=\"#confirm-update-dialog\"", body);
+        Assert.Contains($"/CrossProfileAdmin/PrintPrioritisationVariables?categoryId={CategoryId}", body);
+        Assert.Contains("Export score data", body);
+        Assert.Contains("Export normalised scores (all categories)", body);
+    }
+
+    [Fact]
+    public async Task Get_HidesCategoryActions_WhenNoCategoryIsSelected()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/CrossProfileAdmin/PrioritisationVariables");
+
+        Assert.DoesNotContain("Print category variables", body);
+        Assert.DoesNotContain("Export score data", body);
+        Assert.Contains("Export normalised scores (all categories)", body);
+    }
+
+    [Fact]
+    public async Task GetPrintPage_RendersTheCategoryCriteriaAndScores()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/CrossProfileAdmin/PrintPrioritisationVariables?categoryId={CategoryId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Disease impact", body);
+        Assert.Contains("DI1 - Herd prevalence", body);
+        Assert.Contains("Low", body);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(IPrioritisationVariablesApiService fakeService) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>

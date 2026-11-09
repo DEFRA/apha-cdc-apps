@@ -1,6 +1,7 @@
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Pages.CrossProfileAdmin;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -255,6 +256,170 @@ public class PrioritisationVariablesModelTests
         Assert.Equal(5, model.LowerBound);
         Assert.Equal(95, model.UpperBound);
         Assert.Equal("CQoLDA0ODxA=", model.RowVersion);
+    }
+
+    [Fact]
+    public async Task OnPostRunDraftPrioritisation_CallsTheApi()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+
+        await model.OnPostRunDraftPrioritisation(CancellationToken.None);
+
+        Assert.Equal(1, fakeService.DraftPrioritisationCount);
+    }
+
+    [Fact]
+    public async Task OnPostRunDraftPrioritisation_ReportsFailure_WhenTheApiFails()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories())
+        {
+            ThrowOnPrioritiseDraftProfiles = new HttpRequestException("connection refused")
+        };
+        var model = CreatePageModel(fakeService);
+
+        var result = await model.OnPostRunDraftPrioritisation(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(model.SuccessMessage);
+        Assert.True(model.ModelState.ContainsKey(PrioritisationVariablesModel.DraftPrioritisationErrorKey));
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_RecalculatesPublishedProfileScores_AfterSaving()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+        model.LowerBound = 15;
+        model.UpperBound = 35;
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.Equal(1, fakeService.RecalculationCount);
+        Assert.True(model.PublishedProfileScoresRecalculated);
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_DoesNotRecalculate_WhenValidationFails()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+        model.LowerBound = 50;
+        model.UpperBound = 50;
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.Equal(0, fakeService.RecalculationCount);
+        Assert.Null(fakeService.LastSavedRankingRange);
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_ReportsFailure_WhenRecalculationFails()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories())
+        {
+            ThrowOnRecalculateScores = new HttpRequestException("timeout")
+        };
+        var model = CreatePageModel(fakeService);
+        model.LowerBound = 15;
+        model.UpperBound = 35;
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.False(model.ModelState.IsValid);
+        Assert.False(model.PublishedProfileScoresRecalculated);
+        Assert.Null(model.UpdateResultMessage);
+    }
+
+    [Fact]
+    public async Task OnGetExportScoreDataAsync_ReturnsCsv_ForTheSelectedCategory()
+    {
+        var model = CreatePageModel();
+        model.SelectedCategoryId = CategoryId;
+
+        var result = await model.OnGetExportScoreDataAsync(CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("text/csv", file.ContentType);
+        Assert.Equal("Category.csv", file.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task OnGetExportScoreDataAsync_Redirects_WhenNoCategorySelected()
+    {
+        var model = CreatePageModel();
+
+        var result = await model.OnGetExportScoreDataAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+    }
+
+    [Fact]
+    public async Task OnGetExportScoreDataAsync_ReturnsNotFound_ForAnUnknownCategory()
+    {
+        var model = CreatePageModel();
+        model.SelectedCategoryId = Guid.NewGuid();
+
+        var result = await model.OnGetExportScoreDataAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task OnGetExportNormalisedScoresAsync_ReturnsCsv()
+    {
+        var model = CreatePageModel();
+
+        var result = await model.OnGetExportNormalisedScoresAsync(CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("NormalisedScoreSummary.csv", file.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task OnGetExportNormalisedScoresAsync_ShowsAnError_WhenTheApiFails()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories())
+        {
+            ThrowOnExport = new HttpRequestException("connection refused")
+        };
+        var model = CreatePageModel(fakeService);
+
+        var result = await model.OnGetExportNormalisedScoresAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(model.ModelState.ContainsKey(PrioritisationVariablesModel.ExportErrorKey));
+    }
+
+    [Fact]
+    public async Task PrintPrioritisationVariables_LoadsTheRequestedCategory()
+    {
+        var model = new PrintPrioritisationVariablesModel(
+            new FakePrioritisationVariablesApiService(CreateCategories()),
+            NullLogger<PrintPrioritisationVariablesModel>.Instance)
+        {
+            CategoryId = CategoryId
+        };
+
+        var result = await model.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("Animal welfare", model.Category?.Name);
+    }
+
+    [Fact]
+    public async Task PrintPrioritisationVariables_ReturnsNotFound_ForAnUnknownCategory()
+    {
+        var model = new PrintPrioritisationVariablesModel(
+            new FakePrioritisationVariablesApiService(CreateCategories()),
+            NullLogger<PrintPrioritisationVariablesModel>.Instance)
+        {
+            CategoryId = Guid.NewGuid()
+        };
+
+        var result = await model.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 
     private static IReadOnlyList<PrioritisationCategoryDto> CreateCategories() =>

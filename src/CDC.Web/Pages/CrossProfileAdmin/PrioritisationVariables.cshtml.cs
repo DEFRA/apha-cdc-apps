@@ -28,6 +28,14 @@ public class PrioritisationVariablesModel(
     ILogger<PrioritisationVariablesModel> logger)
     : BreadcrumbPageModelBase("Maintain prioritisation variables")
 {
+    /// <summary>The model state key for a draft prioritisation failure, linked to the Go button.</summary>
+    public const string DraftPrioritisationErrorKey = "DraftPrioritisation";
+
+    /// <summary>The model state key for a CSV export failure, linked to the export buttons.</summary>
+    public const string ExportErrorKey = "Export";
+
+    private const string CsvContentType = "text/csv";
+
     [BindProperty]
     [Required(ErrorMessage = "Lower bound cannot be blank")]
     [Range(0, 998, ErrorMessage = "Lower bound must be a positive integer")]
@@ -95,14 +103,26 @@ public class PrioritisationVariablesModel(
 
     public async Task<PageResult> OnPostRunDraftPrioritisation(CancellationToken cancellationToken)
     {
-        // The ranking range and Go are one form (matches legacy's single-page postback), so
-        // LowerBound/UpperBound/RowVersion bind from whatever is currently on screen, saved or
-        // not; range validation only applies to the Update handler, so clear it here.
+        // The Go button posts its own form, so the ranking range fields aren't submitted and their
+        // [Required] binding errors must not surface; the range is re-read instead.
         ModelState.Clear();
 
-        SuccessMessage = "Prioritisation of draft profiles was successful";
         UpdateResultMessage = null;
         PublishedProfileScoresRecalculated = false;
+
+        try
+        {
+            await prioritisationVariablesApiService.PrioritiseDraftProfilesAsync(cancellationToken);
+            SuccessMessage = "Prioritisation of draft profiles was successful";
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            logger.DraftPrioritisationFailed(exception);
+            SuccessMessage = null;
+            ModelState.AddModelError(DraftPrioritisationErrorKey, "Prioritisation of draft profiles failed. Try again later.");
+        }
+
+        await LoadRankingRangeAsync(cancellationToken);
         CategorisationSummary = BuildCategorisationSummary();
         await LoadPrioritisationDataAsync(cancellationToken);
         return Page();
@@ -144,6 +164,9 @@ public class PrioritisationVariablesModel(
                 await prioritisationVariablesApiService.UpdateCriterionAsync(SelectedCriterionId.Value, CriterionWeight, valueScores, cancellationToken);
             }
 
+            // The legacy save ran sppPrioritisationScore so published profiles never kept scores from the old variables.
+            await prioritisationVariablesApiService.RecalculateScoresAsync(cancellationToken);
+
             PublishedProfileScoresRecalculated = true;
             UpdateResultMessage = "Your changes were successfully saved";
         }
@@ -163,6 +186,56 @@ public class PrioritisationVariablesModel(
 
         CategorisationSummary = BuildCategorisationSummary();
         await LoadPrioritisationDataAsync(cancellationToken);
+        return Page();
+    }
+
+    /// <summary>Downloads the score data of the selected category as CSV - the legacy "Export score data" button.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The CSV file, or the page with an error when it could not be built.</returns>
+    public async Task<IActionResult> OnGetExportScoreDataAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedCategoryId is not { } categoryId)
+        {
+            return RedirectToPage();
+        }
+
+        try
+        {
+            var export = await prioritisationVariablesApiService.ExportCategoryScoreDataAsync(categoryId, cancellationToken);
+
+            return export is null ? NotFound() : File(export.Content, CsvContentType, export.FileName);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            logger.ScoreExportFailed(exception);
+        }
+
+        return await ShowExportErrorAsync("We could not export the score data. Try again later.", cancellationToken);
+    }
+
+    /// <summary>Downloads the normalised scores of every category as CSV - the legacy "Export normalised scores (all categories)" button.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The CSV file, or the page with an error when it could not be built.</returns>
+    public async Task<IActionResult> OnGetExportNormalisedScoresAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await prioritisationVariablesApiService.ExportNormalisedScoresAsync(cancellationToken);
+
+            return File(export.Content, CsvContentType, export.FileName);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            logger.ScoreExportFailed(exception);
+        }
+
+        return await ShowExportErrorAsync("We could not export the normalised scores. Try again later.", cancellationToken);
+    }
+
+    private async Task<PageResult> ShowExportErrorAsync(string message, CancellationToken cancellationToken)
+    {
+        await OnGetAsync(cancellationToken);
+        ModelState.AddModelError(ExportErrorKey, message);
         return Page();
     }
 
@@ -252,4 +325,10 @@ internal static partial class PrioritisationVariablesLog
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to save a criterion weighting change")]
     public static partial void CriterionWeightUpdateFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to prioritise draft profiles")]
+    public static partial void DraftPrioritisationFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to export prioritisation scores")]
+    public static partial void ScoreExportFailed(this ILogger logger, Exception exception);
 }

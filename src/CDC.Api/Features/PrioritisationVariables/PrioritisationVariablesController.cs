@@ -1,5 +1,6 @@
 using CDC.Api.Application;
 using CDC.Api.Application.Extensions;
+using CDC.Api.Domain.Common;
 using CDC.Api.Features.PrioritisationVariables.Commands;
 using CDC.Api.Features.PrioritisationVariables.Dtos;
 using CDC.Api.Features.PrioritisationVariables.Queries;
@@ -96,4 +97,70 @@ public sealed class PrioritisationVariablesController(ISender mediator) : Contro
 
         return result.ToActionResult(this);
     }
+
+    /// <summary>
+    /// Calculates the prioritisation scores of every current draft profile version.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The draft profiles were prioritised.</response>
+    [HttpPost("draft-prioritisation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> PrioritiseDraftProfiles(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new PrioritiseDraftProfilesCommand(), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
+    /// <summary>
+    /// Recalculates the prioritisation scores of published profiles after the global prioritisation variables change.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The scores were recalculated.</response>
+    [HttpPost("score-recalculation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> RecalculateScores(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new RecalculatePrioritisationScoresCommand(), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
+    /// <summary>
+    /// Downloads the score data of one prioritisation category as CSV.
+    /// </summary>
+    /// <param name="categoryId">The category to export.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="200">The CSV file.</response>
+    /// <response code="404">No category exists with that id.</response>
+    [HttpGet("categories/{categoryId:guid}/score-data")]
+    [Produces("text/csv", "application/problem+json")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> ExportCategoryScoreData(Guid categoryId, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new ExportCategoryScoreDataQuery(categoryId), cancellationToken);
+
+        return ToCsvResult(result);
+    }
+
+    /// <summary>
+    /// Downloads the normalised score and rank of every category, plus the combined rankings, as CSV.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="200">The CSV file.</response>
+    [HttpGet("normalised-scores")]
+    [Produces("text/csv", "application/problem+json")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult> ExportNormalisedScores(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new ExportNormalisedScoresQuery(), cancellationToken);
+
+        return ToCsvResult(result);
+    }
+
+    private ActionResult ToCsvResult(Result<PrioritisationCsvExport> result) =>
+        result.IsSuccess
+            ? File(result.Value.Content, "text/csv", result.Value.FileName)
+            : result.ToActionResult(this).Result!;
 }
