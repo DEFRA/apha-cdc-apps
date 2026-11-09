@@ -414,11 +414,19 @@ public class EditProfileFurtherInformationModel(
             NoteTypeName = noteType.Name;
             NoteTypePluralName = string.IsNullOrEmpty(noteType.PluralName) ? FallbackPluralName : noteType.PluralName;
 
-            sectionNotes = await ProfileSectionsApi.GetProfileNotesBySectionAsync(CurrentProfileVersionId, CurrentSection!.Id, noteType.Id, cancellationToken);
+            // The section's notes and the version's master list do not depend on each other, so they are read at once.
+            var sectionNotesRequest = ProfileSectionsApi.GetProfileNotesBySectionAsync(CurrentProfileVersionId, CurrentSection!.Id, noteType.Id, cancellationToken);
+            var versionNotesRequest = CanEditProfileSection
+                ? ProfileSectionsApi.GetProfileNotesByVersionAsync(CurrentProfileVersionId, noteType.Id, cancellationToken)
+                : Task.FromResult<IReadOnlyList<ProfileNoteDto>>([]);
+
+            await Task.WhenAll(sectionNotesRequest, versionNotesRequest);
+
+            sectionNotes = await sectionNotesRequest;
 
             if (CanEditProfileSection)
             {
-                var versionNotes = await ProfileSectionsApi.GetProfileNotesByVersionAsync(CurrentProfileVersionId, noteType.Id, cancellationToken);
+                var versionNotes = await versionNotesRequest;
                 var linkedIds = sectionNotes.Select(note => note.Id).ToHashSet();
                 availableNotes = [.. versionNotes.Where(note => !linkedIds.Contains(note.Id))];
             }

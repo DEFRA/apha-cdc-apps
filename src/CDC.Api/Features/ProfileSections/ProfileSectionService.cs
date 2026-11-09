@@ -237,28 +237,28 @@ public sealed class ProfileSectionService(
 
         var metadata = await repository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
 
-        var sections = new List<ProfileSectionRevisionDatesDto>();
-        foreach (var section in metadata.Sections.OrderBy(section => section.SectionNumber))
-        {
-            var revisionInfo = await repository.GetProfileVersionSectionRevisionInfoAsync(profileVersionId, section.Id, cancellationToken);
+        var orderedSections = metadata.Sections.OrderBy(section => section.SectionNumber).ToList();
+        var revisions = await ConcurrentReads.SelectAsync(
+            orderedSections,
+            (section, token) => repository.GetProfileVersionSectionRevisionInfoAsync(profileVersionId, section.Id, token),
+            cancellationToken);
 
-            sections.Add(new ProfileSectionRevisionDatesDto
-            {
-                ProfileSectionId = section.Id,
-                SectionName = section.Name,
-                SectionNumber = section.SectionNumber,
-                AuthorReviewFrequencyId = revisionInfo?.AuthorReviewFrequencyId,
-                VaReviewFrequencyId = revisionInfo?.VaReviewFrequencyId,
-                PolicyReviewFrequencyId = revisionInfo?.PolicyReviewFrequencyId,
-                NextAuthorReview = revisionInfo?.NextAuthorReview,
-                NextVaReview = revisionInfo?.NextVaReview,
-                NextPolicyReview = revisionInfo?.NextPolicyReview,
-                AuthorReviewStatusId = revisionInfo?.AuthorReviewStatusId,
-                VaReviewStatusId = revisionInfo?.VaReviewStatusId,
-                PolicyReviewStatusId = revisionInfo?.PolicyReviewStatusId,
-                LastUpdated = revisionInfo?.LastUpdated ?? []
-            });
-        }
+        var sections = orderedSections.Select((section, index) => new ProfileSectionRevisionDatesDto
+        {
+            ProfileSectionId = section.Id,
+            SectionName = section.Name,
+            SectionNumber = section.SectionNumber,
+            AuthorReviewFrequencyId = revisions[index]?.AuthorReviewFrequencyId,
+            VaReviewFrequencyId = revisions[index]?.VaReviewFrequencyId,
+            PolicyReviewFrequencyId = revisions[index]?.PolicyReviewFrequencyId,
+            NextAuthorReview = revisions[index]?.NextAuthorReview,
+            NextVaReview = revisions[index]?.NextVaReview,
+            NextPolicyReview = revisions[index]?.NextPolicyReview,
+            AuthorReviewStatusId = revisions[index]?.AuthorReviewStatusId,
+            VaReviewStatusId = revisions[index]?.VaReviewStatusId,
+            PolicyReviewStatusId = revisions[index]?.PolicyReviewStatusId,
+            LastUpdated = revisions[index]?.LastUpdated ?? []
+        }).ToList();
 
         var frequencies = await repository.GetReviewFrequenciesAsync(cancellationToken);
         var statuses = await repository.GetReviewStatusesAsync(cancellationToken);
@@ -417,16 +417,23 @@ public sealed class ProfileSectionService(
     private async Task<VersionAnswers> LoadVersionAnswersAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
+        var sectionAnswersTask = ConcurrentReads.SelectAsync(
+            questionnaire.Sections,
+            (section, token) => contentRepository.GetSectionAnswersAsync(profileVersionId, section.Id, token),
+            cancellationToken);
+        var contextTask = contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
+
+        await Task.WhenAll(sectionAnswersTask, contextTask);
+
+        var sectionAnswers = await sectionAnswersTask;
         var answers = new Dictionary<Guid, ReportSectionAnswers>();
 
-        foreach (var sectionId in questionnaire.Sections.Select(section => section.Id))
+        for (var index = 0; index < questionnaire.Sections.Count; index++)
         {
-            answers[sectionId] = await contentRepository.GetSectionAnswersAsync(profileVersionId, sectionId, cancellationToken);
+            answers[questionnaire.Sections[index].Id] = sectionAnswers[index];
         }
 
-        var context = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
-
-        return new VersionAnswers(questionnaire, answers, context);
+        return new VersionAnswers(questionnaire, answers, await contextTask);
     }
 
     /// <summary>Loads everything the legacy <c>Validate()</c> consulted.</summary>

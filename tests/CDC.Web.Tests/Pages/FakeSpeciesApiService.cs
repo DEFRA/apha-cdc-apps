@@ -20,7 +20,8 @@ internal sealed class FakeSpeciesApiService(
     UpdateSpeciesAnswerDataResult? updateAnswerDataResult = null,
     InactivateSpeciesResult? inactivateResult = null,
     DeleteSpeciesResult? deleteResult = null,
-    ChangeSpeciesPositionResult? changePositionResult = null)
+    ChangeSpeciesPositionResult? changePositionResult = null,
+    Func<CancellationToken, Task>? beforeGetAllSpecies = null)
     : ISpeciesApiService
 {
     private readonly IReadOnlyList<SpeciesDto> _species = species ?? [];
@@ -30,7 +31,14 @@ internal sealed class FakeSpeciesApiService(
     public Task<IReadOnlyList<SpeciesDto>> GetAllSpeciesAsync(CancellationToken cancellationToken = default) =>
         throwOnGetAllSpecies is not null
             ? Task.FromException<IReadOnlyList<SpeciesDto>>(throwOnGetAllSpecies)
-            : Task.FromResult(_species);
+            : beforeGetAllSpecies is null ? Task.FromResult(_species) : GetAllSpeciesAfterAsync(beforeGetAllSpecies, cancellationToken);
+
+    private async Task<IReadOnlyList<SpeciesDto>> GetAllSpeciesAfterAsync(Func<CancellationToken, Task> before, CancellationToken cancellationToken)
+    {
+        await before(cancellationToken);
+
+        return _species;
+    }
 
     public Task<SpeciesDetailDto?> GetSpeciesDetailAsync(Guid speciesId, CancellationToken cancellationToken = default) =>
         throwOnGetSpeciesDetail is not null

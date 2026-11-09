@@ -14,14 +14,16 @@ public class EditProfileReferencesModelTests
         ManageProfileViewModel? manageProfile,
         IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
         IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
-        Exception? throwOnGetProfileNoteTypes = null) =>
+        Exception? throwOnGetProfileNoteTypes = null,
+        Func<Guid, Task>? beforeGetProfileNotesBySection = null) =>
         Configure(new EditProfileReferencesModel(
             new FakeApiClient(manageProfile: manageProfile),
             new FakeProfileSectionsApiService(
                 metadata: TwoSectionMetadata(),
                 noteTypes: noteTypes,
                 notesByNoteType: notesByNoteType,
-                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes),
+                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes,
+                beforeGetProfileNotesBySection: beforeGetProfileNotesBySection),
             new AlwaysEnabledLogger<EditProfileReferencesModel>()));
 
     [Fact]
@@ -75,6 +77,72 @@ public class EditProfileReferencesModelTests
 
         Assert.Equal("Legislative references", pageModel.LegislativeReferences.Heading);
         Assert.Single(pageModel.LegislativeReferences.Notes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ReadsBothReferenceGroupsAtOnce()
+    {
+        var scientificPaperReferenceTypeId = Guid.NewGuid();
+        var legislativeReferenceTypeId = Guid.NewGuid();
+        var legislativeStarted = new TaskCompletionSource();
+        var noteTypes = new List<ProfileNoteTypeDto>
+        {
+            new() { Id = scientificPaperReferenceTypeId, Name = "Scientific paper reference", PluralName = "Scientific paper references" },
+            new() { Id = legislativeReferenceTypeId, Name = "Legislative reference", PluralName = "Legislative references" }
+        };
+        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
+        {
+            [scientificPaperReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }],
+            [legislativeReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Animal Health Act 1981" }]
+        };
+
+        // The scientific paper references cannot finish until the legislative ones have been asked for, so reading them one after the other would time out.
+        Task BeforeNotesAreRead(Guid noteTypeId)
+        {
+            if (noteTypeId == legislativeReferenceTypeId)
+            {
+                legislativeStarted.TrySetResult();
+
+                return Task.CompletedTask;
+            }
+
+            return legislativeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+
+        var pageModel = CreatePageModel(Profile(), noteTypes, notesByNoteType, beforeGetProfileNotesBySection: BeforeNotesAreRead);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Single(pageModel.ScientificPaperReferences.Notes);
+        Assert.Single(pageModel.LegislativeReferences.Notes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_KeepsTheScientificPaperReferences_WhenTheLegislativeReferencesCannotBeRead()
+    {
+        var scientificPaperReferenceTypeId = Guid.NewGuid();
+        var legislativeReferenceTypeId = Guid.NewGuid();
+        var noteTypes = new List<ProfileNoteTypeDto>
+        {
+            new() { Id = scientificPaperReferenceTypeId, Name = "Scientific paper reference", PluralName = "Scientific paper references" },
+            new() { Id = legislativeReferenceTypeId, Name = "Legislative reference", PluralName = "Legislative references" }
+        };
+        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
+        {
+            [scientificPaperReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }]
+        };
+
+        Task BeforeNotesAreRead(Guid noteTypeId) =>
+            noteTypeId == legislativeReferenceTypeId ? Task.FromException(new HttpRequestException("connection refused")) : Task.CompletedTask;
+
+        var pageModel = CreatePageModel(Profile(), noteTypes, notesByNoteType, beforeGetProfileNotesBySection: BeforeNotesAreRead);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(pageModel.HasError);
+        Assert.Single(pageModel.ScientificPaperReferences.Notes);
+        Assert.Empty(pageModel.LegislativeReferences.Notes);
     }
 
     [Fact]

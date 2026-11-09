@@ -75,7 +75,9 @@ public class EditProfileFurtherInformationModelTests
         IReadOnlyList<ProfileNoteDto>? masterList = null,
         IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
         ProfileNoteChangeResult? changeResult = null,
-        Failures? failures = null)
+        Failures? failures = null,
+        Func<Guid, Task>? beforeSectionNotes = null,
+        Func<Task>? beforeMasterList = null)
     {
         var log = new AlwaysEnabledLogger<EditProfileFurtherInformationModel>();
         var failing = failures ?? new Failures();
@@ -91,7 +93,9 @@ public class EditProfileFurtherInformationModelTests
             questionInfos: Questions(),
             throwOnGetProfileQuestionInfoList: failing.Questions,
             noteChangeResult: changeResult,
-            throwOnUpdateProfileNotes: failing.Change);
+            throwOnUpdateProfileNotes: failing.Change,
+            beforeGetProfileNotesBySection: beforeSectionNotes,
+            beforeGetProfileNotesByVersion: beforeMasterList);
 
         var pageModel = Configure(new EditProfileFurtherInformationModel(new FakeApiClient(manageProfile: manageProfile), api, log));
 
@@ -99,6 +103,32 @@ public class EditProfileFurtherInformationModelTests
     }
 
     private static ManageProfileViewModel ReadOnlyProfile() => DraftProfile() with { CanEditProfileSection = false };
+
+    [Fact]
+    public async Task OnGetAsync_ReadsTheSectionsNotesAndTheVersionsMasterListAtOnce()
+    {
+        var masterListAsked = new TaskCompletionSource();
+        var inSection = Linked("In section", QuestionId);
+
+        // The section's notes cannot finish until the master list has been asked for, so reading them one after the other would time out.
+        var (pageModel, _, _) = CreatePage(
+            DraftProfile(),
+            [inSection],
+            [inSection, Unlinked("Elsewhere")],
+            beforeSectionNotes: _ => masterListAsked.Task.WaitAsync(TimeSpan.FromSeconds(10)),
+            beforeMasterList: () =>
+            {
+                masterListAsked.TrySetResult();
+
+                return Task.CompletedTask;
+            });
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(["In section"], pageModel.Rows.Select(row => row.PlainText));
+        Assert.Single(pageModel.AvailableNoteChoices);
+    }
 
     [Fact]
     public void ActiveTab_IsFurtherInformation() =>
