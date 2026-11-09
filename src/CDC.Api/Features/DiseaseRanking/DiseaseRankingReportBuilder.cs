@@ -92,17 +92,17 @@ internal static class DiseaseRankingReportBuilder
             FooterTitle = isScored
                 ? $"RFI scoring report for {scope.FooterName}."
                 : $"Disease ranking report for {scope.FooterName}.",
-            FileName = BuildFileName(kind, scope.FooterName),
+            FileName = BuildFileName(scope.FooterName),
             TopTables = [.. Rfi.All.Select(rfi => BuildTopTable(items, rfi, isScored))],
             Charts = isScored ? BuildScoredCharts(items) : BuildRankedCharts(items)
         };
     }
 
-    private static string BuildFileName(DiseaseRankingReportKind kind, string name)
+    private static string BuildFileName(string name)
     {
         var safeName = string.Concat(name.Where(character => char.IsLetterOrDigit(character) || character is ' ' or '-'));
 
-        return $"DiseaseRankingReport_{kind}_{safeName.Trim()}";
+        return $"DiseaseRankingReport_{safeName.Trim()}";
     }
 
     private static DiseaseRankingTopTableDto BuildTopTable(IReadOnlyList<RankItem> items, Rfi rfi, bool isScored)

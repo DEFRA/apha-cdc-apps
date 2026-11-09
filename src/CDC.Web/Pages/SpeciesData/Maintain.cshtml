@@ -389,7 +389,7 @@ else
                 </div>
 
                 <span class="app-legacy-form__label">Old parent:</span>
-                <div class="govuk-input app-legacy-form__value" id="old-parent" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
+                <div class="govuk-input app-legacy-form__value" id="old-parent" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.ParentName ?? string.Empty)</div>
 
                 <label class="app-legacy-form__label" asp-for="Input.ParentId">New parent:</label>
                 <div class="app-legacy-form__field@(ViewData.ModelState["Input.ParentId"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
@@ -451,28 +451,33 @@ else
             <input type="hidden" asp-for="InactivateInput.SpeciesId" />
             <input type="hidden" asp-for="InactivateInput.LastUpdatedBase64" />
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old name</span>
-                <p class="govuk-body" id="inactivate-old-name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</p>
-            </div>
+            <div class="app-legacy-form">
+                <span class="app-legacy-form__label app-legacy-form__cell--bottom">Old name:</span>
+                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="inactivate-old-name" aria-label="Old name">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.Name)</div>
 
-            <div class="govuk-form-group">
-                <span class="govuk-label govuk-!-font-weight-bold">Old parent</span>
-                <p class="govuk-body" id="inactivate-old-parent">
-                    @ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)
-                </p>
-            </div>
+                <span class="app-legacy-form__label app-legacy-form__cell--bottom">New name:</span>
+                <div class="govuk-input app-legacy-form__value app-legacy-form__cell--bottom" id="inactivate-new-name" aria-label="New name">- to be inactivated -</div>
 
-            <div class="govuk-form-group@(ViewData.ModelState["InactivateInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
-                <label class="govuk-label" asp-for="InactivateInput.Reason">Reason for change</label>
-                <div class="govuk-hint">Explain why this species is being inactivated. Required.</div>
-                <span class="govuk-error-message" asp-validation-for="InactivateInput.Reason"></span>
-                <textarea class="govuk-textarea" asp-for="InactivateInput.Reason" rows="4" maxlength="255"></textarea>
-            </div>
+                <span class="app-legacy-form__label">Old parent:</span>
+                <div class="govuk-input app-legacy-form__value" id="inactivate-old-parent" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.ParentName ?? string.Empty)</div>
 
-            <div class="govuk-button-group">
-                <button type="submit" asp-page-handler="ConfirmInactivate" class="govuk-button" data-module="govuk-button">Inactivate</button>
-                <button type="submit" asp-page-handler="CancelInactivate" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                <label class="app-legacy-form__label" for="inactivate-new-parent">New parent:</label>
+                <div class="app-legacy-form__field">
+                    <select class="govuk-select" id="inactivate-new-parent" disabled>
+                        <option value="" selected>- root species -</option>
+                    </select>
+                </div>
+
+                <label class="app-legacy-form__label" asp-for="InactivateInput.Reason">Reason for change:</label>
+                <div class="app-legacy-form__field app-legacy-form__field--wide@(ViewData.ModelState["InactivateInput.Reason"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
+                    <span class="govuk-error-message" asp-validation-for="InactivateInput.Reason"></span>
+                    <textarea class="govuk-textarea" asp-for="InactivateInput.Reason" rows="1" maxlength="255"></textarea>
+                </div>
+
+                <div class="app-legacy-form__actions">
+                    <button type="submit" asp-page-handler="ConfirmInactivate" class="govuk-button" data-module="govuk-button">Inactivate</button>
+                    <button type="submit" asp-page-handler="CancelInactivate" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">Cancel</button>
+                </div>
             </div>
         </form>
     </div>
@@ -521,7 +526,7 @@ else
                 </div>
 
                 <span class="app-legacy-form__label">Old parent:</span>
-                <div class="govuk-input app-legacy-form__value" id="delete-old-parent" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(string.IsNullOrEmpty(Model.SpeciesDetail.ParentName) ? "- root species -" : Model.SpeciesDetail.ParentName)</div>
+                <div class="govuk-input app-legacy-form__value" id="delete-old-parent" aria-label="Old parent">@ProfileTitleHtmlFormatter.Format(Model.SpeciesDetail.ParentName ?? string.Empty)</div>
 
                 <label class="app-legacy-form__label" for="delete-new-parent">New parent:</label>
                 <div class="app-legacy-form__field">
