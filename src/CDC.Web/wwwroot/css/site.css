@@ -1429,6 +1429,11 @@ body {
   display: flex;
 }
 
+/* Status text under a right-aligned action, as the legacy maintenance screens showed it. */
+.app-text-align-right {
+  text-align: right;
+}
+
 /* Disease ranking report: a report dropdown with its actions beside it, wrapping on narrow screens. */
 .app-select-with-actions {
   display: flex;

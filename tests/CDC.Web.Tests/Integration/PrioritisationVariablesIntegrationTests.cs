@@ -73,15 +73,16 @@ public class PrioritisationVariablesIntegrationTests
     }
 
     [Fact]
-    public async Task Get_HidesCategoryActions_WhenNoCategoryIsSelected()
+    public async Task Get_DisablesCategoryActions_WhenNoCategoryIsSelected()
     {
         using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
         var client = await factory.SignedInClientAsync();
 
         var body = await client.GetStringAsync("/CrossProfileAdmin/PrioritisationVariables");
 
-        Assert.DoesNotContain("Print category variables", body);
-        Assert.DoesNotContain("Export score data", body);
+        Assert.Contains("disabled aria-disabled=\"true\">Print category variables</button>", body);
+        Assert.Contains("disabled aria-disabled=\"true\">Export score data</button>", body);
+        Assert.DoesNotContain("PrintPrioritisationVariables?categoryId=", body);
         Assert.Contains("Export normalised scores (all categories)", body);
     }
 

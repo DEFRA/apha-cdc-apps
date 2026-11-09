@@ -52,8 +52,6 @@ public class PrioritisationVariablesModelTests
         Assert.IsType<PageResult>(result);
         Assert.True(model.PublishedProfileScoresRecalculated);
         Assert.Equal("Your changes were successfully saved", model.UpdateResultMessage);
-        Assert.Contains("15", model.CategorisationSummary);
-        Assert.Contains("35", model.CategorisationSummary);
     }
 
     [Fact]

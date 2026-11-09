@@ -45,7 +45,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
         var rankingRange = await httpClient.GetFromJsonAsync<PrioritisationRankingRangeDto>(
             "/api/prioritisation-variables/ranking-range", cancellationToken);
 
-        return rankingRange ?? new PrioritisationRankingRangeDto();
+        return rankingRange ?? new PrioritisationRankingRangeDto { LowerBound = 0, UpperBound = 90 };
     }
 
     /// <inheritdoc />

@@ -4,7 +4,7 @@
 @using CDC.Web.Pages.CrossProfileAdmin
 @{
     var hasErrors = !ViewData.ModelState.IsValid;
-    ViewData["Title"] = (hasErrors ? "Error: " : string.Empty) + "Maintain prioritisation variables";
+    ViewData["Title"] = (hasErrors ? "Error: " : string.Empty) + "Maintain profile prioritisation variables";
 
     string? ErrorFor(string key) =>
         ViewData.ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0 ? entry.Errors[0].ErrorMessage : null;
@@ -60,178 +60,173 @@
     </div>
 }
 
-@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage) || !string.IsNullOrWhiteSpace(Model.UpdateResultMessage))
-{
-    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="prioritisation-success-title" data-module="govuk-notification-banner">
-        <div class="govuk-notification-banner__header">
-            <h2 class="govuk-notification-banner__title" id="prioritisation-success-title">Success</h2>
-        </div>
-        <div class="govuk-notification-banner__content">
-            <h3 class="govuk-notification-banner__heading">@(Model.SuccessMessage ?? Model.UpdateResultMessage)</h3>
-            @if (Model.PublishedProfileScoresRecalculated)
-            {
-                <p class="govuk-body">The prioritisation scores of all published profiles have been recalculated.</p>
-            }
-        </div>
-    </div>
-}
-
-<h1 class="govuk-heading-l">Maintain prioritisation variables</h1>
-
-<div class="govuk-warning-text">
-    <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
-    <strong class="govuk-warning-text__text">
-        <span class="govuk-visually-hidden">Warning</span>
-        Updating these variables automatically recalculates the prioritisation scores of all published profiles.
-    </strong>
-</div>
+<h1 class="govuk-heading-l">Maintain profile prioritisation variables</h1>
 
 <p class="govuk-body">
-    Use this function to maintain the weightings and scores associated with prioritisation criteria.
-    Do not use this function to develop "what if" scenarios. A separate spreadsheet, outside this
-    application, has been developed for that purpose.
+    Use this function to maintain the weightings and scores associated with prioritisation
+    criteria. Please note, if you make and confirm changes to this information, this
+    will trigger an automatic re-calculation of all prioritisation scores of published
+    profiles. Do not use this function for the purpose of developing ‘what-if’ scenarios;
+    a separate spreadsheet exists, outside of this application, which has been developed
+    for this purpose.
 </p>
 
-<div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
-        <h2 class="govuk-heading-m">Draft prioritisation</h2>
-        <form method="post" asp-page-handler="RunDraftPrioritisation" novalidate>
-            <input type="hidden" asp-for="SelectedCategoryId" id="draft-selected-category-id" />
-            <input type="hidden" asp-for="SelectedCriterionId" id="draft-selected-criterion-id" />
-            <div class="govuk-form-group @(draftError is null ? string.Empty : "govuk-form-group--error")">
-                <p class="govuk-body" id="run-draft-prioritisation-hint">Calculate prioritisation scores for draft profiles.</p>
-                @if (draftError is not null)
-                {
-                    <p class="govuk-error-message" id="run-draft-prioritisation-error">
-                        <span class="govuk-visually-hidden">Error:</span> @draftError
-                    </p>
-                }
-                <button type="submit" id="run-draft-prioritisation" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button" data-prevent-double-click="true"
-                        aria-describedby="run-draft-prioritisation-hint@(draftError is null ? string.Empty : " run-draft-prioritisation-error")">
-                    Go<span class="govuk-visually-hidden"> - calculate prioritisation scores for draft profiles</span>
-                </button>
-            </div>
-        </form>
-
-        <form method="post" id="prioritisation-variables-form" novalidate>
-            <input type="hidden" asp-for="RowVersion" />
-
-            <div class="govuk-form-group govuk-!-margin-top-7 @(lowerBoundError is null && upperBoundError is null ? string.Empty : "govuk-form-group--error")">
-                <fieldset class="govuk-fieldset" aria-describedby="ranking-range-hint">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
-                        <h2 class="govuk-fieldset__heading">Edit ranking range</h2>
-                    </legend>
-                    <div class="govuk-hint" id="ranking-range-hint">@Model.CategorisationSummary</div>
-
-                    <div class="govuk-form-group">
-                        <label class="govuk-label" for="lower-bound">Lower bound</label>
-                        @if (lowerBoundError is not null)
-                        {
-                            <p class="govuk-error-message" id="lower-bound-error"><span class="govuk-visually-hidden">Error:</span> @lowerBoundError</p>
-                        }
-                        <input asp-for="LowerBound" type="text" class="govuk-input govuk-input--width-3 @(lowerBoundError is null ? string.Empty : "govuk-input--error")" id="lower-bound" inputmode="numeric" spellcheck="false"
-                               aria-describedby="@(lowerBoundError is null ? null : "lower-bound-error")" />
-                    </div>
-
-                    <div class="govuk-form-group govuk-!-margin-bottom-0">
-                        <label class="govuk-label" for="upper-bound">Upper bound</label>
-                        @if (upperBoundError is not null)
-                        {
-                            <p class="govuk-error-message" id="upper-bound-error"><span class="govuk-visually-hidden">Error:</span> @upperBoundError</p>
-                        }
-                        <input asp-for="UpperBound" type="text" class="govuk-input govuk-input--width-3 @(upperBoundError is null ? string.Empty : "govuk-input--error")" id="upper-bound" inputmode="numeric" spellcheck="false"
-                               aria-describedby="@(upperBoundError is null ? null : "upper-bound-error")" />
-                    </div>
-                </fieldset>
-            </div>
-
-            @if (Model.SelectedCategoryId is not null)
-            {
-                <input type="hidden" asp-for="SelectedCategoryId" id="update-selected-category-id" />
-            }
-            @if (Model.SelectedCriterion is not null)
-            {
-                <input type="hidden" asp-for="SelectedCriterionId" id="update-selected-criterion-id" />
-            }
-        </form>
-
-        <h2 class="govuk-heading-m govuk-!-margin-top-7">Prioritisation category</h2>
-
-        @if (!string.IsNullOrWhiteSpace(Model.CategoriesErrorMessage))
+<h2 class="govuk-heading-m">Draft prioritisation</h2>
+<form method="post" asp-page-handler="RunDraftPrioritisation" novalidate>
+    <input type="hidden" asp-for="SelectedCategoryId" id="draft-selected-category-id" />
+    <input type="hidden" asp-for="SelectedCriterionId" id="draft-selected-criterion-id" />
+    <div class="govuk-form-group @(draftError is null ? string.Empty : "govuk-form-group--error")">
+        @if (draftError is not null)
         {
-            <p class="govuk-body">@Model.CategoriesErrorMessage</p>
+            <p class="govuk-error-message" id="run-draft-prioritisation-error">
+                <span class="govuk-visually-hidden">Error:</span> @draftError
+            </p>
         }
+        <div class="app-label-select-inline">
+            <span class="govuk-label" id="run-draft-prioritisation-hint">Calculate prioritisation scores for draft profiles</span>
+            <button type="submit" id="run-draft-prioritisation" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button" data-prevent-double-click="true"
+                    aria-describedby="run-draft-prioritisation-hint@(draftError is null ? string.Empty : " run-draft-prioritisation-error")">Go</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+        {
+            <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0" role="status">@Model.SuccessMessage</p>
+        }
+    </div>
+</form>
 
-        <form method="get" novalidate>
-            <div class="govuk-form-group">
-                <label class="govuk-label" for="prioritisation-category">Select a prioritisation category</label>
-                <select class="govuk-select" id="prioritisation-category" asp-for="SelectedCategoryId" asp-items="@(new SelectListItem[] { new("Select a category", "") }.Concat(Model.Categories.Select(category => new SelectListItem(category.Name, category.Id.ToString()))))"></select>
-            </div>
-            <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Show category variables</button>
-        </form>
+<div class="govuk-button-group app-button-group--right govuk-!-margin-bottom-0">
+    <button type="button" id="update-prioritisation-variables" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-confirm-target="#confirm-update-dialog">Update</button>
+</div>
+@if (!string.IsNullOrWhiteSpace(Model.UpdateResultMessage))
+{
+    <p class="govuk-body app-text-align-right" role="status">@Model.UpdateResultMessage</p>
+}
 
-        <div class="govuk-button-group">
-            @if (Model.SelectedCategoryId is { } exportCategoryId)
+<form method="post" id="prioritisation-variables-form" novalidate>
+    <input type="hidden" asp-for="RowVersion" />
+
+    <div class="govuk-form-group @(lowerBoundError is null && upperBoundError is null ? string.Empty : "govuk-form-group--error")">
+        <fieldset class="govuk-fieldset">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+                <h2 class="govuk-fieldset__heading">Edit ranking range</h2>
+            </legend>
+            @if (lowerBoundError is not null)
             {
-                <a asp-page="PrintPrioritisationVariables" asp-route-categoryId="@exportCategoryId" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button" target="_blank" rel="noopener noreferrer">
-                    Print category variables<span class="govuk-visually-hidden"> (opens in new tab)</span>
-                </a>
-                <a asp-page-handler="ExportScoreData" asp-route-SelectedCategoryId="@exportCategoryId" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button" id="export-score-data">
-                    Export score data<span class="govuk-visually-hidden"> as CSV</span>
-                </a>
+                <p class="govuk-error-message" id="lower-bound-error"><span class="govuk-visually-hidden">Error:</span> @lowerBoundError</p>
             }
-            <a asp-page-handler="ExportNormalisedScores" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button" id="export-normalised-scores">
-                Export normalised scores (all categories)<span class="govuk-visually-hidden"> as CSV</span>
+            @if (upperBoundError is not null)
+            {
+                <p class="govuk-error-message" id="upper-bound-error"><span class="govuk-visually-hidden">Error:</span> @upperBoundError</p>
+            }
+            <div class="app-select-with-actions">
+                <div class="app-label-select-inline">
+                    <label class="govuk-label" for="lower-bound">Lower bound</label>
+                    <input asp-for="LowerBound" type="text" maxlength="3" class="govuk-input govuk-input--width-3 @(lowerBoundError is null ? string.Empty : "govuk-input--error")" id="lower-bound" inputmode="numeric" spellcheck="false"
+                           aria-describedby="@(lowerBoundError is null ? null : "lower-bound-error")" />
+                </div>
+                <div class="app-label-select-inline">
+                    <label class="govuk-label" for="upper-bound">Upper bound</label>
+                    <input asp-for="UpperBound" type="text" maxlength="3" class="govuk-input govuk-input--width-3 @(upperBoundError is null ? string.Empty : "govuk-input--error")" id="upper-bound" inputmode="numeric" spellcheck="false"
+                           aria-describedby="@(upperBoundError is null ? null : "upper-bound-error")" />
+                </div>
+            </div>
+        </fieldset>
+    </div>
+
+    @if (Model.SelectedCategoryId is not null)
+    {
+        <input type="hidden" asp-for="SelectedCategoryId" id="update-selected-category-id" />
+    }
+    @if (Model.SelectedCriterion is not null)
+    {
+        <input type="hidden" asp-for="SelectedCriterionId" id="update-selected-criterion-id" />
+    }
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.CategoriesErrorMessage))
+{
+    <p class="govuk-body">@Model.CategoriesErrorMessage</p>
+}
+
+@* Loads the category as soon as it is chosen, as the legacy AutoPostBack dropdown did; the button is only a no-JavaScript fallback. *@
+<form method="get" novalidate class="govuk-!-margin-top-6" data-submit-on-change>
+    <div class="govuk-form-group app-select-with-actions">
+        <div class="app-label-select-inline">
+            <label class="govuk-label" for="prioritisation-category">Prioritisation category</label>
+            <select class="govuk-select" id="prioritisation-category" asp-for="SelectedCategoryId" asp-items="@(new SelectListItem[] { new("Please select...", "") }.Concat(Model.Categories.Select(category => new SelectListItem(category.Name, category.Id.ToString()))))"></select>
+        </div>
+        <noscript>
+            <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Select</button>
+        </noscript>
+        @if (Model.SelectedCategoryId is { } exportCategoryId)
+        {
+            <a asp-page="PrintPrioritisationVariables" asp-route-categoryId="@exportCategoryId" role="button" draggable="false" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" target="_blank" rel="noopener noreferrer">
+                Print category variables<span class="govuk-visually-hidden"> (opens in new tab)</span>
             </a>
+            <a asp-page-handler="ExportScoreData" asp-route-SelectedCategoryId="@exportCategoryId" role="button" draggable="false" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" id="export-score-data">Export score data</a>
+        }
+        else
+        {
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" disabled aria-disabled="true">Print category variables</button>
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" disabled aria-disabled="true">Export score data</button>
+        }
+        <a asp-page-handler="ExportNormalisedScores" role="button" draggable="false" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" id="export-normalised-scores">Export normalised scores (all categories)</a>
+    </div>
+</form>
+
+@if (Model.SelectedCategoryId is not null)
+{
+    @if (Model.SelectedCategoryCriteria.Count == 0)
+    {
+        <p class="govuk-body">No criteria are recorded against this category.</p>
+    }
+    else
+    {
+        <table class="govuk-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Criteria for the selected prioritisation category</caption>
+            <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Criterion</span></th>
+                    <th scope="col" class="govuk-table__header">Weighting</th>
+                </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+                @foreach (var criterion in Model.SelectedCategoryCriteria)
+                {
+                    <tr class="govuk-table__row">
+                        <td class="govuk-table__cell">
+                            <a class="govuk-link" href="?SelectedCategoryId=@Model.SelectedCategoryId&SelectedCriterionId=@criterion.Id">@criterion.Code - @criterion.Name</a>
+                        </td>
+                        <td class="govuk-table__cell">@criterion.Weight</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (Model.SelectedCriterion is { } selectedCriterion)
+    {
+        <h2 class="govuk-heading-m govuk-!-margin-top-7">@selectedCriterion.Code</h2>
+        <div class="govuk-form-group app-label-select-inline">
+            <span class="govuk-label">Criterion name</span>
+            <span class="govuk-body govuk-!-margin-bottom-0">@selectedCriterion.Name</span>
+        </div>
+        <div class="govuk-form-group @(criterionWeightError is null ? string.Empty : "govuk-form-group--error")">
+            @if (criterionWeightError is not null)
+            {
+                <p class="govuk-error-message" id="criterion-weight-error"><span class="govuk-visually-hidden">Error:</span> @criterionWeightError</p>
+            }
+            <div class="app-label-select-inline">
+                <label class="govuk-label" for="criterion-weight">Weighting</label>
+                <input asp-for="CriterionWeight" form="prioritisation-variables-form" type="text" maxlength="3" class="govuk-input govuk-input--width-3 @(criterionWeightError is null ? string.Empty : "govuk-input--error")" id="criterion-weight" inputmode="numeric" spellcheck="false"
+                       aria-describedby="@(criterionWeightError is null ? null : "criterion-weight-error")" />
+            </div>
         </div>
 
-        @if (Model.SelectedCategoryId is not null)
+        @if (selectedCriterion.Values.Count > 0)
         {
-            @if (Model.SelectedCategoryCriteria.Count == 0)
-            {
-                <p class="govuk-body">No criteria are recorded against this category.</p>
-            }
-            else
-            {
-                <table class="govuk-table">
-                    <caption class="govuk-table__caption govuk-table__caption--m">Criteria</caption>
-                    <thead class="govuk-table__head">
-                        <tr class="govuk-table__row">
-                            <th scope="col" class="govuk-table__header">Criterion</th>
-                            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Weighting</th>
-                        </tr>
-                    </thead>
-                    <tbody class="govuk-table__body">
-                        @foreach (var criterion in Model.SelectedCategoryCriteria)
-                        {
-                            <tr class="govuk-table__row">
-                                <td class="govuk-table__cell">
-                                    <a class="govuk-link" href="?SelectedCategoryId=@Model.SelectedCategoryId&SelectedCriterionId=@criterion.Id">@criterion.Code - @criterion.Name</a>
-                                </td>
-                                <td class="govuk-table__cell govuk-table__cell--numeric">@criterion.Weight</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-
-            @if (Model.SelectedCriterion is { } selectedCriterion)
-            {
-                <h2 class="govuk-heading-m govuk-!-margin-top-7">@selectedCriterion.Code - @selectedCriterion.Name</h2>
-                <div class="govuk-form-group @(criterionWeightError is null ? string.Empty : "govuk-form-group--error")">
-                    <label class="govuk-label" for="criterion-weight">Weighting</label>
-                    @if (criterionWeightError is not null)
-                    {
-                        <p class="govuk-error-message" id="criterion-weight-error"><span class="govuk-visually-hidden">Error:</span> @criterionWeightError</p>
-                    }
-                    <input asp-for="CriterionWeight" form="prioritisation-variables-form" type="text" class="govuk-input govuk-input--width-3 @(criterionWeightError is null ? string.Empty : "govuk-input--error")" id="criterion-weight" inputmode="numeric" spellcheck="false"
-                           aria-describedby="@(criterionWeightError is null ? null : "criterion-weight-error")" />
-                </div>
-
-                @if (selectedCriterion.Values.Count > 0)
-                {
                     <table class="govuk-table">
-                        <caption class="govuk-table__caption govuk-table__caption--s">Scores for each value</caption>
+                        <caption class="govuk-table__caption govuk-visually-hidden">Scores for @selectedCriterion.Code</caption>
                         <thead class="govuk-table__head">
                             <tr class="govuk-table__row">
                                 <th scope="col" class="govuk-table__header">Value</th>
@@ -263,13 +258,9 @@
                             }
                         </tbody>
                     </table>
-                }
-            }
         }
-
-        <button type="button" id="update-prioritisation-variables" class="govuk-button govuk-!-margin-top-4" data-module="govuk-button" data-confirm-target="#confirm-update-dialog">Update</button>
-    </div>
-</div>
+    }
+}
 
 <dialog class="app-modal" id="confirm-update-dialog" aria-labelledby="confirm-update-dialog-title" aria-describedby="confirm-update-dialog-message">
     <h2 class="govuk-heading-m" id="confirm-update-dialog-title">Confirm</h2>
@@ -279,3 +270,11 @@
         <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" data-confirm-close>Cancel</button>
     </div>
 </dialog>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('form[data-submit-on-change] select').forEach(function (select) {
+            select.addEventListener('change', function () { select.form.submit(); });
+        });
+    </script>
+}

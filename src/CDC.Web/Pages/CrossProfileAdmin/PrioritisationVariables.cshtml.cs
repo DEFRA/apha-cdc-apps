@@ -44,7 +44,7 @@ public class PrioritisationVariablesModel(
     [BindProperty]
     [Required(ErrorMessage = "Upper bound cannot be blank")]
     [Range(1, 999, ErrorMessage = "Upper bound must be a positive integer")]
-    public int UpperBound { get; set; } = 100;
+    public int UpperBound { get; set; } = 90;
 
     /// <summary>The ranking range's concurrency token, round-tripped via a hidden field so a
     /// stale save can be detected - mirrors the legacy page's <c>@LastUpdated</c> check.</summary>
@@ -74,8 +74,6 @@ public class PrioritisationVariablesModel(
 
     public bool PublishedProfileScoresRecalculated { get; private set; }
 
-    public string CategorisationSummary { get; private set; } = string.Empty;
-
     /// <summary>Every prioritisation category, for the dropdown.</summary>
     public IReadOnlyList<PrioritisationCategoryDto> Categories { get; private set; } = [];
 
@@ -91,7 +89,6 @@ public class PrioritisationVariablesModel(
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         await LoadRankingRangeAsync(cancellationToken);
-        CategorisationSummary = BuildCategorisationSummary();
         await LoadPrioritisationDataAsync(cancellationToken);
 
         if (SelectedCriterion is not null)
@@ -119,11 +116,10 @@ public class PrioritisationVariablesModel(
         {
             logger.DraftPrioritisationFailed(exception);
             SuccessMessage = null;
-            ModelState.AddModelError(DraftPrioritisationErrorKey, "Prioritisation of draft profiles failed. Try again later.");
+            ModelState.AddModelError(DraftPrioritisationErrorKey, "Prioritisation of draft profiles failed - try again later");
         }
 
         await LoadRankingRangeAsync(cancellationToken);
-        CategorisationSummary = BuildCategorisationSummary();
         await LoadPrioritisationDataAsync(cancellationToken);
         return Page();
     }
@@ -143,7 +139,6 @@ public class PrioritisationVariablesModel(
         {
             UpdateResultMessage = null;
             PublishedProfileScoresRecalculated = false;
-            CategorisationSummary = BuildCategorisationSummary();
             await LoadPrioritisationDataAsync(cancellationToken);
             return Page();
         }
@@ -184,7 +179,6 @@ public class PrioritisationVariablesModel(
             ModelState.AddModelError(string.Empty, "We could not save your changes. Try again later.");
         }
 
-        CategorisationSummary = BuildCategorisationSummary();
         await LoadPrioritisationDataAsync(cancellationToken);
         return Page();
     }
@@ -250,6 +244,9 @@ public class PrioritisationVariablesModel(
             ModelState.AddModelError(
                 nameof(LowerBound),
                 "Lower bound must be a positive integer that is lower than upper bound");
+            ModelState.AddModelError(
+                nameof(UpperBound),
+                "Upper bound must be a positive integer that is greater than lower bound");
         }
 
         if (SelectedCriterionId is null)
@@ -312,9 +309,6 @@ public class PrioritisationVariablesModel(
             ? SelectedCategoryCriteria.FirstOrDefault(criterion => criterion.Id == criterionId)
             : null;
     }
-
-    private string BuildCategorisationSummary() =>
-        $"Current categorisation range is {LowerBound} to {UpperBound}. Profiles within this band are grouped together for prioritisation reporting.";
 }
 
 /// <summary>Source-generated structured log messages for this page.</summary>
