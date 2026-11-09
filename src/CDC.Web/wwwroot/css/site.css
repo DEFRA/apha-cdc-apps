@@ -703,23 +703,37 @@ body {
 .app-tree__column {
   flex: 1 1 320px;
   min-width: 0;
-  max-width: 70%;
+  max-width: 65%;
 }
 
 .app-species-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  flex: 0 0 auto;
+  align-items: center;
+  gap: 20px;
+  flex: 0 0 20%;
+  min-width: 200px;
+  margin-left: auto;
 }
 
+/* Reorder mode has just the two arrows, centred beside the tree. */
+.app-species-actions[data-app-reorder-controls] {
+  align-self: center;
+  gap: 10px;
+}
+
+/* Fixed width, as in legacy. */
 .app-species-actions .govuk-button {
+  width: 200px;
+  max-width: 100%;
   margin-bottom: 0;
   white-space: nowrap;
 }
 
 /* Reorder mode's Move up/down arrows: compact square buttons, as in the legacy page. */
 .app-species-actions .app-reorder-arrow {
+  width: auto;
+  align-self: center;
   min-width: 56px;
   font-size: 1.5rem;
   line-height: 1;
@@ -1521,6 +1535,10 @@ body {
   align-items: start;
 }
 
+.app-legacy-form > * {
+  min-width: 0;
+}
+
 .app-legacy-form__label {
   padding-top: 7px;
   font-weight: bold;
@@ -1664,6 +1682,7 @@ body {
 .app-legacy-form__actions {
   grid-column: 2;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
 }
