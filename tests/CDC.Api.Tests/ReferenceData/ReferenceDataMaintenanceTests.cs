@@ -23,17 +23,26 @@ public sealed class ReferenceDataMaintenanceTests
 
     private static readonly MaintainableReferenceValueDto InUse = new()
     {
-        Id = Guid.Parse("533262C1-454C-45E3-876B-2B47841AB5C2"), LookupValue = "Import controls", IsInUse = true, IsActive = true
+        Id = Guid.Parse("533262C1-454C-45E3-876B-2B47841AB5C2"),
+        LookupValue = "Import controls",
+        IsInUse = true,
+        IsActive = true
     };
 
     private static readonly MaintainableReferenceValueDto NotInUse = new()
     {
-        Id = Guid.Parse("39D5AE2D-29C9-4958-8A83-BA9646B6B136"), LookupValue = "Zoning", IsInUse = false, IsActive = true
+        Id = Guid.Parse("39D5AE2D-29C9-4958-8A83-BA9646B6B136"),
+        LookupValue = "Zoning",
+        IsInUse = false,
+        IsActive = true
     };
 
     private static readonly MaintainableReferenceValueDto Inactive = new()
     {
-        Id = Guid.Parse("F3E04DBB-AEFE-4157-8F69-8BEFD5A8BE97"), LookupValue = "Old", IsInUse = false, IsActive = false
+        Id = Guid.Parse("F3E04DBB-AEFE-4157-8F69-8BEFD5A8BE97"),
+        LookupValue = "Old",
+        IsInUse = false,
+        IsActive = false
     };
 
     private readonly Mock<IReferenceDataMaintenanceRepository> repository = new();
