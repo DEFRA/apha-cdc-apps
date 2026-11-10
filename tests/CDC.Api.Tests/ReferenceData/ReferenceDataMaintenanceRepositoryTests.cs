@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using CDC.Api.Domain.Exceptions;
 using CDC.Api.Infrastructure;
 using CDC.Api.Infrastructure.Repositories;
@@ -229,6 +230,7 @@ public sealed class ReferenceDataMaintenanceRepositoryTests : IDisposable
 
     private sealed class NonDbConnection : IDbConnection
     {
+        [AllowNull]
         public string ConnectionString { get; set; } = string.Empty;
 
         public int ConnectionTimeout => 0;
