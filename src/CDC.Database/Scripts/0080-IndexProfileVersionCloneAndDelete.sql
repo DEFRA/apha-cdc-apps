@@ -22,58 +22,54 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
+DECLARE @FieldValueTableId int = OBJECT_ID(N'[dbo].[ProfileVersionFieldValue]')
+DECLARE @NoteTableId int = OBJECT_ID(N'[dbo].[ProfileVersionNote]')
+DECLARE @ReviewCommentTableId int = OBJECT_ID(N'[dbo].[ReviewComment]')
+
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ProfileVersionFieldValue_ProfileVersionQuestionRowId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ProfileVersionFieldValue]'))
+		AND [object_id] = @FieldValueTableId)
 BEGIN
 	CREATE NONCLUSTERED INDEX [IX_ProfileVersionFieldValue_ProfileVersionQuestionRowId]
 		ON [dbo].[ProfileVersionFieldValue] ([ProfileVersionQuestionRowId])
 END
 
-GO
-
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ProfileVersionFieldValue_ProfileVersionId_SpeciesId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ProfileVersionFieldValue]'))
+		AND [object_id] = @FieldValueTableId)
 BEGIN
 	CREATE NONCLUSTERED INDEX [IX_ProfileVersionFieldValue_ProfileVersionId_SpeciesId]
 		ON [dbo].[ProfileVersionFieldValue] ([ProfileVersionId], [SpeciesId])
 END
-
-GO
 
 -- Superseded by the index above (same leading column); no procedure names it in a hint.
 IF EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ProfileVersionFieldValue_ProfileVersionId_SpeciesId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ProfileVersionFieldValue]'))
+		AND [object_id] = @FieldValueTableId)
 	AND EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ProfileVersionFieldValue_ProfileVersionId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ProfileVersionFieldValue]'))
+		AND [object_id] = @FieldValueTableId)
 BEGIN
 	DROP INDEX [IX_ProfileVersionFieldValue_ProfileVersionId] ON [dbo].[ProfileVersionFieldValue]
 END
-
-GO
 
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ProfileVersionNote_ProfileVersionId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ProfileVersionNote]'))
+		AND [object_id] = @NoteTableId)
 BEGIN
 	CREATE NONCLUSTERED INDEX [IX_ProfileVersionNote_ProfileVersionId]
 		ON [dbo].[ProfileVersionNote] ([ProfileVersionId])
 END
-
-GO
 
 -- ([ProfileVersionId], [ProfileSectionId]) are the columns of the foreign key to [ProfileVersionSection], which SQL Server
 -- checks every time a section row is deleted; it also serves every lookup of a version's comments.
@@ -81,19 +77,17 @@ IF NOT EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ReviewComment_ProfileVersionId_ProfileSectionId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ReviewComment]'))
+		AND [object_id] = @ReviewCommentTableId)
 BEGIN
 	CREATE NONCLUSTERED INDEX [IX_ReviewComment_ProfileVersionId_ProfileSectionId]
 		ON [dbo].[ReviewComment] ([ProfileVersionId], [ProfileSectionId])
 END
 
-GO
-
 IF NOT EXISTS (
 	SELECT 1
 	FROM sys.indexes
 	WHERE [name] = N'IX_ReviewComment_ParentId'
-		AND [object_id] = OBJECT_ID(N'[dbo].[ReviewComment]'))
+		AND [object_id] = @ReviewCommentTableId)
 BEGIN
 	CREATE NONCLUSTERED INDEX [IX_ReviewComment_ParentId]
 		ON [dbo].[ReviewComment] ([ParentId])

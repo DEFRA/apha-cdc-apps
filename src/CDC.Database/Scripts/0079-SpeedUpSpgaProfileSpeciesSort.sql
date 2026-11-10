@@ -3,7 +3,9 @@
 -- 4.8 seconds the procedure needs, and every Search, Compare versions and disease-ranking load called it. The species are
 -- now ranked by that same key once (about 130 rows) and the rows are sorted by the rank, so the columns, the rows and the
 -- order returned are unchanged. Every other statement is as it was in 0050-UpdateSearchProfileStoredProcedure.sql of the
--- legacy database.
+-- legacy database, except that the 'Draft' and 'Complete' literals are held in two variables and the two dynamic
+-- statements are written without line breaks inside their string literals (code-analysis rules); neither changes what
+-- is returned.
 SET ANSI_NULLS ON
 GO
 
@@ -23,6 +25,8 @@ BEGIN
 
 	DECLARE @DateNow smalldatetime
 	DECLARE @SearchSql NVARCHAR(MAX);
+	DECLARE @DraftState varchar(50) = 'Draft'
+	DECLARE @CompleteStatus varchar(50) = 'Complete'
 
 	SET @DateNow = DATEADD(mi, 1, GETDATE()) 
 
@@ -110,8 +114,8 @@ SELECT
 		[luReviewStatus] tS ON tS.[Id] = [ProfileVersionSection].[TechnicalReviewStatusId]		
 	WHERE
 		[ProfileVersion].[EffectiveDateTo] IS NULL AND
-		[luProfileVersionState].[Name] = 'Draft' AND	
-		((tS.Name <> 'Complete')
+		[luProfileVersionState].[Name] = @DraftState AND	
+		((tS.Name <> @CompleteStatus)
 		OR (tS.Name IS NULL))	
 	GROUP BY
 		[ProfileVersionId], 
@@ -136,8 +140,8 @@ SELECT
 		[luReviewStatus] policyStatus ON policyStatus.[Id] = [ProfileVersionSection].[PolicyReviewStatusId]						
 	WHERE
 		[ProfileVersion].[EffectiveDateTo] IS NULL AND
-		[luProfileVersionState].[Name] = 'Draft' AND
-		((policyStatus.Name <> 'Complete') OR
+		[luProfileVersionState].[Name] = @DraftState AND
+		((policyStatus.Name <> @CompleteStatus) OR
 		(policyStatus.Name IS NULL))
 	GROUP BY
 		[ProfileVersionId], 
@@ -160,9 +164,9 @@ SELECT
 		[luReviewStatus] techStatus ON techStatus.[Id] = [ProfileVersionSection].[TechnicalReviewStatusId]		
 	WHERE
 		[ProfileVersion].[EffectiveDateTo] IS NULL AND
-		[luProfileVersionState].[Name] = 'Draft' AND
+		[luProfileVersionState].[Name] = @DraftState AND
 		((
-		techStatus.Name <> 'Complete'		
+		techStatus.Name <> @CompleteStatus		
 		)
 		OR
 		(
@@ -187,9 +191,9 @@ SELECT
 		[luReviewStatus] policyStatus ON policyStatus.[Id] = [ProfileVersionSection].[PolicyReviewStatusId]		
 	WHERE
 		[ProfileVersion].[EffectiveDateTo] IS NULL AND
-		[luProfileVersionState].[Name] = 'Draft' AND
+		[luProfileVersionState].[Name] = @DraftState AND
 		((
-		policyStatus.Name <> 'Complete'		
+		policyStatus.Name <> @CompleteStatus		
 		)
 		OR
 		(
@@ -202,37 +206,25 @@ SELECT
 		)		
 	
 	IF @ReturnQuestionAnswers = 1 BEGIN	
-		SET @SearchSql = 
-			'
-			SELECT
-				pvfv.Id AS AnswerId,
-				pv.Id AS ProfileVersionId,
-				pv.ProfileId AS ScenarioId,
-				ISNULL(p.ParentId, p.Id) AS ProfileId,
-				ps.SectionNumber,
-				pq.QuestionNumber,
-				pvfv.TextValue,
-				pq.ShortName,
-				pq.UserGuidance
-			FROM 
-				ProfileVersion pv
-				INNER JOIN luProfileVersionState pvs WITH (NOLOCK) ON pv.ProfileVersionStateId = pvs.Id
-				INNER JOIN [Profile] p WITH (NOLOCK) ON pv.ProfileId = p.Id
-				INNER JOIN ProfileVersionFieldValue pvfv WITH (NOLOCK) ON pvfv.ProfileVersionId = pv.Id
-				INNER JOIN ProfileField pf WITH (NOLOCK) ON pf.Id = pvfv.ProfileFieldId
-				INNER JOIN ProfileQuestion pq WITH (NOLOCK) ON pq.Id = pf.ProfileQuestionId
-				INNER JOIN ProfileSection ps WITH (NOLOCK) ON ps.Id = pq.ProfileSectionId
-				INNER JOIN luDataFieldType df WITH (NOLOCK) ON df.Id = pf.DataFieldTypeId
-			WHERE
-				pv.EffectiveDateTo IS NULL AND
-				(df.[Name] = ''Text'' OR df.[Name] = ''Long Text'') ';
+		SET @SearchSql =
+			'SELECT pvfv.Id AS AnswerId, pv.Id AS ProfileVersionId, pv.ProfileId AS ScenarioId, ISNULL(p.ParentId, p.Id) AS ProfileId, ' +
+			'ps.SectionNumber, pq.QuestionNumber, pvfv.TextValue, pq.ShortName, pq.UserGuidance ' +
+			'FROM ProfileVersion pv ' +
+			'INNER JOIN luProfileVersionState pvs WITH (NOLOCK) ON pv.ProfileVersionStateId = pvs.Id ' +
+			'INNER JOIN [Profile] p WITH (NOLOCK) ON pv.ProfileId = p.Id ' +
+			'INNER JOIN ProfileVersionFieldValue pvfv WITH (NOLOCK) ON pvfv.ProfileVersionId = pv.Id ' +
+			'INNER JOIN ProfileField pf WITH (NOLOCK) ON pf.Id = pvfv.ProfileFieldId ' +
+			'INNER JOIN ProfileQuestion pq WITH (NOLOCK) ON pq.Id = pf.ProfileQuestionId ' +
+			'INNER JOIN ProfileSection ps WITH (NOLOCK) ON ps.Id = pq.ProfileSectionId ' +
+			'INNER JOIN luDataFieldType df WITH (NOLOCK) ON df.Id = pf.DataFieldTypeId ' +
+			'WHERE pv.EffectiveDateTo IS NULL AND ' +
+			'(df.[Name] = ''Text'' OR df.[Name] = ''Long Text'') ';
 
 		IF @PerformSqlSearch = 1 BEGIN
 			DECLARE @Phrases TABLE(Word NVARCHAR(255))
 			INSERT INTO @Phrases SELECT * FROM dbo.fn_splitWords(@Words)
 
-			SET @SearchSql = @SearchSql + 'AND (' + STUFF((SELECT ' OR pvfv.TextValue LIKE ''%' + Word + '%''' FROM @Phrases FOR XML PATH('')), 1, 4, '') + ' OR ' + STUFF((SELECT ' OR pq.UserGuidance LIKE ''%' + Word + '%''' FROM @Phrases FOR XML PATH('')), 1, 4, '') + ')
-			';
+			SET @SearchSql = @SearchSql + 'AND (' + STUFF((SELECT ' OR pvfv.TextValue LIKE ''%' + Word + '%''' FROM @Phrases FOR XML PATH('')), 1, 4, '') + ' OR ' + STUFF((SELECT ' OR pq.UserGuidance LIKE ''%' + Word + '%''' FROM @Phrases FOR XML PATH('')), 1, 4, '') + ') ';
 		END
 
 		IF  (ISNULL(@SectionSelection, '') <> '')
@@ -259,28 +251,17 @@ SELECT
 	END
 	
 	IF @ReturnNotes = 1 BEGIN	
-		SET @SearchSql = 
-			'
-			SELECT
-				pvn.Id AS NoteId,
-				pv.Id AS ProfileVersionId,
-				pv.ProfileId AS ScenarioId,
-				ISNULL(p.ParentId, p.Id) AS ProfileId,
-				pvn.NoteText,
-				IsReference,
-				lpnt.[Name]
-			FROM 
-				ProfileVersion pv
-				INNER JOIN ProfileVersionNote pvn WITH (NOLOCK) ON pv.Id = pvn.ProfileVersionId
-				INNER JOIN luProfileNoteType lpnt WITH (NOLOCK) ON lpnt.Id = pvn.ProfileNoteTypeId
-				INNER JOIN [Profile] p WITH (NOLOCK) ON pv.ProfileId = p.Id 
-			WHERE
-				pv.EffectiveDateTo IS NULL
-			 '
+		SET @SearchSql =
+			'SELECT pvn.Id AS NoteId, pv.Id AS ProfileVersionId, pv.ProfileId AS ScenarioId, ISNULL(p.ParentId, p.Id) AS ProfileId, ' +
+			'pvn.NoteText, IsReference, lpnt.[Name] ' +
+			'FROM ProfileVersion pv ' +
+			'INNER JOIN ProfileVersionNote pvn WITH (NOLOCK) ON pv.Id = pvn.ProfileVersionId ' +
+			'INNER JOIN luProfileNoteType lpnt WITH (NOLOCK) ON lpnt.Id = pvn.ProfileNoteTypeId ' +
+			'INNER JOIN [Profile] p WITH (NOLOCK) ON pv.ProfileId = p.Id ' +
+			'WHERE pv.EffectiveDateTo IS NULL '
 
 		IF @PerformSqlSearch = 1 BEGIN
-			SET @SearchSql = @SearchSql + ' AND ' + STUFF((SELECT ' AND pvn.NoteText LIKE ''%' + Word + '%''' FROM @Phrases FOR XML PATH('')), 1, 4, '') + '
-			';
+			SET @SearchSql = @SearchSql + ' AND ' + STUFF((SELECT ' AND pvn.NoteText LIKE ''%' + Word + '%''' FROM @Phrases FOR XML PATH('')), 1, 4, '') + ' ';
 		END
 		
 		EXEC sp_executesql @SearchSql;
