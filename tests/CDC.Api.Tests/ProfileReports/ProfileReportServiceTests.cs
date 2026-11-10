@@ -371,6 +371,19 @@ public class ProfileReportServiceTests
                     LastContributionDate = new DateTime(2026, 9, 12)
                 }
             ]);
+        sectionRepository
+            .Setup(repo => repo.GetProfileVersionSectionContributionsAsync(SecondVersionId, SecondSectionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new ProfileSectionContribution
+                {
+                    UserId = Guid.NewGuid(),
+                    UserName = "asmith",
+                    FullName = "Alex Smith",
+                    OrganisationName = "Defra",
+                    LastContributionDate = new DateTime(2026, 8, 1)
+                }
+            ]);
 
         var result = await CreateService().GetContributionsReportAsync(ProfileReportTestData.ProfileId, CancellationToken.None);
 
@@ -396,7 +409,9 @@ public class ProfileReportServiceTests
         var second = report.Versions[1];
         second.IsCurrent.Should().BeFalse();
         second.EffectiveDateTo.Should().Be(new DateTime(2026, 9, 11));
-        second.Sections.Should().OnlyContain(section => section.Contributions.Count == 0);
+        second.Sections.Select(section => section.SectionNumber).Should().Equal(1, 2);
+        second.Sections[0].Contributions.Should().BeEmpty();
+        second.Sections[1].Contributions.Should().ContainSingle().Which.FullName.Should().Be("Alex Smith");
     }
 
     [Fact]

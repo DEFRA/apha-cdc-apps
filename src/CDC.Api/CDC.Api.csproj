@@ -16,9 +16,9 @@
     <!-- Overrides the vulnerable 9.0.4 version pulled in transitively by Microsoft.Data.SqlClient. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <!-- MediatR 12.x is the last Apache-2.0 release; 13+ requires a commercial licence. -->
-    <PackageReference Include="MediatR" Version="14.2.0" />
+    <PackageReference Include="MediatR" Version="14.3.0" />
     <!-- Renders the comparison report PDF attached to review reminders. -->
-    <PackageReference Include="Microsoft.Playwright" Version="1.64.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
     <PackageReference Include="FluentValidation" Version="12.2.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
