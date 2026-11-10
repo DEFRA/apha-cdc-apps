@@ -20,6 +20,7 @@ public enum ReferenceValueChangeAction
 public sealed record ChangeReferenceValueRequestDto
 {
     /// <summary>Gets the kind of change.</summary>
+    [System.Text.Json.Serialization.JsonRequired]
     public ReferenceValueChangeAction Action { get; init; }
 
     /// <summary>Gets the value being changed. Not used when adding.</summary>

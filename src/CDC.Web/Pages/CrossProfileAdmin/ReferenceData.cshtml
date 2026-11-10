@@ -180,10 +180,10 @@
             }
 
             <div class="govuk-button-group">
-                <a class="govuk-button" role="button" draggable="false" data-module="govuk-button"
+                <a class="govuk-button" draggable="false" data-module="govuk-button"
                    href="@Model.BuildChangeUrl(ReferenceDataChangeAction.Add)"
                    data-app-region-link data-app-region-focus="@ReferenceDataModel.PanelHeadingId">Add reference value</a>
-                <a class="govuk-button govuk-button--secondary" role="button" draggable="false" data-module="govuk-button"
+                <a class="govuk-button govuk-button--secondary" draggable="false" data-module="govuk-button"
                    asp-page="/CrossProfileAdmin/ReferenceDataAudit"
                    asp-route-tableId="@Model.SelectedTable.Id">View audit trail</a>
             </div>
@@ -218,7 +218,7 @@
                             @if (Model.FixedNewValue is not null)
                             {
                                 <span class="app-legacy-form__label">New value:</span>
-                                <div class="govuk-input app-legacy-form__value app-legacy-form__field--wide" id="new-value" tabindex="0" aria-label="New value">@Model.FixedNewValue</div>
+                                <div class="govuk-input app-legacy-form__value app-legacy-form__field--wide" id="new-value">@Model.FixedNewValue</div>
                             }
                             else
                             {
@@ -257,7 +257,7 @@
                                 <button type="submit"
                                         class="govuk-button @(Model.FixedNewValue is not null ? "govuk-button--warning" : string.Empty)"
                                         data-module="govuk-button" data-prevent-double-click="true">@Model.SubmitText</button>
-                                <a class="govuk-button govuk-button--secondary" role="button" draggable="false" data-module="govuk-button"
+                                <a class="govuk-button govuk-button--secondary" draggable="false" data-module="govuk-button"
                                    href="@Model.BuildCancelUrl()" data-app-region-link>Cancel</a>
                             </div>
                         </div>

@@ -266,8 +266,15 @@ public class ReferenceDataModel(IReferenceDataApiService referenceDataService, I
     }
 
     /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
-    public string GetAriaSort(ReferenceValueSortColumn column) =>
-        column != SortColumn ? "none" : IsSortDescending ? "descending" : "ascending";
+    public string GetAriaSort(ReferenceValueSortColumn column)
+    {
+        if (column != SortColumn)
+        {
+            return "none";
+        }
+
+        return IsSortDescending ? "descending" : "ascending";
+    }
 
     private Dictionary<string, object?> BuildListRouteValues(int pageNumber) => new()
     {

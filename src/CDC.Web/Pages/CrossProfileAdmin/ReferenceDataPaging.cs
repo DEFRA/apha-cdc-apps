@@ -15,15 +15,22 @@ public static class ReferenceDataPaging
     public static (IReadOnlyList<T> Items, int PageNumber, int TotalPages) GetPage<T>(
         IReadOnlyList<T> items, int pageNumber, string? pageSize)
     {
-        var size = string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase)
-            ? Math.Max(1, items.Count)
-            : int.TryParse(pageSize, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed > 0
-                ? parsed
-                : DefaultPageSize;
+        var size = ParsePageSize(pageSize, items.Count);
 
         var totalPages = Math.Max(1, (int)Math.Ceiling(items.Count / (double)size));
         var page = Math.Clamp(pageNumber, 1, totalPages);
 
         return ([.. items.Skip((page - 1) * size).Take(size)], page, totalPages);
+    }
+
+    private static int ParsePageSize(string? pageSize, int itemCount)
+    {
+        if (string.Equals(pageSize, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            return Math.Max(1, itemCount);
+        }
+
+        var isValid = int.TryParse(pageSize, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed);
+        return isValid && parsed > 0 ? parsed : DefaultPageSize;
     }
 }
