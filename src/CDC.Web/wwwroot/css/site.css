@@ -364,6 +364,82 @@ html {
   cursor: text;
 }
 
+/* Review timings: each label sits to the left of its control, as in the legacy page's table, with From, To and
+   Generate report on one row. Below tablet width the Design System's stacked layout is kept; from tablet width each
+   row is a label column and a control column, and the first row joins up from 66em, where there is room for all of it. */
+.app-review-timings__date {
+  width: 16rem;
+  min-width: 0;
+}
+
+.app-review-timings__select {
+  width: 26.75rem;
+}
+
+@media (min-width: 40.0625em) {
+  .app-review-timings__row {
+    display: grid;
+    grid-template-columns: 6.25rem minmax(0, 1fr);
+    align-items: end;
+    column-gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .app-review-timings__row:last-child {
+    margin-bottom: 0;
+  }
+
+  .app-review-timings__row--dates {
+    row-gap: 20px;
+  }
+
+  /* Level with the text in a 40px box, not with the bottom of it. */
+  .app-review-timings__label {
+    margin-bottom: 7px;
+  }
+
+  .app-review-timings__field {
+    margin-bottom: 0;
+  }
+
+  /* As wide as its box and calendar button, so an error message wraps above its box instead of widening the row. */
+  .app-review-timings__field--date {
+    width: min-content;
+  }
+
+  .app-review-timings__field--editor {
+    max-width: 39rem;
+  }
+
+  .app-review-timings__field--editor .app-title-toolbar:not([hidden]) {
+    display: flex;
+    margin-bottom: 0;
+  }
+
+  .app-review-timings__button {
+    grid-column: 2;
+    justify-self: start;
+    /* Its own 2px shadow then lines the button's lower edge up with the boxes beside it. */
+    margin-bottom: 2px;
+  }
+}
+
+@media (min-width: 66em) {
+  .app-review-timings__row--dates {
+    grid-template-columns: 6.25rem repeat(4, auto);
+    justify-content: start;
+  }
+
+  /* The legacy labels on this row sat low, level with the bottom of the boxes. */
+  .app-review-timings__row--dates .app-review-timings__label {
+    margin-bottom: 0;
+  }
+
+  .app-review-timings__button {
+    grid-column: auto;
+  }
+}
+
 .app-profile-card__header {
   display: flex;
   align-items: baseline;
@@ -1582,6 +1658,46 @@ body {
     padding: 2px 5px;
     border: 1px solid #0b0c0c;
     background-color: #ffffff;
+}
+
+/* The tabs of a profile section stay in one row that scrolls sideways, as the legacy Profiles.WebControls.TabStrip
+   did. tab-carousel.js adds --overflowing when they do not all fit, which shows the "view more tabs" links above
+   them. Narrow screens keep the Design System's stacked list, so the links stay hidden there. */
+.app-tab-carousel__nav {
+  display: none;
+}
+
+@media (min-width: 40.0625em) {
+  .govuk-frontend-supported .app-tab-carousel--overflowing .app-tab-carousel__nav {
+    display: flex;
+    justify-content: flex-end;
+    column-gap: 20px;
+    margin-bottom: 10px;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll {
+    /* Room for the selected tab, which sits 5px above the others. */
+    padding-top: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll .govuk-tabs__list {
+    display: flex;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll .govuk-tabs__list-item {
+    flex: none;
+    white-space: nowrap;
+  }
 }
 
 /* A tab that posts the page (so it can save first) but looks like the link tab. */

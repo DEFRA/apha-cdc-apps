@@ -199,6 +199,20 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.DoesNotContain("value=\"Contributions\"", body);
     }
 
+    // Inside the Questions form a button with no type would submit it, saving the answers instead of scrolling the tabs.
+    [Theory]
+    [InlineData("EditProfileQuestions")]
+    [InlineData("EditProfileReferences")]
+    public async Task TabPages_OfferViewMoreTabsLinks_ThatScrollTheTabsAndNeverSubmitAForm(string page)
+    {
+        var body = await GetAsync(page, Profile());
+
+        Assert.Contains("<button type=\"button\" class=\"govuk-link app-link-button\" data-tab-scroll=\"left\"", body);
+        Assert.Contains("<button type=\"button\" class=\"govuk-link app-link-button\" data-tab-scroll=\"right\"", body);
+        Assert.Contains("class=\"app-tab-carousel__scroll\"", body);
+        Assert.Contains("/js/tab-carousel.js", body);
+    }
+
     [Fact]
     public async Task EditProfileReferences_RendersTheReferences_WithLinkTabsAndPaginationOnTheSameTab()
     {

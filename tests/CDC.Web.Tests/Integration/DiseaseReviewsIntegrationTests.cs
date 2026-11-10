@@ -51,6 +51,44 @@ public partial class DiseaseReviewsIntegrationTests
         Assert.DoesNotContain("govuk-form-group--error", page);
     }
 
+    // As the legacy page's table had them: From, To and Generate report on the first row, then Author, then Description.
+    [Fact]
+    public async Task Get_ArrangesTheControlsInRows_FromToAndGenerateReportFirst_ThenAuthor_ThenDescription()
+    {
+        using var factory = CreateFactory(ReportOf(), new CapturingPdfService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync(PageUrl);
+
+        var rows = RowStartRegex().Matches(page);
+        Assert.Equal(3, rows.Count);
+        Assert.Contains("app-review-timings__row--dates", rows[0].Value);
+        var dates = page[rows[0].Index..rows[1].Index];
+        var author = page[rows[1].Index..rows[2].Index];
+        var description = page[rows[2].Index..page.IndexOf("</form>", rows[2].Index, StringComparison.Ordinal)];
+        AssertInOrder(dates, "for=\"FromDate\">From</label>", "id=\"FromDate\"", "for=\"ToDate\">To</label>", "id=\"ToDate\"", "Generate report</button>");
+        AssertInOrder(author, "for=\"AuthorId\">Author</label>", "id=\"AuthorId\"");
+        AssertInOrder(description, "for=\"DescriptionEditor\">Description (optional)</label>", "data-app-title-toolbar=\"DescriptionEditor\"", "id=\"DescriptionEditor\"");
+        Assert.DoesNotContain("Generate report", author + description);
+    }
+
+    // The hints are not part of the legacy layout, so they are read out by a screen reader rather than shown.
+    [Fact]
+    public async Task Get_KeepsTheHintsForScreenReaders_WithoutShowingThem()
+    {
+        using var factory = CreateFactory(ReportOf(), new CapturingPdfService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync(PageUrl);
+
+        Assert.Contains("<div id=\"FromDate-hint\" class=\"govuk-hint govuk-visually-hidden\">For example, 1 January 2027</div>", page);
+        Assert.Contains("<div id=\"ToDate-hint\" class=\"govuk-hint govuk-visually-hidden\">For example, 31 December 2027</div>", page);
+        Assert.Contains("<div id=\"Description-hint\" class=\"govuk-hint govuk-visually-hidden\">Printed at the top of the report. You can make text italic.</div>", page);
+        Assert.Contains("aria-describedby=\"FromDate-hint\"", page);
+        Assert.Contains("aria-describedby=\"ToDate-hint\"", page);
+        Assert.Contains("aria-describedby=\"Description-hint\"", page);
+    }
+
     [Fact]
     public async Task Get_ShowsAnErrorSummary_WhenTheAuthorsCannotBeLoaded()
     {
@@ -165,7 +203,7 @@ public partial class DiseaseReviewsIntegrationTests
         Assert.Matches("<p id=\"FromDate-error\"[^>]*>\\s*<span class=\"govuk-visually-hidden\">Error:</span> Enter a from date\\s*</p>", body);
         Assert.Contains("aria-describedby=\"FromDate-hint FromDate-error\"", body);
         Assert.Contains("aria-describedby=\"ToDate-hint ToDate-error\"", body);
-        Assert.Contains("govuk-input--width-10 govuk-input--error", body);
+        Assert.Contains("app-review-timings__date govuk-input--error", body);
         Assert.Contains("value=\"soon\"", body);
         Assert.Contains($"<option value=\"{Sam.Id}\" selected=\"selected\">Sam &lt;Poe&gt;</option>", body);
         Assert.Equal("<i>Quarterly</i>", HiddenValue(body, "Description"));
@@ -229,6 +267,13 @@ public partial class DiseaseReviewsIntegrationTests
     private static FakeProfileReportsApiService ReportOf(params DiseaseReviewsReportRowDto[] rows) =>
         new(diseaseReviews: new DiseaseReviewsReportResult(DiseaseReviewsReportOutcome.Success, new DiseaseReviewsReportDto { Sections = rows }));
 
+    private static void AssertInOrder(string text, params string[] fragments)
+    {
+        var positions = fragments.Select(fragment => text.IndexOf(fragment, StringComparison.Ordinal)).ToList();
+        Assert.DoesNotContain(-1, positions);
+        Assert.Equal(positions.Order(), positions);
+    }
+
     private static string HiddenValue(string body, string name)
     {
         var match = HiddenInputRegex(name).Match(body);
@@ -271,6 +316,9 @@ public partial class DiseaseReviewsIntegrationTests
 
     [GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*?value=\"([^\"]+)\"")]
     private static partial Regex AntiforgeryTokenRegex();
+
+    [GeneratedRegex("<div class=\"app-review-timings__row[^\"]*\">")]
+    private static partial Regex RowStartRegex();
 
     private static Regex HiddenInputRegex(string name) =>
         new($"""<input type="hidden"[^>]*\bname="{name}"[^>]*\bvalue="([^"]*)"[^>]*>""", RegexOptions.None, TimeSpan.FromSeconds(5));
