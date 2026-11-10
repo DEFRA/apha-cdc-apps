@@ -28,7 +28,8 @@ internal sealed class FakeApiClient( // NOSONAR
     bool staticReportOperationResult = false,
     Exception? throwOnStaticReportOperation = null,
     PublishProfileResult? publishProfileResult = null,
-    Exception? throwOnGetManageProfileForAVersion = null) : IApiClient
+    Exception? throwOnGetManageProfileForAVersion = null,
+    Action? onSearchProfiles = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -61,10 +62,14 @@ internal sealed class FakeApiClient( // NOSONAR
         bool displayDraft,
         bool displayScenarios,
         SearchForType searchForType,
-        CancellationToken cancellationToken = default) =>
-        throwOnSearchProfiles is not null
+        CancellationToken cancellationToken = default)
+    {
+        onSearchProfiles?.Invoke();
+
+        return throwOnSearchProfiles is not null
             ? Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(throwOnSearchProfiles)
             : Task.FromResult(_searchResults);
+    }
 
     public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         throwOnGetProfileAttributes is not null

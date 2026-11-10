@@ -166,8 +166,7 @@ public class SurveillanceProfilesSearchModel : PageModel
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         ApplyRememberedFilters();
-        await LoadSpeciesTreeAsync(cancellationToken);
-        await PerformSearchAsync(cancellationToken);
+        await LoadSpeciesTreeAndSearchAsync(cancellationToken);
 
         // The search filters (Display checkboxes, sort, page size/number, species tree) are
         // resubmitted via a background fetch rather than a full page reload; that request sends
@@ -182,8 +181,7 @@ public class SurveillanceProfilesSearchModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        await LoadSpeciesTreeAsync(cancellationToken);
-        await PerformSearchAsync(cancellationToken);
+        await LoadSpeciesTreeAndSearchAsync(cancellationToken);
         return Page();
     }
 
@@ -552,16 +550,30 @@ public class SurveillanceProfilesSearchModel : PageModel
         }
     }
 
-    /// <summary>Executes the profile search against the enriched search endpoint, then applies the
-    /// letter filter, sort order and paging - none of which the API endpoint supports itself.</summary>
-    private async Task PerformSearchAsync(CancellationToken cancellationToken)
+    /// <summary>Loads the species filter tree and searches the profiles. The two CDC.Api calls do not depend on each other, so the
+    /// search is started first and the tree is read while it runs; only the filtering that follows the search needs the tree.</summary>
+    private async Task LoadSpeciesTreeAndSearchAsync(CancellationToken cancellationToken)
+    {
+        // As in legacy, displaying scenarios never makes a profile match on its own, so nothing is searched for without published or draft versions.
+        var pendingSearch = DisplayPublished || DisplayDraft
+            ? apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, SearchForType, cancellationToken)
+            : null;
+
+        await LoadSpeciesTreeAsync(cancellationToken);
+        await PerformSearchAsync(pendingSearch);
+    }
+
+    /// <summary>Applies the letter filter, species filter, sort order and paging - none of which the API endpoint supports itself - to the
+    /// result of the profile search against the enriched search endpoint.</summary>
+    /// <param name="pendingSearch">The search, already started, or <see langword="null"/> when neither published nor draft versions are displayed.</param>
+    private async Task PerformSearchAsync(Task<IReadOnlyList<ProfileSearchResultDto>>? pendingSearch)
     {
         try
         {
             IsSearchPerformed = true;
 
             // As in legacy, displaying scenarios never makes a profile match on its own.
-            if (!DisplayPublished && !DisplayDraft)
+            if (pendingSearch is null)
             {
                 SearchResults = [];
                 PagedResults = [];
@@ -571,7 +583,7 @@ public class SurveillanceProfilesSearchModel : PageModel
                 return;
             }
 
-            var response = await apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, SearchForType, cancellationToken);
+            var response = await pendingSearch;
             var profiles = response.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(SelectedLetter) && !string.Equals(SelectedLetter, "All", StringComparison.OrdinalIgnoreCase))
