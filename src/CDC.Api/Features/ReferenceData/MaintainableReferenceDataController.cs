@@ -118,6 +118,7 @@ public sealed class MaintainableReferenceDataController(ISender mediator, IUserC
     /// <response code="404">The table or value does not exist, or cannot be changed that way.</response>
     /// <response code="409">Another user has changed the value since it was read.</response>
     [HttpPost("{referenceTableId:guid}/changes")]
+    [RequireGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(ChangeReferenceValueResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
