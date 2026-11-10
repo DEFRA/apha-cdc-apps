@@ -141,7 +141,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <response code="400">The request failed validation.</response>
     /// <response code="403">The user is not a profile editor.</response>
     [HttpPost]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(CreateProfileResultDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CreateProfileResultDto>> CreateProfile(
@@ -200,7 +200,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">The source version is not eligible for a new version.</response>
     [HttpPost("versions")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(NewProfileVersionResultDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -272,7 +272,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="404">No profile version exists with the supplied identifier.</response>
     [HttpDelete("versions/{profileVersionId:guid}")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(DeleteProfileVersionResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DeleteProfileVersionResultDto>> DeleteProfileVersion(
@@ -294,7 +294,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <response code="400">The request failed validation.</response>
     /// <response code="403">The user is not a profile editor.</response>
     [HttpPut("versions/{profileVersionId:guid}/public-access")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SetProfileVersionPublicAccess(Guid profileVersionId, CancellationToken cancellationToken)
@@ -316,7 +316,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="404">No profile status exists with the supplied identifier.</response>
     [HttpPut("{profileId:guid}/status")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

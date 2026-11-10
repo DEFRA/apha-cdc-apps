@@ -1,5 +1,7 @@
+using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -10,14 +12,20 @@ namespace CDC.Web.Pages;
 /// section's real questions and recorded answers from CDC.Api. Replaces the legacy
 /// <c>EditSpecies.aspx</c> page in its read-only ("View species data") mode.
 /// </summary>
+[Authorize(Policy = AuthorizationPolicies.CanViewSpeciesData)]
 public class EditSpeciesModel : PageModel
 {
     private readonly ISpeciesApiService speciesApiService;
+    private readonly IAuthorizationService authorizationService;
     private readonly ILogger<EditSpeciesModel> logger;
 
-    public EditSpeciesModel(ISpeciesApiService speciesApiService, ILogger<EditSpeciesModel> logger)
+    public EditSpeciesModel(
+        ISpeciesApiService speciesApiService,
+        IAuthorizationService authorizationService,
+        ILogger<EditSpeciesModel> logger)
     {
         this.speciesApiService = speciesApiService;
+        this.authorizationService = authorizationService;
         this.logger = logger;
     }
 
@@ -93,6 +101,13 @@ public class EditSpeciesModel : PageModel
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
     public async Task<IActionResult> OnPostSaveAsync(CancellationToken cancellationToken)
     {
+        // Saving changes data, so it needs the maintain policy, not just the view policy on the page.
+        var authorization = await authorizationService.AuthorizeAsync(User, AuthorizationPolicies.CanManageSpeciesData);
+        if (!authorization.Succeeded)
+        {
+            return Forbid();
+        }
+
         Edit = true;
         SetCurrentSection();
 

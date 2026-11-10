@@ -191,7 +191,7 @@ public sealed class SpeciesController(ISender mediator, IUserContext userContext
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpPut("answers")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(UpdateSpeciesAnswerDataResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -273,7 +273,7 @@ public sealed class SpeciesController(ISender mediator, IUserContext userContext
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpPut("name-parent")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(UpdateSpeciesNameParentResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -346,7 +346,7 @@ public sealed class SpeciesController(ISender mediator, IUserContext userContext
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">Another species already uses this name.</response>
     [HttpPost]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(typeof(AddSpeciesResultDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -397,7 +397,7 @@ public sealed class SpeciesController(ISender mediator, IUserContext userContext
     /// </response>
     /// <response code="403">The user is not a profile editor.</response>
     [HttpPut("{speciesId:guid}/position")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -442,7 +442,7 @@ public sealed class SpeciesController(ISender mediator, IUserContext userContext
     /// <response code="403">The user is not a profile editor.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpPut("{speciesId:guid}/inactivate")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -500,7 +500,7 @@ public sealed class SpeciesController(ISender mediator, IUserContext userContext
     /// <response code="404">No species exists with the supplied identifier.</response>
     /// <response code="409">Another user has saved this species since it was read.</response>
     [HttpDelete("{speciesId:guid}")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]

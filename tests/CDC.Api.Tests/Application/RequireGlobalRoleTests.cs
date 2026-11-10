@@ -19,12 +19,12 @@ using Microsoft.AspNetCore.Routing;
 
 namespace CDC.Api.Tests.Application;
 
-public class RequireGlobalRoleTests
+public class AuthorizeGlobalRoleTests
 {
     [Fact]
     public void TheAttribute_CreatesTheGlobalRoleFilter_WithTheNamedRoles()
     {
-        var attribute = new RequireGlobalRoleAttribute(GlobalRole.ProfileEditor, GlobalRole.PolicyProfileUser);
+        var attribute = new AuthorizeGlobalRoleAttribute(GlobalRole.ProfileEditor, GlobalRole.PolicyProfileUser);
 
         attribute.ImplementationType.Should().Be<GlobalRoleFilter>();
         attribute.Arguments.Should().ContainSingle().Which.Should().BeEquivalentTo(new[] { GlobalRole.ProfileEditor, GlobalRole.PolicyProfileUser });
@@ -33,7 +33,7 @@ public class RequireGlobalRoleTests
     [Fact]
     public void TheAttribute_RejectsNullRoles()
     {
-        var act = () => new RequireGlobalRoleAttribute(null!);
+        var act = () => new AuthorizeGlobalRoleAttribute(null!);
 
         act.Should().Throw<ArgumentNullException>();
     }
@@ -123,13 +123,13 @@ public class RequireGlobalRoleTests
         var method = controller.GetMethod(action);
 
         method.Should().NotBeNull();
-        method!.GetCustomAttribute<RequireGlobalRoleAttribute>().Should().NotBeNull();
+        method!.GetCustomAttribute<AuthorizeGlobalRoleAttribute>().Should().NotBeNull();
         RolesOn(method).Should().Equal(GlobalRole.ProfileEditor);
     }
 
     private static IEnumerable<GlobalRole> RolesOn(MemberInfo member)
     {
-        var attribute = member.GetCustomAttribute<RequireGlobalRoleAttribute>();
+        var attribute = member.GetCustomAttribute<AuthorizeGlobalRoleAttribute>();
 
         attribute.Should().NotBeNull($"{member.Name} must name the global roles allowed to call it");
 

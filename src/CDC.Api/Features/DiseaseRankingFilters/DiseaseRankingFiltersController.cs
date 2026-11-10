@@ -15,7 +15,7 @@ namespace CDC.Api.Features.DiseaseRankingFilters;
 /// <param name="mediator">Dispatches queries and commands to their handlers.</param>
 [ApiController]
 [Route("api/disease-ranking-filters")]
-[RequireGlobalRole(GlobalRole.ProfileEditor)]
+[AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class DiseaseRankingFiltersController(ISender mediator) : ControllerBase
