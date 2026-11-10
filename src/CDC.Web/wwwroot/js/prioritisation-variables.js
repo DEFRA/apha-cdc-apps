@@ -84,9 +84,18 @@
         }
     }
 
-    // A parsed document is inert, so reading its text never runs script from the value.
+    var namedEntities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+
+    // Decodes character references in a single pass over plain strings, so no HTML is ever parsed.
     function decode(html) {
-        return new DOMParser().parseFromString(html, 'text/html').body.textContent || '';
+        return html.replace(/<[^>]*>/g, '').replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, function (match, dec, hex, name) {
+            if (name) {
+                var named = namedEntities[name.toLowerCase()];
+                return named === undefined ? match : named;
+            }
+            var code = dec ? parseInt(dec, 10) : parseInt(hex, 16);
+            return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+        });
     }
 
     function plainText(html) {
