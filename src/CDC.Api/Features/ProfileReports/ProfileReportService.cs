@@ -118,6 +118,17 @@ public sealed class ProfileReportService(
 
         var metadata = await sectionRepository.GetProfileQuestionnaireMetadataAsync(cancellationToken);
         var sections = metadata.Sections.OrderBy(section => section.SectionNumber).ToList();
+
+        // One read for each section of each version (a profile can have well over a hundred versions); they are independent,
+        // so they run a few at a time, and are used below in the same version-then-section order.
+        var reads = draftVersions
+            .SelectMany(version => sections.Select(section => (VersionId: version.Id, SectionId: section.Id)))
+            .ToList();
+        var contributionsByRead = await ConcurrentReads.SelectAsync(
+            reads,
+            (read, token) => sectionRepository.GetProfileVersionSectionContributionsAsync(read.VersionId, read.SectionId, token),
+            cancellationToken);
+        var readIndex = 0;
         var versions = new List<ContributionsReportVersionDto>();
 
         foreach (var version in draftVersions)
@@ -126,7 +137,7 @@ public sealed class ProfileReportService(
 
             foreach (var section in sections)
             {
-                var contributions = await sectionRepository.GetProfileVersionSectionContributionsAsync(version.Id, section.Id, cancellationToken);
+                var contributions = contributionsByRead[readIndex++];
 
                 sectionDtos.Add(new ContributionsReportSectionDto
                 {

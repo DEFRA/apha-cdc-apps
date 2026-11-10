@@ -39,6 +39,8 @@ There is no journal table, so track what has been run here:
 | 0077-CreateSpuUserEmailAddress.sql | | | | |
 | 0078-SpeedUpSpgReferenceValueByTable.sql | Y | | | |
 | 0079-SpeedUpSpgaProfileSpeciesSort.sql | Y | | | |
+| 0080-IndexProfileVersionCloneAndDelete.sql | Y | | | |
+| 0081-SpeedUpPrioritisationScore.sql (run after 0080) | Y | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by
@@ -51,6 +53,19 @@ without them CDC.Api returns the same data, only slower (validating a profile ve
 report and every Search took several seconds). 0078 builds an index on
 `ProfileVersionFieldValue([ListValue])` (about 800,000 rows), which takes a few seconds; it is not a filtered index because
 the legacy procedures that write that table run with `QUOTED_IDENTIFIER OFF`, which a filtered index rejects (error 1934).
+
+0080 and 0081 are performance-only as well, and like 0078/0079 can be run before or after CDC.Api is deployed (CDC.Api calls
+the same procedures with the same parameters; without the scripts it is only slower - cloning a profile or scenario, creating
+or deleting a draft version took 3 to 9 seconds, publishing a version or prioritising a draft 2 to 3). 0080 only adds indexes:
+on `ProfileVersionFieldValue` one on `[ProfileVersionQuestionRowId]` and one on `([ProfileVersionId], [SpeciesId])` that replaces
+the single-column `[ProfileVersionId]` index, none of them filtered (for the reason above), plus ones on `ProfileVersionNote` and
+`ReviewComment`. It takes about 8 seconds, during which writes to those tables wait, so run it when nobody is saving a profile.
+0081 adds the table `PrioritisationScoreBasis` and changes three procedures: `sppPrioritisationScore` still rebuilds
+`PrioritisationScore` with the original statements the first time it runs after the script and whenever the prioritisation
+variables (weightings, scores, ranking range) have changed since, and otherwise recalculates only the versions whose prioritisation
+data was rebuilt or deleted, which leaves the table exactly as a full rebuild would; `sppPrioritisationCalculation` and
+`spdProfileVersionSpecies` write the same rows as before and invalidate the version's scores. The first publish or prioritisation
+after 0081 therefore still takes the 1.5 seconds of a full rebuild once. Run 0080 before 0081.
 
 If this grows to the point where manually tracking applied scripts becomes error-prone, introduce
 a proper migration tool (e.g. DbUp) pointed at this same `Scripts` folder rather than changing how

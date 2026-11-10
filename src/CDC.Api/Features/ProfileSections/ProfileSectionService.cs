@@ -296,10 +296,16 @@ public sealed class ProfileSectionService(
         var failures = new List<ValidationFailure>();
         var updates = new List<ProfileSectionRevisionUpdate>();
 
+        // Each section is read for the comparison below; the reads are independent, so they run a few at a time.
+        var existingRevisions = await ConcurrentReads.SelectAsync(
+            sections,
+            (section, token) => repository.GetProfileVersionSectionRevisionInfoAsync(profileVersionId, section.ProfileSectionId, token),
+            cancellationToken);
+
         for (var index = 0; index < sections.Count; index++)
         {
             var input = sections[index];
-            var existing = await repository.GetProfileVersionSectionRevisionInfoAsync(profileVersionId, input.ProfileSectionId, cancellationToken);
+            var existing = existingRevisions[index];
 
             if (existing is null)
             {
