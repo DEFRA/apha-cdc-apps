@@ -88,7 +88,13 @@
 
     // Decodes character references in a single pass over plain strings, so no HTML is ever parsed.
     function decode(html) {
-        return html.replace(/<[^>]*>/g, '').replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, function (match, dec, hex, name) {
+        var stripped = html;
+        var previous;
+        do {
+            previous = stripped;
+            stripped = stripped.replace(/<[^>]*>/g, '');
+        } while (stripped !== previous);
+        return stripped.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, function (match, dec, hex, name) {
             if (name) {
                 var named = namedEntities[name.toLowerCase()];
                 return named === undefined ? match : named;
