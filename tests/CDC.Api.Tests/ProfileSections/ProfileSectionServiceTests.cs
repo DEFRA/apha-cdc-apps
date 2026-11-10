@@ -800,6 +800,24 @@ public class ProfileSectionServiceTests
     }
 
     [Fact]
+    public async Task SaveProfileVersionRevisionDatesAsync_ReportsEachSectionsFailureAgainstItsOwnPosition()
+    {
+        var missingSectionId = Guid.NewGuid();
+        SetupLookups();
+        SetupExistingRevision(missingSectionId, null);
+        SetupExistingRevision(ProfileSectionTestData.SectionId, new ProfileSectionRevisionInfo { ProfileSectionId = ProfileSectionTestData.SectionId, LastUpdated = RowVersion });
+
+        var act = () => CreateService().SaveProfileVersionRevisionDatesAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            [Input(missingSectionId), Input(ProfileSectionTestData.SectionId, authorFrequency: Guid.NewGuid())],
+            CancellationToken.None);
+
+        var exception = await act.Should().ThrowAsync<ValidationException>();
+        exception.Which.Errors.Select(error => error.PropertyName).Should().BeEquivalentTo(
+            "Sections[0].ProfileSectionId", "Sections[1].AuthorReviewFrequencyId");
+    }
+
+    [Fact]
     public async Task SaveProfileVersionRevisionDatesAsync_WritesNothing_WhenNoSectionChanged()
     {
         SetupLookups();

@@ -42,7 +42,9 @@ internal sealed class FakeProfileSectionsApiService(
     Exception? throwOnValidateProfileVersionSection = null,
     ProfileSectionWriteResult? deleteAllReviewCommentsResult = null,
     Exception? throwOnDeleteAllReviewComments = null,
-    Exception? throwOnGetProfileQuestionnaireMetadata = null)
+    Exception? throwOnGetProfileQuestionnaireMetadata = null,
+    Func<Guid, Task>? beforeGetProfileNotesBySection = null,
+    Func<Task>? beforeGetProfileNotesByVersion = null)
     : IProfileSectionsApiService
 {
     private bool sectionWritten;
@@ -141,10 +143,17 @@ internal sealed class FakeProfileSectionsApiService(
         CancellationToken cancellationToken = default) =>
         throwOnGetProfileNotesBySection is not null
             ? Task.FromException<IReadOnlyList<ProfileNoteDto>>(throwOnGetProfileNotesBySection)
-            : Task.FromResult(
-                notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes)
-                    ? notes
-                    : []);
+            : beforeGetProfileNotesBySection is null ? Task.FromResult(NotesOfType(noteTypeId)) : GetProfileNotesAfterAsync(beforeGetProfileNotesBySection, noteTypeId);
+
+    private IReadOnlyList<ProfileNoteDto> NotesOfType(Guid noteTypeId) =>
+        notesByNoteType is not null && notesByNoteType.TryGetValue(noteTypeId, out var notes) ? notes : [];
+
+    private async Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesAfterAsync(Func<Guid, Task> before, Guid noteTypeId)
+    {
+        await before(noteTypeId);
+
+        return NotesOfType(noteTypeId);
+    }
 
     public Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAsync(
         Guid profileVersionId,
@@ -152,10 +161,17 @@ internal sealed class FakeProfileSectionsApiService(
         CancellationToken cancellationToken = default) =>
         throwOnGetProfileNotesByVersion is not null
             ? Task.FromException<IReadOnlyList<ProfileNoteDto>>(throwOnGetProfileNotesByVersion)
-            : Task.FromResult(
-                notesByVersionAndNoteType is not null && notesByVersionAndNoteType.TryGetValue(noteTypeId, out var versionNotes)
-                    ? versionNotes
-                    : []);
+            : beforeGetProfileNotesByVersion is null ? Task.FromResult(NotesOfVersion(noteTypeId)) : GetProfileNotesByVersionAfterAsync(beforeGetProfileNotesByVersion, noteTypeId);
+
+    private IReadOnlyList<ProfileNoteDto> NotesOfVersion(Guid noteTypeId) =>
+        notesByVersionAndNoteType is not null && notesByVersionAndNoteType.TryGetValue(noteTypeId, out var versionNotes) ? versionNotes : [];
+
+    private async Task<IReadOnlyList<ProfileNoteDto>> GetProfileNotesByVersionAfterAsync(Func<Task> before, Guid noteTypeId)
+    {
+        await before();
+
+        return NotesOfVersion(noteTypeId);
+    }
 
     public Task<ProfileNoteChangeResult> UpdateProfileNotesAsync(
         Guid profileVersionId,

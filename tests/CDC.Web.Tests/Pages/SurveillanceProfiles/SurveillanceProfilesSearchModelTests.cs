@@ -74,7 +74,9 @@ public class SurveillanceProfilesSearchModelTests
         Exception? throwOnGetAllSpecies = null,
         TimeProvider? timeProvider = null,
         ISession? session = null,
-        string? query = null)
+        string? query = null,
+        Action? onSearchProfiles = null,
+        Func<CancellationToken, Task>? beforeGetAllSpecies = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var httpContext = new DefaultHttpContext { Session = session ?? new FakeSession() };
@@ -85,8 +87,8 @@ public class SurveillanceProfilesSearchModelTests
         }
 
         var pageModel = new SurveillanceProfilesSearchModel(
-            new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles),
-            new FakeSpeciesApiService(species, throwOnGetAllSpecies),
+            new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles, onSearchProfiles: onSearchProfiles),
+            new FakeSpeciesApiService(species, throwOnGetAllSpecies, beforeGetAllSpecies: beforeGetAllSpecies),
             new AlwaysEnabledLogger<SurveillanceProfilesSearchModel>(),
             timeProvider)
         {
@@ -135,6 +137,51 @@ public class SurveillanceProfilesSearchModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.True(pageModel.IsSearchPerformed);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_StartsTheProfileSearch_WhileTheSpeciesTreeIsStillLoading()
+    {
+        // The species tree cannot finish until the search has started, so reading them one after the other would time out.
+        var searchStarted = new TaskCompletionSource();
+        var pageModel = CreatePageModel(
+            [Profile("Bovine tuberculosis")],
+            onSearchProfiles: () => searchStarted.TrySetResult(),
+            beforeGetAllSpecies: token => searchStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), token));
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(1, pageModel.TotalResultCount);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_StartsTheProfileSearch_WhileTheSpeciesTreeIsStillLoading()
+    {
+        var searchStarted = new TaskCompletionSource();
+        var pageModel = CreatePageModel(
+            [Profile("Bovine tuberculosis")],
+            onSearchProfiles: () => searchStarted.TrySetResult(),
+            beforeGetAllSpecies: token => searchStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), token));
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(1, pageModel.TotalResultCount);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotCallTheSearchEndpoint_WhenNeitherPublishedNorDraftVersionsAreDisplayed()
+    {
+        var searchCalls = 0;
+        var pageModel = CreatePageModel([Profile("Bovine tuberculosis")], onSearchProfiles: () => searchCalls++);
+        pageModel.DisplayPublished = false;
+        pageModel.DisplayDraft = false;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(0, searchCalls);
+        Assert.Equal(0, pageModel.TotalResultCount);
     }
 
     [Fact]

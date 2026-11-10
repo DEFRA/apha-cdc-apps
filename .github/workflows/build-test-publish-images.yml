@@ -192,7 +192,7 @@ jobs:
           persist-credentials: false
  
       - name: Set up .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
  
@@ -243,12 +243,12 @@ jobs:
           persist-credentials: false
  
       - name: Set up .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
  
       - name: Set up Java
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           distribution: temurin
           java-version: "17"
@@ -374,8 +374,11 @@ jobs:
       - name: Build container without publishing
         shell: pwsh
         run: |
+          # --pull forces fresh base images: the floating dotnet 10.0 tags and any image cached on
+          # the runner would otherwise keep shipping an older, vulnerable runtime.
           $dockerArgs = @(
             "build"
+            "--pull"
             "--file"
             "${{ env.DOCKERFILE }}"
             "--tag"
@@ -399,6 +402,12 @@ jobs:
           root-thumbprint: ${{ steps.fortigate-ca.outputs.root_thumbprint }}
           subca-thumbprint: ${{ steps.fortigate-ca.outputs.thumbprint }}
  
+      - name: Scan image for vulnerabilities
+        uses: ./.github/actions/trivy-image-scan
+        with:
+          image: cdc-${{ matrix.component }}:${{ github.sha }}
+          name: ${{ matrix.component }}
+
       - name: Save validated image for publishing
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         shell: pwsh
