@@ -22,6 +22,8 @@ internal sealed class FakePrioritisationVariablesApiService(
 
     public IReadOnlyList<CriterionValueScore>? LastUpdatedValueScores { get; private set; }
 
+    public string? LastUpdatedName { get; private set; }
+
     public PrioritisationRankingRangeDto? LastSavedRankingRange { get; private set; }
 
     public Task<IReadOnlyList<PrioritisationCategoryDto>> GetCategoriesAsync(CancellationToken cancellationToken = default) =>
@@ -31,6 +33,7 @@ internal sealed class FakePrioritisationVariablesApiService(
         Guid criterionId,
         int weight,
         IReadOnlyList<CriterionValueScore> valueScores,
+        string? name = null,
         CancellationToken cancellationToken = default)
     {
         if (throwOnUpdateCriterion is not null)
@@ -41,6 +44,7 @@ internal sealed class FakePrioritisationVariablesApiService(
         LastUpdatedCriterionId = criterionId;
         LastUpdatedWeight = weight;
         LastUpdatedValueScores = valueScores;
+        LastUpdatedName = name;
         return Task.CompletedTask;
     }
 

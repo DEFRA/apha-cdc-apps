@@ -91,7 +91,7 @@ public class PrioritisationVariablesModelTests
         await model.OnGetAsync(CancellationToken.None);
 
         Assert.Equal(20, model.LowerBound);
-        Assert.Equal(80, model.UpperBound);
+        Assert.Equal(90, model.UpperBound);
         Assert.Equal("AQIDBAUGBwg=", model.RowVersion);
     }
 
@@ -135,14 +135,11 @@ public class PrioritisationVariablesModelTests
     }
 
     [Fact]
-    public async Task OnPostUpdate_SavesCriterionWeightAndValueScores_WhenCriterionSelected()
+    public async Task OnPostUpdate_SavesEveryPendingCriterionChange()
     {
         var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
         var model = CreatePageModel(fakeService);
-        model.SelectedCategoryId = CategoryId;
-        model.SelectedCriterionId = CriterionId;
-        model.CriterionWeight = 42;
-        model.CriterionValueScores = [new CriterionValueScoreInput { Id = ValueId, Score = 77 }];
+        model.PendingChanges = Pending("Impact <em>renamed</em>", 42, 77);
 
         var result = await model.OnPostUpdate(CancellationToken.None);
 
@@ -152,55 +149,94 @@ public class PrioritisationVariablesModelTests
         Assert.Equal("Your changes were successfully saved", model.UpdateResultMessage);
         Assert.Equal(CriterionId, fakeService.LastUpdatedCriterionId);
         Assert.Equal(42, fakeService.LastUpdatedWeight);
+        Assert.Equal("Impact <em>renamed</em>", fakeService.LastUpdatedName);
         var savedValueScore = Assert.Single(fakeService.LastUpdatedValueScores!);
         Assert.Equal(ValueId, savedValueScore.ValueId);
         Assert.Equal(77, savedValueScore.Score);
+        Assert.Empty(model.PendingCriteria);
+        Assert.Equal(string.Empty, model.SerialisedPendingChanges);
     }
 
     [Fact]
-    public async Task OnPostUpdate_RejectsCriterionWeightOutOfRange()
+    public async Task OnPostUpdate_SavesOnlyTheRange_WhenNothingIsPending()
     {
-        var model = CreatePageModel();
-        model.SelectedCategoryId = CategoryId;
-        model.SelectedCriterionId = CriterionId;
-        model.CriterionWeight = 0;
-        model.CriterionValueScores = [new CriterionValueScoreInput { Id = ValueId, Score = 5 }];
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.True(model.ModelState.IsValid);
+        Assert.Null(fakeService.LastUpdatedCriterionId);
+        Assert.Equal(1, fakeService.RecalculationCount);
+    }
+
+    [Theory]
+    [InlineData("Impact", 0, 5, "C1: Criterion weight must be a positive integer")]
+    [InlineData("Impact", 42, 1000, "C1: N/A score must be a positive integer")]
+    [InlineData("", 42, 5, "C1: You must enter criterion text")]
+    [InlineData("<p><em> </em></p>", 42, 5, "C1: You must enter criterion text")]
+    public async Task OnPostUpdate_RejectsInvalidPendingChanges_WithTheLegacyMessages(string name, int weight, int score, string expectedError)
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+        model.PendingChanges = Pending(name, weight, score);
 
         var result = await model.OnPostUpdate(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.False(model.ModelState.IsValid);
+        Assert.Contains(expectedError, model.ModelState["PendingCriteria[0]"]!.Errors.Select(error => error.ErrorMessage));
         Assert.False(model.PublishedProfileScoresRecalculated);
-        Assert.Null(model.UpdateResultMessage);
+        Assert.Null(fakeService.LastUpdatedCriterionId);
+        Assert.Null(fakeService.LastSavedRankingRange);
+        Assert.Single(model.PendingCriteria);
     }
 
     [Fact]
-    public async Task OnPostUpdate_RejectsValueScoreOutOfRange()
+    public async Task OnPostUpdate_RejectsCriterionNameLongerThan255CharactersOfText()
     {
         var model = CreatePageModel();
-        model.SelectedCategoryId = CategoryId;
-        model.SelectedCriterionId = CriterionId;
-        model.CriterionWeight = 42;
-        model.CriterionValueScores = [new CriterionValueScoreInput { Id = ValueId, Score = 1000 }];
+        model.PendingChanges = Pending(new string('a', 256), 42, 5);
 
-        var result = await model.OnPostUpdate(CancellationToken.None);
+        await model.OnPostUpdate(CancellationToken.None);
 
-        Assert.IsType<PageResult>(result);
-        Assert.False(model.ModelState.IsValid);
-        Assert.False(model.PublishedProfileScoresRecalculated);
+        Assert.Contains(
+            "C1: The criterion text must be no longer than 255 characters",
+            model.ModelState["PendingCriteria[0]"]!.Errors.Select(error => error.ErrorMessage));
     }
 
     [Fact]
-    public async Task OnPostUpdate_HandlesApiFailureGracefully()
+    public async Task OnPostUpdate_StripsParagraphsAndLineBreaksFromTheCriterionName()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+        model.PendingChanges = Pending("<p>Impact on <em>herds</em>\n</p>", 42, 5);
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.Equal("Impact on <em>herds</em>", fakeService.LastUpdatedName);
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_RejectsPendingChangesThatCannotBeRead()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories());
+        var model = CreatePageModel(fakeService);
+        model.PendingChanges = "{not json";
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.False(model.ModelState.IsValid);
+        Assert.Null(fakeService.LastSavedRankingRange);
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_KeepsPendingChanges_WhenTheApiFails()
     {
         var fakeService = new FakePrioritisationVariablesApiService(
             CreateCategories(),
             throwOnUpdateCriterion: new HttpRequestException("connection refused"));
         var model = CreatePageModel(fakeService);
-        model.SelectedCategoryId = CategoryId;
-        model.SelectedCriterionId = CriterionId;
-        model.CriterionWeight = 42;
-        model.CriterionValueScores = [new CriterionValueScoreInput { Id = ValueId, Score = 5 }];
+        model.PendingChanges = Pending("Impact", 42, 5);
 
         var result = await model.OnPostUpdate(CancellationToken.None);
 
@@ -208,6 +244,31 @@ public class PrioritisationVariablesModelTests
         Assert.False(model.ModelState.IsValid);
         Assert.False(model.PublishedProfileScoresRecalculated);
         Assert.Null(model.UpdateResultMessage);
+        Assert.Single(model.PendingCriteria);
+        Assert.NotEmpty(model.SerialisedPendingChanges);
+    }
+
+    [Fact]
+    public async Task OnPostRunDraftPrioritisation_KeepsPendingChanges()
+    {
+        var model = CreatePageModel();
+        model.PendingChanges = Pending("Impact", 42, 5);
+
+        await model.OnPostRunDraftPrioritisation(CancellationToken.None);
+
+        Assert.Equal(42, Assert.Single(model.PendingCriteria).Weight);
+    }
+
+    [Fact]
+    public async Task OnGetCriterionPanelAsync_ReturnsNotFound_ForACriterionOutsideTheCategory()
+    {
+        var model = CreatePageModel();
+        model.SelectedCategoryId = CategoryId;
+        model.SelectedCriterionId = Guid.NewGuid();
+
+        var result = await model.OnGetCriterionPanelAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
@@ -254,6 +315,22 @@ public class PrioritisationVariablesModelTests
         Assert.Equal(5, model.LowerBound);
         Assert.Equal(95, model.UpperBound);
         Assert.Equal("CQoLDA0ODxA=", model.RowVersion);
+    }
+
+    [Fact]
+    public async Task OnPostRunDraftPrioritisation_KeepsTheRankingRangeOnScreen()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(
+            CreateCategories(),
+            rankingRange: new PrioritisationRankingRangeDto { LowerBound = 0, UpperBound = 15, RowVersion = "AQIDBAUGBwg=" });
+        var model = CreatePageModel(fakeService);
+        model.LowerBound = 5;
+        model.UpperBound = 90;
+
+        await model.OnPostRunDraftPrioritisation(CancellationToken.None);
+
+        Assert.Equal(5, model.LowerBound);
+        Assert.Equal(90, model.UpperBound);
     }
 
     [Fact]
@@ -419,6 +496,12 @@ public class PrioritisationVariablesModelTests
 
         Assert.IsType<NotFoundResult>(result);
     }
+
+    private static string Pending(string name, int weight, int score) =>
+        System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { id = CriterionId, name, weight, valueScores = new[] { new { id = ValueId, score } } }
+        });
 
     private static IReadOnlyList<PrioritisationCategoryDto> CreateCategories() =>
     [

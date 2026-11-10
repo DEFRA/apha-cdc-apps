@@ -54,7 +54,7 @@
         flush();
     }
 
-    var MAX_LENGTH = 50;
+    var DEFAULT_MAX_LENGTH = 50;
     var UNDO_PAUSE_MS = 600;
 
     function snapshot(editor) {
@@ -181,6 +181,7 @@
     }
 
     function initialise(input) {
+        var maxLength = parseInt(input.getAttribute('maxlength'), 10) || DEFAULT_MAX_LENGTH;
         var label = document.querySelector('label[for="' + input.id + '"]');
         var labelText = label ? label.textContent.trim().replace(/:$/, '') : 'Name';
 
@@ -248,7 +249,7 @@
             // Only italics are allowed, so the bold and underline shortcuts do nothing, as in legacy.
             if (event.key === 'Enter' || (modified && (key === 'b' || key === 'u'))) {
                 event.preventDefault();
-            } else if (!modified && event.key.length === 1 && serialise(editor).length >= MAX_LENGTH
+            } else if (!modified && event.key.length === 1 && serialise(editor).length >= maxLength
                 && window.getSelection().isCollapsed) {
                 event.preventDefault();
             }
@@ -264,12 +265,21 @@
         }
     }
 
-    function start() {
-        document.querySelectorAll('input[data-single-line-richtext]').forEach(initialise);
+    // Also called for markup added after load, such as the prioritisation variables criterion panel.
+    function start(root) {
+        (root || document).querySelectorAll('input[data-single-line-richtext]').forEach(function (input) {
+            if (input.dataset.singleLineRichtextReady) {
+                return;
+            }
+            input.dataset.singleLineRichtextReady = 'true';
+            initialise(input);
+        });
     }
 
+    window.appSingleLineRichtext = { start: start };
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
+        document.addEventListener('DOMContentLoaded', function () { start(); });
     } else {
         start();
     }

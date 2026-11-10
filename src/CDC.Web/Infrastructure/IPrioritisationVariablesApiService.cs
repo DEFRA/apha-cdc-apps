@@ -16,11 +16,13 @@ public interface IPrioritisationVariablesApiService
     /// <param name="criterionId">The criterion to update.</param>
     /// <param name="weight">The new weighting.</param>
     /// <param name="valueScores">The new score for every value belonging to the criterion.</param>
+    /// <param name="name">The new criterion name, or <see langword="null"/> to keep the current one.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     Task UpdateCriterionAsync(
         Guid criterionId,
         int weight,
         IReadOnlyList<CriterionValueScore> valueScores,
+        string? name = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>GET /api/prioritisation-variables/ranking-range</c>.</summary>

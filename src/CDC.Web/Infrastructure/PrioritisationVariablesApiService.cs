@@ -25,6 +25,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
         Guid criterionId,
         int weight,
         IReadOnlyList<CriterionValueScore> valueScores,
+        string? name = null,
         CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PutAsJsonAsync(
@@ -32,6 +33,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
             new
             {
                 Weight = weight,
+                Name = name,
                 ValueScores = valueScores.Select(valueScore => new { valueScore.ValueId, valueScore.Score })
             },
             cancellationToken);

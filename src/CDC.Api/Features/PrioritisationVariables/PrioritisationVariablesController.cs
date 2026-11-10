@@ -56,7 +56,7 @@ public sealed class PrioritisationVariablesController(ISender mediator) : Contro
             .Select(valueScore => new CriterionValueScore(valueScore.ValueId, valueScore.Score))
             .ToList();
 
-        var result = await mediator.Send(new UpdateCriterionCommand(criterionId, request.Weight, valueScores), cancellationToken);
+        var result = await mediator.Send(new UpdateCriterionCommand(criterionId, request.Weight, valueScores, request.Name), cancellationToken);
 
         return result.ToNoContentActionResult(this);
     }

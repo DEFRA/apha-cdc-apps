@@ -46,6 +46,27 @@ public class PrioritisationVariablesValidatorTests
         result.IsValid.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("<em> </em>")]
+    public void UpdateCriterionCommandValidator_RejectsBlankName(string name)
+    {
+        var result = new UpdateCriterionCommandValidator().Validate(new UpdateCriterionCommand(CriterionId, 42, [], name));
+
+        result.Errors.Should().Contain(failure => failure.ErrorMessage == "You must enter criterion text.");
+    }
+
+    [Fact]
+    public void UpdateCriterionCommandValidator_CountsNameLengthWithoutFormatting()
+    {
+        var atLimit = "<em>" + new string('a', 255) + "</em>";
+        var overLimit = new string('a', 256);
+
+        new UpdateCriterionCommandValidator().Validate(new UpdateCriterionCommand(CriterionId, 42, [], atLimit)).IsValid.Should().BeTrue();
+        new UpdateCriterionCommandValidator().Validate(new UpdateCriterionCommand(CriterionId, 42, [], overLimit)).Errors
+            .Should().Contain(failure => failure.ErrorMessage == "The criterion text must be no longer than 255 characters.");
+    }
+
     [Fact]
     public void UpdateRankingRangeCommandValidator_RejectsLowerBoundNotLessThanUpperBound()
     {
