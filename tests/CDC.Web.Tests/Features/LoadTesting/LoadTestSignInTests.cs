@@ -1,10 +1,9 @@
 using System.Security.Claims;
 using CDC.Auth.Cidm;
-using CDC.Auth.Cidm.Events;
 using CDC.Auth.Entra;
-using CDC.Auth.Entra.Claims;
-using CDC.Auth.Entra.Events;
 using CDC.Web.Features.LoadTesting;
+using CDC.Web.Models;
+using CDC.Web.Tests.Integration;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -12,33 +11,22 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace CDC.Web.Tests.Features.LoadTesting;
 
 public class LoadTestSignInTests
 {
-    private static readonly Guid InternalSsoId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-    private static readonly Guid ExternalSsoId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-
-    private static readonly LoadTestingOptions Settings = new()
+    private static (LoadTestSignIn SignIn, FakeApiClient Api, DefaultHttpContext Context, FakeAuthenticationService Authentication) Create(bool enabled = true)
     {
-        Enabled = true,
-        InternalUserName = "internal.user",
-        InternalSsoUserId = InternalSsoId,
-        ExternalUserEmail = "external.user@example.test",
-        ExternalSsoUserId = ExternalSsoId
-    };
-
-    private static (LoadTestSignIn SignIn, FakeIdentityResolvers Resolvers, DefaultHttpContext Context, FakeAuthenticationService Authentication) Create(bool enabled = true)
-    {
-        var resolvers = new FakeIdentityResolvers();
-        var options = Options.Create(Settings);
+        var api = new FakeApiClient();
         var status = new LoadTestingStatus(Options.Create(new LoadTestingOptions { Enabled = enabled }), new ControllableClock(DateTimeOffset.UtcNow));
         var authentication = new FakeAuthenticationService();
         var services = new ServiceCollection().AddSingleton<IAuthenticationService>(authentication).BuildServiceProvider();
         var context = new DefaultHttpContext { RequestServices = services };
 
-        return (new LoadTestSignIn(options, status, resolvers, resolvers, NullLogger<LoadTestSignIn>.Instance), resolvers, context, authentication);
+        return (new LoadTestSignIn(api, status, NullLogger<LoadTestSignIn>.Instance), api, context, authentication);
     }
 
     [Theory]
@@ -51,136 +39,151 @@ public class LoadTestSignInTests
         Assert.Equal(enabled, signIn.IsActive);
     }
 
-    [Fact]
-    public async Task Internal_HandsTheResolverTheClaimsOfAnEntraIdToken()
+    [Theory]
+    [InlineData(UserLookupKind.Internal)]
+    [InlineData(UserLookupKind.External)]
+    public async Task AsksCdcApiForTheUserByTheTrimmedEmailAddressForTheKindOfSignInChosen(UserLookupKind kind)
     {
-        var (signIn, resolvers, context, _) = Create();
+        var (signIn, api, context, _) = Create();
 
-        await signIn.SignInInternalAsync(context);
+        await signIn.SignInAsync(context, kind, "  someone@example.test ");
 
-        var token = resolvers.InternalToken!;
-        Assert.Equal(InternalSsoId.ToString(), token.FindFirst(EntraClaimTypes.ObjectId)?.Value);
-        Assert.Equal("internal.user", token.FindFirst(EntraClaimTypes.OnPremisesSamAccountName)?.Value);
-        Assert.Null(token.FindFirst(EntraClaimTypes.OnPremisesDomainName));
+        Assert.Equal((kind, "someone@example.test"), Assert.Single(api.UserLookups));
     }
 
     [Fact]
-    public async Task Internal_SignsTheResolvedUserIntoTheEntraCookieWithTheClaimsARealSignInGives()
+    public async Task Internal_SignsTheUserFoundIntoTheEntraCookieWithTheClaimsARealSignInGives()
     {
-        var (signIn, _, context, authentication) = Create();
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => LoadTestUsers.Found(LoadTestUsers.Internal(isProfileEditor: true, isPolicyProfileUser: false));
 
-        var result = await signIn.SignInInternalAsync(context);
+        var outcome = await signIn.SignInAsync(context, UserLookupKind.Internal, LoadTestUsers.InternalEmailAddress);
 
-        Assert.True(result.Succeeded);
+        Assert.Equal(LoadTestSignInOutcome.SignedIn, outcome);
         var (scheme, principal) = Assert.Single(authentication.SignInCalls);
         Assert.Equal(EntraAuthenticationDefaults.CookieAuthenticationScheme, scheme);
         Assert.True(principal.Identity!.IsAuthenticated);
-        Assert.Equal("11111111-1111-1111-1111-111111111111", principal.FindFirst("internalUserId")?.Value);
+        Assert.Equal(LoadTestUsers.InternalUserId.ToString(), principal.FindFirst("internalUserId")?.Value);
         Assert.Equal("Load Test Internal", principal.FindFirst("fullName")?.Value);
         Assert.Equal(EntraAuthenticationDefaults.AuthenticationScheme, principal.FindFirst("authenticationProvider")?.Value);
         Assert.Equal(bool.TrueString, principal.FindFirst("isProfileEditor")?.Value);
         Assert.Equal(bool.FalseString, principal.FindFirst("isPolicyProfileUser")?.Value);
-        Assert.Equal(InternalSsoId.ToString(), principal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+        Assert.Equal(LoadTestUsers.InternalUserId.ToString(), principal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
         Assert.Equal("Load Test Internal", principal.Identity.Name);
         Assert.True(principal.HasClaim("loadTestSession", bool.TrueString));
     }
 
     [Fact]
-    public async Task Internal_WithNoFullNameFromTheUserRecord_ShowsTheConfiguredUserName()
+    public async Task Internal_GivesThePermissionFlagsOfTheUsersOwnRecord()
     {
-        var (signIn, resolvers, context, authentication) = Create();
-        resolvers.InternalResolution = EntraInternalUserResolution.Allow(new Dictionary<string, string> { ["internalUserId"] = "11111111-1111-1111-1111-111111111111" });
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => LoadTestUsers.Found(LoadTestUsers.Internal(isProfileEditor: false, isPolicyProfileUser: true));
 
-        await signIn.SignInInternalAsync(context);
+        await signIn.SignInAsync(context, UserLookupKind.Internal, LoadTestUsers.InternalEmailAddress);
 
-        Assert.Equal("internal.user", Assert.Single(authentication.SignInCalls).Principal.Identity!.Name);
+        var principal = Assert.Single(authentication.SignInCalls).Principal;
+        Assert.Equal(bool.FalseString, principal.FindFirst("isProfileEditor")?.Value);
+        Assert.Equal(bool.TrueString, principal.FindFirst("isPolicyProfileUser")?.Value);
     }
 
     [Fact]
-    public async Task Internal_WithNoClaimsFromTheResolver_StillSignsInAMarkedSession()
+    public async Task External_SignsTheUserFoundIntoTheCidmCookieWithTheClaimsARealSignInGives()
     {
-        var (signIn, resolvers, context, authentication) = Create();
-        resolvers.InternalResolution = EntraInternalUserResolution.Allow();
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => LoadTestUsers.Found(LoadTestUsers.External());
 
-        var result = await signIn.SignInInternalAsync(context);
+        var outcome = await signIn.SignInAsync(context, UserLookupKind.External, LoadTestUsers.ExternalEmailAddress);
 
-        Assert.True(result.Succeeded);
-        Assert.True(Assert.Single(authentication.SignInCalls).Principal.HasClaim("loadTestSession", bool.TrueString));
-    }
-
-    [Fact]
-    public async Task Internal_WhenTheResolverRefuses_SignsNobodyInAndSaysWhereToGo()
-    {
-        var (signIn, resolvers, context, authentication) = Create();
-        resolvers.InternalResolution = EntraInternalUserResolution.Deny("/Account/NotPermitted");
-
-        var result = await signIn.SignInInternalAsync(context);
-
-        Assert.False(result.Succeeded);
-        Assert.Equal("/Account/NotPermitted", result.DenialRedirectPath);
-        Assert.Empty(authentication.SignInCalls);
-    }
-
-    [Fact]
-    public async Task External_HandsTheResolverTheClaimsOfACidmIdToken()
-    {
-        var (signIn, resolvers, context, _) = Create();
-
-        await signIn.SignInExternalAsync(context);
-
-        var token = resolvers.ExternalToken!;
-        Assert.Equal(ExternalSsoId.ToString(), token.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-        Assert.Equal("external.user@example.test", token.FindFirst(ClaimTypes.Email)?.Value);
-    }
-
-    [Fact]
-    public async Task External_SignsTheResolvedUserIntoTheCidmCookieWithTheClaimsARealSignInGives()
-    {
-        var (signIn, _, context, authentication) = Create();
-
-        var result = await signIn.SignInExternalAsync(context);
-
-        Assert.True(result.Succeeded);
+        Assert.Equal(LoadTestSignInOutcome.SignedIn, outcome);
         var (scheme, principal) = Assert.Single(authentication.SignInCalls);
         Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme, scheme);
         Assert.True(principal.Identity!.IsAuthenticated);
-        Assert.Equal("22222222-2222-2222-2222-222222222222", principal.FindFirst("internalUserId")?.Value);
+        Assert.Equal(LoadTestUsers.ExternalUserId.ToString(), principal.FindFirst("internalUserId")?.Value);
         Assert.Equal("Load Test External", principal.FindFirst("fullName")?.Value);
         Assert.Equal(CidmAuthenticationDefaults.AuthenticationScheme, principal.FindFirst("authenticationProvider")?.Value);
-        Assert.Equal(ExternalSsoId.ToString(), principal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+        Assert.Equal(LoadTestUsers.ExternalUserId.ToString(), principal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+        Assert.False(principal.HasClaim(claim => claim.Type == "isInternalProfileEditor"));
         Assert.True(principal.HasClaim("loadTestSession", bool.TrueString));
     }
 
     [Fact]
-    public async Task External_WhenTheResolverRefuses_SignsNobodyInAndSaysWhereToGo()
+    public async Task External_MarksAnInternalProfileEditorWhoSignsInThroughCidm()
     {
-        var (signIn, resolvers, context, authentication) = Create();
-        resolvers.ExternalResolution = CidmExternalUserResolution.Deny("/Landing/Error");
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => LoadTestUsers.Found(LoadTestUsers.External(isInternalProfileEditor: true));
 
-        var result = await signIn.SignInExternalAsync(context);
+        await signIn.SignInAsync(context, UserLookupKind.External, LoadTestUsers.ExternalEmailAddress);
 
-        Assert.False(result.Succeeded);
-        Assert.Equal("/Landing/Error", result.DenialRedirectPath);
+        Assert.True(Assert.Single(authentication.SignInCalls).Principal.HasClaim("isInternalProfileEditor", bool.TrueString));
+    }
+
+    [Theory]
+    [InlineData(UserLookupOutcome.NotFound, LoadTestSignInOutcome.NotFound)]
+    [InlineData(UserLookupOutcome.NotPermitted, LoadTestSignInOutcome.NotPermitted)]
+    [InlineData(UserLookupOutcome.Ambiguous, LoadTestSignInOutcome.Ambiguous)]
+    [InlineData(UserLookupOutcome.InvalidEmailAddress, LoadTestSignInOutcome.InvalidEmailAddress)]
+    [InlineData(UserLookupOutcome.Error, LoadTestSignInOutcome.Unavailable)]
+    public async Task WhenCdcApiDoesNotFindAUsableUser_SignsNobodyInAndSaysWhy(UserLookupOutcome lookup, LoadTestSignInOutcome expected)
+    {
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => LoadTestUsers.Refused(lookup);
+
+        var outcome = await signIn.SignInAsync(context, UserLookupKind.Internal, LoadTestUsers.InternalEmailAddress);
+
+        Assert.Equal(expected, outcome);
         Assert.Empty(authentication.SignInCalls);
     }
 
     [Fact]
-    public async Task ARefusalWithNoPath_SendsTheUserToTheSiteRoot()
+    public async Task AFoundResultWithNoUser_IsTreatedAsUnavailableAndSignsNobodyIn()
     {
-        var (signIn, resolvers, context, _) = Create();
-        resolvers.ExternalResolution = new CidmExternalUserResolution { IsAllowed = false };
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => new UserLookupResult(UserLookupOutcome.Found, null);
 
-        var result = await signIn.SignInExternalAsync(context);
+        var outcome = await signIn.SignInAsync(context, UserLookupKind.External, LoadTestUsers.ExternalEmailAddress);
 
-        Assert.Equal("/", result.DenialRedirectPath);
+        Assert.Equal(LoadTestSignInOutcome.Unavailable, outcome);
+        Assert.Empty(authentication.SignInCalls);
+    }
+
+    public static TheoryData<Exception> ConnectivityFailures => new()
+    {
+        new HttpRequestException("connection refused"),
+        new TaskCanceledException("cancelled"),
+        new NotSupportedException("not JSON"),
+        new TimeoutRejectedException("timed out"),
+        new BrokenCircuitException("the circuit is open")
+    };
+
+    [Theory]
+    [MemberData(nameof(ConnectivityFailures))]
+    public async Task WhenCdcApiCannotBeReached_IsUnavailableAndSignsNobodyIn(Exception failure)
+    {
+        var (signIn, api, context, authentication) = Create();
+        api.LookUpUser = (_, _) => throw failure;
+
+        var outcome = await signIn.SignInAsync(context, UserLookupKind.Internal, LoadTestUsers.InternalEmailAddress);
+
+        Assert.Equal(LoadTestSignInOutcome.Unavailable, outcome);
+        Assert.Empty(authentication.SignInCalls);
     }
 
     [Fact]
-    public async Task BothSignInsRefuseANullRequest()
+    public async Task AFailureThatIsNotAboutReachingCdcApi_IsNotHidden()
     {
-        var (signIn, _, _, _) = Create();
+        var (signIn, api, context, _) = Create();
+        api.LookUpUser = (_, _) => throw new InvalidOperationException("a bug");
 
-        await Assert.ThrowsAsync<ArgumentNullException>(() => signIn.SignInInternalAsync(null!));
-        await Assert.ThrowsAsync<ArgumentNullException>(() => signIn.SignInExternalAsync(null!));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => signIn.SignInAsync(context, UserLookupKind.Internal, LoadTestUsers.InternalEmailAddress));
+    }
+
+    [Fact]
+    public async Task RefusesANullRequestAndAnEmptyEmailAddress()
+    {
+        var (signIn, _, context, _) = Create();
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => signIn.SignInAsync(null!, UserLookupKind.Internal, LoadTestUsers.InternalEmailAddress));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => signIn.SignInAsync(context, UserLookupKind.Internal, null!));
+        await Assert.ThrowsAsync<ArgumentException>(() => signIn.SignInAsync(context, UserLookupKind.Internal, "   "));
     }
 }

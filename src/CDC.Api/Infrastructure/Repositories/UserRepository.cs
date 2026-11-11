@@ -60,6 +60,28 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ExternalUser>> FindByEmailAddressAsync(string email, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            var rows = await connection.QueryAsync<UserRow>(new CommandDefinition(
+                UserStoredProcedures.GetByEmailAddress,
+                new { EmailAddress = email },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            return [.. rows.Select(ToExternalUser)];
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, UserStoredProcedures.GetByEmailAddress);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task UpdateSsoUserIdExtAsync(Guid id, Guid ssoUserIdExt, CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -288,26 +310,26 @@ public sealed class UserRepository(IDbConnectionFactory connectionFactory, ILogg
     // none of them) - a row returned by GetBySsoUserIdExtAsync/GetByEmailAddressAsync always has
     // SsoUserIdExt and EmailAddress, since both procedures filter on one of them, but the mapped
     // type must still declare them nullable.
-    private static ExternalUser? ToEntity(UserRow? row) => row is null
-        ? null
-        : new ExternalUser
-        {
-            Id = row.Id,
-            UserName = row.UserName ?? string.Empty,
-            FullName = row.FullName ?? string.Empty,
-            Organisation = row.Organisation ?? string.Empty,
-            EmailAddress = row.EmailAddress ?? string.Empty,
-            SsoUserIdExt = row.SsoUserIdExt ?? Guid.Empty,
-            SsoUserId = row.SsoUserId,
-            SsoUserIdInt = row.SsoUserIdInt,
-            IsProfileEditor = row.IsProfileEditor,
-            IsPolicyProfileUser = row.IsPolicyProfileUser
-        };
+    private static ExternalUser? ToEntity(UserRow? row) => row is null ? null : ToExternalUser(row);
 
     // SsoUserIdInt is nullable in the database (every external/legacy row has none of it) - a row
     // returned by GetBySsoUserIdIntAsync/GetByUserNameAsync always has UserName, since both calls
     // filter on one of them, but the mapped type must still declare it nullable.
     private static InternalUser? ToEntity(InternalUserRow? row) => row is null ? null : ToInternalUser(row);
+
+    private static ExternalUser ToExternalUser(UserRow row) => new()
+    {
+        Id = row.Id,
+        UserName = row.UserName ?? string.Empty,
+        FullName = row.FullName ?? string.Empty,
+        Organisation = row.Organisation ?? string.Empty,
+        EmailAddress = row.EmailAddress ?? string.Empty,
+        SsoUserIdExt = row.SsoUserIdExt ?? Guid.Empty,
+        SsoUserId = row.SsoUserId,
+        SsoUserIdInt = row.SsoUserIdInt,
+        IsProfileEditor = row.IsProfileEditor,
+        IsPolicyProfileUser = row.IsPolicyProfileUser
+    };
 
     private static InternalUser ToInternalUser(InternalUserRow row) => new()
     {

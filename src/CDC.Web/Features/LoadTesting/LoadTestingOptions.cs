@@ -2,8 +2,8 @@ namespace CDC.Web.Features.LoadTesting;
 
 /// <summary>
 /// Configuration bound from the <c>LoadTesting</c> section. While <see cref="Enabled"/> is set, signing in as an internal or external
-/// user skips the identity provider and signs in as the configured user, so a load test needs no Entra ID or CIDM login.
-/// <see cref="LoadTestingOptionsValidator"/> decides where it may be switched on.
+/// user skips the identity provider: the Load test login page asks for the email address of the user to sign in as, so a load test
+/// needs no Entra ID or CIDM login. <see cref="LoadTestingOptionsValidator"/> decides where it may be switched on.
 /// </summary>
 public sealed class LoadTestingOptions
 {
@@ -15,18 +15,6 @@ public sealed class LoadTestingOptions
 
     /// <summary>Gets or sets when the bypass stops by itself. Required in a deployed environment, and at most a week ahead.</summary>
     public DateTimeOffset? ExpiresAtUtc { get; set; }
-
-    /// <summary>Gets or sets the <c>[dbo].[User].UserName</c> of the internal user to sign in as.</summary>
-    public string InternalUserName { get; set; } = string.Empty;
-
-    /// <summary>Gets or sets that internal user's <c>SsoUserIdInt</c> (Entra ID object id), so CDC.Api matches the existing row and leaves it unchanged.</summary>
-    public Guid InternalSsoUserId { get; set; }
-
-    /// <summary>Gets or sets the email address of the pre-registered external user to sign in as.</summary>
-    public string ExternalUserEmail { get; set; } = string.Empty;
-
-    /// <summary>Gets or sets that external user's <c>SsoUserIdExt</c> (CIDM subject id), so CDC.Api matches the existing row and leaves it unchanged.</summary>
-    public Guid ExternalSsoUserId { get; set; }
 
     /// <summary>Reads only the <see cref="Enabled"/> switch, for the startup code that runs before the options are bound.</summary>
     /// <param name="configuration">The application configuration.</param>

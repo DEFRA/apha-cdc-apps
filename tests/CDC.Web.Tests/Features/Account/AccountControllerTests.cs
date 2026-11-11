@@ -3,6 +3,7 @@ using CDC.Auth.Cidm;
 using CDC.Auth.Entra;
 using CDC.Web.Features.Account;
 using CDC.Web.Features.LoadTesting;
+using CDC.Web.Models;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -246,24 +247,235 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public async Task Login_WhenLoadTestingIsActive_SignsInTheExternalUserInsteadOfChallengingCidm()
+    public async Task Login_WhenLoadTestingIsActive_SendsTheUserToTheLoadTestLoginPageForTheExternalJourney()
     {
         var loadTest = new FakeLoadTestSignIn();
         var controller = CreateController(loadTest, out _);
 
         var result = await controller.Login();
 
-        Assert.Equal("/Landing/External", Assert.IsType<LocalRedirectResult>(result).Url);
-        Assert.Equal(1, loadTest.ExternalSignIns);
-        Assert.Equal(0, loadTest.InternalSignIns);
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("LoadTestLogin", redirect.ActionName);
+        Assert.Equal("external", redirect.RouteValues!["kind"]);
+        Assert.Null(redirect.RouteValues["returnUrl"]);
+        Assert.Empty(loadTest.SignIns);
     }
 
     [Fact]
-    public async Task Login_WhenLoadTestingIsActive_ReturnsToALocalReturnUrl()
+    public async Task Login_WhenLoadTestingIsActive_CarriesTheReturnUrlToTheLoadTestLoginPage()
     {
         var controller = CreateController(new FakeLoadTestSignIn(), out _);
 
         var result = await controller.Login("/SurveillanceProfiles/Search");
+
+        Assert.Equal("/SurveillanceProfiles/Search", Assert.IsType<RedirectToActionResult>(result).RouteValues!["returnUrl"]);
+    }
+
+    [Fact]
+    public async Task Login_WhenLoadTestingIsActiveButAnInternalSessionExists_StillStopsTheUser()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out var authService);
+        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+
+        var result = await controller.Login();
+
+        Assert.Equal("AlreadySignedIn", Assert.IsType<RedirectToActionResult>(result).ActionName);
+    }
+
+    [Fact]
+    public async Task Login_WhenLoadTestingIsActiveButACidmSessionExists_GoesStraightToTheExternalHome()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var result = await controller.Login();
+
+        Assert.Equal("External", Assert.IsType<RedirectToActionResult>(result).ActionName);
+    }
+
+    [Fact]
+    public async Task Login_WhenLoadTestingIsRegisteredButNotActive_StillChallengesCidm()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(isActive: false), out _);
+
+        var result = await controller.Login();
+
+        Assert.Equal([CidmAuthenticationDefaults.AuthenticationScheme], Assert.IsType<ChallengeResult>(result).AuthenticationSchemes);
+    }
+
+    [Fact]
+    public async Task LoginInternal_WhenLoadTestingIsActive_SendsTheUserToTheLoadTestLoginPageForTheInternalJourney()
+    {
+        var loadTest = new FakeLoadTestSignIn();
+        var controller = CreateController(loadTest, out _);
+
+        var result = await controller.LoginInternal();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("LoadTestLogin", redirect.ActionName);
+        Assert.Equal("internal", redirect.RouteValues!["kind"]);
+        Assert.Null(redirect.RouteValues["returnUrl"]);
+        Assert.Empty(loadTest.SignIns);
+    }
+
+    [Fact]
+    public async Task LoginInternal_WhenLoadTestingIsActive_CarriesTheReturnUrlToTheLoadTestLoginPage()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out _);
+
+        var result = await controller.LoginInternal("/CrossProfileAdmin/ReferenceData");
+
+        Assert.Equal("/CrossProfileAdmin/ReferenceData", Assert.IsType<RedirectToActionResult>(result).RouteValues!["returnUrl"]);
+    }
+
+    [Fact]
+    public async Task LoginInternal_WhenLoadTestingIsActiveButAnExternalSessionExists_StillStopsTheUser()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out var authService);
+        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var result = await controller.LoginInternal();
+
+        Assert.Equal("AlreadySignedIn", Assert.IsType<RedirectToActionResult>(result).ActionName);
+    }
+
+    [Fact]
+    public async Task LoginInternal_WhenLoadTestingIsRegisteredButNotActive_StillChallengesEntra()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(isActive: false), out _);
+
+        var result = await controller.LoginInternal();
+
+        Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], Assert.IsType<ChallengeResult>(result).AuthenticationSchemes);
+    }
+
+    [Theory]
+    [InlineData("internal", "internal")]
+    [InlineData("INTERNAL", "internal")]
+    [InlineData("external", "external")]
+    [InlineData("External", "external")]
+    public async Task LoadTestLogin_ShowsThePageForTheJourneyChosen(string kind, string expectedKind)
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out _);
+
+        var result = await controller.LoadTestLogin(kind, "/SurveillanceProfiles/Search");
+
+        var model = Assert.IsType<LoadTestLoginViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(expectedKind, model.Kind);
+        Assert.Equal("/SurveillanceProfiles/Search", model.ReturnUrl);
+        Assert.Null(model.EmailAddress);
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/x")]
+    [InlineData("//evil.example")]
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task LoadTestLogin_DropsAReturnUrlThatIsNotLocal(string? returnUrl)
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out _);
+
+        var result = await controller.LoadTestLogin("internal", returnUrl);
+
+        Assert.Null(Assert.IsType<LoadTestLoginViewModel>(Assert.IsType<ViewResult>(result).Model).ReturnUrl);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("admin")]
+    [InlineData("internal ")]
+    public async Task LoadTestLogin_ForAJourneyThatDoesNotExist_IsNotFound(string? kind)
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out _);
+
+        Assert.IsType<NotFoundResult>(await controller.LoadTestLogin(kind));
+        Assert.IsType<NotFoundResult>(await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = kind ?? string.Empty, EmailAddress = "someone@example.test" }));
+    }
+
+    [Fact]
+    public async Task LoadTestLogin_WhenLoadTestingIsNotActive_IsNotFound()
+    {
+        var notActive = CreateController(new FakeLoadTestSignIn(isActive: false), out _);
+        var notRegistered = CreateController(out _);
+
+        Assert.IsType<NotFoundResult>(await notActive.LoadTestLogin("internal"));
+        Assert.IsType<NotFoundResult>(await notRegistered.LoadTestLogin("external"));
+        Assert.IsType<NotFoundResult>(await notActive.LoadTestLogin(new LoadTestLoginViewModel { Kind = "internal", EmailAddress = "someone@example.test" }));
+        Assert.IsType<NotFoundResult>(await notRegistered.LoadTestLogin(new LoadTestLoginViewModel { Kind = "external", EmailAddress = "someone@example.test" }));
+    }
+
+    [Theory]
+    [InlineData("internal", EntraAuthenticationDefaults.CookieAuthenticationScheme, "Internal")]
+    [InlineData("external", CookieAuthenticationDefaults.AuthenticationScheme, "External")]
+    public async Task LoadTestLogin_WhenTheUserAlreadyHasASessionOfThatKind_GoesStraightToTheirHome(string kind, string cookieScheme, string home)
+    {
+        var loadTest = new FakeLoadTestSignIn();
+        var controller = CreateController(loadTest, out var authService);
+        authService.AuthenticateResultsByScheme[cookieScheme] = SignedIn(cookieScheme);
+
+        var page = await controller.LoadTestLogin(kind);
+        var post = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = kind, EmailAddress = "someone@example.test" });
+
+        Assert.Equal(home, Assert.IsType<RedirectToActionResult>(page).ActionName);
+        Assert.Equal(home, Assert.IsType<RedirectToActionResult>(post).ActionName);
+        Assert.Empty(loadTest.SignIns);
+    }
+
+    [Theory]
+    [InlineData("internal", CookieAuthenticationDefaults.AuthenticationScheme)]
+    [InlineData("external", EntraAuthenticationDefaults.CookieAuthenticationScheme)]
+    public async Task LoadTestLogin_WhenTheUserHasASessionOfTheOtherKind_StopsThemAsTheRealLoginDoes(string kind, string otherCookieScheme)
+    {
+        var loadTest = new FakeLoadTestSignIn();
+        var controller = CreateController(loadTest, out var authService);
+        authService.AuthenticateResultsByScheme[otherCookieScheme] = SignedIn(otherCookieScheme);
+
+        var page = await controller.LoadTestLogin(kind);
+        var post = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = kind, EmailAddress = "someone@example.test" });
+
+        Assert.Equal("AlreadySignedIn", Assert.IsType<RedirectToActionResult>(page).ActionName);
+        Assert.Equal("AlreadySignedIn", Assert.IsType<RedirectToActionResult>(post).ActionName);
+        Assert.Empty(loadTest.SignIns);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task LoadTestLogin_WithNoEmailAddress_AsksForOneAndSignsNobodyIn(string? emailAddress)
+    {
+        var loadTest = new FakeLoadTestSignIn();
+        var controller = CreateController(loadTest, out _);
+
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "internal", EmailAddress = emailAddress });
+
+        var model = Assert.IsType<LoadTestLoginViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("internal", model.Kind);
+        Assert.Equal("Enter an email address", Assert.Single(controller.ModelState[nameof(LoadTestLoginViewModel.EmailAddress)]!.Errors).ErrorMessage);
+        Assert.Empty(loadTest.SignIns);
+    }
+
+    [Theory]
+    [InlineData("internal", UserLookupKind.Internal, "/Landing/Internal")]
+    [InlineData("external", UserLookupKind.External, "/Landing/External")]
+    public async Task LoadTestLogin_SignsInTheUserByTheTrimmedEmailAddressAndGoesToTheirHome(string kind, UserLookupKind expectedKind, string expectedHome)
+    {
+        var loadTest = new FakeLoadTestSignIn();
+        var controller = CreateController(loadTest, out _);
+
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = kind, EmailAddress = " someone@example.test " });
+
+        Assert.Equal(expectedHome, Assert.IsType<LocalRedirectResult>(result).Url);
+        Assert.Equal((expectedKind, "someone@example.test"), Assert.Single(loadTest.SignIns));
+    }
+
+    [Fact]
+    public async Task LoadTestLogin_ReturnsToALocalReturnUrl()
+    {
+        var controller = CreateController(new FakeLoadTestSignIn(), out _);
+
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "internal", EmailAddress = "someone@example.test", ReturnUrl = "/SurveillanceProfiles/Search" });
 
         Assert.Equal("/SurveillanceProfiles/Search", Assert.IsType<LocalRedirectResult>(result).Url);
     }
@@ -273,123 +485,56 @@ public class AccountControllerTests
     [InlineData("//evil.example")]
     [InlineData("")]
     [InlineData(null)]
-    public async Task Login_WhenLoadTestingIsActive_IgnoresAReturnUrlThatIsNotLocal(string? returnUrl)
+    public async Task LoadTestLogin_IgnoresAReturnUrlThatIsNotLocal(string? returnUrl)
     {
         var controller = CreateController(new FakeLoadTestSignIn(), out _);
 
-        var result = await controller.Login(returnUrl);
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "external", EmailAddress = "someone@example.test", ReturnUrl = returnUrl });
 
         Assert.Equal("/Landing/External", Assert.IsType<LocalRedirectResult>(result).Url);
     }
 
-    [Fact]
-    public async Task Login_WhenLoadTestingRefusesTheUser_RedirectsToWhereItSays()
+    [Theory]
+    [InlineData(LoadTestSignInOutcome.NotFound, "No user has that email address")]
+    [InlineData(LoadTestSignInOutcome.NotPermitted, "That user cannot sign in as an internal user")]
+    [InlineData(LoadTestSignInOutcome.Ambiguous, "More than one user has that email address, so none can be chosen")]
+    [InlineData(LoadTestSignInOutcome.InvalidEmailAddress, "Enter an email address in the correct format, like name@example.com")]
+    [InlineData(LoadTestSignInOutcome.Unavailable, "The user could not be looked up. Try again later")]
+    public async Task LoadTestLogin_WhenTheUserCannotBeSignedIn_ShowsThePageAgainWithWhy(LoadTestSignInOutcome outcome, string expectedMessage)
     {
-        var loadTest = new FakeLoadTestSignIn { Result = LoadTestSignInResult.Denied("/Account/NotPermitted") };
+        var loadTest = new FakeLoadTestSignIn { Outcome = outcome };
         var controller = CreateController(loadTest, out _);
 
-        var result = await controller.Login();
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "Internal", EmailAddress = "someone@example.test", ReturnUrl = "/SurveillanceProfiles/Search" });
 
-        Assert.Equal("/Account/NotPermitted", Assert.IsType<RedirectResult>(result).Url);
+        var model = Assert.IsType<LoadTestLoginViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("internal", model.Kind);
+        Assert.Equal("someone@example.test", model.EmailAddress);
+        Assert.Equal("/SurveillanceProfiles/Search", model.ReturnUrl);
+        Assert.Equal(expectedMessage, Assert.Single(controller.ModelState[nameof(LoadTestLoginViewModel.EmailAddress)]!.Errors).ErrorMessage);
     }
 
     [Fact]
-    public async Task Login_WhenLoadTestingIsActiveButAnInternalSessionExists_StillStopsTheUser()
+    public async Task LoadTestLogin_WhenAnExternalUserCannotBeSignedIn_NamesTheExternalJourneyInTheMessage()
     {
-        var loadTest = new FakeLoadTestSignIn();
-        var controller = CreateController(loadTest, out var authService);
-        authService.AuthenticateResultsByScheme[EntraAuthenticationDefaults.CookieAuthenticationScheme] = SignedIn(EntraAuthenticationDefaults.CookieAuthenticationScheme);
+        var controller = CreateController(new FakeLoadTestSignIn { Outcome = LoadTestSignInOutcome.NotPermitted }, out _);
 
-        var result = await controller.Login();
+        await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "external", EmailAddress = "someone@example.test" });
 
-        Assert.Equal("AlreadySignedIn", Assert.IsType<RedirectToActionResult>(result).ActionName);
-        Assert.Equal(0, loadTest.ExternalSignIns);
+        Assert.Equal("That user cannot sign in as an external user", Assert.Single(controller.ModelState[nameof(LoadTestLoginViewModel.EmailAddress)]!.Errors).ErrorMessage);
     }
 
     [Fact]
-    public async Task Login_WhenLoadTestingIsActiveButACidmSessionExists_GoesStraightToTheExternalHome()
+    public async Task LoadTestLogin_AfterAFailure_ShowsTheCheckedJourneyAndReturnUrlNotWhatWasPosted()
     {
-        var loadTest = new FakeLoadTestSignIn();
-        var controller = CreateController(loadTest, out var authService);
-        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
+        var controller = CreateController(new FakeLoadTestSignIn { Outcome = LoadTestSignInOutcome.NotFound }, out _);
+        controller.ModelState.SetModelValue(nameof(LoadTestLoginViewModel.ReturnUrl), "https://evil.example/x", "https://evil.example/x");
 
-        var result = await controller.Login();
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "INTERNAL", EmailAddress = "someone@example.test", ReturnUrl = "https://evil.example/x" });
 
-        Assert.Equal("External", Assert.IsType<RedirectToActionResult>(result).ActionName);
-        Assert.Equal(0, loadTest.ExternalSignIns);
-    }
-
-    [Fact]
-    public async Task Login_WhenLoadTestingIsRegisteredButNotActive_StillChallengesCidm()
-    {
-        var loadTest = new FakeLoadTestSignIn(isActive: false);
-        var controller = CreateController(loadTest, out _);
-
-        var result = await controller.Login();
-
-        Assert.Equal([CidmAuthenticationDefaults.AuthenticationScheme], Assert.IsType<ChallengeResult>(result).AuthenticationSchemes);
-        Assert.Equal(0, loadTest.ExternalSignIns);
-    }
-
-    [Fact]
-    public async Task LoginInternal_WhenLoadTestingIsActive_SignsInTheInternalUserInsteadOfChallengingEntra()
-    {
-        var loadTest = new FakeLoadTestSignIn();
-        var controller = CreateController(loadTest, out _);
-
-        var result = await controller.LoginInternal();
-
-        Assert.Equal("/Landing/Internal", Assert.IsType<LocalRedirectResult>(result).Url);
-        Assert.Equal(1, loadTest.InternalSignIns);
-        Assert.Equal(0, loadTest.ExternalSignIns);
-    }
-
-    [Fact]
-    public async Task LoginInternal_WhenLoadTestingIsActive_ReturnsToALocalReturnUrlAndIgnoresOthers()
-    {
-        var controller = CreateController(new FakeLoadTestSignIn(), out _);
-
-        var local = await controller.LoginInternal("/CrossProfileAdmin/ReferenceData");
-        var remote = await controller.LoginInternal("https://evil.example/x");
-
-        Assert.Equal("/CrossProfileAdmin/ReferenceData", Assert.IsType<LocalRedirectResult>(local).Url);
-        Assert.Equal("/Landing/Internal", Assert.IsType<LocalRedirectResult>(remote).Url);
-    }
-
-    [Fact]
-    public async Task LoginInternal_WhenLoadTestingRefusesTheUser_RedirectsToWhereItSays()
-    {
-        var loadTest = new FakeLoadTestSignIn { Result = LoadTestSignInResult.Denied("/Landing/Error") };
-        var controller = CreateController(loadTest, out _);
-
-        var result = await controller.LoginInternal();
-
-        Assert.Equal("/Landing/Error", Assert.IsType<RedirectResult>(result).Url);
-    }
-
-    [Fact]
-    public async Task LoginInternal_WhenLoadTestingIsActiveButAnExternalSessionExists_StillStopsTheUser()
-    {
-        var loadTest = new FakeLoadTestSignIn();
-        var controller = CreateController(loadTest, out var authService);
-        authService.AuthenticateResultsByScheme[CookieAuthenticationDefaults.AuthenticationScheme] = SignedIn(CookieAuthenticationDefaults.AuthenticationScheme);
-
-        var result = await controller.LoginInternal();
-
-        Assert.Equal("AlreadySignedIn", Assert.IsType<RedirectToActionResult>(result).ActionName);
-        Assert.Equal(0, loadTest.InternalSignIns);
-    }
-
-    [Fact]
-    public async Task LoginInternal_WhenLoadTestingIsRegisteredButNotActive_StillChallengesEntra()
-    {
-        var loadTest = new FakeLoadTestSignIn(isActive: false);
-        var controller = CreateController(loadTest, out _);
-
-        var result = await controller.LoginInternal();
-
-        Assert.Equal([EntraAuthenticationDefaults.AuthenticationScheme], Assert.IsType<ChallengeResult>(result).AuthenticationSchemes);
-        Assert.Equal(0, loadTest.InternalSignIns);
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Null(Assert.IsType<LoadTestLoginViewModel>(view.Model).ReturnUrl);
+        Assert.False(view.ViewData.ModelState.ContainsKey(nameof(LoadTestLoginViewModel.ReturnUrl)));
     }
 
     [Fact]
@@ -433,22 +578,14 @@ public class AccountControllerTests
     {
         public bool IsActive { get; } = isActive;
 
-        public LoadTestSignInResult Result { get; set; } = LoadTestSignInResult.Allowed;
+        public LoadTestSignInOutcome Outcome { get; set; } = LoadTestSignInOutcome.SignedIn;
 
-        public int InternalSignIns { get; private set; }
+        public List<(UserLookupKind Kind, string EmailAddress)> SignIns { get; } = [];
 
-        public int ExternalSignIns { get; private set; }
-
-        public Task<LoadTestSignInResult> SignInInternalAsync(HttpContext httpContext)
+        public Task<LoadTestSignInOutcome> SignInAsync(HttpContext httpContext, UserLookupKind kind, string emailAddress)
         {
-            InternalSignIns++;
-            return Task.FromResult(Result);
-        }
-
-        public Task<LoadTestSignInResult> SignInExternalAsync(HttpContext httpContext)
-        {
-            ExternalSignIns++;
-            return Task.FromResult(Result);
+            SignIns.Add((kind, emailAddress));
+            return Task.FromResult(Outcome);
         }
     }
 

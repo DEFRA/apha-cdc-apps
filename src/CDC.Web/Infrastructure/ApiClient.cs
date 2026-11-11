@@ -50,6 +50,13 @@ public interface IApiClient
     /// <c>POST /api/users/internal/resolve</c>.</summary>
     Task<ResolveInternalUserResult> ResolveInternalUserAsync(ResolveInternalUserRequestDto request, CancellationToken cancellationToken = default);
 
+    /// <summary>Finds the user holding an email address, for a LoadTesting sign-in, via <c>POST /api/users/internal/lookup</c> or
+    /// <c>POST /api/users/external/lookup</c>. Nothing is created or changed in CDC.Api.</summary>
+    /// <param name="kind">The kind of sign-in the user is wanted for.</param>
+    /// <param name="emailAddress">The email address to look up.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task<UserLookupResult> LookUpUserByEmailAsync(UserLookupKind kind, string emailAddress, CancellationToken cancellationToken = default);
+
     /// <summary>Gets every profile status a profile can be set to, from <c>GET /api/profiles/status-types</c>.</summary>
     Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default);
 
@@ -401,6 +408,36 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         }
 
         return new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null);
+    }
+
+    public async Task<UserLookupResult> LookUpUserByEmailAsync(
+        UserLookupKind kind,
+        string emailAddress,
+        CancellationToken cancellationToken = default)
+    {
+        var path = kind == UserLookupKind.Internal ? "/api/users/internal/lookup" : "/api/users/external/lookup";
+
+        using var response = await httpClient.PostAsJsonAsync(path, new { EmailAddress = emailAddress }, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var user = await response.Content.ReadFromJsonAsync<UserLookupDto>(cancellationToken);
+
+            return user is null
+                ? new UserLookupResult(UserLookupOutcome.Error, null)
+                : new UserLookupResult(UserLookupOutcome.Found, user);
+        }
+
+        var outcome = response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => UserLookupOutcome.NotFound,
+            HttpStatusCode.Forbidden => UserLookupOutcome.NotPermitted,
+            HttpStatusCode.Conflict => UserLookupOutcome.Ambiguous,
+            HttpStatusCode.BadRequest => UserLookupOutcome.InvalidEmailAddress,
+            _ => UserLookupOutcome.Error
+        };
+
+        return new UserLookupResult(outcome, null);
     }
 
     public async Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default)

@@ -12,11 +12,7 @@ public class LoadTestingOptionsValidatorTests
     private static LoadTestingOptions On(DateTimeOffset? expiresAtUtc = null) => new()
     {
         Enabled = true,
-        ExpiresAtUtc = expiresAtUtc,
-        InternalUserName = "internal.user",
-        InternalSsoUserId = Guid.NewGuid(),
-        ExternalUserEmail = "external.user@example.test",
-        ExternalSsoUserId = Guid.NewGuid()
+        ExpiresAtUtc = expiresAtUtc
     };
 
     private static ValidateOptionsResult Validate(LoadTestingOptions options, string environment, string? deployment = null)
@@ -130,13 +126,10 @@ public class LoadTestingOptionsValidatorTests
     }
 
     [Fact]
-    public void WithoutTheUsersToSignInAs_EachMissingSettingIsListed()
+    public void NoUserToSignInAsIsConfigured_BecauseTheUserIsChosenOnTheLoginPage()
     {
         var result = Validate(new LoadTestingOptions { Enabled = true }, "Development");
 
-        Assert.True(result.Failed);
-        Assert.Equal(
-            ["LoadTesting:InternalUserName", "LoadTesting:InternalSsoUserId", "LoadTesting:ExternalUserEmail", "LoadTesting:ExternalSsoUserId"],
-            result.Failures.Select(failure => failure.Replace(" is required.", string.Empty, StringComparison.Ordinal)));
+        Assert.True(result.Succeeded);
     }
 }

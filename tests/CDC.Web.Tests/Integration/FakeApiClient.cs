@@ -56,6 +56,19 @@ internal sealed class FakeApiClient(
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
+    /// <summary>Gets the lookups made so far, in order.</summary>
+    public List<(UserLookupKind Kind, string EmailAddress)> UserLookups { get; } = [];
+
+    /// <summary>Gets or sets how a user is looked up by email address, for the LoadTesting sign-in. The lookup fails unless a test sets this.</summary>
+    public Func<UserLookupKind, string, UserLookupResult> LookUpUser { get; set; } = (_, _) => new UserLookupResult(UserLookupOutcome.Error, null);
+
+    public Task<UserLookupResult> LookUpUserByEmailAsync(UserLookupKind kind, string emailAddress, CancellationToken cancellationToken = default)
+    {
+        UserLookups.Add((kind, emailAddress));
+
+        return Task.FromResult(LookUpUser(kind, emailAddress));
+    }
+
     public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<ProfileStatusTypeDto>>([]);
 

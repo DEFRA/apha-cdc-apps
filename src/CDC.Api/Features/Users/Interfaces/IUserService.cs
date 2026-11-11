@@ -36,4 +36,16 @@ public interface IUserService
     /// <param name="cancellationToken">Cancels the database calls.</param>
     /// <returns>The matched or newly created user.</returns>
     Task<Result<InternalUser>> ResolveInternalUserAsync(ResolveInternalUserCommand command, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finds the one user holding an email address and checks that the user could sign in as the kind of user asked for, so
+    /// CDC.Web's LoadTesting can sign that user in without the identity provider. Read-only: nothing is linked, backfilled or created.
+    /// </summary>
+    /// <param name="command">The email address and the kind of sign-in wanted.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>
+    /// The user on success; <see cref="ResultStatus.NotFound"/> when no user holds the address; <see cref="ResultStatus.Conflict"/>
+    /// when several do; <see cref="ResultStatus.Forbidden"/> when the user could not sign in as that kind of user.
+    /// </returns>
+    Task<Result<ExternalUser>> LookUpByEmailAsync(LookUpUserByEmailCommand command, CancellationToken cancellationToken);
 }

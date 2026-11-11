@@ -20,6 +20,15 @@ public interface IUserRepository
     /// <returns>The matching row, or <see langword="null"/> when none exists.</returns>
     Task<Domain.Entities.ExternalUser?> GetByEmailAddressAsync(string email, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Reads every user row holding an email address via <c>spgUserByEmailAddress</c>. Unlike <see cref="GetByEmailAddressAsync"/>, which
+    /// expects at most one row, this reports duplicates, because the address is not unique in the database.
+    /// </summary>
+    /// <param name="email">The email address to look for.</param>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>The matching rows, empty when none exists.</returns>
+    Task<IReadOnlyList<Domain.Entities.ExternalUser>> FindByEmailAddressAsync(string email, CancellationToken cancellationToken);
+
     /// <summary>Backfills SsoUserIdExt on a row previously matched by email, via <c>spuUserSsoUserIdExt</c>.</summary>
     /// <param name="id">The row to update.</param>
     /// <param name="ssoUserIdExt">The CIDM 'sub' claim to record.</param>

@@ -284,7 +284,8 @@ builder.Services.AddGraphClient(builder.Configuration);
 builder.Services.AddSessionTimeout(builder.Configuration);
 
 // Off unless LoadTesting:Enabled is set (and only allowed in DEV, TEST, PRE-PROD or a local run). While on, Account/Login and
-// Account/LoginInternal sign in the configured external and internal user instead of going to CIDM or Entra ID - see the README.
+// Account/LoginInternal send the user to the Load test login page, which signs in the user whose email address is entered
+// instead of going to CIDM or Entra ID - see the README.
 builder.Services.AddLoadTesting(builder.Configuration);
 
 // Resolves the CIDM-authenticated principal to a CDC.Api [dbo].[User] row once per sign-in - see

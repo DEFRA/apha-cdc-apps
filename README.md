@@ -196,12 +196,20 @@ start with values that would end a session without a user being able to respond 
 ## Load testing (CDC.Web)
 
 `LoadTesting` lets a load test, or a developer, reach every page without signing in through Entra ID or CIDM. While it is on,
-**Continue as internal user** (`/Account/LoginInternal`) signs in one configured internal user and **Continue as external user**
-(`/Account/Login`) one configured external user, with no redirect to the identity provider; a request for a page that needs a
-user is sent to the matching sign-in and returned to the page; sign-out ends only the local session. Each user goes through
-`InternalUserResolver` or `ExternalUserResolver` as after a real sign-in, so their roles are what their `[dbo].[User]` row says
-(an internal user's two flags; an external user's roles are per profile). Change a role in the row and the user's next sign-in
-picks it up. Nothing changes in CDC.Api, which never authenticated callers.
+**Continue as internal user** (`/Account/LoginInternal`) and **Continue as external user** (`/Account/Login`) do not go to the
+identity provider. Both send the user to the **Load test login** page (`/Account/LoadTestLogin`), which asks who to sign in as: a
+"Login as" textbox for an email address, with a **Login** button below it. The email address is required. Login signs in the
+user who holds it, for the journey that was chosen, and goes to the page that was asked for or else that journey's home page. A
+request for a page that needs a user is sent to the same page and returned to the page afterwards, and sign-out ends only the local
+session. The page says when no user, more than one user, or a user who could not take that journey holds the address.
+
+CDC.Api looks the user up by email address (`POST /api/users/internal/lookup` or `POST /api/users/external/lookup`, read-only) and the
+user is signed in with the claims a real sign-in would have given them, so their roles are what their `[dbo].[User]` row says: an
+internal user's two flags, and an external user's roles per profile. Change a role in the row and the user's next sign-in picks it
+up. Nothing is created, linked or recorded, so a user who has never signed in for real can be signed in as, but only a row that holds
+an email address can be found (an internal user's address is recorded by their first real Entra ID sign-in). An internal journey takes
+any user who is not an external user. An external journey takes an external user, or an internal profile editor who has signed in
+through Entra ID, as a real CIDM sign-in does.
 
 It is a deliberate hole in authentication, so it is off unless switched on, refused where it must not run, and time-boxed.
 Set it with environment variables on the task (or `dotnet user-secrets` / the git-ignored `src/CDC.Web/appsettings.Development.json`
@@ -211,22 +219,23 @@ locally) and never commit it - a test fails if a committed `appsettings.json`, D
 | ------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `LoadTesting:Enabled`          | `false` | Switches the bypass on                                                                                                                                          |
 | `LoadTesting:ExpiresAtUtc`     | none    | When it switches itself off, ISO 8601 (`2026-11-12T18:00:00Z`). Required in a deployed environment, at most 7 days ahead. After it, sign-in goes to the identity providers again and sessions it created end on their next request |
-| `LoadTesting:InternalUserName` | none    | `[dbo].[User].UserName` of the internal user to sign in as                                                                                                      |
-| `LoadTesting:InternalSsoUserId` | none   | That user's `SsoUserIdInt` (Entra ID object id), so CDC.Api matches the existing row and leaves it unchanged                                                    |
-| `LoadTesting:ExternalUserEmail` | none   | Email address of the pre-registered external user to sign in as                                                                                                 |
-| `LoadTesting:ExternalSsoUserId` | none   | That user's `SsoUserIdExt` (CIDM subject id)                                                                                                                    |
 | `Deployment:Environment`       | none    | `DEV`, `TEST`, `PRE-PROD` or `PROD`; set on every ECS task definition (the tasks all run as `Production`, so only this tells the environments apart)           |
 
-All of the user settings are required once it is on. Find the ids with `SELECT UserName, SsoUserIdInt, SsoUserIdExt FROM [dbo].[User] WHERE UserName IN (...)`.
+The user is chosen on the login page, so no user is configured. The earlier one-click version's `LoadTesting:InternalUserName`,
+`InternalSsoUserId`, `ExternalUserEmail` and `ExternalSsoUserId` are no longer read, and can be removed.
+
 Startup fails if it is on in `PROD`, in a deployment other than `DEV`, `TEST` and `PRE-PROD`, or outside a local `Development` run
 without `Deployment:Environment`; a local run needs neither a deployment nor an expiry. While it is on, the app logs warning
-`9500` at startup, tags every log event `LoadTesting=true`, logs each sign-in (`9501`) by opaque user id, and shows a banner on every page.
+`9500` at startup, tags every log event `LoadTesting=true`, logs each sign-in (`9501`) by opaque user id (never the email address),
+and shows a banner on every page.
 
 Around the app (not in this repo): limit the environment's ingress (WAF or security group) to the load generator and named
-testers, because while it is on every visitor can sign in as these users and nobody can sign in as themselves; alarm on log
-event `9500` and page if it appears in `PROD`; make the pipeline reject `LoadTesting__*` in the `PROD` task definition; and use
-masked or synthetic data. A load script signs in with a GET of `/Account/LoginInternal` or `/Account/Login`, keeps the cookie, and
-fetches the antiforgery token from a page before it posts a form. Everything it writes is recorded against the configured users.
+testers, because while it is on every visitor can sign in as any user whose email address they know and nobody has to sign in as
+themselves; alarm on log event `9500` and page if it appears in `PROD`; make the pipeline reject `LoadTesting__*` in the `PROD` task
+definition; and use masked or synthetic data. A load script signs in with a GET of `/Account/LoadTestLogin?kind=internal` (or
+`kind=external`), which sets the antiforgery cookie and carries the token in the form, then a POST to `/Account/LoadTestLogin` of
+`__RequestVerificationToken`, `Kind`, `EmailAddress` and optionally `ReturnUrl`, with the cookies kept; a `302` is a sign-in. Everything
+it writes is recorded against the users it signs in as.
 
 
 ## Spell check (CDC.Web)

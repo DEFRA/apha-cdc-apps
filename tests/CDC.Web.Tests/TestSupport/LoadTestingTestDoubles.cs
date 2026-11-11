@@ -1,6 +1,4 @@
-using System.Security.Claims;
-using CDC.Auth.Cidm.Events;
-using CDC.Auth.Entra.Events;
+using CDC.Web.Models;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 
@@ -26,38 +24,38 @@ internal sealed class ControllableClock(DateTimeOffset start) : TimeProvider
     public void Advance(TimeSpan by) => _now += by;
 }
 
-// Stands in for CDC.Api-backed resolvers: records the identity-provider claims it is handed and answers with what the test set.
-internal sealed class FakeIdentityResolvers : IEntraInternalUserResolver, ICidmExternalUserResolver
+// The users the LoadTesting tests look up by email address, standing in for what CDC.Api answers.
+internal static class LoadTestUsers
 {
-    public ClaimsPrincipal? InternalToken { get; private set; }
+    public const string InternalEmailAddress = "internal.user@example.test";
 
-    public ClaimsPrincipal? ExternalToken { get; private set; }
+    public const string ExternalEmailAddress = "external.user@example.test";
 
-    public EntraInternalUserResolution InternalResolution { get; set; } = EntraInternalUserResolution.Allow(new Dictionary<string, string>
+    public static readonly Guid InternalUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    public static readonly Guid ExternalUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    /// <summary>Creates an internal user: a profile editor unless told otherwise.</summary>
+    public static UserLookupDto Internal(bool isProfileEditor = true, bool isPolicyProfileUser = false) => new()
     {
-        ["internalUserId"] = "11111111-1111-1111-1111-111111111111",
-        ["fullName"] = "Load Test Internal",
-        ["authenticationProvider"] = "entra",
-        ["isProfileEditor"] = bool.TrueString,
-        ["isPolicyProfileUser"] = bool.FalseString
-    });
+        Id = InternalUserId,
+        FullName = "Load Test Internal",
+        IsProfileEditor = isProfileEditor,
+        IsPolicyProfileUser = isPolicyProfileUser,
+        IsInternalProfileEditor = false
+    };
 
-    public CidmExternalUserResolution ExternalResolution { get; set; } = CidmExternalUserResolution.Allow(new Dictionary<string, string>
+    /// <summary>Creates an external user.</summary>
+    public static UserLookupDto External(bool isInternalProfileEditor = false) => new()
     {
-        ["internalUserId"] = "22222222-2222-2222-2222-222222222222",
-        ["fullName"] = "Load Test External",
-        ["authenticationProvider"] = "cidm"
-    });
+        Id = ExternalUserId,
+        FullName = "Load Test External",
+        IsProfileEditor = isInternalProfileEditor,
+        IsPolicyProfileUser = false,
+        IsInternalProfileEditor = isInternalProfileEditor
+    };
 
-    Task<EntraInternalUserResolution> IEntraInternalUserResolver.ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
-    {
-        InternalToken = principal;
-        return Task.FromResult(InternalResolution);
-    }
+    public static UserLookupResult Found(UserLookupDto user) => new(UserLookupOutcome.Found, user);
 
-    Task<CidmExternalUserResolution> ICidmExternalUserResolver.ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
-    {
-        ExternalToken = principal;
-        return Task.FromResult(ExternalResolution);
-    }
+    public static UserLookupResult Refused(UserLookupOutcome outcome) => new(outcome, null);
 }

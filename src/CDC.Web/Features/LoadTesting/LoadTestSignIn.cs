@@ -1,14 +1,11 @@
 using System.Security.Claims;
-using CDC.Auth.Cidm;
-using CDC.Auth.Cidm.Events;
 using CDC.Auth.Entra;
-using CDC.Auth.Entra.Claims;
-using CDC.Auth.Entra.Events;
-using CDC.Common.Auth;
 using CDC.Web.Features.Account;
+using CDC.Web.Infrastructure;
+using CDC.Web.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.Options;
+using Polly;
 
 namespace CDC.Web.Features.LoadTesting;
 
@@ -18,46 +15,51 @@ public interface ILoadTestSignIn
     /// <summary>Gets a value indicating whether sign-in is bypassed right now.</summary>
     bool IsActive { get; }
 
-    /// <summary>Signs in the configured internal user.</summary>
+    /// <summary>
+    /// Signs in the user who holds an email address, when that user could sign in as the kind of user asked for. The user's row,
+    /// roles and claims come from CDC.Api, so every authorisation check afterwards is made for that user.
+    /// </summary>
     /// <param name="httpContext">The sign-in request.</param>
-    /// <returns>Whether the user was signed in, and where to send them when not.</returns>
-    Task<LoadTestSignInResult> SignInInternalAsync(HttpContext httpContext);
-
-    /// <summary>Signs in the configured external user.</summary>
-    /// <param name="httpContext">The sign-in request.</param>
-    /// <returns>Whether the user was signed in, and where to send them when not.</returns>
-    Task<LoadTestSignInResult> SignInExternalAsync(HttpContext httpContext);
+    /// <param name="kind">The kind of sign-in the user chose: internal or external.</param>
+    /// <param name="emailAddress">The email address of the user to sign in as.</param>
+    /// <returns>Whether the user was signed in and, when not, why not.</returns>
+    Task<LoadTestSignInOutcome> SignInAsync(HttpContext httpContext, UserLookupKind kind, string emailAddress);
 }
 
-/// <summary>Outcome of <see cref="ILoadTestSignIn"/>.</summary>
-/// <param name="Succeeded">Whether the user was signed in.</param>
-/// <param name="DenialRedirectPath">The local path to redirect to when the user was not signed in.</param>
-public sealed record LoadTestSignInResult(bool Succeeded, string? DenialRedirectPath = null)
+/// <summary>Outcome of <see cref="ILoadTestSignIn.SignInAsync"/>.</summary>
+public enum LoadTestSignInOutcome
 {
-    /// <summary>Gets the outcome of a user who was signed in.</summary>
-    public static LoadTestSignInResult Allowed { get; } = new(true);
+    /// <summary>The user was signed in.</summary>
+    SignedIn,
 
-    /// <summary>Creates the outcome of a user who was refused.</summary>
-    /// <param name="redirectPath">The local path to redirect to instead.</param>
-    /// <returns>The refusal.</returns>
-    public static LoadTestSignInResult Denied(string redirectPath) => new(false, redirectPath);
+    /// <summary>No user holds the email address.</summary>
+    NotFound,
+
+    /// <summary>The user holding the email address could not sign in as that kind of user.</summary>
+    NotPermitted,
+
+    /// <summary>Several users hold the email address, so none can be chosen.</summary>
+    Ambiguous,
+
+    /// <summary>The text is not an email address.</summary>
+    InvalidEmailAddress,
+
+    /// <summary>CDC.Api could not be reached or did not answer as expected.</summary>
+    Unavailable
 }
 
 /// <summary>
-/// Default <see cref="ILoadTestSignIn"/>. It hands the real resolvers the claims a token from the identity provider would carry, so
-/// the user's row, roles and claims come from CDC.Api exactly as they do after a real sign-in, then signs the result into the
-/// same session cookie the identity provider's callback would have.
+/// Default <see cref="ILoadTestSignIn"/>. It asks CDC.Api for the user holding the email address, builds the claims the identity
+/// providers' sign-ins would have added for that user, and signs the result into the same session cookie the identity provider's
+/// callback would have. Nothing is created or changed in the database, so a user who has never signed in for real can still be
+/// signed in as, and no identifier is invented for them.
 /// </summary>
-/// <param name="options">The LoadTesting configuration.</param>
+/// <param name="apiClient">Looks the user up in CDC.Api.</param>
 /// <param name="status">Whether the bypass is active.</param>
-/// <param name="internalResolver">Resolves the internal user, as after an Entra ID sign-in.</param>
-/// <param name="externalResolver">Resolves the external user, as after a CIDM sign-in.</param>
 /// <param name="logger">Logs each sign-in by opaque id.</param>
 public sealed class LoadTestSignIn(
-    IOptions<LoadTestingOptions> options,
+    IApiClient apiClient,
     ILoadTestingStatus status,
-    IEntraInternalUserResolver internalResolver,
-    ICidmExternalUserResolver externalResolver,
     ILogger<LoadTestSignIn> logger) : ILoadTestSignIn
 {
     private const string InternalKind = "internal";
@@ -67,72 +69,57 @@ public sealed class LoadTestSignIn(
     public bool IsActive => status.IsActive;
 
     /// <inheritdoc />
-    public async Task<LoadTestSignInResult> SignInInternalAsync(HttpContext httpContext)
+    public async Task<LoadTestSignInOutcome> SignInAsync(HttpContext httpContext, UserLookupKind kind, string emailAddress)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentException.ThrowIfNullOrWhiteSpace(emailAddress);
 
-        var settings = options.Value;
-        var ssoUserId = settings.InternalSsoUserId.ToString();
+        var kindName = kind == UserLookupKind.Internal ? InternalKind : ExternalKind;
 
-        // Only the claims InternalUserResolver reads from an Entra ID id_token.
-        var token = new ClaimsPrincipal(new ClaimsIdentity(
-        [
-            new Claim(EntraClaimTypes.ObjectId, ssoUserId),
-            new Claim(EntraClaimTypes.OnPremisesSamAccountName, settings.InternalUserName),
-            new Claim(ClaimTypes.Name, settings.InternalUserName)
-        ]));
-
-        var resolution = await internalResolver.ResolveAsync(token, httpContext.RequestAborted);
-
-        return await CompleteAsync(httpContext, EntraAuthenticationDefaults.CookieAuthenticationScheme, InternalKind, ssoUserId, settings.InternalUserName, resolution);
-    }
-
-    /// <inheritdoc />
-    public async Task<LoadTestSignInResult> SignInExternalAsync(HttpContext httpContext)
-    {
-        ArgumentNullException.ThrowIfNull(httpContext);
-
-        var settings = options.Value;
-        var ssoUserId = settings.ExternalSsoUserId.ToString();
-
-        // Only the claims ExternalUserResolver reads from a CIDM id_token; the names and organisation matter only to a new row.
-        var token = new ClaimsPrincipal(new ClaimsIdentity(
-        [
-            new Claim(ClaimTypes.NameIdentifier, ssoUserId),
-            new Claim(ClaimTypes.Email, settings.ExternalUserEmail)
-        ]));
-
-        var resolution = await externalResolver.ResolveAsync(token, httpContext.RequestAborted);
-
-        return await CompleteAsync(httpContext, CookieAuthenticationDefaults.AuthenticationScheme, ExternalKind, ssoUserId, settings.ExternalUserEmail, resolution);
-    }
-
-    private async Task<LoadTestSignInResult> CompleteAsync(
-        HttpContext httpContext,
-        string cookieScheme,
-        string kind,
-        string ssoUserId,
-        string fallbackName,
-        IIdentityResolution resolution)
-    {
-        if (!resolution.IsAllowed)
+        UserLookupResult lookup;
+        try
         {
-            var redirectPath = resolution.DenialRedirectPath ?? "/";
-            logger.SignInDenied(kind, redirectPath);
+            lookup = await apiClient.LookUpUserByEmailAsync(kind, emailAddress.Trim(), httpContext.RequestAborted);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException or ExecutionRejectedException)
+        {
+            // A network failure, a cancelled call, an open circuit or a timeout in the resilience handler, or a reply that is not the
+            // expected JSON: all mean CDC.Api could not answer, which is not the same as the user not existing.
+            logger.LookupFailed(kindName, exception);
 
-            return LoadTestSignInResult.Denied(redirectPath);
+            return LoadTestSignInOutcome.Unavailable;
         }
 
-        var resolved = resolution.Claims ?? new Dictionary<string, string>();
-        var userId = resolved.GetValueOrDefault(ExternalUserClaimTypes.InternalUserId) ?? string.Empty;
+        if (lookup is not { Outcome: UserLookupOutcome.Found, User: { } user })
+        {
+            var outcome = lookup.Outcome switch
+            {
+                UserLookupOutcome.NotFound => LoadTestSignInOutcome.NotFound,
+                UserLookupOutcome.NotPermitted => LoadTestSignInOutcome.NotPermitted,
+                UserLookupOutcome.Ambiguous => LoadTestSignInOutcome.Ambiguous,
+                UserLookupOutcome.InvalidEmailAddress => LoadTestSignInOutcome.InvalidEmailAddress,
+                _ => LoadTestSignInOutcome.Unavailable
+            };
+            logger.SignInRefused(kindName, outcome);
+
+            return outcome;
+        }
+
+        var cookieScheme = kind == UserLookupKind.Internal
+            ? EntraAuthenticationDefaults.CookieAuthenticationScheme
+            : CookieAuthenticationDefaults.AuthenticationScheme;
+        var resolved = kind == UserLookupKind.Internal
+            ? ResolvedUserClaims.ForInternalUser(user.Id, user.FullName, user.IsProfileEditor, user.IsPolicyProfileUser)
+            : ResolvedUserClaims.ForExternalUser(user.Id, user.FullName, user.IsInternalProfileEditor);
+
         var claims = resolved.Select(claim => new Claim(claim.Key, claim.Value)).ToList();
-        claims.Add(new Claim(ClaimTypes.NameIdentifier, ssoUserId));
-        claims.Add(new Claim(ClaimTypes.Name, resolved.GetValueOrDefault(ExternalUserClaimTypes.FullName) ?? fallbackName));
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+        claims.Add(new Claim(ClaimTypes.Name, user.FullName));
         claims.Add(new Claim(LoadTestingDefaults.SessionClaimType, bool.TrueString));
 
         await httpContext.SignInAsync(cookieScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, LoadTestingDefaults.AuthenticationType)));
-        logger.SignedIn(kind, userId);
+        logger.SignedIn(kindName, user.Id);
 
-        return LoadTestSignInResult.Allowed;
+        return LoadTestSignInOutcome.SignedIn;
     }
 }

@@ -34,8 +34,8 @@ public static class LoadTestingExtensions
 
         services.AddScoped<ILoadTestSignIn, LoadTestSignIn>();
 
-        // A page that needs a user sends an anonymous request to Account/Login or Account/LoginInternal, which sign in the
-        // configured user, instead of straight to the identity provider.
+        // A page that needs a user sends an anonymous request to Account/Login or Account/LoginInternal, which send the user to the Load
+        // test login page to say who to sign in as, instead of straight to the identity provider.
         foreach (var cookieScheme in new[] { CookieAuthenticationDefaults.AuthenticationScheme, EntraAuthenticationDefaults.CookieAuthenticationScheme })
         {
             services.PostConfigure<CookieAuthenticationOptions>(cookieScheme, cookie => cookie.ForwardChallenge = null);

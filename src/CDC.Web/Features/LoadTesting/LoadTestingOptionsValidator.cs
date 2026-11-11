@@ -33,7 +33,6 @@ public sealed class LoadTestingOptionsValidator(IConfiguration configuration, IH
 
         ValidateDeployment(deployment, isDeployed, failures);
         ValidateWindow(options.ExpiresAtUtc, isDeployed, failures);
-        ValidateIdentities(options, failures);
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
@@ -66,30 +65,6 @@ public sealed class LoadTestingOptionsValidator(IConfiguration configuration, IH
         else if (expiresAtUtc > timeProvider.GetUtcNow() + MaximumWindow)
         {
             failures.Add($"{key} must be no more than {MaximumWindow.TotalDays} days from now.");
-        }
-    }
-
-    private static void ValidateIdentities(LoadTestingOptions options, List<string> failures)
-    {
-        RequireText(options.InternalUserName, nameof(LoadTestingOptions.InternalUserName), failures);
-        RequireId(options.InternalSsoUserId, nameof(LoadTestingOptions.InternalSsoUserId), failures);
-        RequireText(options.ExternalUserEmail, nameof(LoadTestingOptions.ExternalUserEmail), failures);
-        RequireId(options.ExternalSsoUserId, nameof(LoadTestingOptions.ExternalSsoUserId), failures);
-    }
-
-    private static void RequireText(string value, string setting, List<string> failures)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            failures.Add($"{LoadTestingOptions.SectionName}:{setting} is required.");
-        }
-    }
-
-    private static void RequireId(Guid value, string setting, List<string> failures)
-    {
-        if (value == Guid.Empty)
-        {
-            failures.Add($"{LoadTestingOptions.SectionName}:{setting} is required.");
         }
     }
 }

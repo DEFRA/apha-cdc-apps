@@ -500,6 +500,75 @@ public class ApiClientTests
         Assert.Null(result.User);
     }
 
+    [Theory]
+    [InlineData(UserLookupKind.Internal, "/api/users/internal/lookup")]
+    [InlineData(UserLookupKind.External, "/api/users/external/lookup")]
+    public async Task LookUpUserByEmailAsync_PostsTheEmailAddressToTheEndpointForTheKind_AndReturnsTheUser(UserLookupKind kind, string expectedPath)
+    {
+        const string json = """
+            {
+              "id": "6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f",
+              "fullName": "Jane Internal",
+              "isProfileEditor": true,
+              "isPolicyProfileUser": false,
+              "isInternalProfileEditor": true
+            }
+            """;
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var result = await client.LookUpUserByEmailAsync(kind, "jane@example.test");
+
+        Assert.Equal(UserLookupOutcome.Found, result.Outcome);
+        Assert.Equal("Jane Internal", result.User!.FullName);
+        Assert.Equal(Guid.Parse("6d0b9f0e-6d0f-4a1a-9a1e-2b1f2c3d4e5f"), result.User.Id);
+        Assert.True(result.User.IsProfileEditor);
+        Assert.False(result.User.IsPolicyProfileUser);
+        Assert.True(result.User.IsInternalProfileEditor);
+        Assert.Equal(HttpMethod.Post, handler.LastRequestMethod);
+        Assert.Equal(expectedPath, handler.LastRequestUri!.AbsolutePath);
+        Assert.Equal("""{"emailAddress":"jane@example.test"}""", handler.LastRequestBody);
+    }
+
+    [Fact]
+    public async Task LookUpUserByEmailAsync_PutsNoEmailAddressInTheUrl()
+    {
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NotFound, "{}");
+        var client = CreateClient(handler);
+
+        await client.LookUpUserByEmailAsync(UserLookupKind.Internal, "jane@example.test");
+
+        Assert.DoesNotContain("jane", handler.LastRequestUri!.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, UserLookupOutcome.NotFound)]
+    [InlineData(HttpStatusCode.Forbidden, UserLookupOutcome.NotPermitted)]
+    [InlineData(HttpStatusCode.Conflict, UserLookupOutcome.Ambiguous)]
+    [InlineData(HttpStatusCode.BadRequest, UserLookupOutcome.InvalidEmailAddress)]
+    [InlineData(HttpStatusCode.InternalServerError, UserLookupOutcome.Error)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, UserLookupOutcome.Error)]
+    public async Task LookUpUserByEmailAsync_MapsTheStatusCodeToTheOutcome(HttpStatusCode statusCode, UserLookupOutcome expected)
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(statusCode, "{}"));
+
+        var result = await client.LookUpUserByEmailAsync(UserLookupKind.External, "jane@example.test");
+
+        Assert.Equal(expected, result.Outcome);
+        Assert.Null(result.User);
+    }
+
+    [Fact]
+    public async Task LookUpUserByEmailAsync_ReturnsError_WhenASuccessfulReplyHasNoUser()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var result = await client.LookUpUserByEmailAsync(UserLookupKind.Internal, "jane@example.test");
+
+        Assert.Equal(UserLookupOutcome.Error, result.Outcome);
+        Assert.Null(result.User);
+    }
+
     [Fact]
     public async Task GetCurrentStaticReportsAsync_ReturnsReports_OnSuccess()
     {

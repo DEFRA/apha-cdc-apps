@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using CDC.Auth.Cidm;
-using CDC.Auth.Cidm.Events;
 using CDC.Auth.Entra;
-using CDC.Auth.Entra.Events;
 using CDC.Web.Features.LoadTesting;
+using CDC.Web.Infrastructure;
+using CDC.Web.Tests.Integration;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -27,11 +27,7 @@ public class LoadTestingExtensionsTests
     {
         var settings = new Dictionary<string, string?>
         {
-            ["LoadTesting:Enabled"] = enabled.ToString(),
-            ["LoadTesting:InternalUserName"] = "internal.user",
-            ["LoadTesting:InternalSsoUserId"] = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-            ["LoadTesting:ExternalUserEmail"] = "external.user@example.test",
-            ["LoadTesting:ExternalSsoUserId"] = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+            ["LoadTesting:Enabled"] = enabled.ToString()
         };
 
         if (expiresAtUtc is not null)
@@ -50,14 +46,12 @@ public class LoadTestingExtensionsTests
     private static ServiceProvider Build(Dictionary<string, string?> settings, ControllableClock? clock = null)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
-        var resolvers = new FakeIdentityResolvers();
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddSingleton<IHostEnvironment>(new FakeHostEnvironment("Development"));
         services.AddSingleton<TimeProvider>(clock ?? new ControllableClock(Now));
-        services.AddSingleton<IEntraInternalUserResolver>(resolvers);
-        services.AddSingleton<ICidmExternalUserResolver>(resolvers);
+        services.AddSingleton<IApiClient>(new FakeApiClient());
         services.AddAuthentication()
             .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options => options.ForwardChallenge = CidmAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(EntraAuthenticationDefaults.CookieAuthenticationScheme, options => options.ForwardChallenge = EntraAuthenticationDefaults.AuthenticationScheme);
@@ -102,16 +96,12 @@ public class LoadTestingExtensionsTests
     }
 
     [Fact]
-    public void WhenOn_TheConfiguredUsersAreBound()
+    public void WhenOn_TheExpiryIsBound()
     {
         using var services = Build(Settings(enabled: true, expiresAtUtc: "2026-11-05T12:00:00Z"));
 
         var options = services.GetRequiredService<IOptions<LoadTestingOptions>>().Value;
 
-        Assert.Equal("internal.user", options.InternalUserName);
-        Assert.Equal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), options.InternalSsoUserId);
-        Assert.Equal("external.user@example.test", options.ExternalUserEmail);
-        Assert.Equal(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), options.ExternalSsoUserId);
         Assert.Equal(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero), options.ExpiresAtUtc);
     }
 
