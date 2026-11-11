@@ -342,42 +342,48 @@ public class PrioritisationVariablesModel(
             var change = PendingCriteria[i];
             var key = $"{nameof(PendingCriteria)}[{i}]";
 
-            if (!criteria.TryGetValue(change.Id, out var criterion))
+            if (criteria.TryGetValue(change.Id, out var criterion))
+            {
+                ValidatePendingCriterion(key, change, criterion);
+            }
+            else
             {
                 ModelState.AddModelError(key, "A criterion with pending changes no longer exists");
-                continue;
             }
+        }
+    }
 
-            // The legacy editor stripped paragraphs and line breaks and limited the text, without formatting, to 255 characters.
-            change.Name = SpeciesNameHtml.Clean(change.Name);
-            var plainName = ProfileTitleHtmlFormatter.ToPlainText(change.Name);
+    private void ValidatePendingCriterion(string key, PendingCriterionChange change, PrioritisationCriterionDto criterion)
+    {
+        // The legacy editor stripped paragraphs and line breaks and limited the text, without formatting, to 255 characters.
+        change.Name = SpeciesNameHtml.Clean(change.Name);
+        var plainName = ProfileTitleHtmlFormatter.ToPlainText(change.Name);
 
-            if (plainName.Length == 0)
+        if (plainName.Length == 0)
+        {
+            ModelState.AddModelError(key, $"{criterion.Code}: You must enter criterion text");
+        }
+        else if (plainName.Length > MaxCriterionNameLength)
+        {
+            ModelState.AddModelError(key, $"{criterion.Code}: The criterion text must be no longer than 255 characters");
+        }
+
+        if (change.Weight is < 1 or > 999)
+        {
+            ModelState.AddModelError(key, $"{criterion.Code}: Criterion weight must be a positive integer");
+        }
+
+        foreach (var valueScore in change.ValueScores)
+        {
+            var value = criterion.Values.FirstOrDefault(candidate => candidate.Id == valueScore.Id);
+
+            if (value is null)
             {
-                ModelState.AddModelError(key, $"{criterion.Code}: You must enter criterion text");
+                ModelState.AddModelError(key, $"{criterion.Code}: A value with pending changes no longer exists");
             }
-            else if (plainName.Length > MaxCriterionNameLength)
+            else if (valueScore.Score is < 0 or > 999)
             {
-                ModelState.AddModelError(key, $"{criterion.Code}: The criterion text must be no longer than 255 characters");
-            }
-
-            if (change.Weight is < 1 or > 999)
-            {
-                ModelState.AddModelError(key, $"{criterion.Code}: Criterion weight must be a positive integer");
-            }
-
-            foreach (var valueScore in change.ValueScores)
-            {
-                var value = criterion.Values.FirstOrDefault(candidate => candidate.Id == valueScore.Id);
-
-                if (value is null)
-                {
-                    ModelState.AddModelError(key, $"{criterion.Code}: A value with pending changes no longer exists");
-                }
-                else if (valueScore.Score is < 0 or > 999)
-                {
-                    ModelState.AddModelError(key, $"{criterion.Code}: {value.Value} score must be a positive integer");
-                }
+                ModelState.AddModelError(key, $"{criterion.Code}: {value.Value} score must be a positive integer");
             }
         }
     }

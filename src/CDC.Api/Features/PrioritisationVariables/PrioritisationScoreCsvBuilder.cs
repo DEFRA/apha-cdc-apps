@@ -89,10 +89,10 @@ internal static partial class PrioritisationScoreCsvBuilder
         var header = new List<string>(ProfileHeaders);
         header.AddRange(data.CommonQuestions.Select(question => QuestionHeader(question.Name, question.DisplayQuestionNumber)));
 
-        foreach (var category in data.Categories)
+        foreach (var categoryName in data.Categories.Select(category => category.Name))
         {
-            header.Add($"{category.Name} normalised score");
-            header.Add($"{category.Name} rank");
+            header.Add($"{categoryName} normalised score");
+            header.Add($"{categoryName} rank");
         }
 
         header.Add(CombinedRfiHeader);
@@ -107,12 +107,12 @@ internal static partial class PrioritisationScoreCsvBuilder
         {
             var cells = BuildProfileCells(data, row);
 
-            foreach (var category in data.Categories)
+            foreach (var categoryId in data.Categories.Select(category => category.Id))
             {
-                cells.Add(FormatNormalisedScore(data, row, category.Id));
+                cells.Add(FormatNormalisedScore(data, row, categoryId));
 
                 // Scenarios are never ranked, and the legacy rank lists only cover the reasons for intervention and risk.
-                var ranks = categoryRanks[category.Id];
+                var ranks = categoryRanks[categoryId];
                 cells.Add(!row.Version.IsScenario && ranks is not null
                     ? FormatRank(ranks.GetValueOrDefault((row.Version.Id, row.SpeciesId)))
                     : string.Empty);
