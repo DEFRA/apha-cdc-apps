@@ -186,6 +186,134 @@ public class PrioritisationVariablesRepositoryTests : IDisposable
         await act.Should().ThrowAsync<FakeDbException>();
     }
 
+    [Fact]
+    public async Task PrioritiseDraftProfilesAsync_CalculatesEachDraftThenScoresAndCommits()
+    {
+        var firstVersion = Guid.NewGuid();
+        var secondVersion = Guid.NewGuid();
+        connection.Script(PrioritisationVariablesStoredProcedures.GetCurrentProfiles, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["ProfileVersionId"], [[firstVersion], [secondVersion]])]
+        });
+
+        var count = await CreateRepository().PrioritiseDraftProfilesAsync(CancellationToken.None);
+
+        count.Should().Be(2);
+        connection.Executed.Select(command => command.CommandText).Should().Equal(
+            PrioritisationVariablesStoredProcedures.GetCurrentProfiles,
+            PrioritisationVariablesStoredProcedures.CalculatePrioritisation,
+            PrioritisationVariablesStoredProcedures.CalculatePrioritisation,
+            PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore);
+        connection.Executed[1].Parameters["ProfileVersionId"].Should().Be(firstVersion);
+        connection.Executed[2].Parameters["ProfileVersionId"].Should().Be(secondVersion);
+        connection.Executed.Should().OnlyContain(command => command.HadTransaction);
+        var transaction = connection.Transactions.Should().ContainSingle().Subject;
+        transaction.Committed.Should().BeTrue();
+        transaction.RolledBack.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(PrioritisationVariablesStoredProcedures.GetCurrentProfiles)]
+    [InlineData(PrioritisationVariablesStoredProcedures.CalculatePrioritisation)]
+    [InlineData(PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore)]
+    public async Task PrioritiseDraftProfilesAsync_RollsBackAndRethrows_WhenAStepFails(string failingProcedure)
+    {
+        connection.Script(PrioritisationVariablesStoredProcedures.GetCurrentProfiles, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["ProfileVersionId"], [[Guid.NewGuid()]])]
+        });
+        connection.Script(failingProcedure, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().PrioritiseDraftProfilesAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+        var transaction = connection.Transactions.Should().ContainSingle().Subject;
+        transaction.RolledBack.Should().BeTrue();
+        transaction.Committed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RecalculatePrioritisationScoresAsync_ExecutesTheScoreProcedure()
+    {
+        connection.Script(PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore, new FakeCommandScript());
+
+        await CreateRepository().RecalculatePrioritisationScoresAsync(CancellationToken.None);
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+    }
+
+    [Fact]
+    public async Task RecalculatePrioritisationScoresAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(
+            PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore,
+            new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().RecalculatePrioritisationScoresAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetScoreDataAsync_MapsAllNineResultSets()
+    {
+        var questionId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var prioritisationQuestionId = Guid.NewGuid();
+        var profileId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var speciesId = Guid.NewGuid();
+        var answerId = Guid.NewGuid();
+
+        connection.Script(PrioritisationVariablesStoredProcedures.GetScoreData, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Section", "Question", "Text"], [[questionId, 1, 2, "Common question"]]),
+                new FakeResultSet(["Id", "Seq", "Name"], [[categoryId, 1, "Welfare"]]),
+                new FakeResultSet(
+                    ["Id", "CategoryId", "Section", "Question", "Text", "Flag"],
+                    [[prioritisationQuestionId, categoryId, 3, 4, "Prioritisation question", true]]),
+                new FakeResultSet(["Id", "Title", "Other", "StatusName"], [[profileId, "Profile 1", null, "Published"]]),
+                new FakeResultSet(
+                    ["Id", "ProfileId", "State", "Major", "Minor", "Name", "Flag"],
+                    [[versionId, profileId, "Published", (byte)1, (byte)2, "Version", true]]),
+                new FakeResultSet(["Id", "ProfileVersionId", "Name"], [[speciesId, versionId, "Cattle"]]),
+                new FakeResultSet(["QuestionId", "ProfileVersionId", "Answer"], [[questionId, versionId, "Yes"]]),
+                new FakeResultSet(
+                    ["QuestionId", "ProfileVersionId", "ValueId", "Value", "Score", "Weight"],
+                    [[prioritisationQuestionId, versionId, answerId, "High", 5, 2]]),
+                new FakeResultSet(
+                    ["ProfileVersionId", "CategoryId", "Other", "Score", "Rank"],
+                    [[versionId, categoryId, Guid.NewGuid(), 10, 1]])
+            ]
+        });
+
+        var data = await CreateRepository().GetScoreDataAsync(CancellationToken.None);
+
+        data.CommonQuestions.Should().ContainSingle().Which.DisplayQuestionNumber.Should().Be("1.2");
+        data.Categories.Should().ContainSingle().Which.Name.Should().Be("Welfare");
+        data.PrioritisationQuestions.Should().ContainSingle().Which.DisplayQuestionNumber.Should().Be("3.4");
+        data.Profiles.Should().ContainSingle().Which.StatusName.Should().Be("Published");
+        data.ProfileVersions.Should().ContainSingle().Which.DisplayVersionNumber.Should().Be("v1.2");
+        data.ProfiledSpecies.Should().ContainSingle();
+        data.CommonAnswers.Should().ContainSingle();
+        data.PrioritisationAnswers.Should().ContainSingle();
+        data.NormalisedScores.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetScoreDataAsync_RethrowsAndLogs_OnDbException()
+    {
+        connection.Script(PrioritisationVariablesStoredProcedures.GetScoreData, new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetScoreDataAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory
     {
         public IDbConnection CreateConnection() => connection;

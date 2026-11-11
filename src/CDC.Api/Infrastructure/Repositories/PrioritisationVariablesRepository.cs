@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Domain.Exceptions;
 using CDC.Api.Features.PrioritisationVariables;
@@ -35,6 +36,11 @@ public sealed class PrioritisationVariablesRepository(
 
     /// <summary>The only <c>PrioritisationType</c> this page maintains; species has its own equivalent page.</summary>
     private const string ProfilePrioritisationType = "Profile";
+
+    private const string DraftProfileVersionState = "Draft";
+
+    /// <summary>Matches the legacy three-minute <c>TransactionScope</c> around the recalculation.</summary>
+    private const int RecalculationTimeoutSeconds = 180;
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<PrioritisationCategory>> GetCategoriesWithCriteriaAsync(CancellationToken cancellationToken)
@@ -296,6 +302,177 @@ public sealed class PrioritisationVariablesRepository(
 
         return parameters.Get<byte[]?>("@NewLastUpdated") ?? [];
     }
+
+    /// <inheritdoc />
+    public async Task<int> PrioritiseDraftProfilesAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var storedProcedure = PrioritisationVariablesStoredProcedures.GetCurrentProfiles;
+
+        try
+        {
+            var profileVersionIds = new List<Guid>();
+
+            await using (var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+                storedProcedure,
+                new { ProfileVersionState = new DbString { Value = DraftProfileVersionState, IsAnsi = true, Length = 20 } },
+                transaction,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken)))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    profileVersionIds.Add(reader.GetGuid(0));
+                }
+            }
+
+            storedProcedure = PrioritisationVariablesStoredProcedures.CalculatePrioritisation;
+
+            foreach (var profileVersionId in profileVersionIds)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    storedProcedure,
+                    new { ProfileVersionId = profileVersionId },
+                    transaction,
+                    RecalculationTimeoutSeconds,
+                    CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+            }
+
+            storedProcedure = PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore;
+            await connection.ExecuteAsync(new CommandDefinition(
+                storedProcedure,
+                transaction: transaction,
+                commandTimeout: RecalculationTimeoutSeconds,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return profileVersionIds.Count;
+        }
+        catch (DbException exception)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            logger.StoredProcedureFailed(exception, storedProcedure);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task RecalculatePrioritisationScoresAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore,
+                commandTimeout: RecalculationTimeoutSeconds,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken));
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, PrioritisationVariablesStoredProcedures.CalculatePrioritisationScore);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<PrioritisationScoreData> GetScoreDataAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    PrioritisationVariablesStoredProcedures.GetScoreData,
+                    commandTimeout: RecalculationTimeoutSeconds,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken),
+                CommandBehavior.Default);
+
+            var commonQuestions = await ReadRowsAsync(reader, row => new ScoreDataCommonQuestion(
+                row.GetGuid(0), FormatQuestionNumber(row, 1, 2), row.ReadString(3)), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var categories = await ReadRowsAsync(reader, row => new ScoreDataCategory(row.GetGuid(0), row.ReadString(2)), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var prioritisationQuestions = await ReadRowsAsync(reader, row => new ScoreDataPrioritisationQuestion(
+                row.GetGuid(0), row.GetGuid(1), FormatQuestionNumber(row, 2, 3), row.ReadString(4), row.ReadBoolean(5)), cancellationToken);
+
+            // Older database builds return only Id and Title; the deployed procedure adds StatusId and StatusName.
+            await reader.NextResultAsync(cancellationToken);
+            var profiles = await ReadRowsAsync(reader, row => new ScoreDataProfile(
+                row.GetGuid(0), row.ReadString(1), row.FieldCount > 3 ? row.ReadString(3) : string.Empty), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var profileVersions = await ReadRowsAsync(reader, row => new ScoreDataProfileVersion(
+                row.GetGuid(0),
+                row.GetGuid(1),
+                row.ReadString(2),
+                $"v{ReadNumber(row, 3)}.{ReadNumber(row, 4)}",
+                row.ReadString(5),
+                row.ReadBoolean(6)), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var profiledSpecies = await ReadRowsAsync(reader, row => new ScoreDataProfiledSpecies(
+                row.GetGuid(0), row.GetGuid(1), row.ReadString(2)), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var commonAnswers = await ReadRowsAsync(reader, row => new ScoreDataCommonAnswer(
+                row.GetGuid(0), row.GetGuid(1), row.ReadString(2)), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var prioritisationAnswers = await ReadRowsAsync(reader, row => new ScoreDataPrioritisationAnswer(
+                row.GetGuid(0), row.GetGuid(1), row.ReadGuid(2), row.ReadString(3), ReadNumber(row, 4), ReadNumber(row, 5)), cancellationToken);
+
+            await reader.NextResultAsync(cancellationToken);
+            var normalisedScores = await ReadRowsAsync(reader, row => new ScoreDataNormalisedScore(
+                row.GetGuid(0), row.GetGuid(1), row.GetGuid(2), ReadNumber(row, 3), ReadNumber(row, 4)), cancellationToken);
+
+            return new PrioritisationScoreData
+            {
+                CommonQuestions = commonQuestions,
+                Categories = categories,
+                PrioritisationQuestions = prioritisationQuestions,
+                Profiles = profiles,
+                ProfileVersions = profileVersions,
+                ProfiledSpecies = profiledSpecies,
+                CommonAnswers = commonAnswers,
+                PrioritisationAnswers = prioritisationAnswers,
+                NormalisedScores = normalisedScores
+            };
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, PrioritisationVariablesStoredProcedures.GetScoreData);
+            throw;
+        }
+    }
+
+    private static async Task<List<T>> ReadRowsAsync<T>(DbDataReader reader, Func<DbDataReader, T> map, CancellationToken cancellationToken)
+    {
+        var rows = new List<T>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(map(reader));
+        }
+
+        return rows;
+    }
+
+    // Version numbers are tinyint and section/question numbers int, so read them through the boxed value.
+    private static int ReadNumber(DbDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? 0 : Convert.ToInt32(reader.GetValue(ordinal), CultureInfo.InvariantCulture);
+
+    private static string FormatQuestionNumber(DbDataReader reader, int sectionOrdinal, int questionOrdinal) =>
+        $"{ReadNumber(reader, sectionOrdinal)}.{ReadNumber(reader, questionOrdinal)}";
 
     /// <summary>
     /// Identifies the row version clash raised by <c>spuPrioritisationRankingRange</c>. The
