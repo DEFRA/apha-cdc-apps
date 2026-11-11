@@ -16,7 +16,7 @@ namespace CDC.Api.Features.ProfileContributors;
 /// <param name="mediator">Dispatches queries to their handlers.</param>
 [ApiController]
 [Route("api/profiles")]
-[RequireGlobalRole(GlobalRole.ProfileEditor)]
+[AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class ProfileContributorsController(ISender mediator) : ControllerBase

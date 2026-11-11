@@ -49,7 +49,7 @@ public class DiseaseRankingReportBuilderTests
         report.Kind.Should().Be(DiseaseRankingReportKind.Scored);
         report.Title.Should().Be("Issues ranked by impact on each of the four reasons for government intervention for Viral/Pig <diseases>");
         report.FooterTitle.Should().Be("RFI scoring report for Viral/Pig <diseases>.");
-        report.FileName.Should().Be("DiseaseRankingReport_Scored_ViralPig diseases");
+        report.FileName.Should().Be("DiseaseRankingReport_ViralPig diseases");
         report.Subtitle.Should().StartWith("This report presents a table of rankings");
     }
 
@@ -59,7 +59,7 @@ public class DiseaseRankingReportBuilderTests
         var report = DiseaseRankingReportBuilder.Build(DiseaseRankingReportKind.Ranked, Terrestrial, SampleProfiles());
 
         report.FooterTitle.Should().Be("Disease ranking report for Terrestrial.");
-        report.FileName.Should().Be("DiseaseRankingReport_Ranked_Terrestrial");
+        report.FileName.Should().Be("DiseaseRankingReport_Terrestrial");
     }
 
     [Fact]

@@ -40,12 +40,11 @@ public sealed class ProfileReportContentService(
         }
 
         var questionnaire = await contentRepository.GetQuestionnaireAsync(cancellationToken);
-        var answersBySection = new List<(ReportSection Section, ReportSectionAnswers Answers)>();
-
-        foreach (var section in questionnaire.Sections)
-        {
-            answersBySection.Add((section, await contentRepository.GetSectionAnswersAsync(profileVersionId, section.Id, cancellationToken)));
-        }
+        var sectionAnswers = await ConcurrentReads.SelectAsync(
+            questionnaire.Sections,
+            (section, token) => contentRepository.GetSectionAnswersAsync(profileVersionId, section.Id, token),
+            cancellationToken);
+        var answersBySection = questionnaire.Sections.Select((section, index) => (Section: section, Answers: sectionAnswers[index])).ToList();
 
         // A field in one section can control the relevance of a question in another, so relevance needs every value.
         var builder = new ProfileReportSectionBuilder(contentRepository, [.. answersBySection.SelectMany(entry => entry.Answers.Values)]);

@@ -1,7 +1,18 @@
 @page
+@using CDC.Web.Infrastructure
+@using CDC.Web.Pages.CrossProfileAdmin
 @model CDC.Web.Pages.CrossProfileAdmin.ReferenceDataModel
 @{
-    ViewData["Title"] = "Maintain reference data";
+    var newValueError = Model.ErrorFor(nameof(Model.NewLookupValue));
+    var reasonError = Model.ErrorFor(nameof(Model.Reason));
+    ViewData["Title"] = Model.HasErrors || Model.LoadErrorMessage is not null ? "Error: Maintain reference data" : "Maintain reference data";
+
+    void SortableHeader(ReferenceValueSortColumn column, string text)
+    {
+        <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(column)">
+            <a class="govuk-link govuk-link--no-visited-state app-sort-link" id="sort-@column" href="@Model.BuildSortUrl(column)" data-app-region-link>@text</a>
+        </th>
+    }
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
@@ -9,6 +20,43 @@
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+        @if (Model.HasErrors)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">The following errors have occurred:</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            @if (Model.GeneralError is not null)
+                            {
+                                <li>@Model.GeneralError</li>
+                            }
+                            @if (newValueError is not null)
+                            {
+                                <li><a href="#NewLookupValue">@newValueError</a></li>
+                            }
+                            @if (reasonError is not null)
+                            {
+                                <li><a href="#Reason">@reasonError</a></li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.LoadErrorMessage is not null)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <p class="govuk-body">@Model.LoadErrorMessage</p>
+                    </div>
+                </div>
+            </div>
+        }
+
         @if (!string.IsNullOrWhiteSpace(Model.ConfirmationMessage))
         {
             <div class="govuk-notification-banner govuk-notification-banner--success" role="alert"
@@ -24,77 +72,204 @@
 
         <h1 class="govuk-heading-l">Maintain reference data</h1>
 
-        <form method="get">
+        <p class="govuk-body">Use this page to maintain reference data used by the application.</p>
+    </div>
+</div>
+
+@* Like the legacy UpdatePanel, choosing a table, sorting, paging and opening a change replace only this region. *@
+<div id="reference-data-region" data-app-paged-region>
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <form method="get" novalidate data-app-region-form>
             <div class="govuk-form-group">
-                <label class="govuk-label" for="tableId">Reference table</label>
-                <div id="tableId-hint" class="govuk-hint">Choose a table, then select &#8216;Show reference data&#8217; to list its values.</div>
-                <select class="govuk-select" id="tableId" name="tableId" aria-describedby="tableId-hint">
-                    <option value="">Choose a reference table</option>
+                <label class="govuk-label" for="tableId">Choose a reference table</label>
+                <select class="govuk-select" id="tableId" name="tableId" onchange="this.form.requestSubmit()">
+                    <option value="">Please select</option>
                     @foreach (var table in Model.Tables)
                     {
                         <option value="@table.Id" selected="@(table.Id == Model.SelectedTableId)">@table.Name</option>
                     }
                 </select>
             </div>
-            <button type="submit" class="govuk-button" data-module="govuk-button">Show reference data</button>
+            <noscript><button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Show reference data</button></noscript>
         </form>
     </div>
 </div>
 
 @if (Model.SelectedTable is not null)
 {
+    var pagination = new PaginationViewModel
+    {
+        CurrentPage = Model.PageNumber,
+        TotalPages = Model.TotalPages,
+        PageUrl = Model.BuildPageUrl,
+        LandmarkLabel = "Reference values pages"
+    };
+
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-full">
-            <table class="govuk-table">
-                <caption class="govuk-table__caption govuk-table__caption--m">@Model.SelectedTable.Name</caption>
-                <thead class="govuk-table__head">
-                    <tr class="govuk-table__row">
-                        <th scope="col" class="govuk-table__header">Value</th>
-                        <th scope="col" class="govuk-table__header">Effective date</th>
-                        <th scope="col" class="govuk-table__header">Status</th>
-                        <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Action</span></th>
-                    </tr>
-                </thead>
-                <tbody class="govuk-table__body">
-                    @if (Model.Values.Count == 0)
-                    {
+            <h2 class="govuk-heading-m">@Model.SelectedTable.Name</h2>
+
+            @if (Model.Values.Count == 0)
+            {
+                <p class="govuk-body">This reference table has no values.</p>
+            }
+            else
+            {
+                <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
+                    <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
+                        <label class="govuk-label" for="PageSize">Items per page:</label>
+                        <select class="govuk-select" id="PageSize" name="PageSize" form="reference-values-page-size-form" onchange="this.form.requestSubmit()">
+                            @foreach (var option in ReferenceDataPaging.PageSizeOptions)
+                            {
+                                <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <form method="get" id="reference-values-page-size-form" data-app-region-form>
+                    <input type="hidden" name="tableId" value="@Model.SelectedTable.Id" />
+                    <input type="hidden" name="PageNumber" value="1" />
+                    <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                    <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
+                    <noscript><button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Update</button></noscript>
+                </form>
+
+                <table class="govuk-table">
+                    <caption class="govuk-table__caption govuk-visually-hidden">@Model.SelectedTable.Name values</caption>
+                    <thead class="govuk-table__head">
                         <tr class="govuk-table__row">
-                            <td class="govuk-table__cell" colspan="4">This reference table has no values.</td>
+                            @{ SortableHeader(ReferenceValueSortColumn.Value, "Value"); }
+                            @{ SortableHeader(ReferenceValueSortColumn.EffectiveDates, "Effective dates"); }
+                            <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Action</span></th>
                         </tr>
-                    }
-                    else
-                    {
-                        foreach (var value in Model.Values)
+                    </thead>
+                    <tbody class="govuk-table__body">
+                        @foreach (var value in Model.PagedValues)
                         {
                             <tr class="govuk-table__row">
-                                <td class="govuk-table__cell">@value.LookupValue</td>
                                 <td class="govuk-table__cell">
-                                    @(value.EffectiveDateFrom?.ToString("d MMMM yyyy") ?? "Not recorded")
+                                    @if (value.IsActive)
+                                    {
+                                        <a class="govuk-link govuk-link--no-visited-state"
+                                           href="@Model.BuildChangeUrl(ReferenceDataChangeAction.Edit, value.Id)"
+                                           data-app-region-link data-app-region-focus="@ReferenceDataModel.PanelHeadingId"><span class="govuk-visually-hidden">Edit </span>@ProfileTitleHtmlFormatter.Format(value.LookupValue)</a>
+                                    }
+                                    else
+                                    {
+                                        <text>@ProfileTitleHtmlFormatter.Format(value.LookupValue) (Inactive)</text>
+                                    }
                                 </td>
+                                <td class="govuk-table__cell">@value.EffectiveDates</td>
                                 <td class="govuk-table__cell">
-                                    <strong class="govuk-tag @(value.IsActive ? "govuk-tag--green" : "govuk-tag--grey")">@value.Status</strong>
-                                </td>
-                                <td class="govuk-table__cell">
-                                    <a class="govuk-link govuk-link--no-visited-state"
-                                       asp-page="/CrossProfileAdmin/EditReferenceValue"
-                                       asp-route-tableId="@Model.SelectedTable.Id"
-                                       asp-route-valueId="@value.Id">
-                                        Change<span class="govuk-visually-hidden"> @value.LookupValue</span>
-                                    </a>
+                                    @if (value.IsActive)
+                                    {
+                                        var removal = value.IsInUse ? ReferenceDataChangeAction.Inactivate : ReferenceDataChangeAction.Delete;
+
+                                        <a class="govuk-link govuk-link--no-visited-state"
+                                           href="@Model.BuildChangeUrl(removal, value.Id)"
+                                           data-app-region-link data-app-region-focus="@ReferenceDataModel.PanelHeadingId">@removal<span class="govuk-visually-hidden"> @ProfileTitleHtmlFormatter.ToPlainText(value.LookupValue)</span></a>
+                                    }
                                 </td>
                             </tr>
                         }
-                    }
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
 
-            <p class="govuk-body">
-                <a class="govuk-link govuk-link--no-visited-state"
+                <partial name="_Pagination" model="pagination" />
+            }
+
+            <div class="govuk-button-group">
+                <a class="govuk-button" draggable="false" data-module="govuk-button"
+                   href="@Model.BuildChangeUrl(ReferenceDataChangeAction.Add)"
+                   data-app-region-link data-app-region-focus="@ReferenceDataModel.PanelHeadingId">Add reference value</a>
+                <a class="govuk-button govuk-button--secondary" draggable="false" data-module="govuk-button"
                    asp-page="/CrossProfileAdmin/ReferenceDataAudit"
-                   asp-route-tableId="@Model.SelectedTable.Id">
-                    View audit trail for @Model.SelectedTable.Name
-                </a>
-            </p>
+                   asp-route-tableId="@Model.SelectedTable.Id">View audit trail</a>
+            </div>
+
+            @if (Model.ShowPanel)
+            {
+                <section class="govuk-!-margin-top-6" id="reference-value-panel" aria-labelledby="@ReferenceDataModel.PanelHeadingId">
+                    <h2 class="govuk-heading-m" id="@ReferenceDataModel.PanelHeadingId" tabindex="-1">@Model.SelectedTable.Name: @Model.PanelHeading</h2>
+
+                    @if (Model.ShowInUseWarning)
+                    {
+                        <div class="govuk-warning-text">
+                            <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+                            <strong class="govuk-warning-text__text">Warning: existing profiles reference this entry</strong>
+                        </div>
+                    }
+
+                    <form method="post" novalidate>
+                        <input type="hidden" name="tableId" value="@Model.SelectedTable.Id" />
+                        <input type="hidden" name="valueId" value="@Model.ExistingValue?.Id" />
+                        <input type="hidden" name="mode" value="@Model.Mode" />
+                        <input type="hidden" name="LastUpdated" value="@Model.RowVersion" />
+                        <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                        <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                        <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                        <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
+
+                        <div class="app-legacy-form app-reference-value-form">
+                            <span class="app-legacy-form__label">Old value:</span>
+                            <span class="app-legacy-form__text app-legacy-form__field--wide" id="old-value">@ProfileTitleHtmlFormatter.Format(Model.OldValueText)</span>
+
+                            @if (Model.FixedNewValue is not null)
+                            {
+                                <span class="app-legacy-form__label">New value:</span>
+                                <div class="govuk-input app-legacy-form__value app-legacy-form__field--wide" id="new-value">@Model.FixedNewValue</div>
+                            }
+                            else
+                            {
+                                <label class="app-legacy-form__label app-legacy-form__cell--bottom" for="NewLookupValue">New value:</label>
+                                <div class="app-legacy-form__field app-legacy-form__field--wide @(newValueError is not null ? "govuk-form-group--error" : string.Empty)">
+                                    @if (newValueError is not null)
+                                    {
+                                        <p id="NewLookupValue-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @newValueError</p>
+                                    }
+                                    <input class="govuk-input @(newValueError is not null ? "govuk-input--error" : string.Empty)"
+                                           id="NewLookupValue" name="NewLookupValue" type="text" autocomplete="off"
+                                           maxlength="@ReferenceDataModel.ValueMaxLength" value="@Model.NewLookupValue"
+                                           aria-describedby="@(newValueError is not null ? "NewLookupValue-error" : null)"
+                                           data-single-line-richtext />
+                                </div>
+                            }
+
+                            <label class="app-legacy-form__label app-legacy-form__label--middle" for="Reason">Reason for change:</label>
+                            <div class="app-legacy-form__field app-legacy-form__field--wide @(reasonError is not null ? "govuk-form-group--error" : string.Empty)">
+                                @if (reasonError is not null)
+                                {
+                                    <p id="Reason-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @reasonError</p>
+                                }
+                                <div class="app-richtext-toolbar" role="toolbar" aria-label="Reason for change formatting">
+                                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="Reason" aria-label="Undo" title="Undo">&#8630;</button>
+                                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="Reason" aria-label="Redo" title="Redo">&#8631;</button>
+                                    <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                    <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="Reason" aria-label="Insert link" title="Insert link">&#128279;</button>
+                                </div>
+                                <textarea class="govuk-textarea app-richtext-editor @(reasonError is not null ? "govuk-textarea--error" : string.Empty)"
+                                          id="Reason" name="Reason" rows="8" maxlength="@ReferenceDataModel.ReasonMaxLength"
+                                          aria-describedby="@(reasonError is not null ? "Reason-error" : null)">@Model.Reason</textarea>
+                            </div>
+
+                            <div class="app-legacy-form__actions app-legacy-form__actions--wide">
+                                <button type="submit"
+                                        class="govuk-button @(Model.FixedNewValue is not null ? "govuk-button--warning" : string.Empty)"
+                                        data-module="govuk-button" data-prevent-double-click="true">@Model.SubmitText</button>
+                                <a class="govuk-button govuk-button--secondary" draggable="false" data-module="govuk-button"
+                                   href="@Model.BuildCancelUrl()" data-app-region-link>Cancel</a>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+            }
         </div>
     </div>
+}
+</div>
+
+@section Scripts {
+    <script src="~/js/single-line-richtext.js" asp-append-version="true"></script>
+    <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
 }

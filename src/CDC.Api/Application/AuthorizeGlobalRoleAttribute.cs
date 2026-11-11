@@ -20,11 +20,11 @@ public enum GlobalRole
 /// A refused request is an <see cref="UnauthorizedAccessException"/>, which the global exception handler turns into a 403.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public sealed class RequireGlobalRoleAttribute : TypeFilterAttribute
+public sealed class AuthorizeGlobalRoleAttribute : TypeFilterAttribute
 {
-    /// <summary>Initialises a new instance of the <see cref="RequireGlobalRoleAttribute"/> class.</summary>
+    /// <summary>Initialises a new instance of the <see cref="AuthorizeGlobalRoleAttribute"/> class.</summary>
     /// <param name="roles">The roles that may call the endpoint; holding any one is enough.</param>
-    public RequireGlobalRoleAttribute(params GlobalRole[] roles)
+    public AuthorizeGlobalRoleAttribute(params GlobalRole[] roles)
         : base(typeof(GlobalRoleFilter))
     {
         ArgumentNullException.ThrowIfNull(roles);
@@ -33,7 +33,7 @@ public sealed class RequireGlobalRoleAttribute : TypeFilterAttribute
     }
 }
 
-/// <summary>The filter behind <see cref="RequireGlobalRoleAttribute"/>.</summary>
+/// <summary>The filter behind <see cref="AuthorizeGlobalRoleAttribute"/>.</summary>
 /// <param name="roles">The roles that may call the endpoint.</param>
 /// <param name="userContext">The acting user.</param>
 public sealed class GlobalRoleFilter(GlobalRole[] roles, IUserContext userContext) : IAuthorizationFilter

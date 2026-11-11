@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
+using CDC.Web.Pages.HelpSupport;
 using CDC.Web.Pages.Reports;
 using CDC.Web.Tests.Features.Landing;
 using Microsoft.AspNetCore.Authorization;
@@ -405,6 +406,60 @@ public class GeneralModelTests
         public string? Link(string? routeName, object? values) => result;
 
         public string? RouteUrl(Microsoft.AspNetCore.Mvc.Routing.UrlRouteContext routeContext) => result;
+    }
+
+    [Theory]
+    [InlineData(StaticReportSortColumn.Title, "Descending", "C,B,A")]
+    [InlineData(StaticReportSortColumn.Title, "Ascending", "A,B,C")]
+    [InlineData(StaticReportSortColumn.Version, "Ascending", "B,C,A")]
+    [InlineData(StaticReportSortColumn.Version, "Descending", "A,C,B")]
+    [InlineData(StaticReportSortColumn.Public, "Descending", "B,A,C")]
+    [InlineData(StaticReportSortColumn.EffectiveDates, "Ascending", "C,B,A")]
+    public async Task OnGetAsync_SortsReportsByColumnAndDirection(StaticReportSortColumn column, string direction, string expectedOrder)
+    {
+        var reports = new[]
+        {
+            Report("A") with { VersionMajor = 3, EffectiveDateFrom = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc) },
+            Report("B", isPublic: true) with { VersionMajor = 1, EffectiveDateFrom = new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc), EffectiveDateTo = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc) },
+            Report("C") with { VersionMajor = 2, EffectiveDateFrom = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
+        };
+        var model = CreatePageModel(reports: reports);
+        model.SortColumn = column;
+        model.SortDirection = direction;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedOrder, string.Join(",", model.Reports.Select(report => report.Title)));
+    }
+
+    [Theory]
+    [InlineData(StaticReportSortColumn.Title, "none")]
+    [InlineData(StaticReportSortColumn.Version, "ascending")]
+    public void GetAriaSort_ReflectsActiveColumn(StaticReportSortColumn column, string expected)
+    {
+        var model = CreatePageModel();
+        model.SortColumn = StaticReportSortColumn.Version;
+
+        Assert.Equal(expected, model.GetAriaSort(column));
+    }
+
+    [Fact]
+    public void GetAriaSort_ReturnsDescending_WhenSortedDescending()
+    {
+        var model = CreatePageModel();
+        model.SortColumn = StaticReportSortColumn.Title;
+        model.SortDirection = "Descending";
+
+        Assert.Equal("descending", model.GetAriaSort(StaticReportSortColumn.Title));
+    }
+
+    [Fact]
+    public void BuildSortUrl_UsesThePageUrlHelper()
+    {
+        var model = CreatePageModel();
+        model.Url = new StubUrlHelper("/Reports/General?sort=1");
+
+        Assert.Equal("/Reports/General?sort=1", model.BuildSortUrl(StaticReportSortColumn.Title));
     }
 
     [Theory]

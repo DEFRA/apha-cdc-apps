@@ -364,6 +364,82 @@ html {
   cursor: text;
 }
 
+/* Review timings: each label sits to the left of its control, as in the legacy page's table, with From, To and
+   Generate report on one row. Below tablet width the Design System's stacked layout is kept; from tablet width each
+   row is a label column and a control column, and the first row joins up from 66em, where there is room for all of it. */
+.app-review-timings__date {
+  width: 16rem;
+  min-width: 0;
+}
+
+.app-review-timings__select {
+  width: 26.75rem;
+}
+
+@media (min-width: 40.0625em) {
+  .app-review-timings__row {
+    display: grid;
+    grid-template-columns: 6.25rem minmax(0, 1fr);
+    align-items: end;
+    column-gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .app-review-timings__row:last-child {
+    margin-bottom: 0;
+  }
+
+  .app-review-timings__row--dates {
+    row-gap: 20px;
+  }
+
+  /* Level with the text in a 40px box, not with the bottom of it. */
+  .app-review-timings__label {
+    margin-bottom: 7px;
+  }
+
+  .app-review-timings__field {
+    margin-bottom: 0;
+  }
+
+  /* As wide as its box and calendar button, so an error message wraps above its box instead of widening the row. */
+  .app-review-timings__field--date {
+    width: min-content;
+  }
+
+  .app-review-timings__field--editor {
+    max-width: 39rem;
+  }
+
+  .app-review-timings__field--editor .app-title-toolbar:not([hidden]) {
+    display: flex;
+    margin-bottom: 0;
+  }
+
+  .app-review-timings__button {
+    grid-column: 2;
+    justify-self: start;
+    /* Its own 2px shadow then lines the button's lower edge up with the boxes beside it. */
+    margin-bottom: 2px;
+  }
+}
+
+@media (min-width: 66em) {
+  .app-review-timings__row--dates {
+    grid-template-columns: 6.25rem repeat(4, auto);
+    justify-content: start;
+  }
+
+  /* The legacy labels on this row sat low, level with the bottom of the boxes. */
+  .app-review-timings__row--dates .app-review-timings__label {
+    margin-bottom: 0;
+  }
+
+  .app-review-timings__button {
+    grid-column: auto;
+  }
+}
+
 .app-profile-card__header {
   display: flex;
   align-items: baseline;
@@ -703,23 +779,37 @@ body {
 .app-tree__column {
   flex: 1 1 320px;
   min-width: 0;
-  max-width: 70%;
+  max-width: 65%;
 }
 
 .app-species-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  flex: 0 0 auto;
+  align-items: center;
+  gap: 20px;
+  flex: 0 0 20%;
+  min-width: 200px;
+  margin-left: auto;
 }
 
+/* Reorder mode has just the two arrows, centred beside the tree. */
+.app-species-actions[data-app-reorder-controls] {
+  align-self: center;
+  gap: 10px;
+}
+
+/* Fixed width, as in legacy. */
 .app-species-actions .govuk-button {
+  width: 200px;
+  max-width: 100%;
   margin-bottom: 0;
   white-space: nowrap;
 }
 
 /* Reorder mode's Move up/down arrows: compact square buttons, as in the legacy page. */
 .app-species-actions .app-reorder-arrow {
+  width: auto;
+  align-self: center;
   min-width: 56px;
   font-size: 1.5rem;
   line-height: 1;
@@ -948,6 +1038,19 @@ body {
   color: #1d70b8;
   text-decoration: underline;
   cursor: pointer;
+}
+
+.govuk-link.app-link-button:not(:focus) {
+  color: #1d70b8;
+}
+
+.govuk-link.app-link-button:not(:focus):hover {
+  color: #003078;
+}
+
+.app-table__cell--dates {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Circle is 24px, above the 24px touch-target minimum; the chevron rotates 180deg
@@ -1445,6 +1548,46 @@ body {
     background-color: #ffffff;
 }
 
+/* The tabs of a profile section stay in one row that scrolls sideways, as the legacy Profiles.WebControls.TabStrip
+   did. tab-carousel.js adds --overflowing when they do not all fit, which shows the "view more tabs" links above
+   them. Narrow screens keep the Design System's stacked list, so the links stay hidden there. */
+.app-tab-carousel__nav {
+  display: none;
+}
+
+@media (min-width: 40.0625em) {
+  .govuk-frontend-supported .app-tab-carousel--overflowing .app-tab-carousel__nav {
+    display: flex;
+    justify-content: flex-end;
+    column-gap: 20px;
+    margin-bottom: 10px;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll {
+    /* Room for the selected tab, which sits 5px above the others. */
+    padding-top: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll .govuk-tabs__list {
+    display: flex;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .govuk-frontend-supported .app-tab-carousel__scroll .govuk-tabs__list-item {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+
 /* A tab that posts the page (so it can save first) but looks like the link tab. */
 .app-tab-button {
     border: 0;
@@ -1502,9 +1645,14 @@ body {
    full-width reason for change and the buttons). */
 .app-legacy-form {
   display: grid;
-  grid-template-columns: 15% 35% 15% 35%;
+  /* fr, not %, so the gaps fit inside the width; minmax(0, ...) stops long content widening a column. */
+  grid-template-columns: minmax(0, 15fr) minmax(0, 35fr) minmax(0, 15fr) minmax(0, 35fr);
   gap: 15px 10px;
   align-items: start;
+}
+
+.app-legacy-form > * {
+  min-width: 0;
 }
 
 .app-legacy-form__label {
@@ -1529,6 +1677,65 @@ body {
   background-color: #f3f2f1;
   overflow-x: auto;
   white-space: nowrap;
+}
+
+/* Rich text toolbar joined to the top of its editor, matching the legacy TinyMCE toolbar
+   (restored after commit 1f778a8 removed it). */
+.app-richtext-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border-bottom: none;
+  padding: 0.25rem;
+  background-color: #f3f2f1;
+}
+
+.app-richtext-toolbar__button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #0b0c0c;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.app-richtext-toolbar__button:hover,
+.app-richtext-toolbar__button:focus {
+  border-color: var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-richtext-toolbar__button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-color: var(--govuk-border-colour, #b1b4b6);
+  background-color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.app-richtext-toolbar__button--italic {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.app-richtext-toolbar__divider {
+  width: 1px;
+  align-self: stretch;
+  background-color: var(--govuk-border-colour, #b1b4b6);
+}
+
+.app-richtext-editor {
+  border: 1px solid var(--govuk-border-colour, #0b0c0c);
+  min-height: 150px;
+  padding: 0.5rem;
+  background-color: #fff;
+}
+
+.app-richtext-editor:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
 }
 
 /* Single-line editable box beneath its formatting toolbar; scrolls sideways when the name is long. */
@@ -1591,12 +1798,35 @@ body {
 .app-legacy-form__actions {
   grid-column: 2;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
 }
 
 .app-legacy-form__actions .govuk-button {
   margin-bottom: 0;
+}
+
+/* Buttons right-aligned under a full-width field, as on the legacy reference data panel. */
+.app-legacy-form__actions--wide {
+  grid-column: 2 / -1;
+}
+
+/* A value shown as plain text beside its label, level with the label's text. */
+.app-legacy-form__text {
+  padding-top: 7px;
+  overflow-wrap: anywhere;
+}
+
+/* Legacy gave the reference data "Reason for change" editor a 200px height. */
+.app-reference-value-form .app-richtext-editor--surface {
+  min-height: 200px;
+}
+
+/* Legacy left this label's cell at the default middle alignment, level with the middle of the box. */
+.app-legacy-form__label--middle {
+  align-self: center;
+  padding-top: 0;
 }
 
 @media (max-width: 40.0525em) {

@@ -5,10 +5,9 @@ public sealed record ReferenceDataAuditEntry(
     Guid Id,
     Guid ReferenceTableId,
     string TableName,
-    Guid ReferenceValueId,
     string OldLookupValue,
     string NewLookupValue,
     string UserFullName,
-    DateTimeOffset EffectiveDate,
-    DateTimeOffset LogDate,
+    DateTime EffectiveDate,
+    DateTime LogDate,
     string Reason);

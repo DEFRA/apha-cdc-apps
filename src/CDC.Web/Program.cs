@@ -128,10 +128,13 @@ builder.Services.AddHttpClient<IProfileQuestionsApiService, ProfileQuestionsApiS
         options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
     });
 
-// Reference data is served from an in-process store until the reference data endpoints exist on
-// CDC.Api; swap this registration for a typed HttpClient when they do.
 builder.Services.TryAddSingleton(TimeProvider.System);
-builder.Services.AddSingleton<IReferenceDataService, InMemoryReferenceDataService>();
+builder.Services.AddHttpClient<IReferenceDataApiService, ReferenceDataApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler();
 // In-memory pending a CDC.Api endpoint for cross-cutting issue scores; singleton so edits
 // persist across requests for the lifetime of the process.
 builder.Services.AddSingleton<ICrossCuttingIssueScoreService, InMemoryCrossCuttingIssueScoreService>();
