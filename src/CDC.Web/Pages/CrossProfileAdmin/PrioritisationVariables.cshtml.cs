@@ -375,16 +375,21 @@ public class PrioritisationVariablesModel(
 
         foreach (var valueScore in change.ValueScores)
         {
-            var value = criterion.Values.FirstOrDefault(candidate => candidate.Id == valueScore.Id);
+            ValidatePendingValueScore(key, criterion, valueScore);
+        }
+    }
 
-            if (value is null)
-            {
-                ModelState.AddModelError(key, $"{criterion.Code}: A value with pending changes no longer exists");
-            }
-            else if (valueScore.Score is < 0 or > 999)
-            {
-                ModelState.AddModelError(key, $"{criterion.Code}: {value.Value} score must be a positive integer");
-            }
+    private void ValidatePendingValueScore(string key, PrioritisationCriterionDto criterion, CriterionValueScoreInput valueScore)
+    {
+        var value = criterion.Values.FirstOrDefault(candidate => candidate.Id == valueScore.Id);
+
+        if (value is null)
+        {
+            ModelState.AddModelError(key, $"{criterion.Code}: A value with pending changes no longer exists");
+        }
+        else if (valueScore.Score is < 0 or > 999)
+        {
+            ModelState.AddModelError(key, $"{criterion.Code}: {value.Value} score must be a positive integer");
         }
     }
 
