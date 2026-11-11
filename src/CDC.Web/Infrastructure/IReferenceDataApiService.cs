@@ -7,7 +7,7 @@ namespace CDC.Web.Infrastructure;
 /// Mirrors the legacy Profiles procedures spgMaintainableReferenceTables, spgReferenceValueByTable,
 /// spuReferenceValue and spgReferenceTableAudit.
 /// </summary>
-public interface IReferenceDataService
+public interface IReferenceDataApiService
 {
     /// <summary>Gets the maintainable reference tables offered in the dropdown.</summary>
     Task<IReadOnlyList<ReferenceTableSummary>> GetTablesAsync(CancellationToken cancellationToken = default);
@@ -18,18 +18,18 @@ public interface IReferenceDataService
     /// <summary>Gets the values held in the supplied table, in sequence number order.</summary>
     Task<IReadOnlyList<ReferenceDataValue>> GetValuesAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
 
-    /// <summary>Gets a single value, or <see langword="null"/> if it does not exist in that table.</summary>
+    /// <summary>Gets a single value with its row version, or <see langword="null"/> if it does not exist in that table.</summary>
     Task<ReferenceDataValue?> GetValueAsync(Guid referenceTableId, Guid valueId, CancellationToken cancellationToken = default);
 
-    /// <summary>Applies the change and writes the matching audit entry.</summary>
+    /// <summary>
+    /// Applies the requested edit, addition, inactivation or deletion and writes the matching
+    /// audit entry. Inactive values cannot be changed and values in use cannot be deleted.
+    /// </summary>
     Task<ReferenceDataUpdateResult> UpdateValueAsync(ReferenceDataUpdate update, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets the audit trail, most recent change first. Pass a table id to filter to one table,
-    /// or <see langword="null"/> for every table.
-    /// </summary>
-    Task<IReadOnlyList<ReferenceDataAuditEntry>> GetAuditTrailAsync(Guid? referenceTableId, CancellationToken cancellationToken = default);
+    /// <summary>Gets one table's audit trail, most recent change first; empty when the table is not maintainable.</summary>
+    Task<IReadOnlyList<ReferenceDataAuditEntry>> GetAuditTrailAsync(Guid referenceTableId, CancellationToken cancellationToken = default);
 
-    /// <summary>Gets a single audit entry, or <see langword="null"/> if it does not exist.</summary>
-    Task<ReferenceDataAuditEntry?> GetAuditEntryAsync(Guid auditId, CancellationToken cancellationToken = default);
+    /// <summary>Gets a single audit entry of a table, or <see langword="null"/> if it does not exist.</summary>
+    Task<ReferenceDataAuditEntry?> GetAuditEntryAsync(Guid referenceTableId, Guid auditId, CancellationToken cancellationToken = default);
 }

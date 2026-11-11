@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using CDC.Web.Models;
 using CDC.Web.Pages;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -16,6 +18,15 @@ public class EditSpeciesModelTests
     private static readonly Guid MovementsSectionId = Guid.NewGuid();
     private static readonly Guid QuestionId = Guid.NewGuid();
 
+    private sealed class StubAuthorizationService(bool succeed) : IAuthorizationService
+    {
+        public Task<AuthorizationResult> AuthorizeAsync(ClaimsPrincipal user, object? resource, IEnumerable<IAuthorizationRequirement> requirements) =>
+            Task.FromResult(succeed ? AuthorizationResult.Success() : AuthorizationResult.Failed());
+
+        public Task<AuthorizationResult> AuthorizeAsync(ClaimsPrincipal user, object? resource, string policyName) =>
+            Task.FromResult(succeed ? AuthorizationResult.Success() : AuthorizationResult.Failed());
+    }
+
     private static EditSpeciesModel CreatePageModel(
         SpeciesAnswerDataDto? speciesAnswerData = null,
         Exception? throwOnGetSpeciesAnswerData = null,
@@ -24,7 +35,8 @@ public class EditSpeciesModelTests
         IReadOnlyDictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValuesByTable = null,
         UpdateSpeciesAnswerDataResult? updateAnswerDataResult = null,
         FakeSpeciesApiService? speciesApiService = null,
-        IDictionary<string, StringValues>? formValues = null)
+        IDictionary<string, StringValues>? formValues = null,
+        bool canManage = true)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var httpContext = new DefaultHttpContext();
@@ -40,6 +52,7 @@ public class EditSpeciesModelTests
                 speciesMetadata: speciesMetadata,
                 referenceValuesByTable: referenceValuesByTable,
                 updateAnswerDataResult: updateAnswerDataResult),
+            new StubAuthorizationService(canManage),
             new AlwaysEnabledLogger<EditSpeciesModel>())
         {
             SpeciesId = SpeciesId,
@@ -134,6 +147,18 @@ public class EditSpeciesModelTests
             }
         ]
     };
+
+    [Fact]
+    public async Task OnPostSaveAsync_ReturnsForbid_AndDoesNotSave_WhenTheUserCannotManageSpeciesData()
+    {
+        var api = new FakeSpeciesApiService(speciesMetadata: MetadataWithMovementsSection());
+        var pageModel = CreatePageModel(canManage: false, speciesApiService: api, section: "movements");
+        pageModel.LastUpdatedBase64 = Convert.ToBase64String([1, 2, 3]);
+
+        var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.IsType<ForbidResult>(result);
+    }
 
     [Fact]
     public async Task OnGetAsync_ReturnsNotFound_WhenTheSpeciesDoesNotExist()

@@ -247,4 +247,77 @@ describe('paged-region', () => {
     expect(region.textContent).not.toContain('Stale rows');
     expect(window.location.search).toBe('?PageNumber=4');
   });
+
+  describe('opted-in sort links and forms', () => {
+    const sortedPage = (sort) => `<html><head><title>Values - D2R2</title></head><body>
+      <div id="values-region" data-app-paged-region>
+        <table><thead><tr><th aria-sort="${sort}"><a id="sort-Value" href="/values?SortDirection=x" data-app-region-link>Value</a></th></tr></thead></table>
+        <p>Sorted ${sort}</p>
+        <label for="PageSize">Items per page:</label>
+        <select id="PageSize" name="PageSize" form="size-form"><option>10</option><option selected>All</option></select>
+        <form id="size-form" method="get" action="/values" data-app-region-form><input type="hidden" name="tableId" value="t1" /></form>
+      </div></body></html>`;
+
+    function buildSortablePage() {
+      document.body.innerHTML = `
+        <p id="outside">Outside, as first loaded</p>
+        <div id="values-region" data-app-paged-region>
+          <table><thead><tr><th aria-sort="ascending"><a id="sort-Value" href="/values?SortDirection=Descending" data-app-region-link>Value</a></th></tr></thead></table>
+          <p>Sorted ascending</p>
+          <label for="PageSize">Items per page:</label>
+          <select id="PageSize" name="PageSize" form="size-form"><option selected>10</option><option>All</option></select>
+          <form id="size-form" method="get" action="/values" data-app-region-form><input type="hidden" name="tableId" value="t1" /></form>
+        </div>`;
+
+      return document.getElementById('values-region');
+    }
+
+    it('sorts in place, keeping focus on the header and announcing the new order', async () => {
+      fetchMock.mockResolvedValue(respondWith(sortedPage('descending')));
+      const region = buildSortablePage();
+      const outside = document.getElementById('outside');
+
+      expect(click(document.getElementById('sort-Value'))).toBe(true);
+      await vi.waitFor(() => expect(region.textContent).toContain('Sorted descending'));
+
+      expect(document.getElementById('outside')).toBe(outside);
+      expect(document.activeElement).toBe(document.getElementById('sort-Value'));
+      expect(document.querySelector('[role="status"]').textContent).toBe('Sorted by Value, descending');
+      expect(window.location.search).toBe('?SortDirection=Descending');
+    });
+
+    it('submits an opted-in GET form in place, with fields linked by the form attribute, and refocuses the changed control', async () => {
+      fetchMock.mockResolvedValue(respondWith(sortedPage('ascending')));
+      const region = buildSortablePage();
+      const select = document.getElementById('PageSize');
+
+      select.value = 'All';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      document.getElementById('size-form').requestSubmit();
+
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      const requested = new URL(fetchMock.mock.calls[0][0]);
+      expect(requested.pathname).toBe('/values');
+      expect(requested.searchParams.get('tableId')).toBe('t1');
+      expect(requested.searchParams.get('PageSize')).toBe('All');
+
+      await vi.waitFor(() => expect(select.isConnected).toBe(false));
+      expect(document.activeElement).toBe(document.getElementById('PageSize'));
+      expect(region.querySelector('#PageSize').value).toBe('All');
+    });
+
+    it('leaves a GET form that has not opted in to the browser', () => {
+      buildSortablePage();
+      const form = document.getElementById('size-form');
+      form.removeAttribute('data-app-region-form');
+      const submitted = vi.fn((event) => event.preventDefault());
+      document.addEventListener('submit', submitted);
+
+      form.requestSubmit();
+
+      document.removeEventListener('submit', submitted);
+      expect(submitted).toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });
