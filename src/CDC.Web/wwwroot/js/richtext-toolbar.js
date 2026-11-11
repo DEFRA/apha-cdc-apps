@@ -214,7 +214,7 @@
         editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    function initialiseRichTextEditors() {
+    function initialiseRichTextEditors(root) {
         var editors = {};
 
         try {
@@ -223,14 +223,19 @@
             // Unsupported in some browsers; the default separator is acceptable.
         }
 
-        document.querySelectorAll('[data-richtext-command]').forEach(function (button) {
+        (root || document).querySelectorAll('[data-richtext-command]').forEach(function (button) {
             var targetId = button.getAttribute('data-richtext-target');
             var textarea = document.getElementById(targetId);
-            if (!textarea) {
+            if (!textarea || button.dataset.richtextReady) {
                 return;
             }
+            button.dataset.richtextReady = 'true';
 
             if (!editors[targetId]) {
+                if (textarea.dataset.richtextReady) {
+                    return;
+                }
+                textarea.dataset.richtextReady = 'true';
                 var editor = createEditor(textarea);
                 editors[targetId] = editor;
 
@@ -253,8 +258,11 @@
         });
     }
 
+    // Content swapped in by paged-region.js (a section opened in place) has editors of its own to set up.
+    document.addEventListener('app:region-updated', function (event) { initialiseRichTextEditors(event.target); });
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initialiseRichTextEditors);
+        document.addEventListener('DOMContentLoaded', function () { initialiseRichTextEditors(); });
     } else {
         initialiseRichTextEditors();
     }

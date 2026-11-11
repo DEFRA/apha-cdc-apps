@@ -278,6 +278,9 @@
 
     window.appSingleLineRichtext = { start: start };
 
+    // Content swapped in by paged-region.js (a section opened in place) has editors of its own to set up.
+    document.addEventListener('app:region-updated', function (event) { start(event.target); });
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { start(); });
     } else {

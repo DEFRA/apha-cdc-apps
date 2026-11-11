@@ -1,36 +1,84 @@
 using CDC.Web.Models;
 
-namespace CDC.Web.Infrastructure;
+namespace CDC.Web.Tests.TestSupport;
 
 /// <summary>
-/// The maintainable reference tables and their values, taken verbatim from the legacy Profiles
-/// database baseline script (ProfilesDatabase/Create Scripts/PopulateBaselineData.sql) - every
-/// [ReferenceTable] row with [IsMaintainable] = 1 and its [ReferenceValue] rows, with their
-/// original identifiers and sequence numbers preserved.
+/// The maintainable reference tables and their values, taken from the legacy Profiles database
+/// scripts (ProfilesDatabase/Create Scripts/PopulateBaselineData.sql and the Phase 2 Release 3
+/// change scripts) - every [ReferenceTable] row with [IsMaintainable] = 1 and its [ReferenceValue]
+/// rows, with their original identifiers and sequence numbers preserved.
 /// </summary>
 internal static class ReferenceDataSeed
 {
+    private static readonly Guid SurveillanceOutcome = new("6FDF6590-D610-4200-B3EA-128A5BB838E2");
     private static readonly Guid SpreadMechanism = new("92104271-8505-4189-A43D-23F88E25DBEE");
     private static readonly Guid TransmissionMechanism = new("BFC9F1C2-77EA-4704-B586-301BDD03B7B7");
     private static readonly Guid SurveillanceMechanism = new("D41B31E1-D0C0-464D-B640-3D26DD21546E");
     private static readonly Guid GeographicArea = new("948B3612-BEE6-4A07-892A-7861E5FAD085");
+    private static readonly Guid Laboratory = new("67CF4CCF-AB56-4167-9636-7EF21D4989A5");
+    private static readonly Guid SampleType = new("4050839D-DBAF-4418-ADBA-82AE11BFED31");
     private static readonly Guid DiagnosisAndDetectionMechanism = new("19A8013C-E7D6-4AED-A58F-AA1F775CBA54");
     private static readonly Guid ControlMechanism = new("D9889426-96A2-4C69-A3DB-C26F256C5FC1");
+    private static readonly Guid Contractor = new("46A88759-A81C-44F2-9CBD-D1B45F8A7FDB");
+
+    // Effective-from dates as set by the legacy scripts. The baseline values took theirs from the
+    // old lu* tables (CreateProfileTables.sql); "getdate()" rows use the date of the script that added them.
+    private static readonly DateOnly Baseline = new(2007, 1, 1);
+    private static readonly DateOnly Release3November2008 = new(2008, 11, 26);
+    private static readonly DateOnly Release3December2008 = new(2008, 12, 30);
+    private static readonly DateOnly Release3March2009 = new(2009, 3, 2);
 
     /// <summary>Gets the maintainable reference tables, in the order they are offered to the user.</summary>
     public static IReadOnlyList<ReferenceTableSummary> Tables { get; } =
     [
-        new(ControlMechanism, "Control Mechanism"),
-        new(DiagnosisAndDetectionMechanism, "Diagnosis And Detection Mechanism"),
-        new(GeographicArea, "Geographic Area"),
-        new(SpreadMechanism, "Spread Mechanism"),
-        new(SurveillanceMechanism, "Surveillance Mechanism"),
-        new(TransmissionMechanism, "Transmission Mechanism")
+        new(SurveillanceOutcome, "Surveillance outcome"),
+        new(SpreadMechanism, "Spread mechanism"),
+        new(TransmissionMechanism, "Transmission mechanism"),
+        new(SurveillanceMechanism, "Surveillance mechanism"),
+        new(GeographicArea, "Geographic area"),
+        new(Laboratory, "Laboratory"),
+        new(SampleType, "Sample type"),
+        new(DiagnosisAndDetectionMechanism, "Diagnosis and detection mechanism"),
+        new(ControlMechanism, "Control mechanism"),
+        new(Contractor, "Contractor")
     ];
 
     /// <summary>Gets the baseline reference values. All are active - no end date was ever set.</summary>
     public static IReadOnlyList<ReferenceDataValue> Values { get; } =
     [
+        Value("CCDCA091-320D-401A-A4E4-70FD1CF14EA2", SurveillanceOutcome, "Outcome A", 1, Release3December2008),
+        Value("BFACA19A-9079-46FD-B6A9-E27D9E094A1C", SurveillanceOutcome, "Outcome B", 2, Release3December2008),
+
+        Value("52C7B2FF-2D50-4F9A-BBBA-6B01CCFE6270", Laboratory, "VLA", 1, Release3November2008),
+        Value("DB08DC04-600D-4AC8-8FA3-967F6561DD59", Laboratory, "SAC", 2, Release3November2008),
+        Value("94E5B52E-AE1F-4E27-9967-A67C3DC79869", Laboratory, "DARD", 3, Release3March2009),
+        Value("53E1B307-7914-4EE1-A29A-D9EBD92B6F81", Laboratory, "CSL", 4, Release3March2009),
+        Value("D64F3AC6-04D0-4DED-9DB0-55B7F813A940", Laboratory, "CEFAS", 5, Release3March2009),
+        Value("55BD2EE6-6832-471E-85FE-03B18F5BD1F3", Laboratory, "HPA", 6, Release3March2009),
+        Value("86A8B568-DAEF-4CDB-8F69-48F3CDE10AB5", Laboratory, "Private labs.", 7, Release3March2009),
+        Value("DD3A8F80-6E62-4064-BF43-FA98CC503287", Laboratory, "AHT", 8, Release3March2009),
+        Value("CA75ED03-F6AA-4808-A4A1-CCB15F2B44E6", Laboratory, "Classified information", 9, Release3March2009),
+
+        Value("18CF3879-4231-4DB8-A3D8-120760944002", SampleType, "Blood", 1, Release3November2008),
+        Value("4B5AE21D-B7A4-4981-8238-768E2B0BA985", SampleType, "Milk", 2, Release3November2008),
+        Value("5679E013-E116-405F-940A-3727D4623463", SampleType, "Faeces", 3, Release3March2009),
+        Value("64F6A3AB-8C43-47FD-B424-FC72026A069B", SampleType, "Semen", 4, Release3March2009),
+        Value("F6AB247B-9B26-4E78-B5DF-7660CBDD8466", SampleType, "Urine", 5, Release3March2009),
+        Value("CB41E2F4-0091-4FDA-A307-23F2A3ADD22A", SampleType, "Eggs", 6, Release3March2009),
+        Value("02B2147F-89C5-46E7-8A36-8DACC3A9F2A5", SampleType, "Vector sampling", 7, Release3March2009),
+        Value("B878FED5-C58F-4A83-942D-AF5847644229", SampleType, "Biopsy", 8, Release3March2009),
+        Value("D6796EB2-AB8C-4794-A831-CD3786430E5C", SampleType, "PME gross", 9, Release3March2009),
+        Value("79BF22A6-21A6-4AB2-8E51-88BBFD405D87", SampleType, "PME material", 10, Release3March2009),
+        Value("C74CF160-A746-4D86-B6DE-4E05153C2604", SampleType, "Probang", 11, Release3March2009),
+        Value("BBDEBD2B-F2E9-4C2E-9D2C-6C808210ED57", SampleType, "Skin scrape", 12, Release3March2009),
+        Value("17C3E61C-39B7-47E5-91C1-8590EFEA2E12", SampleType, "Hair", 13, Release3March2009),
+        Value("99B19A9C-B19C-4A0E-AC10-1C1F97D863A9", SampleType, "Parasite collection", 14, Release3March2009),
+        Value("9DE35D48-D023-464C-9A1D-C021C19EFE31", SampleType, "Non vector", 15, Release3March2009),
+        Value("30F99AC5-7CA6-44EB-A0C4-546A460BE496", SampleType, "Other", 16, Release3March2009),
+
+        Value("F4D88428-FACB-48C5-80D1-161E7300817F", Contractor, "Contractor A", 1, Release3December2008),
+        Value("AC356F62-2675-4C34-B40C-FB580D9D5D1D", Contractor, "Contractor B", 2, Release3December2008),
+
         Value("A6219B68-6216-4F2D-8384-55EE4FF73024", SpreadMechanism, "Aerosol", 1),
         Value("CC1FD6D5-D5AF-4B44-BDC7-23AC61238D77", SpreadMechanism, "Sexual transmission", 2),
         Value("DE70CCCA-4D28-4B7F-9CB4-BBC9993D9E7E", SpreadMechanism, "Ingestion", 3),
@@ -89,8 +137,8 @@ internal static class ReferenceDataSeed
         Value("3B2E8D44-81BD-4F06-AC9F-50DA38B717CA", ControlMechanism, "No practical control method available", 15)
     ];
 
-    // The baseline rows predate the effective date columns, so both dates are null: no start date
-    // was backfilled, and a null end date means the value is still active.
-    private static ReferenceDataValue Value(string id, Guid referenceTableId, string lookupValue, byte sequenceNumber) =>
-        new(new Guid(id), referenceTableId, lookupValue, EffectiveDateFrom: null, EffectiveDateTo: null, sequenceNumber, IsInUse: false);
+    // With no profile data in memory, baseline values are treated as referenced by profiles, so they
+    // offer Inactivate rather than Delete; values added at runtime are not, so they offer Delete.
+    private static ReferenceDataValue Value(string id, Guid referenceTableId, string lookupValue, byte sequenceNumber, DateOnly? effectiveDateFrom = null) =>
+        new(new Guid(id), referenceTableId, lookupValue, effectiveDateFrom ?? Baseline, EffectiveDateTo: null, sequenceNumber, IsInUse: true, LastUpdated: BitConverter.GetBytes(1L));
 }

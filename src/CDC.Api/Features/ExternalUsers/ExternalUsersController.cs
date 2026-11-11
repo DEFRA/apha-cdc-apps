@@ -17,7 +17,7 @@ namespace CDC.Api.Features.ExternalUsers;
 /// <param name="mediator">Dispatches queries and commands to their handlers.</param>
 [ApiController]
 [Route("api/external-users")]
-[RequireGlobalRole(GlobalRole.ProfileEditor)]
+[AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class ExternalUsersController(ISender mediator) : ControllerBase

@@ -50,6 +50,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IDiseaseRankingFiltersRepository, DiseaseRankingFiltersRepository>();
         services.AddScoped<IProfileSectionRepository, ProfileSectionRepository>();
         services.AddScoped<IReferenceDataRepository, ReferenceDataRepository>();
+        services.AddScoped<IReferenceDataMaintenanceRepository, ReferenceDataMaintenanceRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IGlobalUsersRepository, GlobalUsersRepository>();
         services.AddScoped<IExternalUsersRepository, ExternalUsersRepository>();

@@ -16,7 +16,7 @@ namespace CDC.Api.Features.PrioritisationVariables;
 /// <param name="mediator">Dispatches queries to their handlers.</param>
 [ApiController]
 [Route("api/prioritisation-variables")]
-[RequireGlobalRole(GlobalRole.ProfileEditor)]
+[AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class PrioritisationVariablesController(ISender mediator) : ControllerBase

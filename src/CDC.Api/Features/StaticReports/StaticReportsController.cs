@@ -127,7 +127,7 @@ public sealed partial class StaticReportsController(IStaticReportService staticR
     /// <response code="204">The report version was marked public.</response>
     /// <response code="403">The user is not a profile editor.</response>
     [HttpPut("versions/{staticReportVersionId:guid}/public")]
-    [RequireGlobalRole(GlobalRole.ProfileEditor)]
+    [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SetStaticReportPublicAccess(
         Guid staticReportVersionId,
