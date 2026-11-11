@@ -22,15 +22,22 @@ internal sealed class FakePrioritisationVariablesApiService(
 
     public IReadOnlyList<CriterionValueScore>? LastUpdatedValueScores { get; private set; }
 
+    public string? LastUpdatedName { get; private set; }
+
     public PrioritisationRankingRangeDto? LastSavedRankingRange { get; private set; }
 
     public Task<IReadOnlyList<PrioritisationCategoryDto>> GetCategoriesAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(_categories);
+        ThrowOnGetCategories is not null
+            ? Task.FromException<IReadOnlyList<PrioritisationCategoryDto>>(ThrowOnGetCategories)
+            : Task.FromResult(_categories);
+
+    public Exception? ThrowOnGetCategories { get; init; }
 
     public Task UpdateCriterionAsync(
         Guid criterionId,
         int weight,
         IReadOnlyList<CriterionValueScore> valueScores,
+        string? name = null,
         CancellationToken cancellationToken = default)
     {
         if (throwOnUpdateCriterion is not null)
@@ -41,6 +48,7 @@ internal sealed class FakePrioritisationVariablesApiService(
         LastUpdatedCriterionId = criterionId;
         LastUpdatedWeight = weight;
         LastUpdatedValueScores = valueScores;
+        LastUpdatedName = name;
         return Task.CompletedTask;
     }
 
@@ -60,5 +68,54 @@ internal sealed class FakePrioritisationVariablesApiService(
         _rankingRange = rankingRange with { RowVersion = "CQoLDA0ODxA=" };
         return Task.FromResult(_rankingRange);
     }
+
+    public Exception? ThrowOnPrioritiseDraftProfiles { get; init; }
+
+    public Exception? ThrowOnRecalculateScores { get; init; }
+
+    public Exception? ThrowOnExport { get; init; }
+
+    public int DraftPrioritisationCount { get; private set; }
+
+    public int RecalculationCount { get; private set; }
+
+    public Task PrioritiseDraftProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnPrioritiseDraftProfiles is not null)
+        {
+            return Task.FromException(ThrowOnPrioritiseDraftProfiles);
+        }
+
+        DraftPrioritisationCount++;
+        return Task.CompletedTask;
+    }
+
+    public Task RecalculateScoresAsync(CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnRecalculateScores is not null)
+        {
+            return Task.FromException(ThrowOnRecalculateScores);
+        }
+
+        RecalculationCount++;
+        return Task.CompletedTask;
+    }
+
+    public Task<PrioritisationScoreExport?> ExportCategoryScoreDataAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        if (ThrowOnExport is not null)
+        {
+            return Task.FromException<PrioritisationScoreExport?>(ThrowOnExport);
+        }
+
+        return Task.FromResult(_categories.Any(category => category.Id == categoryId)
+            ? new PrioritisationScoreExport("a,b"u8.ToArray(), "Category.csv")
+            : null);
+    }
+
+    public Task<PrioritisationScoreExport> ExportNormalisedScoresAsync(CancellationToken cancellationToken = default) =>
+        ThrowOnExport is not null
+            ? Task.FromException<PrioritisationScoreExport>(ThrowOnExport)
+            : Task.FromResult(new PrioritisationScoreExport("a,b"u8.ToArray(), "NormalisedScoreSummary.csv"));
 }
 

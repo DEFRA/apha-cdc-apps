@@ -17,4 +17,16 @@ public static class PrioritisationVariablesStoredProcedures
 
     /// <summary>Updates the ranking range, checking the row version.</summary>
     public const string UpdateRankingRange = "spuPrioritisationRankingRange";
+
+    /// <summary>Reads the current profile versions in a given state.</summary>
+    public const string GetCurrentProfiles = "spgaCurrentProfile";
+
+    /// <summary>Calculates prioritisation inputs for one profile version.</summary>
+    public const string CalculatePrioritisation = "sppPrioritisationCalculation";
+
+    /// <summary>Recalculates prioritisation scores across all profile versions.</summary>
+    public const string CalculatePrioritisationScore = "sppPrioritisationScore";
+
+    /// <summary>Returns questions, categories, profiles, versions, species, answers and scores as nine result sets.</summary>
+    public const string GetScoreData = "spgaPrioritisationScoreData";
 }

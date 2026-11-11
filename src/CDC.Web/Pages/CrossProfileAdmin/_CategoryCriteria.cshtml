@@ -1,0 +1,33 @@
+@model CDC.Web.Pages.CrossProfileAdmin.PrioritisationVariablesModel
+@using CDC.Web.Infrastructure
+@if (Model.SelectedCategoryId is not null)
+{
+    @if (Model.SelectedCategoryCriteria.Count == 0)
+    {
+        <p class="govuk-body">No criteria are recorded against this category.</p>
+    }
+    else
+    {
+        <table class="govuk-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Criteria for the selected prioritisation category</caption>
+            <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Criterion</span></th>
+                    <th scope="col" class="govuk-table__header">Weighting</th>
+                </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+                @foreach (var criterion in Model.SelectedCategoryCriteria)
+                {
+                    var pending = Model.PendingFor(criterion.Id);
+                    <tr class="govuk-table__row">
+                        <td class="govuk-table__cell">
+                            <a class="govuk-link" href="?SelectedCategoryId=@Model.SelectedCategoryId&SelectedCriterionId=@criterion.Id" data-criterion-link data-criterion-id="@criterion.Id">@criterion.Code - <span data-criterion-name>@ProfileTitleHtmlFormatter.Format(pending?.Name ?? criterion.Name)</span></a>
+                        </td>
+                        <td class="govuk-table__cell" data-criterion-weight="@criterion.Id">@(pending?.Weight ?? criterion.Weight)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}

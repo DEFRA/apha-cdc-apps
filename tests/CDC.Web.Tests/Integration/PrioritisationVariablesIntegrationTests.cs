@@ -53,6 +53,86 @@ public class PrioritisationVariablesIntegrationTests
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("DI1 - <span data-criterion-name>Herd prevalence</span>", body);
+        Assert.Contains("Low", body);
+        Assert.Contains(">OK</button>", body);
+        Assert.Contains(">Cancel</button>", body);
+    }
+
+    [Fact]
+    public async Task Get_RendersUpdateConfirmationAndCategoryActions_WhenACategoryIsSelected()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"/CrossProfileAdmin/PrioritisationVariables?SelectedCategoryId={CategoryId}");
+
+        Assert.Contains("Are you sure you want to update the global prioritisation variables?", body);
+        Assert.Contains("data-confirm-target=\"#confirm-update-dialog\"", body);
+        Assert.Contains($"/CrossProfileAdmin/PrintPrioritisationVariables?categoryId={CategoryId}", body);
+        Assert.Contains("Export score data", body);
+        Assert.Contains("Export normalised scores (all categories)", body);
+    }
+
+    [Fact]
+    public async Task Get_DisablesCategoryActions_WhenNoCategoryIsSelected()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/CrossProfileAdmin/PrioritisationVariables");
+
+        Assert.Contains("disabled aria-disabled=\"true\">Print category variables</button>", body);
+        Assert.Contains("disabled aria-disabled=\"true\">Export score data</button>", body);
+        Assert.DoesNotContain("PrintPrioritisationVariables?categoryId=", body);
+        Assert.Contains("Export normalised scores (all categories)", body);
+    }
+
+    [Fact]
+    public async Task GetCategorySection_ReturnsOnlyTheCategoryActionsAndCriteria()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync(
+            $"/CrossProfileAdmin/PrioritisationVariables?handler=CategorySection&SelectedCategoryId={CategoryId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("data-fragment=\"category-actions\"", body);
+        Assert.Contains($"PrintPrioritisationVariables?categoryId={CategoryId}", body);
+        Assert.Contains("DI1 - <span data-criterion-name>Herd prevalence</span>", body);
+    }
+
+    [Fact]
+    public async Task GetCriterionPanel_ReturnsOnlyThePanelWithTheEditableName()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync(
+            $"/CrossProfileAdmin/PrioritisationVariables?handler=CriterionPanel&SelectedCategoryId={CategoryId}&SelectedCriterionId={CriterionId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("id=\"criterion-name\"", body);
+        Assert.Contains("value=\"Herd prevalence\"", body);
+        Assert.Contains("Low", body);
+    }
+
+    [Fact]
+    public async Task GetPrintPage_RendersTheCategoryCriteriaAndScores()
+    {
+        using var factory = CreateFactory(new FakePrioritisationVariablesApiService(Categories));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/CrossProfileAdmin/PrintPrioritisationVariables?categoryId={CategoryId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Disease impact", body);
         Assert.Contains("DI1 - Herd prevalence", body);
         Assert.Contains("Low", body);
     }

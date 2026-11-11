@@ -945,6 +945,58 @@ body {
   background-color: rgba(11, 12, 12, 0.8);
 }
 
+/* Header, body and footer split by rules, with the buttons on the right, as the legacy ConfirmDialog (a Bootstrap modal) drew them. */
+.app-modal--sectioned {
+  padding: 0;
+  /* Native dialogs centre vertically; Bootstrap's .modal-dialog sat 1.75rem from the top. */
+  margin-top: 1.75rem;
+}
+
+.app-modal__header,
+.app-modal__body,
+.app-modal__footer {
+  padding: 1rem 1.5rem;
+}
+
+.app-modal__header {
+  border-bottom: 1px solid #b1b4b6;
+}
+
+.app-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid #b1b4b6;
+}
+
+/* Progress popup for a long-running action, like the legacy LongTaskUI panel. */
+.app-progress-dialog {
+  max-width: 320px;
+  text-align: center;
+}
+
+.app-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border: 6px solid #b1b4b6;
+  border-top-color: #1d70b8;
+  border-radius: 50%;
+  animation: app-spinner-rotate 1s linear infinite;
+}
+
+@keyframes app-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner {
+    animation-duration: 3s;
+  }
+}
+
 /* The spell check dialog (_SpellCheckDialog.cshtml, spell-check.js), laid out as the legacy RadSpell dialog was: the word in its
    context and the suggestions on the left, and a column of buttons on the right. */
 .app-spell-dialog {
@@ -1503,6 +1555,66 @@ body {
 
 .app-button-group--right.govuk-button-group {
   display: flex;
+}
+
+/* Status text under a right-aligned action, as the legacy maintenance screens showed it. */
+.app-text-align-right {
+  text-align: right;
+}
+
+/* A wrapper that exists only so script can replace its children; they lay out as if it weren't there. */
+.app-display-contents {
+  display: contents;
+}
+
+/* Prioritisation variables criterion panel: a label column beside the inputs, as the legacy panel's table had. */
+.app-criterion-edit {
+  --app-criterion-name-height: 60px;
+  display: grid;
+  grid-template-columns: minmax(max-content, 25em) minmax(0, 45em);
+  column-gap: 15px;
+  row-gap: 15px;
+  align-items: center;
+}
+
+.app-criterion-edit__label {
+  margin-bottom: 0;
+}
+
+/* The name's toolbar sits above its editor, so the label is centred on the editor alone, not the toolbar. */
+.app-criterion-edit__label--editor {
+  align-self: end;
+  display: flex;
+  align-items: center;
+  height: var(--app-criterion-name-height);
+}
+
+.app-criterion-edit__field.govuk-form-group--error {
+  margin-bottom: 0;
+}
+
+/* Toolbar boxed and joined to the editor below it, as the legacy TinyMCE editor drew it. */
+.app-criterion-edit__field .app-richtext-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem;
+  border: 2px solid #0b0c0c;
+  border-bottom: 0;
+}
+
+.app-criterion-edit__field .app-richtext-toolbar__divider {
+  flex: 0 0 2px;
+  align-self: stretch;
+  width: 2px;
+  margin: 0 0.5rem;
+  background-color: #505a5f;
+}
+
+/* Legacy TinyMCE was held at its 100px minimum, toolbar included, leaving about 60px to type in. */
+.app-criterion-edit__field .app-richtext-editor {
+  width: 100%;
+  height: var(--app-criterion-name-height);
 }
 
 /* Disease ranking report: a report dropdown with its actions beside it, wrapping on narrow screens. */

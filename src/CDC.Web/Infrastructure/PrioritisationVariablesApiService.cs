@@ -25,6 +25,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
         Guid criterionId,
         int weight,
         IReadOnlyList<CriterionValueScore> valueScores,
+        string? name = null,
         CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PutAsJsonAsync(
@@ -32,6 +33,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
             new
             {
                 Weight = weight,
+                Name = name,
                 ValueScores = valueScores.Select(valueScore => new { valueScore.ValueId, valueScore.Score })
             },
             cancellationToken);
@@ -45,7 +47,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
         var rankingRange = await httpClient.GetFromJsonAsync<PrioritisationRankingRangeDto>(
             "/api/prioritisation-variables/ranking-range", cancellationToken);
 
-        return rankingRange ?? new PrioritisationRankingRangeDto();
+        return rankingRange ?? new PrioritisationRankingRangeDto { LowerBound = 0, UpperBound = 90 };
     }
 
     /// <inheritdoc />
@@ -68,5 +70,53 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
 
         return await response.Content.ReadFromJsonAsync<PrioritisationRankingRangeDto>(cancellationToken)
             ?? rankingRange;
+    }
+
+    /// <inheritdoc />
+    public async Task PrioritiseDraftProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsync("/api/prioritisation-variables/draft-prioritisation", null, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <inheritdoc />
+    public async Task RecalculateScoresAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsync("/api/prioritisation-variables/score-recalculation", null, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <inheritdoc />
+    public async Task<PrioritisationScoreExport?> ExportCategoryScoreDataAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync($"/api/prioritisation-variables/categories/{categoryId}/score-data", cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        return await ReadExportAsync(response, "ScoreData.csv", cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<PrioritisationScoreExport> ExportNormalisedScoresAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync("/api/prioritisation-variables/normalised-scores", cancellationToken);
+
+        return await ReadExportAsync(response, "NormalisedScoreSummary.csv", cancellationToken);
+    }
+
+    private static async Task<PrioritisationScoreExport> ReadExportAsync(HttpResponseMessage response, string defaultFileName, CancellationToken cancellationToken)
+    {
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var disposition = response.Content.Headers.ContentDisposition;
+        var fileName = disposition?.FileNameStar ?? disposition?.FileName?.Trim('"');
+
+        return new PrioritisationScoreExport(content, string.IsNullOrWhiteSpace(fileName) ? defaultFileName : fileName);
     }
 }

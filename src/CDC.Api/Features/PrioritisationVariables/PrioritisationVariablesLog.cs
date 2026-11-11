@@ -14,4 +14,10 @@ internal static partial class PrioritisationVariablesLog
 
     [LoggerMessage(EventId = 2102, Level = LogLevel.Information, Message = "Ranking range update rejected - row version conflict")]
     public static partial void RankingRangeConcurrencyConflict(this ILogger logger);
+
+    [LoggerMessage(EventId = 2103, Level = LogLevel.Information, Message = "Prioritised {ProfileVersionCount} draft profile versions")]
+    public static partial void DraftProfilesPrioritised(this ILogger logger, int profileVersionCount);
+
+    [LoggerMessage(EventId = 2104, Level = LogLevel.Information, Message = "Recalculated prioritisation scores after a global prioritisation variables change")]
+    public static partial void PrioritisationScoresRecalculated(this ILogger logger);
 }

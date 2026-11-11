@@ -39,4 +39,19 @@ public sealed record RankedProfile
 
     /// <summary>Gets the post mitigation risk rank.</summary>
     public int RiskRank { get; init; }
+
+    /// <summary>Gets the profile version the public health rank was read from.</summary>
+    public Guid? PublicHealthProfileVersionId { get; init; }
+
+    /// <summary>Gets the profile version the animal welfare rank was read from.</summary>
+    public Guid? AnimalWelfareProfileVersionId { get; init; }
+
+    /// <summary>Gets the profile version the wider society rank was read from.</summary>
+    public Guid? WiderSocietyProfileVersionId { get; init; }
+
+    /// <summary>Gets the profile version the international trade rank was read from.</summary>
+    public Guid? InternationalTradeProfileVersionId { get; init; }
+
+    /// <summary>Gets the profile version the post mitigation risk rank was read from.</summary>
+    public Guid? RiskProfileVersionId { get; init; }
 }

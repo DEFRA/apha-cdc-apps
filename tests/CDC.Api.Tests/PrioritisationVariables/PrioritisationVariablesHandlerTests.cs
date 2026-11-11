@@ -55,6 +55,20 @@ public class PrioritisationVariablesHandlerTests
     }
 
     [Fact]
+    public async Task UpdateCriterionCommandHandler_SavesTheNewName_WhenOneIsSupplied()
+    {
+        IReadOnlyList<PrioritisationCategory> categories = [CreateCategory()];
+        repository.Setup(repo => repo.GetCategoriesWithCriteriaAsync(It.IsAny<CancellationToken>())).ReturnsAsync(categories);
+        repository.Setup(repo => repo.UpdateCriterionAsync(CriterionId, "New <em>name</em>", 42, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var result = await new UpdateCriterionCommandHandler(repository.Object)
+            .Handle(new UpdateCriterionCommand(CriterionId, 42, [], "New <em>name</em>"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        repository.Verify(repo => repo.UpdateCriterionAsync(CriterionId, "New <em>name</em>", 42, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task UpdateCriterionCommandHandler_ReturnsNotFound_WhenCriterionDoesNotExist()
     {
         repository.Setup(repo => repo.GetCategoriesWithCriteriaAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
