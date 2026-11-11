@@ -8,6 +8,10 @@ else
     <form method="post" asp-page-handler="Save" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key" asp-route-edit="true">
         <input type="hidden" name="LastUpdatedBase64" value="@Convert.ToBase64String(Model.AnswerDataLastUpdated)" />
 
+        <div class="govuk-button-group app-button-group--right">
+            <button type="submit" class="govuk-button" data-module="govuk-button">Save</button>
+        </div>
+
         @* Remembered state would reopen the sub-sections of the previous section; the legacy page always opened collapsed. *@
         <div class="govuk-accordion" data-module="govuk-accordion" data-remember-expanded="false" id="edit-species-accordion">
             @foreach (var question in Model.EditableQuestions)
@@ -69,6 +73,25 @@ else
                                     </select>
                                 </div>
                             }
+                            else if (string.Equals(field.DataTypeName, "Long Text", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Legacy LongTextProfileField: TinyMCE toolbar (undo, redo, italic, bullets, link) plus RadSpell.
+                                <div class="govuk-form-group">
+                                    <label class="govuk-label" for="@fieldName">@field.Label</label>
+                                    <div class="app-richtext-toolbar" role="toolbar" aria-label="@field.Label formatting">
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="@fieldName" aria-label="Undo" title="Undo">&#8630;</button>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="@fieldName" aria-label="Redo" title="Redo">&#8631;</button>
+                                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon app-richtext-toolbar__button--italic" data-richtext-command="italic" data-richtext-target="@fieldName" aria-label="Italic" title="Italic">I</button>
+                                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="bullist" data-richtext-target="@fieldName" aria-label="Bulleted list" title="Bulleted list">&#9776;</button>
+                                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="@fieldName" aria-label="Insert link" title="Insert link">&#128279;</button>
+                                    </div>
+                                    <textarea class="govuk-textarea app-richtext-editor" id="@fieldName" name="@fieldName" rows="8" spellcheck="true">@field.TextValue</textarea>
+                                    <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="@fieldName">Spell check</button>
+                                </div>
+                            }
                             else
                             {
                                 <div class="govuk-form-group">
@@ -82,12 +105,8 @@ else
             }
         </div>
 
-        <div class="govuk-button-group">
+        <div class="govuk-button-group app-button-group--right govuk-!-margin-top-6">
             <button type="submit" class="govuk-button" data-module="govuk-button">Save</button>
-            <a asp-page="/EditSpecies" asp-route-speciesId="@Model.SpeciesId" asp-route-section="@Model.CurrentSection.Key"
-                class="govuk-button govuk-button--secondary" data-module="govuk-button">
-                View data
-            </a>
         </div>
     </form>
 }

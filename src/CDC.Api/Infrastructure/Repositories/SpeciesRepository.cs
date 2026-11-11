@@ -699,7 +699,7 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             reader.ReadString(4),
             reader.ReadInt32(5),
             reader.ReadGuid(6),
-            reader.ReadString(7),
+            DataFieldTypeNames.ToContractName(reader.ReadString(7)),
             reader.ReadBoolean(8),
             reader.ReadGuid(9),
             reader.ReadBoolean(10),
