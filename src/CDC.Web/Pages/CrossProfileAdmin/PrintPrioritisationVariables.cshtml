@@ -1,0 +1,76 @@
+@page
+@model CDC.Web.Pages.CrossProfileAdmin.PrintPrioritisationVariablesModel
+@using CDC.Web.Infrastructure
+@{
+    // A bare page like the legacy PrintPrioritisationVariables.aspx, which had no master page so it printed as just the tables.
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Print Prioritisation Variables</title>
+    <link rel="stylesheet" href="~/css/print-prioritisation-variables.css" asp-append-version="true" />
+</head>
+<body>
+    <main>
+        @if (Model.Category is null)
+        {
+            <p>@Model.ErrorMessage</p>
+        }
+        else
+        {
+            <table class="app-print-variables">
+                <tr>
+                    <th scope="col">Category name</th>
+                </tr>
+                <tr>
+                    <td>@Model.Category.Name</td>
+                </tr>
+                <tr>
+                    <td>
+                        @if (Model.Category.Criteria.Count > 0)
+                        {
+                            <table class="app-print-variables__criteria">
+                                <tr>
+                                    <th scope="col">Criterion</th>
+                                    <th scope="col">Weight</th>
+                                </tr>
+                                @foreach (var criterion in Model.Category.Criteria)
+                                {
+                                    <tr>
+                                        <td>@criterion.Code - @ProfileTitleHtmlFormatter.Format(criterion.Name)</td>
+                                        <td>@criterion.Weight</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            @if (criterion.Values.Count > 0)
+                                            {
+                                                <table class="app-print-variables__values">
+                                                    <tr>
+                                                        <th scope="col">Value</th>
+                                                        <th scope="col">Score</th>
+                                                    </tr>
+                                                    @foreach (var value in criterion.Values)
+                                                    {
+                                                        <tr>
+                                                            <td>@value.Value</td>
+                                                            <td>@value.Score</td>
+                                                        </tr>
+                                                    }
+                                                </table>
+                                            }
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                }
+                            </table>
+                        }
+                    </td>
+                </tr>
+            </table>
+        }
+    </main>
+</body>
+</html>

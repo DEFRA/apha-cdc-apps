@@ -20,6 +20,9 @@ public sealed record UpdateCriterionRequestDto
     /// <summary>Gets the new weighting.</summary>
     public required int Weight { get; init; }
 
+    /// <summary>Gets the new criterion name, or <see langword="null"/> to keep the current one.</summary>
+    public string? Name { get; init; }
+
     /// <summary>Gets the new score for every value belonging to the criterion.</summary>
     public IReadOnlyList<UpdateCriterionValueScoreRequestDto> ValueScores { get; init; } = [];
 }

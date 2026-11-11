@@ -54,7 +54,7 @@
         flush();
     }
 
-    var MAX_LENGTH = 50;
+    var DEFAULT_MAX_LENGTH = 50;
     var UNDO_PAUSE_MS = 600;
 
     function snapshot(editor) {
@@ -181,11 +181,7 @@
     }
 
     function initialise(input) {
-        if (input.dataset.richtextReady) {
-            return;
-        }
-        input.dataset.richtextReady = 'true';
-        var maxLength = input.maxLength > 0 ? input.maxLength : MAX_LENGTH;
+        var maxLength = parseInt(input.getAttribute('maxlength'), 10) || DEFAULT_MAX_LENGTH;
         var label = document.querySelector('label[for="' + input.id + '"]');
         var labelText = label ? label.textContent.trim().replace(/:$/, '') : 'Name';
 
@@ -269,9 +265,18 @@
         }
     }
 
+    // Also called for markup added after load, such as the prioritisation variables criterion panel.
     function start(root) {
-        (root || document).querySelectorAll('input[data-single-line-richtext]').forEach(initialise);
+        (root || document).querySelectorAll('input[data-single-line-richtext]').forEach(function (input) {
+            if (input.dataset.singleLineRichtextReady) {
+                return;
+            }
+            input.dataset.singleLineRichtextReady = 'true';
+            initialise(input);
+        });
     }
+
+    window.appSingleLineRichtext = { start: start };
 
     // Content swapped in by paged-region.js (a section opened in place) has editors of its own to set up.
     document.addEventListener('app:region-updated', function (event) { start(event.target); });

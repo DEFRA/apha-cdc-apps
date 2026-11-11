@@ -1,0 +1,36 @@
+/* Print category variables: a bare page laid out as the legacy PrintPrioritisationVariables.aspx and its Print.css. */
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  color: #000000;
+  background-color: #ffffff;
+}
+
+.app-print-variables {
+  width: 100%;
+  border-collapse: separate;
+}
+
+.app-print-variables th {
+  text-align: left;
+}
+
+.app-print-variables td {
+  vertical-align: top;
+}
+
+.app-print-variables__criteria {
+  border: 1px solid #000000;
+}
+
+.app-print-variables__criteria th,
+.app-print-variables__criteria td {
+  border: 1px solid #000000;
+}
+
+.app-print-variables__values,
+.app-print-variables__values th,
+.app-print-variables__values td {
+  border: 0;
+}

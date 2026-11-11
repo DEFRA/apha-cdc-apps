@@ -1,0 +1,13 @@
+@model CDC.Web.Pages.CrossProfileAdmin.PrioritisationVariablesModel
+@if (Model.SelectedCategoryId is { } exportCategoryId)
+{
+    <a asp-page="PrintPrioritisationVariables" asp-route-categoryId="@exportCategoryId" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" target="_blank" rel="noopener noreferrer">
+        Print category variables<span class="govuk-visually-hidden"> (opens in new tab)</span>
+    </a>
+    <a asp-page-handler="ExportScoreData" asp-route-SelectedCategoryId="@exportCategoryId" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" id="export-score-data">Export score data</a>
+}
+else
+{
+    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" disabled aria-disabled="true">Print category variables</button>
+    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" disabled aria-disabled="true">Export score data</button>
+}

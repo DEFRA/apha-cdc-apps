@@ -124,6 +124,73 @@ public class PrioritisationVariablesControllerTests
         AssertProblem(response.Result!, StatusCodes.Status409Conflict);
     }
 
+    [Fact]
+    public async Task PrioritiseDraftProfiles_ReturnsNoContent()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<PrioritiseDraftProfilesCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().PrioritiseDraftProfiles(CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task RecalculateScores_ReturnsNoContent()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<RecalculatePrioritisationScoresCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().RecalculateScores(CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task ExportCategoryScoreData_ReturnsCsvFile()
+    {
+        var export = new PrioritisationCsvExport("Welfare.csv", [1, 2, 3]);
+        mediator
+            .Setup(sender => sender.Send(
+                It.Is<ExportCategoryScoreDataQuery>(query => query.CategoryId == CriterionId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(export));
+
+        var response = await CreateController().ExportCategoryScoreData(CriterionId, CancellationToken.None);
+
+        var file = response.Should().BeOfType<FileContentResult>().Subject;
+        file.ContentType.Should().Be("text/csv");
+        file.FileDownloadName.Should().Be("Welfare.csv");
+        file.FileContents.Should().Equal(export.Content);
+    }
+
+    [Fact]
+    public async Task ExportCategoryScoreData_ReturnsNotFound_WhenCategoryMissing()
+    {
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<ExportCategoryScoreDataQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.NotFound<PrioritisationCsvExport>("not found"));
+
+        var response = await CreateController().ExportCategoryScoreData(CriterionId, CancellationToken.None);
+
+        AssertProblem(response, StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task ExportNormalisedScores_ReturnsCsvFile()
+    {
+        var export = new PrioritisationCsvExport("NormalisedScoreSummary.csv", [4, 5]);
+        mediator
+            .Setup(sender => sender.Send(It.IsAny<ExportNormalisedScoresQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(export));
+
+        var response = await CreateController().ExportNormalisedScores(CancellationToken.None);
+
+        response.Should().BeOfType<FileContentResult>().Which.FileDownloadName.Should().Be("NormalisedScoreSummary.csv");
+    }
+
     private static ProblemDetails AssertProblem(IActionResult result, int expectedStatusCode)
     {
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;

@@ -288,13 +288,23 @@ jobs:
           set -euo pipefail
           test -n "${SONAR_TOKEN}"
  
-          "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin \
-            /k:"${{ vars.SONAR_PROJECT_KEY }}" \
-            /o:"${{ vars.SONAR_ORGANIZATION }}" \
-            /s:"${{ github.workspace }}\SonarQube.Analysis.xml" \
-            /d:sonar.token="${SONAR_TOKEN}" \
-            /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.qualitygate.wait=true
+          # SonarCloud intermittently returns 503 ServiceUnavailable while the scanner fetches
+          # rules, crashing the begin step. Retry rather than fail on this transient issue.
+          begin_attempts=3
+          for attempt in $(seq 1 "${begin_attempts}"); do
+            if "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin \
+              /k:"${{ vars.SONAR_PROJECT_KEY }}" \
+              /o:"${{ vars.SONAR_ORGANIZATION }}" \
+              /s:"${{ github.workspace }}\SonarQube.Analysis.xml" \
+              /d:sonar.token="${SONAR_TOKEN}" \
+              /d:sonar.host.url="https://sonarcloud.io" \
+              /d:sonar.qualitygate.wait=true; then
+              break
+            fi
+            if [ "${attempt}" -eq "${begin_attempts}" ]; then exit 1; fi
+            echo "::warning::sonarscanner begin failed (attempt ${attempt} of ${begin_attempts}) - retrying."
+            sleep 15
+          done
  
           dotnet build CDC.slnx --configuration Release --no-restore
  

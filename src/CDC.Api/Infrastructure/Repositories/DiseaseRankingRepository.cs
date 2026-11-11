@@ -79,7 +79,8 @@ public sealed class DiseaseRankingRepository(IDbConnectionFactory connectionFact
                 var key = (reader.GetGuid(0), reader.GetGuid(1));
                 var current = byKey.GetValueOrDefault(key) ?? CreateProfile(reader);
 
-                byKey[key] = ApplyRank(current, reader.ReadString(2), reader.ReadInt32(3));
+                var profileVersionId = reader.FieldCount > 9 ? reader.ReadNullableGuid(9) : null;
+                byKey[key] = ApplyRank(current, reader.ReadString(2), reader.ReadInt32(3), profileVersionId);
             }
 
             return [.. byKey.Values];
@@ -107,14 +108,14 @@ public sealed class DiseaseRankingRepository(IDbConnectionFactory connectionFact
         };
     }
 
-    private static RankedProfile ApplyRank(RankedProfile profile, string category, int rank) =>
+    private static RankedProfile ApplyRank(RankedProfile profile, string category, int rank, Guid? profileVersionId) =>
         category.ToLowerInvariant() switch
         {
-            InternationalTradeCategory => profile with { InternationalTradeRank = rank },
-            PublicHealthCategory => profile with { PublicHealthRank = rank },
-            RiskCategory => profile with { RiskRank = rank },
-            WelfareCategory => profile with { AnimalWelfareRank = rank },
-            WiderSocietyCategory => profile with { WiderSocietyRank = rank },
+            InternationalTradeCategory => profile with { InternationalTradeRank = rank, InternationalTradeProfileVersionId = profileVersionId },
+            PublicHealthCategory => profile with { PublicHealthRank = rank, PublicHealthProfileVersionId = profileVersionId },
+            RiskCategory => profile with { RiskRank = rank, RiskProfileVersionId = profileVersionId },
+            WelfareCategory => profile with { AnimalWelfareRank = rank, AnimalWelfareProfileVersionId = profileVersionId },
+            WiderSocietyCategory => profile with { WiderSocietyRank = rank, WiderSocietyProfileVersionId = profileVersionId },
             _ => profile
         };
 
