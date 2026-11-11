@@ -10,10 +10,10 @@
     string? ErrorFor(string key) =>
         ViewData.ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0 ? entry.Errors[0].ErrorMessage : null;
 
-    string? AnchorFor(string key) => key switch
+    static string? AnchorFor(string key) => key switch
     {
-        nameof(Model.LowerBound) => "#lower-bound",
-        nameof(Model.UpperBound) => "#upper-bound",
+        nameof(PrioritisationVariablesModel.LowerBound) => "#lower-bound",
+        nameof(PrioritisationVariablesModel.UpperBound) => "#upper-bound",
         PrioritisationVariablesModel.DraftPrioritisationErrorKey => "#run-draft-prioritisation",
         PrioritisationVariablesModel.ExportErrorKey => "#export-normalised-scores",
         _ => null
