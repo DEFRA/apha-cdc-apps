@@ -27,7 +27,11 @@ internal sealed class FakePrioritisationVariablesApiService(
     public PrioritisationRankingRangeDto? LastSavedRankingRange { get; private set; }
 
     public Task<IReadOnlyList<PrioritisationCategoryDto>> GetCategoriesAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(_categories);
+        ThrowOnGetCategories is not null
+            ? Task.FromException<IReadOnlyList<PrioritisationCategoryDto>>(ThrowOnGetCategories)
+            : Task.FromResult(_categories);
+
+    public Exception? ThrowOnGetCategories { get; init; }
 
     public Task UpdateCriterionAsync(
         Guid criterionId,

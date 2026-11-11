@@ -121,6 +121,62 @@ public class PrioritisationScoreExportTests
         ReadLines(result.Value.Content)[1].Should().StartWith("\"'=HYPERLINK(\"\"x\"\") TB &\",");
     }
 
+    [Fact]
+    public async Task ExportNormalisedScores_RanksEveryKnownCategoryAndLeavesOthersBlank()
+    {
+        var data = CreateScoreData() with
+        {
+            Categories =
+            [
+                new ScoreDataCategory(Guid.NewGuid(), "International trade"),
+                new ScoreDataCategory(Guid.NewGuid(), "Public health"),
+                new ScoreDataCategory(Guid.NewGuid(), "Welfare"),
+                new ScoreDataCategory(Guid.NewGuid(), "Wider society"),
+                new ScoreDataCategory(Guid.NewGuid(), "Post mitigation risk"),
+                new ScoreDataCategory(Guid.NewGuid(), "Unmapped")
+            ]
+        };
+        repository.Setup(repo => repo.GetScoreDataAsync(It.IsAny<CancellationToken>())).ReturnsAsync(data);
+        rankingRepository.Setup(repo => repo.GetRankedProfilesAsync(null, It.IsAny<CancellationToken>())).ReturnsAsync(
+        [
+            new RankedProfile
+            {
+                ProfileId = ProfileId,
+                SpeciesId = CattleId,
+                ProfileTitle = "Bovine TB",
+                SpeciesName = "Cattle",
+                IsExotic = false,
+                IsAwaitingValidation = false,
+                InternationalTradeRank = 10,
+                InternationalTradeProfileVersionId = PublishedVersionId,
+                PublicHealthRank = 20,
+                PublicHealthProfileVersionId = PublishedVersionId,
+                AnimalWelfareRank = 30,
+                AnimalWelfareProfileVersionId = PublishedVersionId,
+                WiderSocietyRank = 40,
+                WiderSocietyProfileVersionId = PublishedVersionId,
+                RiskRank = 50,
+                RiskProfileVersionId = PublishedVersionId
+            }
+        ]);
+
+        var result = await CreateHandler().Handle(new ExportNormalisedScoresQuery(), CancellationToken.None);
+
+        var lines = ReadLines(result.Value.Content);
+        lines[1].Should().Contain("\"\",\"1\",\"\",\"1\",\"\",\"1\",\"\",\"1\",\"\",\"1\",\"\",\"\"");
+    }
+
+    [Fact]
+    public async Task ExportCategoryScoreData_UsesADefaultFileName_WhenTheCategoryNameHasNoSafeCharacters()
+    {
+        var data = CreateScoreData() with { Categories = [new ScoreDataCategory(WelfareId, "***")] };
+        repository.Setup(repo => repo.GetScoreDataAsync(It.IsAny<CancellationToken>())).ReturnsAsync(data);
+
+        var result = await CreateHandler().Handle(new ExportCategoryScoreDataQuery(WelfareId), CancellationToken.None);
+
+        result.Value.FileName.Should().Be("ScoreData.csv");
+    }
+
     private ExportPrioritisationScoresQueryHandler CreateHandler() => new(repository.Object, rankingRepository.Object);
 
     private static string[] ReadLines(byte[] content)

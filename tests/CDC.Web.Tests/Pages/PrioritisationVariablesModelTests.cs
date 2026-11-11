@@ -441,6 +441,54 @@ public class PrioritisationVariablesModelTests
     }
 
     [Fact]
+    public async Task OnGetExportScoreDataAsync_ShowsAnError_WhenTheApiFails()
+    {
+        var fakeService = new FakePrioritisationVariablesApiService(CreateCategories())
+        {
+            ThrowOnExport = new HttpRequestException("connection refused")
+        };
+        var model = CreatePageModel(fakeService);
+        model.SelectedCategoryId = CategoryId;
+
+        var result = await model.OnGetExportScoreDataAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(model.ModelState.ContainsKey(PrioritisationVariablesModel.ExportErrorKey));
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_RejectsPendingChangesForACriterionThatNoLongerExists()
+    {
+        var model = CreatePageModel();
+        model.PendingChanges = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { id = Guid.NewGuid(), name = "Impact", weight = 42, valueScores = Array.Empty<object>() }
+        });
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.Contains(
+            "A criterion with pending changes no longer exists",
+            model.ModelState["PendingCriteria[0]"]!.Errors.Select(error => error.ErrorMessage));
+    }
+
+    [Fact]
+    public async Task OnPostUpdate_RejectsPendingChangesForAValueThatNoLongerExists()
+    {
+        var model = CreatePageModel();
+        model.PendingChanges = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { id = CriterionId, name = "Impact", weight = 42, valueScores = new[] { new { id = Guid.NewGuid(), score = 5 } } }
+        });
+
+        await model.OnPostUpdate(CancellationToken.None);
+
+        Assert.Contains(
+            "C1: A value with pending changes no longer exists",
+            model.ModelState["PendingCriteria[0]"]!.Errors.Select(error => error.ErrorMessage));
+    }
+
+    [Fact]
     public async Task OnGetExportNormalisedScoresAsync_ReturnsCsv()
     {
         var model = CreatePageModel();
@@ -495,6 +543,26 @@ public class PrioritisationVariablesModelTests
         var result = await model.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task PrintPrioritisationVariables_ShowsAnError_WhenTheApiFails()
+    {
+        var model = new PrintPrioritisationVariablesModel(
+            new FakePrioritisationVariablesApiService(CreateCategories())
+            {
+                ThrowOnGetCategories = new HttpRequestException("connection refused")
+            },
+            NullLogger<PrintPrioritisationVariablesModel>.Instance)
+        {
+            CategoryId = CategoryId
+        };
+
+        var result = await model.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(model.Category);
+        Assert.NotNull(model.ErrorMessage);
     }
 
     private static string Pending(string name, int weight, int score) =>
