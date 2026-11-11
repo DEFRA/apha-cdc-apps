@@ -92,20 +92,23 @@ else
             <partial name="_SectionSubnav" model="subnavModel" />
         </div>
         <div class="govuk-grid-column-three-quarters">
-            <div class="app-species-tabs">
-                <span class="app-species-tabs__tab app-species-tabs__tab--active">@Model.CurrentSection.Title</span>
-            </div>
+            @if (!Model.Edit)
+            {
+                <div class="app-species-tabs">
+                    <span class="app-species-tabs__tab app-species-tabs__tab--active">@Model.CurrentSection.Title</span>
+                </div>
+            }
 
-            <div class="app-species-panel">
-                @if (Model.Edit)
-                {
-                    <partial name="_EditSpeciesQuestionForm" model="Model" />
-                }
-                else
-                {
+            @if (Model.Edit)
+            {
+                <partial name="_EditSpeciesQuestionForm" model="Model" />
+            }
+            else
+            {
+                <div class="app-species-panel">
                     <partial name="_QuestionAccordion" model="accordionModel" />
-                }
-            </div>
+                </div>
+            }
 
             <div class="app-species-pagination">
                 <partial name="_SectionPagination" model="paginationModel" />
