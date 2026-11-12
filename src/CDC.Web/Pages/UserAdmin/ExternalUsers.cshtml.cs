@@ -422,7 +422,7 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
 
                 if (result.Succeeded)
                 {
-                    SuccessMessage = "External user added. They can now sign in to D2R2, but cannot see any profiles until you give them access";
+                    SuccessMessage = "User added successfully";
 
                     return RedirectToPage(PageRoute);
                 }
