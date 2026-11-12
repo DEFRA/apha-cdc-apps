@@ -1,9 +1,8 @@
 using System.Globalization;
-using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using CDC.Api.Features.ReviewNotifications.Dtos;
 using CDC.Api.Features.ReviewNotifications.Interfaces;
+using static CDC.Api.Features.ReviewNotifications.NotifyMarkdown;
 
 namespace CDC.Api.Features.ReviewNotifications;
 
@@ -12,7 +11,7 @@ namespace CDC.Api.Features.ReviewNotifications;
 /// <c>ReviewEmail</c>. The Notify template holds the greeting, the instructions and the support mailbox. Notify cannot
 /// show tables, so each legacy table row is a bullet. The comparison report is a link that CDC.Web generates, not an attachment.
 /// </summary>
-public static partial class ReviewEmailComposer
+public static class ReviewEmailComposer
 {
     /// <summary>Subject line, unchanged from the legacy email.</summary>
     public const string Subject = "D2R2 - Profile review request";
@@ -30,11 +29,11 @@ public static partial class ReviewEmailComposer
     /// <summary>Composes the reminder for one user.</summary>
     /// <param name="user">The user and their due profile sections.</param>
     /// <param name="now">The current date and time, used to decide which reviews are due or overdue.</param>
-    /// <param name="options">Link details.</param>
-    public static EmailMessage Compose(ReviewDueUser user, DateTime now, ReviewNotificationsOptions options)
+    /// <param name="homePageUrl">The address D2R2 is opened at (<c>App:BaseUrl</c>); links are omitted when it is empty or not a web address.</param>
+    public static EmailMessage Compose(ReviewDueUser user, DateTime now, string homePageUrl)
     {
         var body = new StringBuilder();
-        var hasHomePage = TryGetWebUri(options.InternalHomePageUrl, out var homePage);
+        var hasHomePage = TryGetWebUri(homePageUrl, out var homePage);
 
         // Sorted on the cleaned title: the stored HTML tags would otherwise decide the order.
         foreach (var profile in user.Profiles.OrderBy(p => Clean(p.Title), StringComparer.OrdinalIgnoreCase))
@@ -42,14 +41,9 @@ public static partial class ReviewEmailComposer
             AppendProfile(body, profile, now, hasHomePage ? homePage : null);
         }
 
-        if (TryGetWebUri(options.ExternalHomePageUrl, out var externalHomePage))
-        {
-            body.Append("External users can access [D2R2 on the internet](").Append(externalHomePage.AbsoluteUri).Append(").\n\n");
-        }
-
         if (hasHomePage)
         {
-            body.Append("Internal users can access [D2R2 on the Defra network](").Append(homePage.AbsoluteUri).Append(").\n\n");
+            body.Append("You can access [D2R2](").Append(homePage.AbsoluteUri).Append(").\n\n");
         }
 
         return new EmailMessage(user.EmailAddress, Clean(user.FullName), Subject, body.ToString().TrimEnd());
@@ -125,18 +119,4 @@ public static partial class ReviewEmailComposer
 
         return $"{type} review {date.ToString(DateFormat, CultureInfo.InvariantCulture)} ({state})";
     }
-
-    private static bool TryGetWebUri(string value, out Uri uri) =>
-        Uri.TryCreate(value, UriKind.Absolute, out uri!) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
-
-    // Titles are stored as HTML (for example <p>Goat Pox</p>), so tags go first, then the characters Notify treats as markup.
-    private static string Clean(string value) =>
-        WebUtility.HtmlDecode(HtmlTag().Replace(value, string.Empty))
-            .Replace("\r", " ").Replace("\n", " ")
-            .Replace("<", string.Empty).Replace(">", string.Empty)
-            .Replace("[", string.Empty).Replace("]", string.Empty)
-            .Replace("*", string.Empty).Replace("`", string.Empty);
-
-    [GeneratedRegex("<[^>]*>")]
-    private static partial Regex HtmlTag();
 }

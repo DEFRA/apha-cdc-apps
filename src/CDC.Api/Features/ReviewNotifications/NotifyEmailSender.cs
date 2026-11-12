@@ -30,17 +30,19 @@ public sealed class NotifyEmailSender(HttpClient httpClient, IOptions<NotifyOpti
             throw new InvalidOperationException("Email sending is disabled: Notify:Enabled is false.");
         }
 
-        var personalisation = new Dictionary<string, object>
-        {
-            ["name"] = message.ToName,
-            ["subject"] = message.Subject,
-            ["body"] = message.Body
-        };
+        var personalisation = message.Personalisation is { } templateValues
+            ? templateValues.ToDictionary(pair => pair.Key, pair => (object)pair.Value)
+            : new Dictionary<string, object>
+            {
+                ["name"] = message.ToName,
+                ["subject"] = message.Subject,
+                ["body"] = message.Body
+            };
 
         var payload = new
         {
             email_address = message.ToAddress,
-            template_id = settings.TemplateId,
+            template_id = message.TemplateId ?? settings.TemplateId,
             personalisation
         };
 

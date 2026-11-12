@@ -50,6 +50,34 @@ public class NotifyEmailSenderTests
     }
 
     [Fact]
+    public async Task SendAsync_UsesTheMessagesOwnTemplate_WhenOneIsGiven()
+    {
+        var handler = new RecordingHandler();
+
+        await CreateSender(handler, Settings()).SendAsync(Message with { TemplateId = "login-instructions-template" }, CancellationToken.None);
+
+        using var json = JsonDocument.Parse(handler.Body);
+        json.RootElement.GetProperty("template_id").GetString().Should().Be("login-instructions-template");
+    }
+
+    [Fact]
+    public async Task SendAsync_UsesTheTemplatesOwnPersonalisation_InsteadOfNameSubjectAndBody()
+    {
+        var handler = new RecordingHandler();
+        var message = EmailMessage.FromTemplate(
+            "to@example.test", "login-template", new Dictionary<string, string> { ["AppUrl"] = "https://d2r2.example.test/" });
+
+        await CreateSender(handler, Settings()).SendAsync(message, CancellationToken.None);
+
+        using var json = JsonDocument.Parse(handler.Body);
+        json.RootElement.GetProperty("email_address").GetString().Should().Be("to@example.test");
+        json.RootElement.GetProperty("template_id").GetString().Should().Be("login-template");
+        var personalisation = json.RootElement.GetProperty("personalisation");
+        personalisation.EnumerateObject().Select(p => p.Name).Should().Equal("AppUrl");
+        personalisation.GetProperty("AppUrl").GetString().Should().Be("https://d2r2.example.test/");
+    }
+
+    [Fact]
     public async Task SendAsync_Throws_WhenDisabled()
     {
         var handler = new RecordingHandler();
