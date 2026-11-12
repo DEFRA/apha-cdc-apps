@@ -1,5 +1,10 @@
 @model CDC.Common.Comparison.ProfileVersionComparisonReport
 @using CDC.Web.Infrastructure
+@using Microsoft.AspNetCore.Html
+@{
+    // A complete document of its own; the root _ViewStart would otherwise wrap it in the site header and footer.
+    Layout = null;
+}
 @* Rendered to HTML and converted to PDF by Playwright, so styles are inline and nothing is fetched. *@
 <!DOCTYPE html>
 <html lang="en">
@@ -9,7 +14,10 @@
     <style>
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0b0c0c; margin: 0; }
         h1 { font-size: 16px; margin: 0 0 10px; }
-        h2 { font-size: 13px; margin: 14px 0 4px; }
+        h2 { font-size: 13px; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid #0b0c0c; }
+        .section + .section { break-before: page; }
+        .titles { display: flex; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid #0b0c0c; }
+        .titles > div { flex: 1 1 50%; text-align: center; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 6px; }
         thead { display: table-header-group; }
         th, td { border: 1px solid #b1b4b6; padding: 4px 6px; vertical-align: top; text-align: left; word-wrap: break-word; white-space: pre-wrap; }
@@ -22,6 +30,10 @@
         .key { margin: 0 0 8px; }
         .identical { text-align: center; font-style: italic; margin: 4px 0 10px; }
         .none { text-align: center; font-style: italic; }
+        .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; margin: 0; padding: 0; list-style: none; white-space: normal; }
+        .options li { display: flex; align-items: center; }
+        .checkbox { position: relative; display: inline-block; flex: none; width: 11px; height: 11px; margin-right: 4px; border: 1px solid #0b0c0c; }
+        .checkbox--selected::after { content: ''; position: absolute; left: 3px; top: -1px; width: 3px; height: 8px; border: solid #0b0c0c; border-width: 0 2px 2px 0; transform: rotate(45deg); }
     </style>
 </head>
 <body>
@@ -35,6 +47,12 @@
 
     @foreach (var part in Model.Sections)
     {
+        @* As the legacy report, each section starts on its own page under the two version titles. *@
+        <div class="section">
+        <div class="titles">
+            <div>@Model.LeftTitle</div>
+            <div>@Model.RightTitle</div>
+        </div>
         <h2>@part.Heading</h2>
 
         @if (part.IsIdentical)
@@ -69,8 +87,8 @@
                         {
                             <tr>
                                 <td>@field.Label</td>
-                                <td>@ComparisonHtml.Render(field.Left)</td>
-                                <td>@ComparisonHtml.Render(field.Right)</td>
+                                <td>@Answer(field.LeftOptions, field.Left)</td>
+                                <td>@Answer(field.RightOptions, field.Right)</td>
                             </tr>
                         }
                     }
@@ -78,6 +96,29 @@
             </tbody>
         </table>
         }
+        </div>
     }
 </body>
 </html>
+
+@functions {
+    private IHtmlContent Answer(IReadOnlyList<CDC.Common.Comparison.ComparisonOption>? options, IReadOnlyList<CDC.Common.Comparison.ComparisonSegment> segments)
+    {
+        if (options is null)
+        {
+            return ComparisonHtml.Render(segments);
+        }
+
+        var html = new HtmlContentBuilder();
+        html.AppendHtml("<ul class=\"options\">");
+
+        foreach (var option in options)
+        {
+            html.AppendHtml(option.Selected ? "<li><span class=\"checkbox checkbox--selected\"></span><span>" : "<li><span class=\"checkbox\"></span><span>");
+            html.Append(option.Text);
+            html.AppendHtml("</span></li>");
+        }
+
+        return html.AppendHtml("</ul>");
+    }
+}

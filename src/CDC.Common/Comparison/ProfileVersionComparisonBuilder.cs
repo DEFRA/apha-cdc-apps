@@ -105,25 +105,41 @@ public static partial class ProfileVersionComparisonBuilder
 
         foreach (var (key, species) in ordered.OrderBy(item => item.Key.Row ?? -1).ThenBy(item => item.Species, StringComparer.OrdinalIgnoreCase))
         {
-            var differing = new List<ComparisonField>();
+            var all = new List<ComparisonField>();
+            var anyDiffer = false;
 
             foreach (var field in fields)
             {
                 var options = await lookups.OptionsAsync(field);
                 var isHtml = string.Equals(field.DataTypeName, "Long Text", StringComparison.OrdinalIgnoreCase);
-                var leftText = Format(field, leftValues.Where(item => item.Key == key).Select(item => item.Value), options, isHtml);
-                var rightText = Format(field, rightValues.Where(item => item.Key == key).Select(item => item.Value), options, isHtml);
+                var leftPart = leftValues.Where(item => item.Key == key).Select(item => item.Value).ToList();
+                var rightPart = rightValues.Where(item => item.Key == key).Select(item => item.Value).ToList();
+                var leftText = Format(field, leftPart, options, isHtml);
+                var rightText = Format(field, rightPart, options, isHtml);
+                var differs = !string.Equals(leftText, rightText, StringComparison.Ordinal);
+                anyDiffer |= differs;
 
-                if (!string.Equals(leftText, rightText, StringComparison.Ordinal))
+                var (leftSegments, rightSegments) = differs
+                    ? Present(leftText, rightText)
+                    : ([new ComparisonSegment(leftText)], [new ComparisonSegment(rightText)]);
+                var comparison = new ComparisonField(field.Name, leftSegments, rightSegments);
+
+                if (IsListField(field))
                 {
-                    var (leftSegments, rightSegments) = Present(leftText, rightText);
-                    differing.Add(new ComparisonField(field.Name, leftSegments, rightSegments));
+                    comparison = comparison with
+                    {
+                        LeftOptions = Checkboxes(field, leftPart, options),
+                        RightOptions = Checkboxes(field, rightPart, options)
+                    };
                 }
+
+                all.Add(comparison);
             }
 
-            if (differing.Count > 0)
+            // As the legacy report, a species or row that differs at all is shown with every field, so its checkboxes appear in full.
+            if (anyDiffer)
             {
-                groups.Add(new ComparisonGroup(Heading(questionText, key, species), differing));
+                groups.Add(new ComparisonGroup(Heading(questionText, key, species), all));
             }
         }
 
@@ -182,6 +198,29 @@ public static partial class ProfileVersionComparisonBuilder
         }
 
         return TextDiff.Compare(left, right);
+    }
+
+    private static bool IsListField(ProfileFieldMetadataDto field) =>
+        field.ReferenceTableId != Guid.Empty
+        && field.DataTypeName.Replace(" ", string.Empty, StringComparison.Ordinal) is var type
+        && (string.Equals(type, "List", StringComparison.OrdinalIgnoreCase) || string.Equals(type, "MultiValueList", StringComparison.OrdinalIgnoreCase));
+
+    // Every option with the version's choices ticked, as the legacy ListDataParagraph drew them.
+    private static List<ComparisonOption> Checkboxes(
+        ProfileFieldMetadataDto field,
+        IEnumerable<ProfileFieldValueDto> values,
+        IReadOnlyDictionary<Guid, string> options)
+    {
+        var selected = values
+            .Where(value => value.FieldNumber == field.FieldNumber && value.ListValue is not null)
+            .Select(value => value.ListValue!.Value)
+            .ToHashSet();
+
+        return
+        [
+            .. options.Select(option => new ComparisonOption(option.Value, selected.Contains(option.Key))),
+            .. selected.Where(id => !options.ContainsKey(id)).Select(id => new ComparisonOption(id.ToString(), true))
+        ];
     }
 
     private static string Format(

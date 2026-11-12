@@ -129,7 +129,7 @@ public class ProfileVersionComparisonServiceTests
     }
 
     [Fact]
-    public async Task BuildReportAsync_ReportsOnlyDifferingFields()
+    public async Task BuildReportAsync_ShowsEveryFieldOfADifferingQuestion()
     {
         var service = Service(
             Metadata(Field(1, "Text"), Field(2, "Text")),
@@ -141,11 +141,15 @@ public class ProfileVersionComparisonServiceTests
         var section = report.Sections[0];
         var question = Assert.Single(section.Questions);
         var group = Assert.Single(question.Groups);
-        var field = Assert.Single(group.Fields);
+        Assert.Equal(2, group.Fields.Count);
+        var unchanged = group.Fields[0];
+        var field = group.Fields[1];
         Assert.Equal("1. Epidemiology", section.Heading);
         Assert.Equal("1.1", question.Number);
         Assert.Equal("Clinical signs", question.Text);
         Assert.Null(group.Heading);
+        Assert.Equal(("same", "same"), (Text(unchanged.Left), Text(unchanged.Right)));
+        Assert.All(unchanged.Left.Concat(unchanged.Right), segment => Assert.Equal(ComparisonChange.None, segment.Change));
         Assert.Equal("Field 2", field.Label);
         Assert.Equal("old", Marked(field.Left, ComparisonChange.Removed));
         Assert.Equal("new", Marked(field.Right, ComparisonChange.Added));
@@ -206,9 +210,14 @@ public class ProfileVersionComparisonServiceTests
 
         var fields = (await service.BuildReportAsync(Left, Right)).Sections[0].Questions[0].Groups[0].Fields;
 
-        var field = Assert.Single(fields);
+        Assert.Equal(2, fields.Count);
+        Assert.Equal(("Alpha, Beta", "Alpha, Beta"), (Text(fields[0].Left), Text(fields[0].Right)));
+        var field = fields[1];
         Assert.Equal("Field 2", field.Label);
         Assert.Equal(("Alpha", "Beta"), (Text(field.Left), Text(field.Right)));
+        Assert.Equal([new ComparisonOption("Alpha", true), new ComparisonOption("Beta", false)], field.LeftOptions);
+        Assert.Equal([new ComparisonOption("Alpha", false), new ComparisonOption("Beta", true)], field.RightOptions);
+        Assert.Equal([new ComparisonOption("Alpha", true), new ComparisonOption("Beta", true)], fields[0].RightOptions);
     }
 
     [Fact]
