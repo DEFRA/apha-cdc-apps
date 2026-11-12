@@ -27,7 +27,7 @@ public sealed class NotifyEmailSender(HttpClient httpClient, IOptions<NotifyOpti
     {
         if (!settings.Enabled)
         {
-            throw new InvalidOperationException("Email sending is disabled: Notify:Enabled is false.");
+            throw new InvalidOperationException("Email sending is disabled: Notification:Enabled is false.");
         }
 
         var personalisation = message.Personalisation is { } templateValues
