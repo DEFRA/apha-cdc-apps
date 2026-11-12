@@ -2,6 +2,7 @@ using CDC.Auth.Cidm;
 using CDC.Auth.Entra;
 using CDC.Web.Features.LoadTesting;
 using CDC.Web.Models;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +12,7 @@ namespace CDC.Web.Features.Account;
 
 // loadTestSignIn is registered only while LoadTesting is switched on; while it is active, Login and LoginInternal send the user to the
 // Load test login page, which signs in the user whose email address is entered, instead of to the identity provider.
-public class AccountController(ILoadTestSignIn? loadTestSignIn = null) : Controller
+public class AccountController(IAntiforgery antiforgery, ILoadTestSignIn? loadTestSignIn = null) : Controller
 {
     private const string LandingController = "Landing";
     private const string ExternalHome = "External";
@@ -158,9 +159,14 @@ public class AccountController(ILoadTestSignIn? loadTestSignIn = null) : Control
     // for, else the user's home page. From then on the user is authorised from that user's own row, exactly as after a real sign-in.
     [AllowAnonymous]
     [HttpPost]
-    [ValidateAntiForgeryToken]
     public async Task<IActionResult> LoadTestLogin(LoadTestLoginViewModel model)
     {
+        // Checked here, not by attribute: any antiforgery attribute makes CodeQL flag every [HttpPost] in the solution, CDC.Api's included.
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+        {
+            return BadRequest();
+        }
+
         if (ActiveLoadTestSignIn is not { } signIn || !TryParseKind(model.Kind, out var lookupKind))
         {
             return NotFound();

@@ -56,7 +56,7 @@ public class AccountControllerTests
     public async Task Logout_SignsOutCookieSchemeWithNoRedirectThenReturnsCidmSignOutResult()
     {
         var httpContext = CreateHttpContextWithFakeAuth(out var authService);
-        var controller = new AccountController
+        var controller = new AccountController(new FakeAntiforgery())
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             Url = new FakeUrlHelper()
@@ -84,7 +84,7 @@ public class AccountControllerTests
         var identity = new ClaimsIdentity(authenticationType: CookieAuthenticationDefaults.AuthenticationScheme);
         authService.AuthenticateResultToReturn = AuthenticateResult.Success(
             new AuthenticationTicket(new ClaimsPrincipal(identity), cookieProperties, CookieAuthenticationDefaults.AuthenticationScheme));
-        var controller = new AccountController
+        var controller = new AccountController(new FakeAntiforgery())
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             Url = new FakeUrlHelper()
@@ -99,7 +99,7 @@ public class AccountControllerTests
     [Fact]
     public void SignedOut_ReturnsView()
     {
-        var controller = new AccountController();
+        var controller = new AccountController(new FakeAntiforgery());
 
         var result = controller.SignedOut();
 
@@ -109,7 +109,7 @@ public class AccountControllerTests
     [Fact]
     public void NotPermitted_ReturnsView()
     {
-        var controller = new AccountController();
+        var controller = new AccountController(new FakeAntiforgery());
 
         var result = controller.NotPermitted();
 
@@ -119,7 +119,7 @@ public class AccountControllerTests
     [Fact]
     public void AccessDenied_ReturnsViewWithForbiddenStatus()
     {
-        var controller = new AccountController
+        var controller = new AccountController(new FakeAntiforgery())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
@@ -209,7 +209,7 @@ public class AccountControllerTests
     public async Task LogoutInternal_SignsOutEntraCookieSchemeWithNoRedirectThenReturnsEntraSignOutResult()
     {
         var httpContext = CreateHttpContextWithFakeAuth(out var authService);
-        var controller = new AccountController
+        var controller = new AccountController(new FakeAntiforgery())
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             Url = new FakeUrlHelper()
@@ -234,7 +234,7 @@ public class AccountControllerTests
         var identity = new ClaimsIdentity(authenticationType: EntraAuthenticationDefaults.CookieAuthenticationScheme);
         authService.AuthenticateResultToReturn = AuthenticateResult.Success(
             new AuthenticationTicket(new ClaimsPrincipal(identity), cookieProperties, EntraAuthenticationDefaults.CookieAuthenticationScheme));
-        var controller = new AccountController
+        var controller = new AccountController(new FakeAntiforgery())
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             Url = new FakeUrlHelper()
@@ -391,6 +391,18 @@ public class AccountControllerTests
 
         Assert.IsType<NotFoundResult>(await controller.LoadTestLogin(kind));
         Assert.IsType<NotFoundResult>(await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = kind ?? string.Empty, EmailAddress = "someone@example.test" }));
+    }
+
+    [Fact]
+    public async Task LoadTestLogin_WithoutAValidAntiforgeryToken_IsABadRequestAndSignsNobodyIn()
+    {
+        var loadTest = new FakeLoadTestSignIn();
+        var controller = CreateController(loadTest, out _, new FakeAntiforgery { RequestIsValid = false });
+
+        var result = await controller.LoadTestLogin(new LoadTestLoginViewModel { Kind = "internal", EmailAddress = "someone@example.test" });
+
+        Assert.IsType<BadRequestResult>(result);
+        Assert.Empty(loadTest.SignIns);
     }
 
     [Fact]
@@ -562,11 +574,11 @@ public class AccountControllerTests
     private static AccountController CreateController(out FakeAuthenticationService authService) =>
         CreateController(loadTestSignIn: null, out authService);
 
-    private static AccountController CreateController(ILoadTestSignIn? loadTestSignIn, out FakeAuthenticationService authService)
+    private static AccountController CreateController(ILoadTestSignIn? loadTestSignIn, out FakeAuthenticationService authService, FakeAntiforgery? antiforgery = null)
     {
         var httpContext = CreateHttpContextWithFakeAuth(out authService);
 
-        return new AccountController(loadTestSignIn)
+        return new AccountController(antiforgery ?? new FakeAntiforgery(), loadTestSignIn)
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             Url = new FakeUrlHelper(),

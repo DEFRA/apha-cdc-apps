@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CDC.Auth.Entra;
 using CDC.Auth.Entra.Claims;
 using CDC.Auth.Entra.Events;
 using CDC.Graph;
