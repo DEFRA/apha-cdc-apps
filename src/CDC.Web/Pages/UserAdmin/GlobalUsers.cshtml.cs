@@ -460,13 +460,19 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         {
             var directoryUser = await FindDirectoryUserAsync(request.UserName, cancellationToken);
 
-            return directoryUser is null
-                ? request
-                : request with
-                {
-                    EmailAddress = string.IsNullOrWhiteSpace(directoryUser.Mail) ? null : directoryUser.Mail.Trim(),
-                    SsoUserIdInt = Guid.TryParse(directoryUser.Id, out var objectId) ? objectId : null
-                };
+            if (directoryUser is null)
+            {
+                return request;
+            }
+
+            var mail = directoryUser.Mail?.Trim();
+            Guid? objectId = Guid.TryParse(directoryUser.Id, out var parsedObjectId) ? parsedObjectId : null;
+
+            return request with
+            {
+                EmailAddress = string.IsNullOrEmpty(mail) ? null : mail,
+                SsoUserIdInt = objectId
+            };
         }
         catch (GraphException exception)
         {
