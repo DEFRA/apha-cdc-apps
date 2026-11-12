@@ -81,7 +81,8 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 })
     .AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
-    .AddStandardResilienceHandler();
+    // Writes are not retried: a timed-out static report upload that did commit would otherwise add a second version.
+    .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
 
 builder.Services.AddHttpClient<IStaticReportDocumentApiService, StaticReportDocumentApiService>(client =>
 {

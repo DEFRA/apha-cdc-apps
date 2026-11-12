@@ -26,12 +26,13 @@ public class StaticReportsModelTests
         Exception? throwOnGetStaticReportHistory = null,
         bool canUploadStaticReports = true,
         UploadStaticReportResult? uploadStaticReportResult = null,
-        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null)
+        DeleteStaticReportVersionResult? deleteStaticReportVersionResult = null,
+        FakeApiClient? apiClient = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
         return new StaticReportsModel(
-            new FakeApiClient(
+            apiClient ?? new FakeApiClient(
                 staticReports: staticReports,
                 throwOnGetCurrentStaticReports: throwOnGetCurrentStaticReports,
                 staticReportHistory: staticReportHistory,
@@ -53,7 +54,7 @@ public class StaticReportsModelTests
 
     private static FormFile CreateFormFile(string fileName, string contentType, byte[]? content = null)
     {
-        var bytes = content ?? [1, 2, 3];
+        var bytes = content ?? "%PDF-1.4"u8.ToArray();
         var formFile = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "UploadedFile", fileName)
         {
             Headers = new HeaderDictionary()
@@ -311,7 +312,7 @@ public class StaticReportsModelTests
     public async Task OnPostUploadAsync_ShowsError_WhenFileNameIsTooShort()
     {
         var pageModel = CreatePageModel();
-        pageModel.UploadedFile = CreateFormFile("a.pd", "application/pdf");
+        pageModel.UploadedFile = CreateFormFile(".pdf", "application/pdf");
 
         await pageModel.OnPostUploadAsync(CancellationToken.None);
 
@@ -341,6 +342,49 @@ public class StaticReportsModelTests
         await pageModel.OnPostUploadAsync(CancellationToken.None);
 
         Assert.Contains("Not permitted", pageModel.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("D2R2 Quality Statement.pdf", "application/octet-stream")]
+    [InlineData("D2R2 Quality Statement.PDF", "application/x-pdf")]
+    [InlineData(@"C:\Users\someone\Documents\D2R2 Quality Statement.pdf", "application/pdf")]
+    public async Task OnPostUploadAsync_UploadsANewVersionUnderTheSameTitle_WhateverTheBrowserSends(string fileName, string contentType)
+    {
+        var apiClient = new FakeApiClient();
+        var pageModel = CreatePageModel(apiClient: apiClient);
+        pageModel.UserManual = 1;
+        pageModel.UploadedFile = CreateFormFile(fileName, contentType);
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Equal("D2R2 Quality Statement", apiClient.LastUploadedStaticReportTitle);
+        Assert.Equal("The user manual was uploaded successfully", pageModel.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheContentIsNotAPdf()
+    {
+        var apiClient = new FakeApiClient();
+        var pageModel = CreatePageModel(apiClient: apiClient);
+        pageModel.UploadedFile = CreateFormFile("manual.pdf", "application/pdf", [1, 2, 3]);
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Contains("must be a Pdf", pageModel.ErrorMessage);
+        Assert.Null(apiClient.LastUploadedStaticReportTitle);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheApiThrows()
+    {
+        var pageModel = CreatePageModel(apiClient: new FakeApiClient(throwOnStaticReportOperation: new HttpRequestException("boom")));
+        pageModel.UserManual = 1;
+        pageModel.UploadedFile = CreateFormFile("D2R2 Quality Statement.pdf", "application/pdf");
+
+        var result = await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("Failed to upload the user manual: The user manual could not be uploaded. Try again.", pageModel.ErrorMessage);
     }
 
     [Fact]
