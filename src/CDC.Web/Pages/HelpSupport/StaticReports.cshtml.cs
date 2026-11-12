@@ -62,6 +62,8 @@ public class StaticReportsModel : BreadcrumbPageModelBase
             new EventId(6, nameof(LogFailedToUploadStaticReportMessage)),
             "Failed to upload a static report: {ErrorMessage}");
 
+    private static readonly byte[] PdfSignature = "%PDF-"u8.ToArray();
+
     private readonly IApiClient apiClient;
     private readonly ILogger<StaticReportsModel> logger;
 
@@ -157,41 +159,68 @@ public class StaticReportsModel : BreadcrumbPageModelBase
     {
         var fileType = IsUserManual ? "user manual" : "report";
 
+        // The title must match the existing one exactly for spiStaticReport to add a version rather than a new report,
+        // so drop any client-supplied path and judge the file by its name and content, not the browser-reported MIME type.
+        var fileName = UploadedFile?.FileName ?? string.Empty;
+        fileName = fileName[(fileName.LastIndexOfAny(['/', '\\']) + 1)..];
+
         if (UploadedFile is null || UploadedFile.Length == 0)
         {
             ErrorMessage = $"Failed to upload the {fileType}: Please choose a file to upload";
         }
-        else if (UploadedFile.ContentType != "application/pdf")
+        else if (!fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
         {
             ErrorMessage = $"Failed to upload the {fileType}: The uploaded {fileType} must be a Pdf";
         }
-        else if (UploadedFile.FileName.Length < 5)
+        else if (fileName.Length < 5)
         {
             ErrorMessage = $"Failed to upload the {fileType}: The filename was less than 5 characters long";
         }
         else
         {
-            var title = UploadedFile.FileName[..^4];
-
             await using var stream = new MemoryStream();
             await UploadedFile.CopyToAsync(stream, cancellationToken);
+            var pdfData = stream.ToArray();
 
-            var result = await apiClient.UploadStaticReportAsync(
-                title, stream.ToArray(), IsUserManual, isPublic: !IsUserManual && MakePublic, cancellationToken);
-
-            if (result.Outcome == UploadStaticReportOutcome.Success)
+            if (!pdfData.AsSpan().StartsWith(PdfSignature))
             {
-                LogUploadedStaticReportMessage(logger, IsUserManual, title, null);
-                SuccessMessage = $"The {fileType} was uploaded successfully";
+                ErrorMessage = $"Failed to upload the {fileType}: The uploaded {fileType} must be a Pdf";
             }
             else
             {
-                LogFailedToUploadStaticReportMessage(logger, result.ErrorMessage ?? string.Empty, null);
-                ErrorMessage = $"Failed to upload the {fileType}: {result.ErrorMessage}";
+                await UploadAsync(fileName[..^4], pdfData, fileType, cancellationToken);
             }
         }
 
         return RedirectToPage(new { UserManual, PageNumber, PageSize });
+    }
+
+    private async Task UploadAsync(string title, byte[] pdfData, string fileType, CancellationToken cancellationToken)
+    {
+        UploadStaticReportResult result;
+
+        try
+        {
+            result = await apiClient.UploadStaticReportAsync(
+                title, pdfData, IsUserManual, isPublic: !IsUserManual && MakePublic, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            LogFailedToUploadStaticReportMessage(logger, ex.Message, ex);
+            ErrorMessage = $"Failed to upload the {fileType}: The {fileType} could not be uploaded. Try again.";
+            return;
+        }
+
+        if (result.Outcome == UploadStaticReportOutcome.Success)
+        {
+            LogUploadedStaticReportMessage(logger, IsUserManual, title, null);
+            SuccessMessage = $"The {fileType} was uploaded successfully";
+        }
+        else
+        {
+            LogFailedToUploadStaticReportMessage(logger, result.ErrorMessage ?? string.Empty, null);
+            ErrorMessage = $"Failed to upload the {fileType}: {result.ErrorMessage}";
+        }
     }
 
     /// <summary>
