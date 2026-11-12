@@ -37,6 +37,8 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(4, nameof(LogFailedToDeleteUserMessage)), "Failed to delete global user '{UserId}'");
     private static readonly Action<ILogger, Exception?> LogGraphLookupFailedMessage =
         LoggerMessage.Define(LogLevel.Warning, new EventId(5, nameof(LogGraphLookupFailedMessage)), "Microsoft Graph lookup failed; the new user's details were left blank");
+    private static readonly Action<ILogger, Exception?> LogGraphDetailsFailedMessage =
+        LoggerMessage.Define(LogLevel.Warning, new EventId(6, nameof(LogGraphDetailsFailedMessage)), "Microsoft Graph lookup failed; the new user was saved without a directory email address or object id");
 
     private readonly IGlobalUsersApiService globalUsersApiService;
     private readonly IGraphClient graphClient;
@@ -279,6 +281,13 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
             LastUpdated = LastUpdated
         };
 
+        // The directory details are read again here, never taken from the form, so a tampered post cannot link a user to another
+        // person's directory account.
+        if (IsNewUser)
+        {
+            request = await WithDirectoryDetailsAsync(request, cancellationToken);
+        }
+
         GlobalUserActionResult result;
 
         try
@@ -420,12 +429,9 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
     /// <summary>Pre-fills a new user's name from the directory. A failed lookup is logged and the name left blank, so adding by hand still works.</summary>
     private async Task<GlobalUserLookupResult> EnrichFromDirectoryAsync(GlobalUserLookupResult result, CancellationToken cancellationToken)
     {
-        // The directory matches on the logon name alone; the legacy DOMAIN\ prefix is not a Graph property.
-        var samAccountName = result.UserName[(result.UserName.IndexOf('\\', StringComparison.Ordinal) + 1)..];
-
         try
         {
-            var directoryUser = await graphClient.FindUserBySamAccountNameAsync(samAccountName, cancellationToken);
+            var directoryUser = await FindDirectoryUserAsync(result.UserName, cancellationToken);
 
             if (directoryUser is null)
             {
@@ -443,6 +449,36 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
             return result;
         }
     }
+
+    /// <summary>
+    /// Adds the directory email address and object id to a new user's request. A failed or empty lookup is logged and the user is
+    /// saved without them, because the first sign-in records both anyway.
+    /// </summary>
+    private async Task<SaveGlobalUserRequest> WithDirectoryDetailsAsync(SaveGlobalUserRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var directoryUser = await FindDirectoryUserAsync(request.UserName, cancellationToken);
+
+            return directoryUser is null
+                ? request
+                : request with
+                {
+                    EmailAddress = string.IsNullOrWhiteSpace(directoryUser.Mail) ? null : directoryUser.Mail.Trim(),
+                    SsoUserIdInt = Guid.TryParse(directoryUser.Id, out var objectId) ? objectId : null
+                };
+        }
+        catch (GraphException exception)
+        {
+            LogGraphDetailsFailedMessage(logger, exception);
+
+            return request;
+        }
+    }
+
+    // The directory matches on the logon name alone; the legacy DOMAIN\ prefix is not a Graph property.
+    private Task<GraphUser?> FindDirectoryUserAsync(string userName, CancellationToken cancellationToken) =>
+        graphClient.FindUserBySamAccountNameAsync(userName[(userName.IndexOf('\\', StringComparison.Ordinal) + 1)..], cancellationToken);
 
     private async Task LoadUsersAsync(CancellationToken cancellationToken)
     {
