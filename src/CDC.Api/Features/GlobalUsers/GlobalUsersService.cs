@@ -23,6 +23,7 @@ public sealed partial class GlobalUsersService(
 {
     private const int UserNameMaxLength = 50;
     private const int NameMaxLength = 100;
+    private const int EmailAddressMaxLength = 50;
     private const int RowVersionLength = 8;
 
     /// <summary>Matches a legacy-style domain-qualified username (e.g. <c>DOMAIN\username</c>).</summary>
@@ -103,7 +104,9 @@ public sealed partial class GlobalUsersService(
                     Organisation = command.Organisation.Trim(),
                     SubscribedToReviewEmails = command.SubscribedToReviewEmails,
                     Role = command.Role,
-                    LastUpdated = command.LastUpdated is { Length: RowVersionLength } ? command.LastUpdated : new byte[RowVersionLength]
+                    LastUpdated = command.LastUpdated is { Length: RowVersionLength } ? command.LastUpdated : new byte[RowVersionLength],
+                    EmailAddress = existing is null ? NormaliseDirectoryEmail(command.EmailAddress) : null,
+                    SsoUserIdInt = existing is null && command.SsoUserIdInt is { } objectId && objectId != Guid.Empty ? objectId : null
                 },
                 cancellationToken);
 
@@ -231,6 +234,15 @@ public sealed partial class GlobalUsersService(
         }
 
         return null;
+    }
+
+    // A directory address that cannot be stored is left out rather than failing the save: the address is a convenience, and the
+    // user's first sign-in records it anyway. [User].EmailAddress is varchar(50).
+    private static string? NormaliseDirectoryEmail(string? emailAddress)
+    {
+        var trimmed = emailAddress?.Trim();
+
+        return trimmed is { Length: > 0 and <= EmailAddressMaxLength } && trimmed.Contains('@', StringComparison.Ordinal) ? trimmed : null;
     }
 
     private static IEnumerable<GlobalUser> Sort(IEnumerable<GlobalUser> users, GlobalUserSortColumn column, bool descending)
