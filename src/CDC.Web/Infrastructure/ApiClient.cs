@@ -524,7 +524,10 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
             return new UploadStaticReportResult(UploadStaticReportOutcome.Success, null);
         }
 
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);
+        // A proxy or WAF in front of CDC.Api can answer with an HTML body, which is not ProblemDetails.
+        var problem = response.Content.Headers.ContentType?.MediaType?.EndsWith("json", StringComparison.OrdinalIgnoreCase) == true
+            ? await response.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken)
+            : null;
 
         return response.StatusCode switch
         {

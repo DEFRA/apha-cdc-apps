@@ -168,15 +168,21 @@ internal sealed class FakeApiClient( // NOSONAR
             ? Task.FromException<bool>(throwOnStaticReportOperation)
             : Task.FromResult(staticReportOperationResult);
 
+    public string? LastUploadedStaticReportTitle { get; private set; }
+
     public Task<UploadStaticReportResult> UploadStaticReportAsync(
         string title,
         byte[] pdfData,
         bool isUserManual,
         bool isPublic,
-        CancellationToken cancellationToken = default) =>
-        throwOnStaticReportOperation is not null
+        CancellationToken cancellationToken = default)
+    {
+        LastUploadedStaticReportTitle = title;
+
+        return throwOnStaticReportOperation is not null
             ? Task.FromException<UploadStaticReportResult>(throwOnStaticReportOperation)
             : Task.FromResult(_uploadStaticReportResult);
+    }
 
     public Task<DeleteStaticReportVersionResult> DeleteStaticReportVersionAsync(
         Guid staticReportVersionId,
