@@ -120,7 +120,7 @@ environment variables); never commit them.
 | `Notify:BaseUrl`                        | Defaults to `https://api.notifications.service.gov.uk`                                    |
 | `Notify:TemplateId`                     | Template with `((name))`, `((subject))` and `((body))` personalisation                   |
 | `ReviewNotifications:ReviewerGroups`    | Profile role names per reviewer group; a group with none configured is not emailed       |
-| `ReviewNotifications:InternalHomePageUrl` / `ExternalHomePageUrl` | Links in the email; omitted when empty                      |
+| `App:BaseUrl`                           | Address D2R2 is opened at, linked from the emails; reminders omit the link when empty    |
 | `ReviewNotifications:SupportMailbox`    | Contact address shown in the email                                                       |
 | `ReviewNotifications:TestRecipient`     | Testing only. When set, every reminder goes to this address instead of the user's own    |
 
@@ -175,6 +175,19 @@ passing:
 ```powershell
 dotnet test tests/CDC.Api.Tests --filter "FullyQualifiedName~ReviewNotifications" /p:Threshold=0
 ```
+
+## External user login instructions (CDC.Api)
+
+On *Maintain external users*, a newly added external user shows **Send instructions** until the email is sent, then
+**Sent**. The email goes through the same GOV.UK Notify sender as the review reminders, to the address saved on the
+user. It uses the Notify template `8c79693e-ad6e-4bc1-9b86-0b656b55b7de` (fixed in code, the same in every
+environment), which holds the subject and all the text and takes two placeholders: `((name))`, the user's full name, and
+`((AppUrl))`, filled from
+`App:BaseUrl` (required: without a valid web address nothing is sent). `ReviewNotifications:TestRecipient` redirects
+it as it does the reminders. A user is marked as sent only once
+Notify accepts the email, and changing their saved email address brings **Send instructions** back and unlinks their
+CIDM account (so the next sign-in links the new one by email). Existing users show
+**Sent**. This needs script `0082-AddUserLoginInstructionsSent.sql` (see `src/CDC.Database`) to be run first.
 
 ## Session timeout (CDC.Web)
 
