@@ -19,7 +19,10 @@ public enum ResultStatus
     Forbidden = 3,
 
     /// <summary>The request failed a business validation rule.</summary>
-    ValidationFailed = 4
+    ValidationFailed = 4,
+
+    /// <summary>A service the operation depends on (such as email delivery) failed, so the operation did not complete.</summary>
+    DependencyFailed = 5
 }
 
 /// <summary>
@@ -88,4 +91,10 @@ public static class Result
     /// <param name="error">Description of the validation failure.</param>
     /// <returns>A validation-failed <see cref="Result{T}"/>.</returns>
     public static Result<T> ValidationFailed<T>(string error) => new(ResultStatus.ValidationFailed, default, error);
+
+    /// <summary>Creates a "dependent service failed" result.</summary>
+    /// <typeparam name="T">Type of the value the operation would have produced.</typeparam>
+    /// <param name="error">Description of what failed, without any sensitive detail.</param>
+    /// <returns>A dependency-failed <see cref="Result{T}"/>.</returns>
+    public static Result<T> DependencyFailed<T>(string error) => new(ResultStatus.DependencyFailed, default, error);
 }

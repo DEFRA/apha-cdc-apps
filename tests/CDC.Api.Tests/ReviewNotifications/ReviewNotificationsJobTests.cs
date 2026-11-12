@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Features.ReviewNotifications;
 using CDC.Api.Features.ReviewNotifications.Dtos;
 using CDC.Api.Features.ReviewNotifications.Interfaces;
@@ -31,6 +32,7 @@ public class ReviewNotificationsJobTests
         repository.Object,
         sender.Object,
         Options.Create(options),
+        Options.Create(new AppOptions { BaseUrl = "https://d2r2.example.test/" }),
         TimeProvider.System,
         logger.Object);
 

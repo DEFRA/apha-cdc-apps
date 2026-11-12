@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CDC.Auth.Entra.Claims;
 using CDC.Auth.Entra.Events;
+using CDC.Graph;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -21,10 +22,12 @@ namespace CDC.Web.Features.Account;
 /// <param name="apiClient">Calls CDC.Api's internal-user resolve endpoint.</param>
 /// <param name="logger">Logs resolution failures so a sign-in landing on /Landing/Error is diagnosable.</param>
 /// <param name="httpContextAccessor">Reaches the sign-in request to end the external session; none is ended without one.</param>
+/// <param name="graphClient">Looks up the employee id when the token has no usable account claims; no lookup is made without one.</param>
 public sealed partial class InternalUserResolver(
     IApiClient apiClient,
     ILogger<InternalUserResolver> logger,
-    IHttpContextAccessor? httpContextAccessor = null) : IEntraInternalUserResolver
+    IHttpContextAccessor? httpContextAccessor = null,
+    IGraphClient? graphClient = null) : IEntraInternalUserResolver
 {
     /// <inheritdoc />
     public async Task<EntraInternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
@@ -60,6 +63,13 @@ public sealed partial class InternalUserResolver(
         var userName = !string.IsNullOrEmpty(domainName) && !string.IsNullOrEmpty(samAccountName)
             ? $"{domainName}\\{samAccountName}"
             : samAccountName;
+
+        // The token may not carry the on-premises claims (or only a bare account name), so the directory's employee id
+        // - looked up by the object id - gives the DEMETER\employeeId form instead.
+        if (!userName.Contains('\\', StringComparison.Ordinal))
+        {
+            userName = await FindEmployeeUserNameAsync(entraSsoId, cancellationToken) ?? userName;
+        }
 
         if (string.IsNullOrEmpty(userName))
         {
@@ -119,6 +129,31 @@ public sealed partial class InternalUserResolver(
         return resolution;
     }
 
+    private async Task<string?> FindEmployeeUserNameAsync(Guid entraSsoId, CancellationToken cancellationToken)
+    {
+        if (graphClient is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var userName = EmployeeUserName.FromEmployeeId(await graphClient.FindEmployeeIdAsync(entraSsoId, cancellationToken));
+            if (userName is null)
+            {
+                LogEmployeeIdNotFound(entraSsoId);
+            }
+
+            return userName;
+        }
+        catch (GraphException exception)
+        {
+            // A directory outage must not take down sign-in for users whose token does carry a usable name.
+            LogEmployeeIdLookupFailed(entraSsoId, exception);
+            return null;
+        }
+    }
+
     // The default inbound claim mapping remaps 'email' and 'upn' to long claim types, so both forms are checked. A
     // sign-in name without an '@' (a bare account name) is not an email address, so it is not sent.
     private static string? FindEmailAddress(ClaimsPrincipal principal) =>
@@ -137,8 +172,14 @@ public sealed partial class InternalUserResolver(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Entra sign-in denied before calling CDC.Api: the token has no usable object id (oid) claim")]
     private partial void LogInternalSignInDeniedNoObjectId();
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Entra sign-in denied before calling CDC.Api (SsoUserIdInt={SsoUserIdInt}): the token has no onprem_samaccountname claim - a cloud-only or guest account, or the optional claim is not configured on the app registration, so no user row can be matched or created")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Entra sign-in denied before calling CDC.Api (SsoUserIdInt={SsoUserIdInt}): the token has no onprem_samaccountname claim and the directory has no employee id - a cloud-only or guest account, or the optional claim is not configured on the app registration, so no user row can be matched or created")]
     private partial void LogInternalSignInDeniedNoAccountName(Guid ssoUserIdInt);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No usable employee id was found in the directory for Entra sign-in (SsoUserIdInt={SsoUserIdInt})")]
+    private partial void LogEmployeeIdNotFound(Guid ssoUserIdInt);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The directory employee id lookup failed for Entra sign-in (SsoUserIdInt={SsoUserIdInt})")]
+    private partial void LogEmployeeIdLookupFailed(Guid ssoUserIdInt, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to resolve internal user (SsoUserIdInt={SsoUserIdInt}) against CDC.Api")]
     private partial void LogInternalUserResolutionFailed(Guid ssoUserIdInt, Exception exception);

@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Features.ReviewNotifications.Dtos;
 using CDC.Api.Features.ReviewNotifications.Interfaces;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ public sealed class ReviewNotificationsJob(
     IReviewNotificationsRepository repository,
     IEmailSender emailSender,
     IOptions<ReviewNotificationsOptions> options,
+    IOptions<AppOptions> appOptions,
     TimeProvider timeProvider,
     ILogger<ReviewNotificationsJob> logger)
 {
@@ -67,7 +69,7 @@ public sealed class ReviewNotificationsJob(
 
             try
             {
-                var message = ReviewEmailComposer.Compose(user, today, options.Value);
+                var message = ReviewEmailComposer.Compose(user, today, appOptions.Value.BaseUrl);
 
                 if (!string.IsNullOrWhiteSpace(testRecipient))
                 {

@@ -61,6 +61,20 @@ public sealed class SaveExternalUserProfileAccessCommandHandler(IExternalUsersSe
 /// <param name="ProfileId">The profile to remove access to.</param>
 public sealed record DeleteExternalUserProfileAccessCommand(Guid UserId, Guid ProfileId) : IRequest<Result<Unit>>;
 
+/// <summary>Sends an external user the instructions for signing in to D2R2.</summary>
+/// <param name="Id">The external user.</param>
+public sealed record SendExternalUserLoginInstructionsCommand(Guid Id) : IRequest<Result<Unit>>;
+
+/// <summary>Handles <see cref="SendExternalUserLoginInstructionsCommand"/>.</summary>
+/// <param name="service">Login instructions application service.</param>
+public sealed class SendExternalUserLoginInstructionsCommandHandler(IExternalUserLoginInstructionsService service)
+    : IRequestHandler<SendExternalUserLoginInstructionsCommand, Result<Unit>>
+{
+    /// <inheritdoc />
+    public Task<Result<Unit>> Handle(SendExternalUserLoginInstructionsCommand request, CancellationToken cancellationToken) =>
+        service.SendAsync(request, cancellationToken);
+}
+
 /// <summary>Handles <see cref="DeleteExternalUserProfileAccessCommand"/>.</summary>
 /// <param name="service">External users application service.</param>
 public sealed class DeleteExternalUserProfileAccessCommandHandler(IExternalUsersService service)

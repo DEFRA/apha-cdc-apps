@@ -8,8 +8,7 @@ public class ReviewEmailComposerTests
 {
     private static readonly DateTime Today = new(2026, 10, 20);
 
-    private static ReviewNotificationsOptions Options(string url = "https://d2r2.example.test/") =>
-        new() { InternalHomePageUrl = url, SupportMailbox = "support@example.test" };
+    private static string Options(string url = "https://d2r2.example.test/") => url;
 
     private static ReviewDueUser UserWith(string name, string? scenario, ReviewDueSection section, bool hasPublishedVersion = true) => new(
         Guid.NewGuid(),
@@ -147,23 +146,13 @@ public class ReviewEmailComposerTests
     }
 
     [Fact]
-    public void Compose_IncludesInternalHomePageLink()
+    public void Compose_IncludesTheHomePageLink()
     {
         var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
 
         ReviewEmailComposer.Compose(user, Today, Options()).Body
-            .Should().Contain("Internal users can access [D2R2 on the Defra network](https://d2r2.example.test/).");
-    }
-
-    [Fact]
-    public void Compose_IncludesExternalHomePageLink_WhenConfigured()
-    {
-        var user = UserWith("Ann", null, Section(new ReviewItem(Today, "Active")));
-        var options = Options();
-        options.ExternalHomePageUrl = "https://external.example.test/";
-
-        ReviewEmailComposer.Compose(user, Today, options).Body
-            .Should().Contain("External users can access [D2R2 on the internet](https://external.example.test/).");
+            .Should().Contain("You can access [D2R2](https://d2r2.example.test/).")
+            .And.NotContain("Internal users").And.NotContain("External users");
     }
 
     [Theory]

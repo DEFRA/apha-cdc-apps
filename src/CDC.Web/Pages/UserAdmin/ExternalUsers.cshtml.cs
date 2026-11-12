@@ -45,6 +45,8 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(5, nameof(LogFailedToDeleteAccessMessage)), "Failed to remove profile access for external user '{UserId}'");
     private static readonly Action<ILogger, Exception?> LogFailedToPreRegisterMessage =
         LoggerMessage.Define(LogLevel.Error, new EventId(6, nameof(LogFailedToPreRegisterMessage)), "Failed to pre-register external user");
+    private static readonly Action<ILogger, Guid, Exception?> LogFailedToSendInstructionsMessage =
+        LoggerMessage.Define<Guid>(LogLevel.Error, new EventId(7, nameof(LogFailedToSendInstructionsMessage)), "Failed to send login instructions to external user '{UserId}'");
 
     private readonly IExternalUsersApiService externalUsersApiService;
     private readonly IProfileContributorsApiService profileContributorsApiService;
@@ -149,6 +151,10 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
     /// <summary>Gets or sets the error shown after a failed removal, carried across the redirect.</summary>
     [TempData]
     public string? RemoveErrorMessage { get; set; }
+
+    /// <summary>Gets or sets the error shown after login instructions could not be sent, carried across the redirect.</summary>
+    [TempData]
+    public string? SendInstructionsError { get; set; }
 
     /// <summary>Gets the current page of external users.</summary>
     public IReadOnlyList<MaintainedExternalUserDto> Users { get; private set; } = [];
@@ -364,6 +370,31 @@ public class ExternalUsersModel : BreadcrumbPageModelBase
         }
 
         return RedirectToPage(PageRoute, null, new { PageNumber, PageSize, SortColumn, SortDirection, EditUserId = UserId, ProfilePageSize, ProfilePageNumber, ProfileSortDirection }, PanelId);
+    }
+
+    /// <summary>Emails the user their login instructions, then returns to the list, which shows the user as sent.</summary>
+    public async Task<IActionResult> OnPostSendInstructionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await externalUsersApiService.SendLoginInstructionsAsync(UserId, cancellationToken);
+
+            if (result.Succeeded)
+            {
+                SuccessMessage = "Login instructions sent";
+            }
+            else
+            {
+                SendInstructionsError = result.ErrorMessage;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            LogFailedToSendInstructionsMessage(logger, UserId, exception);
+            SendInstructionsError = "We could not send the login instructions. Try again later.";
+        }
+
+        return RedirectToPage(PageRoute, new { PageNumber, PageSize, SortColumn, SortDirection });
     }
 
     /// <summary>Pre-registers an external user so they can sign in through CIDM.</summary>

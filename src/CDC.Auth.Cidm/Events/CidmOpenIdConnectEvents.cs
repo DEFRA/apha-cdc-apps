@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 namespace CDC.Auth.Cidm.Events;
 
 /// <summary>
-/// CIDM-specific hooks into the OpenID Connect handler: injects the non-standard serviceId parameter,
+/// CIDM-specific hooks into the OpenID Connect handler: injects the non-standard serviceId parameter, rejects tokens whose serviceId is not the configured one,
 /// maps the relationships/roles array claims, hides OIDC failure detail from the user, and renders the
 /// POST-based sign-out form CIDM recommends.
 /// </summary>
@@ -63,6 +63,14 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
     /// <inheritdoc />
     public override async Task TokenValidated(TokenValidatedContext context)
     {
+        // Before anything else: a token issued for a different CIDM service must never become a session.
+        if (!HasConfiguredServiceId(context.Principal))
+        {
+            LogServiceIdMismatch(context.Principal?.FindFirst(CidmClaimTypes.ServiceId)?.Value);
+            OpenIdConnectEventHelpers.DenyWithErrorPage(context);
+            return;
+        }
+
         if (context.Principal?.Identity is not ClaimsIdentity identity)
         {
             return;
@@ -100,6 +108,18 @@ public sealed partial class CidmOpenIdConnectEvents : OpenIdConnectEvents
 
     [LoggerMessage(Level = LogLevel.Error, Message = "CIDM authentication failed")]
     private partial void LogAuthenticationFailed(Exception? exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "CIDM sign-in denied: the token's serviceId '{TokenServiceId}' is missing or does not match the configured service id")]
+    private partial void LogServiceIdMismatch(string? tokenServiceId);
+
+    // Fails closed: an unconfigured service id matches nothing, rather than a token that also has none.
+    private bool HasConfiguredServiceId(ClaimsPrincipal? principal)
+    {
+        var configured = _cidmOptions.ServiceId.Trim();
+        var actual = principal?.FindFirst(CidmClaimTypes.ServiceId)?.Value?.Trim();
+
+        return !string.IsNullOrEmpty(configured) && string.Equals(actual, configured, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <inheritdoc />
     public override async Task RedirectToIdentityProviderForSignOut(RedirectContext context)

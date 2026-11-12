@@ -19,6 +19,9 @@ public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFacto
     private const string GetAllProcedure = "spgaSsoUserMaintenance";
     private const string SaveProcedure = "spiSsoUser";
     private const string PreRegisterProcedure = "spiExternalUserPreRegistration";
+    private const string AwaitingInstructionsProcedure = "spgaExternalUsersAwaitingLoginInstructions";
+    private const string LoginRecipientProcedure = "spgExternalUserLoginInstructions";
+    private const string MarkInstructionsSentProcedure = "spuExternalUserLoginInstructionsSent";
     private const int UserNameMaxLength = 50;
     private const int EmailMaxLength = 50;
     private const int NameMaxLength = 100;
@@ -189,6 +192,65 @@ public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFacto
     }
 
     private sealed record GrantRow(Guid ProfileId, string Title, Guid RoleId, string RoleName, bool IsContributor);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlySet<Guid>> GetUsersAwaitingLoginInstructionsAsync(CancellationToken cancellationToken) =>
+        await RunAsync(
+            AwaitingInstructionsProcedure,
+            async connection => (await connection.QueryAsync<Guid>(new CommandDefinition(
+                AwaitingInstructionsProcedure,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken))).ToHashSet(),
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task<ExternalUserLoginRecipient?> GetLoginRecipientAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", userId, DbType.Guid);
+
+        return RunAsync(
+            LoginRecipientProcedure,
+            connection => connection.QuerySingleOrDefaultAsync<ExternalUserLoginRecipient>(new CommandDefinition(
+                LoginRecipientProcedure,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken)),
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> MarkLoginInstructionsSentAsync(Guid userId, string emailAddress, DateTime sentDate, CancellationToken cancellationToken)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", userId, DbType.Guid);
+        parameters.Add("@EmailAddress", emailAddress, DbType.AnsiString, size: EmailMaxLength);
+        parameters.Add("@SentDate", sentDate, DbType.DateTime2);
+
+        return RunAsync(
+            MarkInstructionsSentProcedure,
+            connection => connection.QuerySingleAsync<bool>(new CommandDefinition(
+                MarkInstructionsSentProcedure,
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: cancellationToken)),
+            cancellationToken);
+    }
+
+    private async Task<T> RunAsync<T>(string procedure, Func<DbConnection, Task<T>> query, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            return await query(connection);
+        }
+        catch (DbException exception)
+        {
+            logger.StoredProcedureFailed(exception, procedure);
+            throw;
+        }
+    }
 
     // A child profile with no scenario title yields a NULL concatenated title.
     private static string ReadString(DbDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

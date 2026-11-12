@@ -15,6 +15,7 @@ public class ExternalUsersRepositoryTests : IDisposable
     private static readonly string[] ProfileColumns = ["Id", "Title"];
     private static readonly string[] GrantColumns = ["UserId", "ProfileId", "Title", "RoleId", "RoleName", "IsContributor"];
     private static readonly string[] SectionColumns = ["UserId", "ProfileId", "SectionId"];
+    private static readonly string[] LoginRecipientColumns = ["Id", "FullName", "EmailAddress", "LoginInstructionsSent"];
 
     private readonly FakeDbConnection connection = new();
     private readonly Mock<ILogger<ExternalUsersRepository>> logger = new();
@@ -249,6 +250,105 @@ public class ExternalUsersRepositoryTests : IDisposable
         var act = () => repository.GetExternalUsersAsync(CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task GetUsersAwaitingLoginInstructionsAsync_ReturnsTheIdsOfTheUsersStillToBeSent()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        connection.Script("spgaExternalUsersAwaitingLoginInstructions", new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Id"], [[first], [second]])]
+        });
+
+        var ids = await CreateRepository().GetUsersAwaitingLoginInstructionsAsync(CancellationToken.None);
+
+        ids.Should().BeEquivalentTo([first, second]);
+        connection.Executed.Should().ContainSingle().Which.CommandType.Should().Be(CommandType.StoredProcedure);
+    }
+
+    [Fact]
+    public async Task GetUsersAwaitingLoginInstructionsAsync_ReturnsNothing_WhenEveryoneHasBeenSent()
+    {
+        connection.Script("spgaExternalUsersAwaitingLoginInstructions", new FakeCommandScript { ResultSets = [new FakeResultSet(["Id"], [])] });
+
+        (await CreateRepository().GetUsersAwaitingLoginInstructionsAsync(CancellationToken.None)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetUsersAwaitingLoginInstructionsAsync_Rethrows_WhenTheDatabaseFails()
+    {
+        connection.Script("spgaExternalUsersAwaitingLoginInstructions", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetUsersAwaitingLoginInstructionsAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetLoginRecipientAsync_MapsTheRow_AndPassesTheUserId()
+    {
+        var id = Guid.NewGuid();
+        connection.Script("spgExternalUserLoginInstructions", new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(LoginRecipientColumns, [[id, "Jo Smith", "jo@example.test", false]])]
+        });
+
+        var recipient = await CreateRepository().GetLoginRecipientAsync(id, CancellationToken.None);
+
+        recipient.Should().Be(new ExternalUserLoginRecipient(id, "Jo Smith", "jo@example.test", LoginInstructionsSent: false));
+        connection.Executed.Should().ContainSingle().Which.Parameters["Id"].Should().Be(id);
+    }
+
+    [Fact]
+    public async Task GetLoginRecipientAsync_ReturnsNull_WhenTheUserIsNotAnExternalUser()
+    {
+        connection.Script("spgExternalUserLoginInstructions", new FakeCommandScript { ResultSets = [new FakeResultSet(LoginRecipientColumns, [])] });
+
+        (await CreateRepository().GetLoginRecipientAsync(Guid.NewGuid(), CancellationToken.None)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetLoginRecipientAsync_Rethrows_WhenTheDatabaseFails()
+    {
+        connection.Script("spgExternalUserLoginInstructions", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetLoginRecipientAsync(Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MarkLoginInstructionsSentAsync_PassesEveryParameter_AndReturnsWhetherItWasRecorded(bool recorded)
+    {
+        connection.Script("spuExternalUserLoginInstructionsSent", new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Recorded"], [[recorded]])]
+        });
+        var id = Guid.NewGuid();
+        var sentDate = new DateTime(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
+
+        var result = await CreateRepository().MarkLoginInstructionsSentAsync(id, "jo@example.test", sentDate, CancellationToken.None);
+
+        result.Should().Be(recorded);
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters["Id"].Should().Be(id);
+        executed.Parameters["EmailAddress"].Should().Be("jo@example.test");
+        executed.Parameters["SentDate"].Should().Be(sentDate);
+    }
+
+    [Fact]
+    public async Task MarkLoginInstructionsSentAsync_Rethrows_WhenTheDatabaseFails()
+    {
+        connection.Script("spuExternalUserLoginInstructionsSent", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().MarkLoginInstructionsSentAsync(Guid.NewGuid(), "jo@example.test", DateTime.UtcNow, CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
     }
 
     private sealed class StubConnectionFactory(FakeDbConnection connection) : IDbConnectionFactory

@@ -211,7 +211,6 @@
             current: function () { return occurrences[current]; },
             upcoming: function () { return occurrences[nextUnresolved(current + 1)] || null; },
             texts: function () { return texts; },
-            canUndo: function () { return undoSteps.length > 0; },
             isChanged: function () {
                 return occurrences.some(function (occurrence) { return occurrence.action === 'change' || occurrence.action === 'change-all'; });
             },
@@ -380,7 +379,7 @@
                 'add-custom': !editing,
                 'change': editing || hasSuggestions,
                 'change-all': !editing && hasSuggestions,
-                'undo': Boolean(run.session) && run.session.canUndo(),
+                'undo': true,
                 'close': true
             };
 

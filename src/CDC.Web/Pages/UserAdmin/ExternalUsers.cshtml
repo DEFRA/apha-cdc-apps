@@ -3,7 +3,7 @@
 @model CDC.Web.Pages.UserAdmin.ExternalUsersModel
 @{
     var hasPreRegisterError = Model.PreRegisterError is not null || !ViewData.ModelState.IsValid && Model.ShowPreRegisterForm;
-    var hasError = hasPreRegisterError || Model.SaveError is not null || Model.AccessError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage);
+    var hasError = hasPreRegisterError || Model.SaveError is not null || Model.AccessError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage) || !string.IsNullOrEmpty(Model.SendInstructionsError);
     ViewData["Title"] = (hasError ? "Error: " : string.Empty) + "Maintain external users";
 
     void SortableHeader(ExternalUserSortColumn column, string text)
@@ -19,13 +19,13 @@
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-full" id="external-users-region" data-app-paged-region>
-        @if (Model.SaveError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage))
+        @if (Model.SaveError is not null || !string.IsNullOrEmpty(Model.RemoveErrorMessage) || !string.IsNullOrEmpty(Model.SendInstructionsError))
         {
             <div class="govuk-error-summary" data-module="govuk-error-summary">
                 <div role="alert">
                     <h2 class="govuk-error-summary__title">There is a problem</h2>
                     <div class="govuk-error-summary__body">
-                        <p class="govuk-body">@(Model.SaveError ?? Model.RemoveErrorMessage)</p>
+                        <p class="govuk-body">@(Model.SaveError ?? Model.RemoveErrorMessage ?? Model.SendInstructionsError)</p>
                     </div>
                 </div>
             </div>
@@ -34,7 +34,7 @@
         <h1 class="govuk-heading-l">Maintain external users</h1>
 
         <p class="govuk-body">
-            Use this page to add external users and choose which surveillance profiles they can access. An external user must be added here before they can sign in to D2R2. Once they have been added, select Edit to give them access to profiles.
+            Use this page to add external users and choose which surveillance profiles they can access. An external user must be added here before they can sign in to D2R2. Once they have been added, select Edit to give them access to profiles, and Send instructions to email them how to sign in.
         </p>
 
         @if (!string.IsNullOrEmpty(Model.SuccessMessage))
@@ -94,6 +94,7 @@
                         @{ SortableHeader(ExternalUserSortColumn.FullName, "Full name"); }
                         @{ SortableHeader(ExternalUserSortColumn.EmailAddress, "Email"); }
                         @{ SortableHeader(ExternalUserSortColumn.Organisation, "Organisation"); }
+                        <th scope="col" class="govuk-table__header">Login instructions</th>
                         <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Edit</span></th>
                     </tr>
                 </thead>
@@ -105,6 +106,23 @@
                             <td class="govuk-table__cell">@user.FullName</td>
                             <td class="govuk-table__cell">@user.EmailAddress</td>
                             <td class="govuk-table__cell">@user.Organisation</td>
+                            <td class="govuk-table__cell">
+                                @if (user.LoginInstructionsSent)
+                                {
+                                    <strong class="govuk-tag govuk-tag--green">Sent</strong>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="SendInstructions">
+                                        <input type="hidden" name="UserId" value="@user.Id" />
+                                        <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+                                        <input type="hidden" name="PageSize" value="@Model.PageSize" />
+                                        <input type="hidden" name="SortColumn" value="@Model.SortColumn" />
+                                        <input type="hidden" name="SortDirection" value="@Model.SortDirection" />
+                                        <button type="submit" class="govuk-link app-link-button">Send instructions<span class="govuk-visually-hidden"> to @user.FullName</span></button>
+                                    </form>
+                                }
+                            </td>
                             <td class="govuk-table__cell">
                                 <a class="govuk-link" href="@Model.BuildEditUrl(user.Id)">Edit<span class="govuk-visually-hidden"> @user.FullName</span></a>
                             </td>
@@ -364,13 +382,13 @@
                                 {
                                     <p class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @Model.AccessError</p>
                                 }
-                                <div class="app-contributor-permissions">
+                                <div class="govuk-checkboxes govuk-checkboxes--small app-contributor-permissions app-checkboxes--columns" data-module="govuk-checkboxes">
                                     @foreach (var permissionSection in Model.PermissionSections)
                                     {
                                         var inputId = "section-permission-" + permissionSection.Id;
                                         <div class="govuk-checkboxes__item govuk-checkboxes--small app-contributor-permissions__item">
                                             <input class="govuk-checkboxes__input" id="@inputId" type="checkbox" name="SelectedSectionIds" value="@permissionSection.Id" checked="@(Model.SelectedSectionIds.Contains(permissionSection.Id) ? "checked" : null)" />
-                                            <label class="govuk-label govuk-checkboxes__label" for="@inputId">@permissionSection.ShortName</label>
+                                            <label class="govuk-label govuk-checkboxes__label" for="@inputId">@CDC.Web.Infrastructure.ProfileSectionTabs.FormatShortName(permissionSection.ShortName)</label>
                                         </div>
                                     }
                                 </div>
