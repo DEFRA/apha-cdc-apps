@@ -25,6 +25,7 @@ public sealed class ExternalUsersService(
         int pageNumber, int pageSize, ExternalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken)
     {
         var users = await repository.GetExternalUsersAsync(cancellationToken);
+        var awaitingInstructions = await repository.GetUsersAwaitingLoginInstructionsAsync(cancellationToken);
         logger.RetrievedExternalUsers(users.Count);
 
         var effectivePageNumber = Math.Max(1, pageNumber);
@@ -37,7 +38,7 @@ public sealed class ExternalUsersService(
 
         return new PagedResult<ExternalUserDto>
         {
-            Items = [.. page.Select(ToDto)],
+            Items = [.. page.Select(user => ToDto(user, !awaitingInstructions.Contains(user.Id)))],
             PageNumber = effectivePageNumber,
             PageSize = effectivePageSize,
             TotalRecords = users.Count
@@ -200,13 +201,14 @@ public sealed class ExternalUsersService(
             : users.OrderBy(key, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static ExternalUserDto ToDto(ExternalUserAccount user) => new()
+    private static ExternalUserDto ToDto(ExternalUserAccount user, bool loginInstructionsSent) => new()
     {
         Id = user.Id,
         UserName = user.UserName,
         FullName = user.FullName,
         EmailAddress = user.EmailAddress,
         Organisation = user.Organisation,
-        SubscribedToReviewEmails = user.SubscribedToReviewEmails
+        SubscribedToReviewEmails = user.SubscribedToReviewEmails,
+        LoginInstructionsSent = loginInstructionsSent
     };
 }

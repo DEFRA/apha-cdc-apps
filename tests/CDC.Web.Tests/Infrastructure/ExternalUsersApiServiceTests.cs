@@ -206,6 +206,70 @@ public class ExternalUsersApiServiceTests
         Assert.Equal("We could not register this user. Try again later.", result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task SendLoginInstructionsAsync_PostsToTheUsersEndpoint_AndReportsSuccess()
+    {
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.NoContent, string.Empty);
+
+        var result = await CreateClient(handler).SendLoginInstructionsAsync(UserId);
+
+        Assert.True(result.Succeeded);
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal(HttpMethod.Post, handler.LastMethod);
+        Assert.Equal($"/api/external-users/{UserId}/login-instructions", handler.LastRequestUri!.AbsolutePath);
+        Assert.Equal(string.Empty, handler.LastRequestBody);
+    }
+
+    [Fact]
+    public async Task SendLoginInstructionsAsync_ReportsAMissingUser_OnNotFound()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.NotFound, string.Empty));
+
+        var result = await client.SendLoginInstructionsAsync(UserId);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("This user could not be found. Reload the page and try again.", result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict)]
+    [InlineData(HttpStatusCode.BadRequest)]
+    public async Task SendLoginInstructionsAsync_ReturnsTheApiMessage_OnConflictOrBadRequest(HttpStatusCode statusCode)
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(statusCode, """{"detail":"The login instructions have already been sent to this user."}"""));
+
+        var result = await client.SendLoginInstructionsAsync(UserId);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("The login instructions have already been sent to this user.", result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("null")]
+    [InlineData("not json")]
+    public async Task SendLoginInstructionsAsync_ReturnsAGenericMessage_WhenTheApiGivesNoUsableDetail(string body)
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.Conflict, body));
+
+        var result = await client.SendLoginInstructionsAsync(UserId);
+
+        Assert.Equal("We could not send the login instructions. Try again later.", result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task SendLoginInstructionsAsync_ReturnsAGenericMessage_OnAnyOtherFailureStatusCode(HttpStatusCode statusCode)
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(statusCode, """{"detail":"internal detail"}"""));
+
+        var result = await client.SendLoginInstructionsAsync(UserId);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("We could not send the login instructions. Try again later.", result.ErrorMessage);
+    }
+
     private static ExternalUsersApiService CreateClient(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") });
 

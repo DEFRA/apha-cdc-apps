@@ -260,14 +260,14 @@
 
                     <fieldset class="govuk-fieldset app-contributor-permissions-fieldset" id="app-contributor-add-permissions" hidden="@(Model.IsCurrentRoleContributor ? null : "hidden")">
                         <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">Section permissions</legend>
-                        <div class="app-contributor-permissions">
+                        <div class="govuk-checkboxes govuk-checkboxes--small app-contributor-permissions app-checkboxes--columns" data-module="govuk-checkboxes">
                             @foreach (var permissionSection in Model.PermissionSections)
                             {
                                 var inputId = "add-section-permission-" + permissionSection.Id;
                                 var isChecked = Model.SelectedSectionIds.Contains(permissionSection.Id);
                                 <div class="govuk-checkboxes__item govuk-checkboxes--small app-contributor-permissions__item">
                                     <input class="govuk-checkboxes__input" id="@inputId" type="checkbox" name="SelectedSectionIds" value="@permissionSection.Id" checked="@(isChecked ? "checked" : null)" />
-                                    <label class="govuk-label govuk-checkboxes__label" for="@inputId">@permissionSection.ShortName</label>
+                                    <label class="govuk-label govuk-checkboxes__label" for="@inputId">@CDC.Web.Infrastructure.ProfileSectionTabs.FormatShortName(permissionSection.ShortName)</label>
                                 </div>
                             }
                         </div>
@@ -359,14 +359,14 @@
 
                     <fieldset class="govuk-fieldset app-contributor-permissions-fieldset" id="app-contributor-permissions" hidden="@(Model.IsCurrentRoleContributor ? null : "hidden")">
                         <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">Section permissions</legend>
-                        <div class="app-contributor-permissions">
+                        <div class="govuk-checkboxes govuk-checkboxes--small app-contributor-permissions app-checkboxes--columns" data-module="govuk-checkboxes">
                             @foreach (var permissionSection in Model.PermissionSections)
                             {
                                 var inputId = "section-permission-" + permissionSection.Id;
                                 var isChecked = Model.SelectedSectionIds.Contains(permissionSection.Id);
                                 <div class="govuk-checkboxes__item govuk-checkboxes--small app-contributor-permissions__item">
                                     <input class="govuk-checkboxes__input" id="@inputId" type="checkbox" name="SelectedSectionIds" value="@permissionSection.Id" checked="@(isChecked ? "checked" : null)" />
-                                    <label class="govuk-label govuk-checkboxes__label" for="@inputId">@permissionSection.ShortName</label>
+                                    <label class="govuk-label govuk-checkboxes__label" for="@inputId">@CDC.Web.Infrastructure.ProfileSectionTabs.FormatShortName(permissionSection.ShortName)</label>
                                 </div>
                             }
                         </div>

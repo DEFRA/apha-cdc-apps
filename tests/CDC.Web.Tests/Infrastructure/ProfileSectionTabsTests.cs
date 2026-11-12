@@ -63,6 +63,7 @@ public class ProfileSectionTabsTests
     [Theory]
     [InlineData("SUMMARY", "Summary")]
     [InlineData("GEOGRAPHIC DISTRIBUTION AND LEVELS OF DISEASE", "Geographic distribution & levels of disease")]
+    [InlineData("2.2 SUMMARY AND PREVALENCE", "2.2 summary & prevalence")]
     [InlineData("Epi", "Epi")]
     [InlineData("A", "A")]
     [InlineData("", "")]

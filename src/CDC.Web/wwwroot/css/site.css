@@ -161,8 +161,25 @@ html {
 
 /* Section permission checkboxes in 3 columns, matching the legacy panel's layout. */
 .app-contributor-permissions {
-  column-count: 3;
-  column-gap: 2rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 1.5rem;
+}
+
+@media (min-width: 40.0625em) {
+  .app-contributor-permissions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 48.0625em) {
+  .app-contributor-permissions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.app-contributor-permissions > .govuk-checkboxes__item {
+  margin-bottom: 10px;
 }
 
 .app-contributor-permissions__item {
@@ -1003,6 +1020,21 @@ body {
   max-width: 640px;
   /* So that its 90% width includes its padding and border, as it does while Bootstrap is also on the page. */
   box-sizing: border-box;
+  /* Compact, so the whole dialog fits without scrolling. */
+  padding: 1rem 1.25rem;
+  overflow: visible;
+}
+
+.app-spell-dialog .govuk-heading-m {
+  margin-bottom: 10px;
+}
+
+.app-spell-dialog .govuk-form-group {
+  margin-bottom: 10px;
+}
+
+.app-spell-dialog .govuk-label--s {
+  margin-bottom: 2px;
 }
 
 .app-spell-dialog__message {
@@ -1020,18 +1052,31 @@ body {
 
 .app-spell-dialog__layout {
   display: grid;
-  gap: 20px;
+  gap: 10px 20px;
 }
 
 .app-spell-dialog__actions {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 6px;
+}
+
+.app-spell-dialog__actions .govuk-button,
+.app-spell-dialog__footer .govuk-button {
+  margin-bottom: 0;
+}
+
+/* Undo and Close run along the bottom, under the fields and the column of buttons. */
+.app-spell-dialog__footer {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.app-spell-dialog__actions .govuk-button {
-  margin-bottom: 0;
+.app-spell-dialog__layout:not(.app-spell-dialog__layout--word) .app-spell-dialog__actions {
+  display: none;
 }
 
 /* Beside a word, the buttons make a column of one width; with no word, Close is the one button and keeps the width of a button. */
@@ -1050,8 +1095,8 @@ body {
 .app-spell-dialog__context {
   display: block;
   width: 100%;
-  min-height: 5rem;
-  max-height: 10rem;
+  min-height: 3rem;
+  max-height: 6rem;
   overflow-y: auto;
   padding: 5px;
   border: 2px solid var(--govuk-text-colour, #0b0c0c);
@@ -1373,7 +1418,10 @@ body {
 
 /* Single active tab labelled with the current section's title, above the question accordion. */
 .app-species-tabs {
-  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+  position: relative;
+  z-index: 1;
+  /* Overlaps the panel's top border, so the box's top line stops where the tab starts and resumes where it ends. */
+  margin-bottom: -1px;
 }
 
 .app-species-tabs__tab {
@@ -1381,12 +1429,12 @@ body {
   padding: 0.5rem 1rem;
   font-weight: 700;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
-  border-bottom: none;
+  border-bottom: 1px solid #ffffff;
+  background-color: #ffffff;
 }
 
 .app-species-panel {
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
-  border-top: none;
   padding: 1rem;
 }
 
@@ -1833,9 +1881,11 @@ body {
 }
 
 .app-richtext-toolbar__divider {
-  width: 1px;
+  flex: 0 0 2px;
+  width: 2px;
   align-self: stretch;
-  background-color: var(--govuk-border-colour, #b1b4b6);
+  margin: 0 0.5rem;
+  background-color: #505a5f;
 }
 
 .app-richtext-editor {

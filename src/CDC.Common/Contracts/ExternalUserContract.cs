@@ -42,4 +42,7 @@ public abstract record ExternalUserContract
 
     /// <summary>Gets a value indicating whether the user receives review notification emails.</summary>
     public bool SubscribedToReviewEmails { get; init; }
+
+    /// <summary>Gets a value indicating whether the login instructions have been sent to the user's saved email address.</summary>
+    public bool LoginInstructionsSent { get; init; }
 }

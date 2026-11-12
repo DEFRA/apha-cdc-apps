@@ -6,12 +6,6 @@ public sealed class ReviewNotificationsOptions
     /// <summary>Configuration section name.</summary>
     public const string SectionName = "ReviewNotifications";
 
-    /// <summary>Internal home page URL linked from the email; the link is omitted when empty.</summary>
-    public string InternalHomePageUrl { get; set; } = string.Empty;
-
-    /// <summary>Internet-facing home page URL linked from the email; the link is omitted when empty.</summary>
-    public string ExternalHomePageUrl { get; set; } = string.Empty;
-
     /// <summary>When set, every reminder is sent to this address instead of the user's own. For testing only.</summary>
     public string TestRecipient { get; set; } = string.Empty;
 

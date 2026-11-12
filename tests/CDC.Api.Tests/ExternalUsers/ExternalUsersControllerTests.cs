@@ -107,6 +107,54 @@ public class ExternalUsersControllerTests
     }
 
     [Fact]
+    public async Task SendLoginInstructions_SendsCommand_AndReturnsNoContent()
+    {
+        var id = Guid.NewGuid();
+        mediator.Setup(sender => sender.Send(
+                It.Is<SendExternalUserLoginInstructionsCommand>(command => command.Id == id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().SendLoginInstructions(id, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Theory]
+    [InlineData(ResultStatus.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(ResultStatus.Conflict, StatusCodes.Status409Conflict)]
+    [InlineData(ResultStatus.ValidationFailed, StatusCodes.Status400BadRequest)]
+    [InlineData(ResultStatus.DependencyFailed, StatusCodes.Status502BadGateway)]
+    public async Task SendLoginInstructions_MapsEachFailureToItsStatusCode(ResultStatus status, int expectedStatusCode)
+    {
+        Result<Unit> failure = status switch
+        {
+            ResultStatus.NotFound => Result.NotFound<Unit>("failed"),
+            ResultStatus.Conflict => Result.Conflict<Unit>("failed"),
+            ResultStatus.ValidationFailed => Result.ValidationFailed<Unit>("failed"),
+            _ => Result.DependencyFailed<Unit>("failed")
+        };
+        mediator.Setup(sender => sender.Send(It.IsAny<SendExternalUserLoginInstructionsCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(failure);
+
+        var response = await CreateController().SendLoginInstructions(Guid.NewGuid(), CancellationToken.None);
+
+        response.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(expectedStatusCode);
+    }
+
+    [Fact]
+    public async Task SendExternalUserLoginInstructionsCommandHandler_DelegatesToTheService()
+    {
+        var service = new Mock<IExternalUserLoginInstructionsService>(MockBehavior.Strict);
+        var command = new SendExternalUserLoginInstructionsCommand(Guid.NewGuid());
+        service.Setup(s => s.SendAsync(command, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));
+
+        var result = await new SendExternalUserLoginInstructionsCommandHandler(service.Object).Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        service.Verify(s => s.SendAsync(command, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetProfileAccess_ReturnsOk()
     {
         var id = Guid.NewGuid();

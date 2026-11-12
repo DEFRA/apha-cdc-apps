@@ -79,6 +79,27 @@ public sealed class ExternalUsersController(ISender mediator) : ControllerBase
         return result.ToNoContentActionResult(this);
     }
 
+    /// <summary>Emails an external user the instructions for signing in to D2R2, to the address saved on the user.</summary>
+    /// <param name="id">The external user.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="204">The email was sent and the user is now marked as sent.</response>
+    /// <response code="400">The user has no email address.</response>
+    /// <response code="404">No such external user exists.</response>
+    /// <response code="409">The instructions were already sent, or the address changed while sending.</response>
+    /// <response code="502">The email could not be sent; the user stays unsent.</response>
+    [HttpPost("{id:guid}/login-instructions")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult> SendLoginInstructions(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new SendExternalUserLoginInstructionsCommand(id), cancellationToken);
+
+        return result.ToNoContentActionResult(this);
+    }
+
     /// <summary>Gets the profiles an external user can access, and the profiles still available to grant.</summary>
     /// <param name="id">The external user.</param>
     /// <param name="cancellationToken">Cancels the request.</param>

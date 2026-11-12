@@ -70,6 +70,72 @@ public partial class MaintainContributorsIntegrationTests
     }
 
     [Fact]
+    public async Task MaintainContributors_UsesTheLegacyThreeColumnPermissionLayout()
+    {
+        var profileId = Guid.NewGuid();
+        var contributorId = Guid.NewGuid();
+        var contributorRoleId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "African Horse Sickness (AHS)" };
+        var contributors = new PagedResult<ContributorDto>
+        {
+            Items =
+            [
+                new ContributorDto
+                {
+                    Id = contributorId,
+                    UserName = "carrie.batten",
+                    FullName = "Carrie Batten",
+                    Organisation = "Pirbright Institute",
+                    Role = "Technical author"
+                }
+            ],
+            PageNumber = 1,
+            PageSize = 10,
+            TotalRecords = 1
+        };
+        var contributorForEdit = new ContributorEditDto
+        {
+            Id = contributorId,
+            UserName = "carrie.batten",
+            FullName = "Carrie Batten",
+            Organisation = "Pirbright Institute",
+            RoleId = contributorRoleId,
+            IsSsoUser = false,
+            SectionPermissionIds = [Guid.NewGuid()],
+            LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8]
+        };
+        IReadOnlyList<ProfileUserRoleDto> roles =
+        [
+            new() { Id = contributorRoleId, Name = "Technical author", IsContributor = true }
+        ];
+        var metadata = new ProfileQuestionnaireMetadataDto
+        {
+            Sections = [new ProfileSectionMetadataDto { Id = Guid.NewGuid(), Name = "Epidemiology", ShortName = "2.2 summary and prevalence", SectionNumber = 2 }]
+        };
+
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: profile));
+                services.RemoveAll<IProfileContributorsApiService>();
+                services.AddSingleton<IProfileContributorsApiService>(
+                    new FakeProfileContributorsApiService(contributors, contributorForEdit: contributorForEdit, profileUserRoles: roles));
+                services.RemoveAll<IProfileSectionsApiService>();
+                services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
+            }));
+        var client = await factory.SignedInClientAsync();
+
+        var response = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?EditContributorId={contributorId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Contains("app-checkboxes--columns", body);
+        Assert.Contains("app-contributor-permissions", body);
+        Assert.Contains("govuk-checkboxes govuk-checkboxes--small app-contributor-permissions app-checkboxes--columns", body);
+    }
+
+    [Fact]
     public async Task MaintainContributors_RendersTheEmptyState_WhenTheProfileHasNoContributors()
     {
         var profileId = Guid.NewGuid();

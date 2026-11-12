@@ -48,6 +48,7 @@ builder.Services.AddScoped<ReviewNotificationsJob>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<ReviewNotificationsOptions>(builder.Configuration.GetSection(ReviewNotificationsOptions.SectionName));
 builder.Services.Configure<NotifyOptions>(builder.Configuration.GetSection(NotifyOptions.SectionName));
+builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.AddHttpClient<IEmailSender, NotifyEmailSender>();
 
 var app = builder.Build();

@@ -53,6 +53,50 @@ public class ExternalUsersIntegrationTests
         Assert.True(fullNameCell >= 0 && fullNameCell < emailCell && emailCell < organisationCell, "The email is not between the full name and the organisation.");
     }
 
+    [Fact]
+    public async Task ExternalUsers_OffersSendInstructionsUntilTheyAreSent_ThenShowsSent()
+    {
+        var unsentId = Guid.NewGuid();
+        var users = new PagedResult<MaintainedExternalUserDto>
+        {
+            Items =
+            [
+                new MaintainedExternalUserDto { Id = unsentId, UserName = "new.user@example.test", FullName = "New User", LoginInstructionsSent = false },
+                new MaintainedExternalUserDto { Id = Guid.NewGuid(), UserName = "old.user@example.test", FullName = "Old User", LoginInstructionsSent = true }
+            ],
+            PageNumber = 1,
+            PageSize = 10,
+            TotalRecords = 2
+        };
+
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IExternalUsersApiService>();
+                services.AddSingleton<IExternalUsersApiService>(new FakeExternalUsersApiService(users));
+            }));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/UserAdmin/ExternalUsers");
+
+        Assert.Contains(">Login instructions</th>", body, StringComparison.Ordinal);
+        Assert.Equal(1, CountOf(body, "Send instructions<span"));
+        Assert.Contains($"name=\"UserId\" value=\"{unsentId}\"", body, StringComparison.Ordinal);
+        Assert.Contains("handler=SendInstructions", body, StringComparison.Ordinal);
+        Assert.Equal(1, CountOf(body, ">Sent</strong>"));
+    }
+
+    private static int CountOf(string text, string value)
+    {
+        var count = 0;
+        for (var index = text.IndexOf(value, StringComparison.Ordinal); index >= 0; index = text.IndexOf(value, index + value.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
     private sealed class FakeExternalUsersApiService(PagedResult<MaintainedExternalUserDto> users) : IExternalUsersApiService
     {
         public Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
@@ -73,6 +117,9 @@ public class ExternalUsersIntegrationTests
             throw new NotSupportedException();
 
         public Task<bool> DeleteProfileAccessAsync(Guid id, Guid profileId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<ExternalUserAccessResult> SendLoginInstructionsAsync(Guid id, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 }

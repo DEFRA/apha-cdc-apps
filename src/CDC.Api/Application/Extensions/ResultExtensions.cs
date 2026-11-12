@@ -22,30 +22,12 @@ public static class ResultExtensions
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(controller);
 
-        return result.Status switch
+        if (result.IsSuccess)
         {
-            ResultStatus.Success => controller.Ok(result.Value),
-            ResultStatus.NotFound => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Resource not found"),
-            ResultStatus.Conflict => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Conflicting change"),
-            ResultStatus.Forbidden => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status403Forbidden,
-                title: "Not permitted"),
-            ResultStatus.ValidationFailed => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Validation failed"),
-            _ => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Unexpected result")
-        };
+            return controller.Ok(result.Value);
+        }
+
+        return ToProblem(result.Status, result.Error, controller);
     }
 
     /// <summary>
@@ -60,29 +42,39 @@ public static class ResultExtensions
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(controller);
 
-        return result.Status switch
+        if (result.IsSuccess)
         {
-            ResultStatus.Success => controller.NoContent(),
-            ResultStatus.NotFound => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Resource not found"),
-            ResultStatus.Conflict => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Conflicting change"),
-            ResultStatus.Forbidden => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status403Forbidden,
-                title: "Not permitted"),
-            ResultStatus.ValidationFailed => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Validation failed"),
-            _ => controller.Problem(
-                detail: result.Error,
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: "Unexpected result")
-        };
+            return controller.NoContent();
+        }
+
+        return ToProblem(result.Status, result.Error, controller);
     }
+
+    private static ObjectResult ToProblem(ResultStatus status, string? error, ControllerBase controller) => status switch
+    {
+        ResultStatus.NotFound => controller.Problem(
+            detail: error,
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Resource not found"),
+        ResultStatus.Conflict => controller.Problem(
+            detail: error,
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Conflicting change"),
+        ResultStatus.Forbidden => controller.Problem(
+            detail: error,
+            statusCode: StatusCodes.Status403Forbidden,
+            title: "Not permitted"),
+        ResultStatus.ValidationFailed => controller.Problem(
+            detail: error,
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Validation failed"),
+        ResultStatus.DependencyFailed => controller.Problem(
+            detail: error,
+            statusCode: StatusCodes.Status502BadGateway,
+            title: "A dependent service failed"),
+        _ => controller.Problem(
+            detail: error,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Unexpected result")
+    };
 }

@@ -116,6 +116,23 @@ public class ExternalUsersModelTests
             DeletedProfileId = profileId;
             return Task.FromResult(DeleteSucceeds);
         }
+
+        public ExternalUserAccessResult SendInstructionsResult { get; init; } = new(true, null);
+
+        public Exception? ThrowOnSendInstructions { get; init; }
+
+        public Guid? InstructionsSentTo { get; private set; }
+
+        public Task<ExternalUserAccessResult> SendLoginInstructionsAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnSendInstructions is not null)
+            {
+                throw ThrowOnSendInstructions;
+            }
+
+            InstructionsSentTo = id;
+            return Task.FromResult(SendInstructionsResult);
+        }
     }
 
     private sealed class FakeTempDataProvider : ITempDataProvider
@@ -753,6 +770,54 @@ public class ExternalUsersModelTests
         await model.OnGetAsync(CancellationToken.None);
 
         Assert.Single(model.Users);
+    }
+
+    [Fact]
+    public async Task OnPostSendInstructions_SendsToTheUser_AndRedirectsBackToTheSameListPositionWithASuccessMessage()
+    {
+        var api = new FakeExternalUsersApiService();
+        var model = CreatePageModel(api);
+        var userId = Guid.NewGuid();
+        model.UserId = userId;
+        model.PageNumber = 3;
+        model.PageSize = "20";
+
+        var result = await model.OnPostSendInstructionsAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(userId, api.InstructionsSentTo);
+        Assert.Equal("Login instructions sent", model.SuccessMessage);
+        Assert.Null(model.SendInstructionsError);
+        Assert.Equal(3, redirect.RouteValues!["PageNumber"]);
+        Assert.Equal("20", redirect.RouteValues["PageSize"]);
+    }
+
+    [Fact]
+    public async Task OnPostSendInstructions_ShowsTheApiMessage_WhenTheInstructionsCannotBeSent()
+    {
+        var api = new FakeExternalUsersApiService { SendInstructionsResult = new ExternalUserAccessResult(false, "The login instructions have already been sent to this user.") };
+        var model = CreatePageModel(api);
+
+        var result = await model.OnPostSendInstructionsAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("The login instructions have already been sent to this user.", model.SendInstructionsError);
+        Assert.Null(model.SuccessMessage);
+    }
+
+    [Theory]
+    [InlineData(typeof(HttpRequestException))]
+    [InlineData(typeof(TaskCanceledException))]
+    public async Task OnPostSendInstructions_ShowsAGenericError_WhenTheApiCannotBeReached(Type exceptionType)
+    {
+        var api = new FakeExternalUsersApiService { ThrowOnSendInstructions = (Exception)Activator.CreateInstance(exceptionType)! };
+        var model = CreatePageModel(api);
+
+        var result = await model.OnPostSendInstructionsAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("We could not send the login instructions. Try again later.", model.SendInstructionsError);
+        Assert.Null(model.SuccessMessage);
     }
 
     [Fact]
