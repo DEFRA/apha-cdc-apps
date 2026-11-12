@@ -32,4 +32,23 @@ public interface IExternalUsersRepository
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>A task that completes when the user is saved.</returns>
     Task SaveExternalUserAsync(ExternalUserAccount user, CancellationToken cancellationToken);
+
+    /// <summary>Gets the identifiers of the external users whose login instructions have not been sent yet.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The identifiers of the users still awaiting their instructions.</returns>
+    Task<IReadOnlySet<Guid>> GetUsersAwaitingLoginInstructionsAsync(CancellationToken cancellationToken);
+
+    /// <summary>Gets one external user's login instructions details.</summary>
+    /// <param name="userId">The external user.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The details, or <see langword="null"/> when the user is not an external user.</returns>
+    Task<ExternalUserLoginRecipient?> GetLoginRecipientAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Records that the login instructions were sent to an email address.</summary>
+    /// <param name="userId">The external user.</param>
+    /// <param name="emailAddress">The address the instructions were sent to.</param>
+    /// <param name="sentDate">When the instructions were sent, in UTC.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns><see langword="false"/> when the user's saved address is no longer <paramref name="emailAddress"/>, so nothing was recorded.</returns>
+    Task<bool> MarkLoginInstructionsSentAsync(Guid userId, string emailAddress, DateTime sentDate, CancellationToken cancellationToken);
 }

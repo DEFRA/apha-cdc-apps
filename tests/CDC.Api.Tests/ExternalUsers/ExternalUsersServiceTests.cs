@@ -32,9 +32,15 @@ public class ExternalUsersServiceTests
         SsoUserId = Guid.NewGuid()
     };
 
+    private void SetupAwaitingInstructions(params Guid[] userIds) =>
+        repository
+            .Setup(repo => repo.GetUsersAwaitingLoginInstructionsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userIds.ToHashSet());
+
     [Fact]
     public async Task GetExternalUsersAsync_ReturnsOnlyThatPage_WithSubscriptionState()
     {
+        SetupAwaitingInstructions();
         repository
             .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User("a", true), User("b", false), User("c", true)]);
@@ -47,8 +53,25 @@ public class ExternalUsersServiceTests
     }
 
     [Fact]
+    public async Task GetExternalUsersAsync_MarksOnlyTheUsersStillAwaitingInstructionsAsNotSent()
+    {
+        var awaiting = User("new", false);
+        var sent = User("old", false);
+        SetupAwaitingInstructions(awaiting.Id);
+        repository
+            .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([awaiting, sent]);
+
+        var result = await CreateService().GetExternalUsersAsync(1, 0, ExternalUserSortColumn.None, sortDescending: false, CancellationToken.None);
+
+        result.Items.Single(user => user.UserName == "new").LoginInstructionsSent.Should().BeFalse();
+        result.Items.Single(user => user.UserName == "old").LoginInstructionsSent.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetExternalUsersAsync_ReturnsTheEmailAddressOfEachUser()
     {
+        SetupAwaitingInstructions();
         repository
             .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([User("a", true) with { EmailAddress = "jo.smith@example.test" }]);
@@ -69,6 +92,7 @@ public class ExternalUsersServiceTests
     [InlineData(ExternalUserSortColumn.None, true, new[] { "b", "c", "a" })]
     public async Task GetExternalUsersAsync_SortsBeforePaging(ExternalUserSortColumn column, bool descending, string[] expectedOrder)
     {
+        SetupAwaitingInstructions();
         repository
             .Setup(repo => repo.GetExternalUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(
