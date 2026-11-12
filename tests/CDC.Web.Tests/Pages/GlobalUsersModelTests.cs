@@ -55,6 +55,9 @@ public class GlobalUsersModelTests
                 });
         }
 
+        public Task<IReadOnlyList<GlobalUserDto>> GetRoleHoldersAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken = default) =>
             ThrowOnActions ? Task.FromException<GlobalUserLookupResult>(new HttpRequestException("boom")) : Task.FromResult(Lookup);
 

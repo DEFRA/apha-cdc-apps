@@ -42,6 +42,7 @@ There is no journal table, so track what has been run here:
 | 0080-IndexProfileVersionCloneAndDelete.sql | Y | | | |
 | 0081-SpeedUpPrioritisationScore.sql (run after 0080) | Y | | | |
 | 0082-AddUserLoginInstructionsSent.sql (run before deploying the CDC.Api that sends external user login instructions) | | | | |
+| 0083-CreateUserListProcedures.sql (run before deploying the CDC.Api that lists Global and External users by `SsoUserIdInt` / `SsoUserIdExt`) | Y | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by
@@ -67,6 +68,14 @@ variables (weightings, scores, ranking range) have changed since, and otherwise 
 data was rebuilt or deleted, which leaves the table exactly as a full rebuild would; `sppPrioritisationCalculation` and
 `spdProfileVersionSpecies` write the same rows as before and invalidate the version's scores. The first publish or prioritisation
 after 0081 therefore still takes the 1.5 seconds of a full rebuild once. Run 0080 before 0081.
+
+0083 only adds procedures, so the legacy site and the previous CDC.Api are unaffected, but the CDC.Api that calls them needs it. It
+lists Global users as the users with `[SsoUserIdInt]` set (`spgaInternalUser`) and External users as the users with `[SsoUserIdExt]`
+set (`spgaExternalUserMaintenance`, which also returns their profile access, and `spuExternalUserSubscribedToReviewEmails`, which
+saves the review email subscription by `[Id]`). The legacy `spgaGlobalUser` (users holding a global role) and `spgaSsoUserMaintenance`
+(users with the legacy `[SsoUserId]`) are not changed; CDC.Api still calls `spgaGlobalUser` for the Disease Reviews author list. A
+user is listed only once the column is filled in, that is after their first Entra ID or CIDM sign-in, so an external user pre-registered
+on Maintain external users, or a global user added on Maintain global users, is not listed until they have signed in.
 
 If this grows to the point where manually tracking applied scripts becomes error-prone, introduce
 a proper migration tool (e.g. DbUp) pointed at this same `Scripts` folder rather than changing how

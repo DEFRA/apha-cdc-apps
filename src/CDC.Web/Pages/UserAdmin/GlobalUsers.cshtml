@@ -132,8 +132,8 @@
                                 <a class="govuk-link" href="@Model.BuildEditUrl(user.Id)">Edit<span class="govuk-visually-hidden"> @user.FullName</span></a>
                             </td>
                             <td class="govuk-table__cell">
-                                @* A profile editor cannot delete themselves, as their session would outlive their access. *@
-                                @if (!Model.IsCurrentUser(user.Id))
+                                @* A profile editor cannot delete themselves, as their session would outlive their access. A user with no global role has nothing to revoke. *@
+                                @if (!Model.IsCurrentUser(user.Id) && user.Role != GlobalUserRole.None)
                                 {
                                     <button type="button" class="govuk-link app-link-button" data-confirm-target="#delete-global-user-@user.Id">Delete<span class="govuk-visually-hidden"> @user.FullName</span></button>
                                     <dialog class="app-modal" id="delete-global-user-@user.Id" aria-labelledby="delete-global-user-@(user.Id)-title">

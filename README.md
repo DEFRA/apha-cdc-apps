@@ -178,7 +178,8 @@ dotnet test tests/CDC.Api.Tests --filter "FullyQualifiedName~ReviewNotifications
 
 ## External user login instructions (CDC.Api)
 
-On *Maintain external users*, a newly added external user shows **Send instructions** until the email is sent, then
+On *Maintain external users*, which lists the users linked to a CIDM identity (`SsoUserIdExt` set, so a user added there is
+listed only once they have signed in; script `0083`), an external user shows **Send instructions** until the email is sent, then
 **Sent**. The email goes through the same GOV.UK Notify sender as the review reminders, to the address saved on the
 user. It uses the Notify template `8c79693e-ad6e-4bc1-9b86-0b656b55b7de` (fixed in code, the same in every
 environment), which holds the subject and all the text and takes two placeholders: `((name))`, the user's full name, and

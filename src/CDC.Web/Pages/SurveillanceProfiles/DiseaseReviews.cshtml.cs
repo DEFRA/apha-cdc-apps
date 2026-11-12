@@ -1,5 +1,4 @@
 using System.Globalization;
-using CDC.Common.Contracts;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
@@ -183,8 +182,8 @@ public class DiseaseReviewsModel(
     {
         try
         {
-            // A page size of 0 asks for every user on one page.
-            Authors = (await globalUsersApiService.GetGlobalUsersAsync(1, 0, GlobalUserSortColumn.FullName, false, cancellationToken)).Items;
+            // The users who hold a global role, not the Global users list: a reviewer need not have signed in through Entra ID.
+            Authors = await globalUsersApiService.GetRoleHoldersAsync(cancellationToken);
 
             return true;
         }

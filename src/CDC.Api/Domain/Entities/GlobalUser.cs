@@ -3,7 +3,8 @@ using CDC.Common.Contracts;
 namespace CDC.Api.Domain.Entities;
 
 /// <summary>
-/// A user holding a global system role, as read from <c>spgaGlobalUser</c>/<c>spgUser</c>.
+/// A user the Global users screen lists, with their global system role (if any), as read from
+/// <c>spgaInternalUser</c>/<c>spgaGlobalUser</c>/<c>spgUser</c>.
 /// </summary>
 public sealed record GlobalUser
 {

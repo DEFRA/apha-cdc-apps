@@ -116,6 +116,19 @@ public class GlobalUsersServiceTests
     }
 
     [Fact]
+    public async Task GetUsersWithGlobalRoleAsync_ReturnsEveryUserByFullName()
+    {
+        repository
+            .Setup(repo => repo.GetUsersWithGlobalRoleAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([User(@"D\c"), User(@"D\a", GlobalUserRole.PolicyProfileUser), User(@"D\b")]);
+
+        var result = await CreateService().GetUsersWithGlobalRoleAsync(CancellationToken.None);
+
+        result.Select(user => user.UserName).Should().Equal(@"D\a", @"D\b", @"D\c");
+        result[0].Role.Should().Be(GlobalUserRole.PolicyProfileUser);
+    }
+
+    [Fact]
     public async Task LookupAsync_ReturnsExistingUserDetails()
     {
         var user = User(@"DEFRA\jsmith", GlobalUserRole.PolicyProfileUser);

@@ -34,4 +34,7 @@ internal static partial class GlobalUsersLog
 
     [LoggerMessage(EventId = 1408, Level = LogLevel.Information, Message = "Revoked global role for user {UserId}")]
     public static partial void RevokedGlobalUser(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 1409, Level = LogLevel.Information, Message = "Retrieved {UserCount} users holding a global role")]
+    public static partial void RetrievedUsersWithGlobalRole(this ILogger logger, int userCount);
 }

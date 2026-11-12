@@ -40,6 +40,10 @@ public sealed class GlobalUsersApiService(HttpClient httpClient) : IGlobalUsersA
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<GlobalUserDto>> GetRoleHoldersAsync(CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<List<GlobalUserDto>>($"{BaseRoute}/role-holders", cancellationToken) ?? [];
+
+    /// <inheritdoc />
     public async Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken = default)
     {
         var url = QueryHelpers.AddQueryString($"{BaseRoute}/lookup", "userName", userName);

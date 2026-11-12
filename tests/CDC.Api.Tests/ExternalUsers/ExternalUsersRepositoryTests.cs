@@ -11,7 +11,7 @@ namespace CDC.Api.Tests.ExternalUsers;
 
 public class ExternalUsersRepositoryTests : IDisposable
 {
-    private static readonly string[] UserColumns = ["Id", "UserName", "FullName", "EmailAddress", "Organisation", "SubscribedToReviewEmails", "SsoUserId"];
+    private static readonly string[] UserColumns = ["Id", "UserName", "FullName", "EmailAddress", "Organisation", "SubscribedToReviewEmails"];
     private static readonly string[] ProfileColumns = ["Id", "Title"];
     private static readonly string[] GrantColumns = ["UserId", "ProfileId", "Title", "RoleId", "RoleName", "IsContributor"];
     private static readonly string[] SectionColumns = ["UserId", "ProfileId", "SectionId"];
@@ -38,18 +38,16 @@ public class ExternalUsersRepositoryTests : IDisposable
         FullName = "Jo Smith",
         EmailAddress = "jo@example.test",
         Organisation = "APHA",
-        SubscribedToReviewEmails = true,
-        SsoUserId = Guid.NewGuid()
+        SubscribedToReviewEmails = true
     };
 
     [Fact]
     public async Task GetExternalUsersAsync_MapsEveryUserRow()
     {
         var id = Guid.NewGuid();
-        var ssoId = Guid.NewGuid();
-        connection.Script("spgaSsoUserMaintenance", new FakeCommandScript
+        connection.Script("spgaExternalUserMaintenance", new FakeCommandScript
         {
-            ResultSets = [new FakeResultSet(UserColumns, [[id, "jsmith", "Jo Smith", "jo@example.test", "APHA", true, ssoId]])]
+            ResultSets = [new FakeResultSet(UserColumns, [[id, "jsmith", "Jo Smith", "jo@example.test", "APHA", true]])]
         });
 
         var users = await CreateRepository().GetExternalUsersAsync(CancellationToken.None);
@@ -61,14 +59,13 @@ public class ExternalUsersRepositoryTests : IDisposable
         user.EmailAddress.Should().Be("jo@example.test");
         user.Organisation.Should().Be("APHA");
         user.SubscribedToReviewEmails.Should().BeTrue();
-        user.SsoUserId.Should().Be(ssoId);
         connection.Executed.Should().ContainSingle().Which.CommandType.Should().Be(CommandType.StoredProcedure);
     }
 
     [Fact]
     public async Task GetExternalUsersAsync_Throws_WhenTheDatabaseFails()
     {
-        connection.Script("spgaSsoUserMaintenance", new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script("spgaExternalUserMaintenance", new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetExternalUsersAsync(CancellationToken.None);
 
@@ -84,7 +81,7 @@ public class ExternalUsersRepositoryTests : IDisposable
         var availableId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
         var sectionId = Guid.NewGuid();
-        connection.Script("spgaSsoUserMaintenance", new FakeCommandScript
+        connection.Script("spgaExternalUserMaintenance", new FakeCommandScript
         {
             ResultSets =
             [
@@ -122,7 +119,7 @@ public class ExternalUsersRepositoryTests : IDisposable
     public async Task GetProfileAccessAsync_ReturnsNoGrants_WhenOnlyTheProfileResultSetIsReturned()
     {
         var profileId = Guid.NewGuid();
-        connection.Script("spgaSsoUserMaintenance", new FakeCommandScript
+        connection.Script("spgaExternalUserMaintenance", new FakeCommandScript
         {
             ResultSets =
             [
@@ -140,7 +137,7 @@ public class ExternalUsersRepositoryTests : IDisposable
     [Fact]
     public async Task GetProfileAccessAsync_Throws_WhenTheDatabaseFails()
     {
-        connection.Script("spgaSsoUserMaintenance", new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script("spgaExternalUserMaintenance", new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetProfileAccessAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -148,20 +145,18 @@ public class ExternalUsersRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveExternalUserAsync_PassesEveryParameter()
+    public async Task SaveExternalUserAsync_SavesTheSubscriptionByUserId()
     {
-        connection.Script("spiSsoUser", new FakeCommandScript());
+        connection.Script("spuExternalUserSubscribedToReviewEmails", new FakeCommandScript());
         var user = User();
 
         await CreateRepository().SaveExternalUserAsync(user, CancellationToken.None);
 
         var recorded = connection.Executed.Should().ContainSingle().Subject;
-        recorded.Parameters["UserName"].Should().Be("jsmith");
-        recorded.Parameters["FullName"].Should().Be("Jo Smith");
-        recorded.Parameters["EmailAddress"].Should().Be("jo@example.test");
-        recorded.Parameters["Organisation"].Should().Be("APHA");
-        recorded.Parameters["SubscribedToEmails"].Should().Be(true);
-        recorded.Parameters["SsoUserId"].Should().Be(user.SsoUserId);
+        recorded.CommandType.Should().Be(CommandType.StoredProcedure);
+        recorded.Parameters["Id"].Should().Be(user.Id);
+        recorded.Parameters["SubscribedToReviewEmails"].Should().Be(true);
+        recorded.Parameters.Should().HaveCount(2);
     }
 
     [Fact]
@@ -175,7 +170,7 @@ public class ExternalUsersRepositoryTests : IDisposable
     [Fact]
     public async Task SaveExternalUserAsync_Rethrows_WhenTheDatabaseFails()
     {
-        connection.Script("spiSsoUser", new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script("spuExternalUserSubscribedToReviewEmails", new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().SaveExternalUserAsync(User(), CancellationToken.None);
 
