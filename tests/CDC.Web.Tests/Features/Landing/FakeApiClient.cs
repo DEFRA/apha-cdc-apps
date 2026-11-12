@@ -118,6 +118,9 @@ internal sealed class FakeApiClient( // NOSONAR
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
 
+    public Task<UserLookupResult> LookUpUserByEmailAsync(UserLookupKind kind, string emailAddress, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new UserLookupResult(UserLookupOutcome.Error, null));
+
     public Task<IReadOnlyList<ProfileStatusTypeDto>> GetProfileStatusTypesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_profileStatusTypes);
 

@@ -1,0 +1,18 @@
+@using System.Globalization
+@using CDC.Web.Features.LoadTesting
+@model ILoadTestingStatus
+@{
+    var until = Model.ExpiresAtUtc?.UtcDateTime.ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+}
+
+<div class="govuk-warning-text">
+    <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+    <strong class="govuk-warning-text__text">
+        <span class="govuk-visually-hidden">Warning</span>
+        Load testing is on: signing in skips Entra ID and CIDM.
+        @if (until is not null)
+        {
+            <text>It switches itself off at @until UTC.</text>
+        }
+    </strong>
+</div>

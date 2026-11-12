@@ -12,6 +12,8 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
 {
     public List<(string? Scheme, AuthenticationProperties? Properties)> SignOutCalls { get; } = [];
 
+    public List<(string? Scheme, System.Security.Claims.ClaimsPrincipal Principal)> SignInCalls { get; } = [];
+
     public IEnumerable<string?> SignOutSchemes => SignOutCalls.Select(call => call.Scheme);
 
     /// <summary>Creates an accessor to a request that signs in and out through a new fake, for code that reaches the request that way.</summary>
@@ -39,8 +41,11 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
     public Task ForbidAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) =>
         Task.CompletedTask;
 
-    public Task SignInAsync(HttpContext context, string? scheme, System.Security.Claims.ClaimsPrincipal principal, AuthenticationProperties? properties) =>
-        Task.CompletedTask;
+    public Task SignInAsync(HttpContext context, string? scheme, System.Security.Claims.ClaimsPrincipal principal, AuthenticationProperties? properties)
+    {
+        SignInCalls.Add((scheme, principal));
+        return Task.CompletedTask;
+    }
 
     public Task SignOutAsync(HttpContext context, string? scheme, AuthenticationProperties? properties)
     {

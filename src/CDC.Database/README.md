@@ -41,7 +41,7 @@ There is no journal table, so track what has been run here:
 | 0079-SpeedUpSpgaProfileSpeciesSort.sql | Y | | | |
 | 0080-IndexProfileVersionCloneAndDelete.sql | Y | | | |
 | 0081-SpeedUpPrioritisationScore.sql (run after 0080) | Y | | | |
-| 0082-AddUserLoginInstructionsSent.sql (run before deploying the CDC.Api that sends external user login instructions) | | | | |
+| 0082-AddUserLoginInstructionsSent.sql (run before deploying the CDC.Api that sends external user login instructions) | Y | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by

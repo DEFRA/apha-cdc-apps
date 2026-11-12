@@ -414,4 +414,126 @@ public class UserServiceTests
 
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
+
+    private static LookUpUserByEmailCommand LookUp(UserLookupKind kind, string emailAddress = "user@example.com") => new()
+    {
+        EmailAddress = emailAddress,
+        Kind = kind
+    };
+
+    private void GivenEmailAddressIsHeldBy(params ExternalUser[] users) =>
+        repository
+            .Setup(repo => repo.FindByEmailAddressAsync("user@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(users);
+
+    [Fact]
+    public async Task LookUpByEmailAsync_ReturnsNotFound_WhenNoUserHoldsTheAddress()
+    {
+        GivenEmailAddressIsHeldBy();
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.Internal), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Theory]
+    [InlineData(UserLookupKind.Internal)]
+    [InlineData(UserLookupKind.External)]
+    public async Task LookUpByEmailAsync_ReturnsConflict_WhenSeveralUsersHoldTheAddress(UserLookupKind kind)
+    {
+        GivenEmailAddressIsHeldBy(ExistingUser(SsoUserId), ExistingUser(SsoUserId) with { Id = Guid.NewGuid() });
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(kind), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Conflict);
+    }
+
+    [Fact]
+    public async Task LookUpByEmailAsync_TrimsTheAddressBeforeLookingItUp()
+    {
+        var user = ExistingUser(ssoUserId: null);
+        GivenEmailAddressIsHeldBy(user);
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.Internal, "  user@example.com "), CancellationToken.None);
+
+        result.Value.Should().BeSameAs(user);
+    }
+
+    [Fact]
+    public async Task LookUpByEmailAsync_ReturnsAnInternalUser_ForAnInternalSignIn()
+    {
+        var user = ExistingUser(ssoUserId: null) with { SsoUserIdInt = SsoUserIdInt, IsProfileEditor = true };
+        GivenEmailAddressIsHeldBy(user);
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.Internal), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(user);
+    }
+
+    [Fact]
+    public async Task LookUpByEmailAsync_ReturnsForbidden_WhenAnExternalUserIsAskedForAnInternalSignIn()
+    {
+        GivenEmailAddressIsHeldBy(ExistingUser(SsoUserId));
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.Internal), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Forbidden);
+        result.Error.Should().NotContain("user@example.com");
+    }
+
+    [Fact]
+    public async Task LookUpByEmailAsync_ReturnsAnExternalUser_ForAnExternalSignIn()
+    {
+        var user = ExistingUser(SsoUserId);
+        GivenEmailAddressIsHeldBy(user);
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.External), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(user);
+    }
+
+    [Fact]
+    public async Task LookUpByEmailAsync_ReturnsAnInternalProfileEditor_ForAnExternalSignIn()
+    {
+        var user = ExistingUser(ssoUserId: null) with { SsoUserIdInt = SsoUserIdInt, IsProfileEditor = true };
+        GivenEmailAddressIsHeldBy(user);
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.External), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeSameAs(user);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public async Task LookUpByEmailAsync_ReturnsForbidden_WhenAnInternalUserWhoIsNotAProfileEditorIsAskedForAnExternalSignIn(bool hasSsoUserIdInt, bool isProfileEditor)
+    {
+        // An internal row that is not a profile editor, or that has never signed in through Entra ID, has no way in through CIDM either.
+        var user = ExistingUser(ssoUserId: null) with
+        {
+            SsoUserIdInt = hasSsoUserIdInt ? SsoUserIdInt : null,
+            IsProfileEditor = isProfileEditor
+        };
+        GivenEmailAddressIsHeldBy(user);
+
+        var result = await CreateService().LookUpByEmailAsync(LookUp(UserLookupKind.External), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Forbidden);
+    }
+
+    [Fact]
+    public async Task LookUpByEmailAsync_Throws_WhenCommandIsNull()
+    {
+        var act = async () => await CreateService().LookUpByEmailAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
 }

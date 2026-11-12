@@ -2,9 +2,11 @@
 <html lang="en" class="govuk-template">
 @using CDC.Auth.Cidm
 @using CDC.Auth.Cidm.Options
+@using CDC.Web.Features.LoadTesting
 @using Microsoft.Extensions.Options
 @inject IOptions<CidmOptions> CidmOptionsAccessor
 @inject IUserDisplayNameService UserDisplayNameService
+@inject ILoadTestingStatus LoadTestingStatus
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -61,6 +63,10 @@
     </header>
 
     <div class="govuk-width-container">
+        @if (LoadTestingStatus.IsActive)
+        {
+            <partial name="_LoadTestingBanner" model="LoadTestingStatus" />
+        }
         <div class="app-banner-row">
             <span class="app-tooltip" data-module="app-tooltip">
                 <a class="app-banner-row__logo-link"
