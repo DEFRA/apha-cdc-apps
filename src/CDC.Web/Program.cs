@@ -97,7 +97,8 @@ builder.Services.AddHttpClient<ISpeciesApiService, SpeciesApiService>(client =>
     client.BaseAddress = apiBaseUri;
 })
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
-    .AddStandardResilienceHandler();
+    // A retried move re-applies a non-idempotent change, swapping the species straight back.
+    .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
 
 // Creates and updates profiles from the Profile properties page. Writes are not retried: an
 // attempt can succeed and still time out, and replaying a create would fail on the profile id the
