@@ -195,7 +195,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
 
         if (userName.Length == 0)
         {
-            FieldErrors = new Dictionary<string, string> { [UserNameField] = "Enter a username." };
+            FieldErrors = new Dictionary<string, string> { [UserNameField] = "Please enter a username" };
             return Page();
         }
 
@@ -389,7 +389,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
 
         if (Role is not (GlobalUserRole.ProfileEditor or GlobalUserRole.PolicyProfileUser))
         {
-            errors["Role"] = "Select a role.";
+            errors["Role"] = "Please select a valid role";
         }
         else if (IsEditingSelf && Role != GlobalUserRole.ProfileEditor)
         {
@@ -398,7 +398,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
 
         if (string.IsNullOrWhiteSpace(FullName))
         {
-            errors["FullName"] = "Enter a full name.";
+            errors["FullName"] = "Please enter a full name";
         }
         else if (FullName.Trim().Length > NameMaxLength)
         {
@@ -407,7 +407,7 @@ public class GlobalUsersModel : BreadcrumbPageModelBase
 
         if (string.IsNullOrWhiteSpace(Organisation))
         {
-            errors["Organisation"] = "Enter an organisation.";
+            errors["Organisation"] = "Please enter an organisation";
         }
         else if (Organisation.Trim().Length > NameMaxLength)
         {

@@ -191,6 +191,10 @@
                         <p id="UserName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @lookupError</p>
                     }
                     <input class="govuk-input govuk-input--width-20 @(lookupError is null ? null : "govuk-input--error")" id="UserName" name="UserName" type="text" maxlength="50" value="@Model.UserName" spellcheck="false" autocomplete="off" aria-describedby="@(lookupError is null ? null : "UserName-error")" />
+                    @if (lookupError is not null)
+                    {
+                        <span class="app-validator-marker" title="@lookupError" aria-hidden="true">*</span>
+                    }
                     <div class="govuk-!-margin-top-3">
                         <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Look up</button>
                     </div>
@@ -259,6 +263,10 @@
                                     <option value="@((int)GlobalUserRole.PolicyProfileUser)" selected="@(Model.Role == GlobalUserRole.PolicyProfileUser ? "selected" : null)">@GlobalUserRole.PolicyProfileUser.ToDisplayName()</option>
                                 </select>
                             }
+                            @if (roleError is not null)
+                            {
+                                <span class="app-validator-marker" title="@roleError" aria-hidden="true">*</span>
+                            }
                             </div>
                         </div>
 
@@ -270,6 +278,10 @@
                                     <p id="FullName-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @fullNameError</p>
                                 }
                                 <input class="govuk-input govuk-input--width-20 @(fullNameError is null ? null : "govuk-input--error")" id="FullName" name="FullName" type="text" maxlength="100" value="@Model.FullName" aria-describedby="@(fullNameError is null ? null : "FullName-error")" />
+                                @if (fullNameError is not null)
+                                {
+                                    <span class="app-validator-marker" title="@fullNameError" aria-hidden="true">*</span>
+                                }
                             </div>
                         </div>
 
@@ -281,6 +293,10 @@
                                     <p id="Organisation-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @organisationError</p>
                                 }
                                 <input class="govuk-input govuk-input--width-20 @(organisationError is null ? null : "govuk-input--error")" id="Organisation" name="Organisation" type="text" maxlength="100" value="@Model.Organisation" aria-describedby="@(organisationError is null ? null : "Organisation-error")" />
+                                @if (organisationError is not null)
+                                {
+                                    <span class="app-validator-marker" title="@organisationError" aria-hidden="true">*</span>
+                                }
                             </div>
                         </div>
 
