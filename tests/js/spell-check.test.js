@@ -415,13 +415,13 @@ describe('spell-check', () => {
   });
 
   describe('Undo', () => {
-    it('is not available until something has been done', async () => {
+    it('is available even before anything has been done', async () => {
       serve({ misspelt: ['cattel'], suggestions: { cattel: ['cattle'] } });
       textarea('cattel');
 
       await openAtWord('cattel');
 
-      expect(action('undo').disabled).toBe(true);
+      expect(action('undo').disabled).toBe(false);
     });
 
     it('takes back the last change and returns to the word', async () => {
@@ -436,7 +436,7 @@ describe('spell-check', () => {
       await atWord('cattel');
 
       expect(part('context').textContent).toBe('The cattel and the fiel');
-      expect(action('undo').disabled).toBe(true);
+      expect(action('undo').disabled).toBe(false);
     });
 
     it('takes back a Change All in one step', async () => {
@@ -451,7 +451,7 @@ describe('spell-check', () => {
       await atWord('cattel');
 
       expect(part('context').textContent).toBe('cattel and cattel and fiel');
-      expect(action('undo').disabled).toBe(true);
+      expect(action('undo').disabled).toBe(false);
     });
 
     it('takes back an Ignore All, so that its words come up again', async () => {

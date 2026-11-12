@@ -66,8 +66,25 @@ public static class ProfileSectionTabs
     /// <summary>Formats a section's short name for its tab, matching legacy <c>FormattedShortName</c>.</summary>
     /// <param name="shortName">The section's short name.</param>
     /// <returns>The short name with only its first letter capitalised and " and " shown as " &amp; ".</returns>
-    public static string FormatShortName(string shortName) =>
-        string.IsNullOrEmpty(shortName)
-            ? string.Empty
-            : string.Concat(shortName[..1], shortName[1..].ToLowerInvariant().Replace(" and ", " & ", StringComparison.Ordinal));
+    public static string FormatShortName(string shortName)
+    {
+        if (string.IsNullOrWhiteSpace(shortName))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = shortName.Trim();
+
+        if (trimmed.Length == 1)
+        {
+            return trimmed;
+        }
+
+        var firstChar = trimmed[0];
+        var rest = trimmed[1..].ToLowerInvariant().Replace(" and ", " & ", StringComparison.Ordinal);
+
+        return char.IsLetter(firstChar)
+            ? string.Concat(char.ToUpperInvariant(firstChar), rest)
+            : string.Concat(firstChar, rest);
+    }
 }
