@@ -5,6 +5,7 @@ using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Pages.UserAdmin;
+using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -73,22 +74,6 @@ public class GlobalUsersModelTests
         {
             DeletedId = id;
             return ThrowOnActions ? Task.FromException<GlobalUserActionResult>(new HttpRequestException("boom")) : Task.FromResult(ActionResult);
-        }
-    }
-
-    private sealed class FakeGraphClient : IGraphClient
-    {
-        public GraphUser? User { get; init; } = new("id-1", "newuser", null, "  New", "User  ");
-
-        public bool Throw { get; init; }
-
-        public string? RequestedSamAccountName { get; private set; }
-
-        public Task<GraphUser?> FindUserBySamAccountNameAsync(string samAccountName, CancellationToken cancellationToken)
-        {
-            RequestedSamAccountName = samAccountName;
-
-            return Throw ? Task.FromException<GraphUser?>(new GraphException("down")) : Task.FromResult(User);
         }
     }
 

@@ -220,6 +220,99 @@ public class InternalUserResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_UsesTheDirectoryEmployeeId_WhenTheTokenHasNoAccountClaims()
+    {
+        var principal = CreatePrincipal(samAccountName: null, domainName: null);
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var graph = new FakeGraphClient { EmployeeId = "12345" };
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, graphClient: graph).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.Equal(SsoUserIdInt, graph.RequestedObjectId);
+        Assert.Equal(@"DEMETER\12345", apiClient.LastRequest!.UserName);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_PrefersTheDirectoryEmployeeId_ToABareAccountName()
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var graph = new FakeGraphClient { EmployeeId = "12345" };
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, graphClient: graph)
+            .ResolveAsync(CreatePrincipal(domainName: null), CancellationToken.None);
+
+        Assert.Equal(@"DEMETER\12345", apiClient.LastRequest!.UserName);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DoesNotQueryTheDirectory_WhenTheTokenGivesADomainQualifiedName()
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var graph = new FakeGraphClient { EmployeeId = "12345" };
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, graphClient: graph).ResolveAsync(CreatePrincipal(), CancellationToken.None);
+
+        Assert.Null(graph.RequestedObjectId);
+        Assert.Equal(@"DEFRA\jdoe", apiClient.LastRequest!.UserName);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_KeepsTheBareAccountName_WhenTheDirectoryHasNoEmployeeId()
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var graph = new FakeGraphClient();
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, graphClient: graph)
+            .ResolveAsync(CreatePrincipal(domainName: null), CancellationToken.None);
+
+        Assert.Equal("jdoe", apiClient.LastRequest!.UserName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    [InlineData(@"12\34")]
+    public async Task ResolveAsync_DeniesWithoutCallingApi_WhenTheDirectoryEmployeeIdIsMissingOrUnusable(string? employeeId)
+    {
+        var principal = CreatePrincipal(samAccountName: null, domainName: null);
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
+
+        var resolution = await new InternalUserResolver(apiClient, logger, graphClient: new FakeGraphClient { EmployeeId = employeeId }).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
+        Assert.Null(apiClient.LastRequest);
+        Assert.Contains(logger.Messages, message => message.Contains("No usable employee id", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DeniesAndLogs_WhenTheDirectoryLookupFailsAndTheTokenHasNoAccountName()
+    {
+        var principal = CreatePrincipal(samAccountName: null, domainName: null);
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+        var logger = new AlwaysEnabledLogger<InternalUserResolver>();
+
+        var resolution = await new InternalUserResolver(apiClient, logger, graphClient: new FakeGraphClient { ThrowOnEmployeeId = true }).ResolveAsync(principal, CancellationToken.None);
+
+        Assert.False(resolution.IsAllowed);
+        Assert.Equal("/Account/NotPermitted", resolution.DenialRedirectPath);
+        Assert.Null(apiClient.LastRequest);
+        Assert.Contains(logger.Messages, message => message.Contains("employee id lookup failed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_FallsBackToTheBareAccountName_WhenTheDirectoryLookupFails()
+    {
+        var apiClient = new StubApiClient(new ResolveInternalUserResult(ResolveInternalUserOutcome.Error, null));
+
+        await new InternalUserResolver(apiClient, NullLogger<InternalUserResolver>.Instance, graphClient: new FakeGraphClient { ThrowOnEmployeeId = true })
+            .ResolveAsync(CreatePrincipal(domainName: null), CancellationToken.None);
+
+        Assert.Equal("jdoe", apiClient.LastRequest!.UserName);
+    }
+
+    [Fact]
     public async Task ResolveAsync_TruncatesDomainNameAtFirstDot_WhenAdConnectSyncsTheFqdnForm()
     {
         var principal = CreatePrincipal(domainName: "DT2.local");

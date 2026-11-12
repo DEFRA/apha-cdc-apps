@@ -15,6 +15,7 @@ namespace CDC.Web.Infrastructure;
 public sealed class ExternalUsersApiService(HttpClient httpClient) : IExternalUsersApiService
 {
     private const string BaseRoute = "/api/external-users";
+    private const string SendInstructionsFailed = "We could not send the login instructions. Try again later.";
 
     /// <inheritdoc />
     public async Task<PagedResult<MaintainedExternalUserDto>> GetExternalUsersAsync(
@@ -110,17 +111,38 @@ public sealed class ExternalUsersApiService(HttpClient httpClient) : IExternalUs
         return response.IsSuccessStatusCode;
     }
 
-    private static async Task<string> ReadProblemDetailAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public async Task<ExternalUserAccessResult> SendLoginInstructionsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsync($"{BaseRoute}/{id}/login-instructions", content: null, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new ExternalUserAccessResult(true, null);
+        }
+
+        // The API's messages for these two statuses are written for the user; anything else is reported generically.
+        return response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => new ExternalUserAccessResult(false, "This user could not be found. Reload the page and try again."),
+            HttpStatusCode.BadRequest or HttpStatusCode.Conflict => new ExternalUserAccessResult(
+                false, await ReadProblemDetailAsync(response, cancellationToken, SendInstructionsFailed)),
+            _ => new ExternalUserAccessResult(false, SendInstructionsFailed)
+        };
+    }
+
+    private static async Task<string> ReadProblemDetailAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken, string fallback = "Please correct the highlighted fields.")
     {
         try
         {
             var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
 
-            return problem?.Detail ?? "Please correct the highlighted fields.";
+            return problem?.Detail ?? fallback;
         }
         catch (System.Text.Json.JsonException)
         {
-            return "Please correct the highlighted fields.";
+            return fallback;
         }
     }
 

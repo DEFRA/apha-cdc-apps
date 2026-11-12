@@ -64,7 +64,7 @@ public class GraphClientTests
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Get, request.Method);
         var query = Uri.UnescapeDataString(request.RequestUri!.Query);
-        Assert.Contains("$filter=onPremisesSamAccountName eq 'o''brien'", query, StringComparison.Ordinal);
+        Assert.Contains("$filter=onPremisesSamAccountName eq 'o''brien' or employeeId eq 'o''brien'", query, StringComparison.Ordinal);
         Assert.Contains("$top=2", query, StringComparison.Ordinal);
         Assert.Contains("$count=true", query, StringComparison.Ordinal);
         Assert.Equal("eventual", Assert.Single(request.Headers.GetValues("ConsistencyLevel")));
@@ -126,4 +126,71 @@ public class GraphClientTests
     [Fact]
     public async Task DisabledClient_FindsNobody() =>
         Assert.Null(await new DisabledGraphClient().FindUserBySamAccountNameAsync("jsmith", CancellationToken.None));
+
+    [Fact]
+    public async Task DisabledClient_FindsNoEmployeeId() =>
+        Assert.Null(await new DisabledGraphClient().FindEmployeeIdAsync(Guid.NewGuid(), CancellationToken.None));
+
+    [Fact]
+    public async Task FindUser_MatchesAnEmployeeIdAsWellAsALogonName()
+    {
+        var handler = StubHttpMessageHandler.Json("""{"value":[{"id":"abc","givenName":"Jo","employeeId":"12345"}]}""");
+
+        var user = await CreateClient(handler).FindUserBySamAccountNameAsync("12345", CancellationToken.None);
+
+        Assert.Equal("Jo", user?.DisplayName);
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Requests).RequestUri!.Query);
+        Assert.Contains("$filter=onPremisesSamAccountName eq '12345' or employeeId eq '12345'", query, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("""{"id":"abc","employeeId":"12345"}""", "12345")]
+    [InlineData("""{"id":"abc","employeeId":"  12345 "}""", "12345")]
+    [InlineData("""{"id":"abc","employeeId":" "}""", null)]
+    [InlineData("""{"id":"abc"}""", null)]
+    [InlineData("null", null)]
+    public async Task FindEmployeeId_ReadsTheEmployeeIdOfTheUser(string json, string? expected)
+    {
+        var objectId = Guid.NewGuid();
+        var handler = StubHttpMessageHandler.Json(json);
+
+        var employeeId = await CreateClient(handler).FindEmployeeIdAsync(objectId, CancellationToken.None);
+
+        Assert.Equal(expected, employeeId);
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal($"https://graph.example/v1.0/users/{objectId:D}?$select=employeeId", request.RequestUri!.ToString());
+        Assert.False(request.Headers.Contains("ConsistencyLevel"));
+    }
+
+    [Fact]
+    public async Task FindEmployeeId_ReturnsNull_WhenTheUserDoesNotExist()
+    {
+        var handler = StubHttpMessageHandler.Json("""{"error":{"code":"Request_ResourceNotFound"}}""", HttpStatusCode.NotFound);
+
+        Assert.Null(await CreateClient(handler).FindEmployeeIdAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task FindEmployeeId_ThrowsGraphException_WithoutTheBody_WhenGraphRefuses()
+    {
+        var handler = StubHttpMessageHandler.Json("""{"error":{"message":"secret detail"}}""", HttpStatusCode.Forbidden);
+
+        var exception = await Assert.ThrowsAsync<GraphException>(
+            () => CreateClient(handler).FindEmployeeIdAsync(Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Contains("403", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret detail", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FindEmployeeId_WrapsTransportFailures()
+    {
+        var handler = new StubHttpMessageHandler(_ => throw new HttpRequestException("network"));
+
+        var exception = await Assert.ThrowsAsync<GraphException>(
+            () => CreateClient(handler).FindEmployeeIdAsync(Guid.NewGuid(), CancellationToken.None));
+
+        Assert.IsType<HttpRequestException>(exception.InnerException);
+    }
 }

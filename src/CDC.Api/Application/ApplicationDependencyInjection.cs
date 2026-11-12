@@ -78,6 +78,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IGlobalUsersService, GlobalUsersService>();
         services.AddScoped<IExternalUsersService, ExternalUsersService>();
+        services.AddScoped<IExternalUserLoginInstructionsService, ExternalUserLoginInstructionsService>();
 
         return services;
     }

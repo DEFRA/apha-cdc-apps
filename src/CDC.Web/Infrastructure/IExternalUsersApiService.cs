@@ -50,4 +50,10 @@ public interface IExternalUsersApiService
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns><see langword="true"/> when the access was removed.</returns>
     Task<bool> DeleteProfileAccessAsync(Guid id, Guid profileId, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls <c>POST /api/external-users/{id}/login-instructions</c>.</summary>
+    /// <param name="id">The external user to email.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Whether the instructions were sent, with a message when they were not.</returns>
+    Task<ExternalUserAccessResult> SendLoginInstructionsAsync(Guid id, CancellationToken cancellationToken = default);
 }
