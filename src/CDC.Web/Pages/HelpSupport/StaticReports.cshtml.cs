@@ -166,6 +166,7 @@ public class StaticReportsModel : BreadcrumbPageModelBase
 
         if (UploadedFile is null || UploadedFile.Length == 0)
         {
+            // The browser normally stops an empty submit (static-report-upload.js); this is the fallback.
             ErrorMessage = $"Failed to upload the {fileType}: Please choose a file to upload";
         }
         else if (!fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
