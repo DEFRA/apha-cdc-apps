@@ -205,6 +205,15 @@ html {
   min-width: 0;
 }
 
+/* Legacy validator " *" beside an invalid control; decorative, as the inline error message carries the meaning. */
+.app-validator-marker {
+  margin-left: 5px;
+  color: #d4351c;
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 1.1875rem;
+  font-weight: 700;
+}
+
 .app-inline-fields .govuk-form-group.app-inline-fields__full {
   display: block;
 }
