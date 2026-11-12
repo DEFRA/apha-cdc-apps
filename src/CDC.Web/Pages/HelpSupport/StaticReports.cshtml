@@ -8,7 +8,7 @@
     {
         if (!string.IsNullOrEmpty(Model.SuccessMessage))
         {
-            <p class="govuk-body" role="status">@Model.SuccessMessage</p>
+            <output class="govuk-body">@Model.SuccessMessage</output>
         }
         else if (!string.IsNullOrEmpty(Model.ErrorMessage))
         {
