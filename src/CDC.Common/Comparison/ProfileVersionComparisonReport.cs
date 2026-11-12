@@ -31,7 +31,17 @@ public sealed record ComparisonQuestion(string Number, string Text, IReadOnlyLis
 public sealed record ComparisonGroup(string? Heading, IReadOnlyList<ComparisonField> Fields);
 
 /// <summary>One differing field. Left holds unchanged and removed text, right unchanged and added text.</summary>
-public sealed record ComparisonField(string Label, IReadOnlyList<ComparisonSegment> Left, IReadOnlyList<ComparisonSegment> Right);
+public sealed record ComparisonField(string Label, IReadOnlyList<ComparisonSegment> Left, IReadOnlyList<ComparisonSegment> Right)
+{
+    /// <summary>Gets every option of a list field with the earlier version's ticked, or <see langword="null"/> when the field is not a list.</summary>
+    public IReadOnlyList<ComparisonOption>? LeftOptions { get; init; }
+
+    /// <summary>Gets every option of a list field with the later version's ticked, or <see langword="null"/> when the field is not a list.</summary>
+    public IReadOnlyList<ComparisonOption>? RightOptions { get; init; }
+}
+
+/// <summary>One option of a list field, drawn as a checkbox as the legacy report did.</summary>
+public sealed record ComparisonOption(string Text, bool Selected);
 
 /// <summary>A run of text and how it changed.</summary>
 public sealed record ComparisonSegment(string Text, ComparisonChange Change = ComparisonChange.None);

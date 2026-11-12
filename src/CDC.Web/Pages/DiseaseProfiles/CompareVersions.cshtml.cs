@@ -1,3 +1,4 @@
+using System.Globalization;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
@@ -19,10 +20,14 @@ public class CompareVersionsModel(
     IProfileVersionComparisonService comparisonService,
     IRazorViewRenderer viewRenderer,
     IPdfRenderer pdfRenderer,
-    ILogger<CompareVersionsModel> logger) : BreadcrumbPageModelBase("Compare profile versions")
+    ILogger<CompareVersionsModel> logger,
+    TimeProvider? timeProvider = null) : BreadcrumbPageModelBase("Compare profile versions")
 {
     private const string ReportViewPath = "~/Views/Reports/ProfileVersionComparisonReport.cshtml";
-    private const string ReportFileName = "ProfileVersionComparison.pdf";
+    // The legacy file name was "ComparisonReport_{Now}", which became "dd_MM_yyyy_HH_mm_ss" once the date and time separators were replaced.
+    private const string FileNameTimestampFormat = "dd_MM_yyyy_HH_mm_ss";
+
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
     private const string SelectionErrorText = "Select two profile versions to compare";
 
     private static readonly Action<ILogger, Exception?> LogLoadFailed =
@@ -133,7 +138,9 @@ public class CompareVersionsModel(
             var html = await viewRenderer.RenderAsync(ReportViewPath, report);
             var pdf = await pdfRenderer.RenderLandscapeAsync(html, cancellationToken);
 
-            return File(pdf, "application/pdf", ReportFileName);
+            var generatedAt = clock.GetLocalNow().ToString(FileNameTimestampFormat, CultureInfo.InvariantCulture);
+
+            return File(pdf, "application/pdf", PdfFileName.Build($"ComparisonReport_{generatedAt}"));
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or PlaywrightException)
         {

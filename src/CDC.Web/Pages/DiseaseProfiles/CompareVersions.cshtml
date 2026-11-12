@@ -31,13 +31,13 @@
 <h1 class="govuk-heading-l">Compare profile versions</h1>
 
 <p class="govuk-body">
-    Use this page to compare the content of profiles. Select the profile versions to compare from the
-    hierarchical list below. Only two versions can be compared. The comparison report only details the
-    differences between the two selected versions.
+    Use this page to compare the content of profiles. Select the profiles to be compared using the
+    hierarchical list below; only two profiles can be compared. The comparison report will only detail
+    the differences between the two selected profiles.
 </p>
 <p class="govuk-body">
-    To see the most recent changes to a profile, select the earlier version first and then select the
-    most recent version.
+    To be able to view the most recent changes to a profile, select the earlier version of the profile
+    first and then select the most recent version of the profile.
 </p>
 
 @if (Model.Tree.Nodes.Count > 0)
@@ -47,9 +47,9 @@
         <input type="hidden" name="SecondVersionId" value="@Model.SecondVersionId" data-compare-second />
 
         <div class="app-compare-selected govuk-!-margin-bottom-6">
-            <h2 class="govuk-heading-m">Selected versions</h2>
+            <h2 class="govuk-heading-m">Selected:</h2>
             <output class="govuk-!-display-block">
-                <p class="govuk-body" data-compare-empty hidden="@(Model.SelectedLabels.Count > 0)">No profile versions are selected</p>
+                <p class="govuk-body" data-compare-empty hidden="@(Model.SelectedLabels.Count > 0)">- No profile versions are selected -</p>
                 <ol class="govuk-list govuk-list--number app-compare-selected__list" data-compare-list>
                     @foreach (var label in Model.SelectedLabels)
                     {
@@ -65,13 +65,9 @@
         </div>
 
         <div class="govuk-form-group@(Model.IsSelectionError ? " govuk-form-group--error" : "")">
-            <fieldset class="govuk-fieldset" aria-describedby="compare-versions-hint@(Model.IsSelectionError ? " compare-versions-error" : "")">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
-                    <h2 class="govuk-fieldset__heading">Profile versions</h2>
-                </legend>
-                <div id="compare-versions-hint" class="govuk-hint">
-                    Select two versions. Each shows the version number, status and effective dates.
-                </div>
+            <fieldset class="govuk-fieldset" aria-describedby="@(Model.IsSelectionError ? "compare-versions-error" : null)">
+                @* Kept for screen readers so the checkboxes still have a group name. *@
+                <legend class="govuk-fieldset__legend govuk-visually-hidden">Profile versions</legend>
                 @if (Model.IsSelectionError)
                 {
                     <p id="compare-versions-error" class="govuk-error-message">
