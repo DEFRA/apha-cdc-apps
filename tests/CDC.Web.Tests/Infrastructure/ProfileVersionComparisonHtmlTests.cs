@@ -27,6 +27,23 @@ public class ProfileVersionComparisonHtmlTests
     }
 
     [Fact]
+    public void Render_DrawsOptionsAsCheckboxes_WhenFieldIsAList()
+    {
+        var field = new ComparisonField("Species", [], [])
+        {
+            LeftOptions = [new ComparisonOption("Cattle <a>", true), new ComparisonOption("Sheep", false)],
+            RightOptions = [new ComparisonOption("Cattle <a>", false), new ComparisonOption("Sheep", true)]
+        };
+        var question = new ComparisonQuestion("1.1", "Q", [new ComparisonGroup(null, [field])]);
+
+        var html = ProfileVersionComparisonHtml.Render([Report(new ComparisonSection("1. Intro", [question]))]);
+
+        Assert.Equal(2, html.Split("<ul class=\"options\">").Length - 1);
+        Assert.Equal(2, html.Split("checkbox checkbox--selected").Length - 1);
+        Assert.Contains("<span>Cattle &lt;a&gt;</span>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Render_SaysSectionsAreIdentical_WhenNothingDiffers()
     {
         var html = ProfileVersionComparisonHtml.Render([Report(new ComparisonSection("1. Intro", []))]);
