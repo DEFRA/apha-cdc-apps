@@ -12,6 +12,7 @@ namespace CDC.Common.Auth;
 public static class OpenIdConnectEventHelpers
 {
     private const string AccessTokenName = "access_token";
+    private const string ErrorPath = "/Landing/Error";
 
     // Claims every provider's app code reads after sign-in; each provider adds its own on top via RetainedClaims.
     private static readonly string[] CommonRetainedClaimTypes =
@@ -99,6 +100,16 @@ public static class OpenIdConnectEventHelpers
     }
 
     /// <summary>
+    /// Denies sign-in from <c>TokenValidated</c> by redirecting to the generic error page. Runs before the OIDC handler
+    /// signs the principal into the cookie scheme, so no local session is created.
+    /// </summary>
+    public static void DenyWithErrorPage(TokenValidatedContext context)
+    {
+        context.HandleResponse();
+        context.HttpContext.Response.Redirect(ErrorPath);
+    }
+
+    /// <summary>
     /// Logs the failure server-side only and redirects to the generic error page - never surfaces
     /// raw OIDC failure detail to the user.
     /// </summary>
@@ -106,7 +117,7 @@ public static class OpenIdConnectEventHelpers
     {
         logFailure(context.Failure);
         context.HandleResponse();
-        context.Response.Redirect("/Landing/Error");
+        context.Response.Redirect(ErrorPath);
         return Task.CompletedTask;
     }
 }

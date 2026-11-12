@@ -22,6 +22,8 @@ public class CidmOpenIdConnectEventsTests
         ServiceId = "service-id-value"
     };
 
+    private static Claim MatchingServiceIdClaim() => new("serviceId", TestCidmOptions.ServiceId);
+
     private static CidmOpenIdConnectEvents CreateEvents() =>
         new(Microsoft.Extensions.Options.Options.Create(TestCidmOptions), NullLogger<CidmOpenIdConnectEvents>.Instance);
 
@@ -91,6 +93,7 @@ public class CidmOpenIdConnectEventsTests
     {
         var identity = new ClaimsIdentity(
         [
+            MatchingServiceIdClaim(),
             new Claim("relationships", "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee:bc19305a-f9b6-ea11-a812-000d3ab4653d:ABC Organisation2:0:Employee:0"),
             new Claim("roles", "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee:Certifier:3")
         ]);
@@ -107,7 +110,7 @@ public class CidmOpenIdConnectEventsTests
     [Fact]
     public async Task TokenValidated_NoRelationshipsOrRoles_AddsNoExtraClaims()
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var identity = new ClaimsIdentity([MatchingServiceIdClaim(), new Claim(ClaimTypes.Name, "test-user")]);
         var principal = new ClaimsPrincipal(identity);
         var context = new TokenValidatedContext(new DefaultHttpContext(), CreateScheme(), new OpenIdConnectOptions(), principal, new AuthenticationProperties());
 
@@ -132,7 +135,7 @@ public class CidmOpenIdConnectEventsTests
     [Fact]
     public async Task TokenValidated_NoResolverRegistered_LeavesPrincipalUnchanged()
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var identity = new ClaimsIdentity([MatchingServiceIdClaim(), new Claim(ClaimTypes.Name, "test-user")]);
         var principal = new ClaimsPrincipal(identity);
         var httpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
         var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), principal, new AuthenticationProperties());
@@ -146,7 +149,7 @@ public class CidmOpenIdConnectEventsTests
     [Fact]
     public async Task TokenValidated_ResolverAllows_AddsReturnedClaims()
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var identity = new ClaimsIdentity([MatchingServiceIdClaim(), new Claim(ClaimTypes.Name, "test-user")]);
         var principal = new ClaimsPrincipal(identity);
         var resolver = new StubResolver(CidmExternalUserResolution.Allow(new Dictionary<string, string>
         {
@@ -167,7 +170,7 @@ public class CidmOpenIdConnectEventsTests
     [Fact]
     public async Task TokenValidated_ResolverDenies_HandlesResponseAndRedirectsToDenialPath()
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "test-user")]);
+        var identity = new ClaimsIdentity([MatchingServiceIdClaim(), new Claim(ClaimTypes.Name, "test-user")]);
         var principal = new ClaimsPrincipal(identity);
         var resolver = new StubResolver(CidmExternalUserResolution.Deny("/Account/NotPermitted"));
         var services = new ServiceCollection();
@@ -191,6 +194,7 @@ public class CidmOpenIdConnectEventsTests
     {
         var identity = new ClaimsIdentity(
         [
+            MatchingServiceIdClaim(),
             new Claim(ClaimTypes.NameIdentifier, "22222222-2222-2222-2222-222222222222"),
             new Claim(ClaimTypes.Email, "jane@example.com"),
             new Claim("currentRelationshipId", "23950a2d-c37d-43da-9fcb-0a4ce9aa11ee"),
@@ -224,13 +228,14 @@ public class CidmOpenIdConnectEventsTests
         Assert.DoesNotContain(identity.Claims, c => c.Type == "roles");
         Assert.DoesNotContain(identity.Claims, c => c.Type == "uniqueReference");
         Assert.DoesNotContain(identity.Claims, c => c.Type == "aud");
+        Assert.DoesNotContain(identity.Claims, c => c.Type == "serviceId");
         Assert.DoesNotContain(identity.Claims, c => c.Type == "sessionId" && c.Value == "bulky");
     }
 
     [Fact]
     public async Task TokenValidated_ResolverDenies_LeavesTheClaimsUntouched()
     {
-        var identity = new ClaimsIdentity([new Claim("sessionId", "bulky"), new Claim(ClaimTypes.Name, "test-user")]);
+        var identity = new ClaimsIdentity([MatchingServiceIdClaim(), new Claim("sessionId", "bulky"), new Claim(ClaimTypes.Name, "test-user")]);
         var services = new ServiceCollection();
         services.AddSingleton<ICidmExternalUserResolver>(new StubResolver(CidmExternalUserResolution.Deny("/Account/NotPermitted")));
         var httpContext = new DefaultHttpContext
@@ -243,6 +248,73 @@ public class CidmOpenIdConnectEventsTests
         await CreateEvents().TokenValidated(context);
 
         Assert.Contains(identity.Claims, c => c.Type == "sessionId");
+    }
+
+    [Theory]
+    [InlineData("other-service-id")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public async Task TokenValidated_ServiceIdMissingOrNotTheConfiguredOne_DeniesWithoutResolvingOrSigningIn(string? tokenServiceId)
+    {
+        var claims = new List<Claim> { new(ClaimTypes.Name, "test-user") };
+        if (tokenServiceId is not null)
+        {
+            claims.Add(new Claim("serviceId", tokenServiceId));
+        }
+
+        var identity = new ClaimsIdentity(claims);
+        var resolver = new CountingResolver();
+        var services = new ServiceCollection();
+        services.AddSingleton<ICidmExternalUserResolver>(resolver);
+        var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(identity), new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.True(context.Result?.Handled);
+        Assert.Equal(StatusCodes.Status302Found, httpContext.Response.StatusCode);
+        Assert.Equal("/Landing/Error", httpContext.Response.Headers.Location);
+        Assert.Equal(0, resolver.Calls);
+        Assert.DoesNotContain(identity.Claims, c => c.Type == ClaimTypes.Role || c.Type == "cidm:role");
+    }
+
+    [Theory]
+    [InlineData("SERVICE-ID-VALUE")]
+    [InlineData("  service-id-value  ")]
+    public async Task TokenValidated_ServiceIdMatchesTheConfiguredOneIgnoringCaseAndPadding_Proceeds(string tokenServiceId)
+    {
+        var identity = new ClaimsIdentity([new Claim("serviceId", tokenServiceId), new Claim(ClaimTypes.Name, "test-user")]);
+        var httpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(identity), new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.False(context.Result?.Handled ?? false);
+    }
+
+    [Fact]
+    public async Task TokenValidated_NoServiceIdConfigured_DeniesEvenATokenWithNoServiceId()
+    {
+        var options = new CidmOptions { ServiceId = " " };
+        var events = new CidmOpenIdConnectEvents(Microsoft.Extensions.Options.Options.Create(options), NullLogger<CidmOpenIdConnectEvents>.Instance);
+        var httpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(new ClaimsIdentity([new Claim("serviceId", " ")])), new AuthenticationProperties());
+
+        await events.TokenValidated(context);
+
+        Assert.True(context.Result?.Handled);
+    }
+
+    [Fact]
+    public async Task TokenValidated_PrincipalWithoutClaims_IsDenied()
+    {
+        var httpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
+        var context = new TokenValidatedContext(httpContext, CreateScheme(), new OpenIdConnectOptions(), new ClaimsPrincipal(), new AuthenticationProperties());
+
+        await CreateEvents().TokenValidated(context);
+
+        Assert.True(context.Result?.Handled);
     }
 
     [Fact]
@@ -276,6 +348,17 @@ public class CidmOpenIdConnectEventsTests
         var exception = await Record.ExceptionAsync(() => CreateEvents().TicketReceived(context));
 
         Assert.Null(exception);
+    }
+
+    private sealed class CountingResolver : ICidmExternalUserResolver
+    {
+        public int Calls { get; private set; }
+
+        public Task<CidmExternalUserResolution> ResolveAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(CidmExternalUserResolution.Allow());
+        }
     }
 
     private sealed class StubResolver(CidmExternalUserResolution resolution) : ICidmExternalUserResolver
