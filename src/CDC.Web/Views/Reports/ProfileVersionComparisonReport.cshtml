@@ -102,23 +102,30 @@
 </html>
 
 @functions {
-    private IHtmlContent Answer(IReadOnlyList<CDC.Common.Comparison.ComparisonOption>? options, IReadOnlyList<CDC.Common.Comparison.ComparisonSegment> segments)
+    private static IHtmlContent Answer(IReadOnlyList<CDC.Common.Comparison.ComparisonOption>? options, IReadOnlyList<CDC.Common.Comparison.ComparisonSegment> segments)
     {
         if (options is null)
         {
             return ComparisonHtml.Render(segments);
         }
 
-        var html = new HtmlContentBuilder();
-        html.AppendHtml("<ul class=\"options\">");
+        var list = new TagBuilder("ul");
+        list.AddCssClass("options");
 
         foreach (var option in options)
         {
-            html.AppendHtml(option.Selected ? "<li><span class=\"checkbox checkbox--selected\"></span><span>" : "<li><span class=\"checkbox\"></span><span>");
-            html.Append(option.Text);
-            html.AppendHtml("</span></li>");
+            var item = new TagBuilder("li");
+            var checkbox = new TagBuilder("span");
+            checkbox.AddCssClass(option.Selected ? "checkbox checkbox--selected" : "checkbox");
+
+            var text = new TagBuilder("span");
+            text.InnerHtml.Append(option.Text);
+
+            item.InnerHtml.AppendHtml(checkbox);
+            item.InnerHtml.AppendHtml(text);
+            list.InnerHtml.AppendHtml(item);
         }
 
-        return html.AppendHtml("</ul>");
+        return list;
     }
 }
