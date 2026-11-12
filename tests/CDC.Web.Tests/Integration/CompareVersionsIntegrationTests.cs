@@ -95,12 +95,12 @@ public class CompareVersionsIntegrationTests
 
         var body = await client.GetStringAsync(PagePath);
 
-        Assert.Contains("Only two versions can be compared", Normalise(body), StringComparison.Ordinal);
-        Assert.Contains("select the earlier version first", Normalise(body), StringComparison.Ordinal);
+        Assert.Contains("only two profiles can be compared", Normalise(body), StringComparison.Ordinal);
+        Assert.Contains("select the earlier version of the profile first", Normalise(body), StringComparison.Ordinal);
         Assert.Contains("Version 2.0, Published, effective from 01/01/2024", body, StringComparison.Ordinal);
         Assert.Contains("Version 1.0, Published, effective 01/01/2023 to 01/01/2024", body, StringComparison.Ordinal);
         Assert.Contains("Open all", body, StringComparison.Ordinal);
-        Assert.Contains("Selected versions", body, StringComparison.Ordinal);
+        Assert.Contains("Selected:", body, StringComparison.Ordinal);
         Assert.Contains("Remove selection", body, StringComparison.Ordinal);
         Assert.Contains(">Compare</button>", body, StringComparison.Ordinal);
     }
