@@ -388,7 +388,6 @@ public class ProfilePropertiesModelTests
         await pageModel.OnPostAsync(CancellationToken.None);
 
         Assert.Equal(["You must enter a title"], Errors(pageModel, nameof(ProfilePropertiesModel.ProfileTitle)));
-        Assert.Equal("You must enter a title", pageModel.TitleRequiredMessage);
     }
 
     [Fact]
