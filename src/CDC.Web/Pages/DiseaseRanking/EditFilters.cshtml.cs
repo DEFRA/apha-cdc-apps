@@ -20,7 +20,7 @@ public class EditFiltersModel(
     IDiseaseRankingFiltersApiService diseaseRankingFiltersApiService,
     ISpeciesApiService speciesApiService,
     ILogger<EditFiltersModel> logger)
-    : BreadcrumbPageModelBase("Edit disease ranking filters")
+    : BreadcrumbPageModelBase("Edit disease ranking filters", "Disease ranking", "/Reports/DiseaseRanking")
 {
     private const string SpeciesFieldName = "species";
 
