@@ -87,6 +87,21 @@ public class GlobalUsersControllerTests
     }
 
     [Fact]
+    public async Task AddGlobalUser_PassesTheDirectoryEmailAndObjectIdToTheCommand()
+    {
+        var objectId = Guid.NewGuid();
+        var request = Request() with { EmailAddress = "jo.smith@example.test", SsoUserIdInt = objectId };
+        mediator.Setup(sender => sender.Send(
+                It.Is<SaveGlobalUserCommand>(command => command.EmailAddress == "jo.smith@example.test" && command.SsoUserIdInt == objectId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().AddGlobalUser(request, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
     public async Task UpdateGlobalUser_UsesRouteId_AndMapsValidationFailureToBadRequest()
     {
         var id = Guid.NewGuid();

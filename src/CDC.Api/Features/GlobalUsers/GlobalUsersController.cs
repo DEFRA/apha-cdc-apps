@@ -129,7 +129,9 @@ public sealed class GlobalUsersController(ISender mediator) : ControllerBase
         request.Organisation,
         request.Role,
         request.SubscribedToReviewEmails,
-        request.LastUpdated);
+        request.LastUpdated,
+        request.EmailAddress,
+        request.SsoUserIdInt);
 }
 
 /// <summary>Request body for adding or editing a global user.</summary>
@@ -158,4 +160,10 @@ public sealed record SaveGlobalUserRequest
 
     /// <summary>Gets the row version last read for this user.</summary>
     public byte[] LastUpdated { get; init; } = [];
+
+    /// <summary>Gets the email address read from the directory. Only used when the user does not yet exist.</summary>
+    public string? EmailAddress { get; init; }
+
+    /// <summary>Gets the directory (Entra ID) object id. Only used when the user does not yet exist.</summary>
+    public Guid? SsoUserIdInt { get; init; }
 }

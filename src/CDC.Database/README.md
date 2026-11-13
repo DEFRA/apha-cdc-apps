@@ -42,6 +42,7 @@ There is no journal table, so track what has been run here:
 | 0080-IndexProfileVersionCloneAndDelete.sql | Y | | | |
 | 0081-SpeedUpPrioritisationScore.sql (run after 0080) | Y | | | |
 | 0082-AddUserLoginInstructionsSent.sql (run before deploying the CDC.Api that sends external user login instructions) | | | | |
+| 0083-AddDirectoryDetailsToSpiGlobalUser.sql (run before deploying the CDC.Api that records the directory email and object id) | | | | |
 | 0083-CreateUserListProcedures.sql (run before deploying the CDC.Api that lists Global and External users by `SsoUserIdInt` / `SsoUserIdExt`) | Y | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,

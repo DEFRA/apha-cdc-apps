@@ -110,15 +110,15 @@ and not-Complete filters. Each user's profile roles are then mapped to a reviewe
 
 ### Configuration
 
-Bound from `CDC.Api` configuration. Set secrets with `dotnet user-secrets` (or `Notify__ApiKey` etc. as
+Bound from `CDC.Api` configuration. Set secrets with `dotnet user-secrets` (or `Notification__ApiKey` etc. as
 environment variables); never commit them.
 
 | Config key                              | Purpose                                                                                  |
 | --------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `Notify:Enabled`                        | Must be `true`, otherwise every send throws and the job reports failure                  |
-| `Notify:ApiKey`                         | Notify API key (`{name}-{service id}-{secret}`). Use a **team-only or test key** locally |
-| `Notify:BaseUrl`                        | Defaults to `https://api.notifications.service.gov.uk`                                    |
-| `Notify:TemplateId`                     | Template with `((name))`, `((subject))` and `((body))` personalisation                   |
+| `Notification:Enabled`                        | `true` in `appsettings.json`; set `false` to switch sending off (every send then throws)  |
+| `Notification:ApiKey`                         | Notify API key (`{name}-{service id}-{secret}`). Use a **team-only or test key** locally |
+| `Notification:BaseUrl`                        | Defaults to `https://api.notifications.service.gov.uk`                                    |
+| `Notification:TemplateId`                     | Review reminder template; `appsettings.json` sets it, with `((name))`, `((subject))` and `((body))` personalisation |
 | `ReviewNotifications:ReviewerGroups`    | Profile role names per reviewer group; a group with none configured is not emailed       |
 | `App:BaseUrl`                           | Address D2R2 is opened at, linked from the emails; reminders omit the link when empty    |
 | `ReviewNotifications:SupportMailbox`    | Contact address shown in the email                                                       |
@@ -127,8 +127,8 @@ environment variables); never commit them.
 The job also needs the `Database:*` settings described in `StartupChecks` (host, name, and user/password
 or `Database:IntegratedSecurity` for LocalDB) and `HealthCheck:ReadinessKey`, as for the API itself.
 
-> The `Notification` section in `src/CDC.Api/appsettings.json` does not match the `Notify` section the
-> code binds to, so the keys in that file are currently ignored. Use the `Notify:*` keys above.
+> Sending is on by default, but nothing is sent without `Notification:ApiKey`, which only comes from a user secret or an
+> environment variable. Until it is set, every send fails.
 
 ### Testing it locally
 
@@ -138,9 +138,9 @@ or `Database:IntegratedSecurity` for LocalDB) and `HealthCheck:ReadinessKey`, as
 
    ```powershell
    cd src/CDC.Api
-   dotnet user-secrets set "Notify:Enabled" "true"
-   dotnet user-secrets set "Notify:ApiKey" "<team-only-or-test-key>"
-   dotnet user-secrets set "Notify:TemplateId" "<template-id>"
+   dotnet user-secrets set "Notification:Enabled" "true"
+   dotnet user-secrets set "Notification:ApiKey" "<team-only-or-test-key>"
+   dotnet user-secrets set "Notification:TemplateId" "<template-id>"
    dotnet user-secrets set "ReviewNotifications:TestRecipient" "<your-email-address>"
    ```
 
@@ -162,8 +162,8 @@ or `Database:IntegratedSecurity` for LocalDB) and `HealthCheck:ReadinessKey`, as
    reviewer group is not configured). `echo $LASTEXITCODE` shows it in PowerShell. Check the recipient's
    inbox and the Notify dashboard for delivery status.
 
-If no review is due the job logs that and sends nothing. Failure causes: a malformed `Notify:ApiKey`,
-`Notify:Enabled` left `false`, or Notify rejecting the template or recipient (the log includes Notify's error
+If no review is due the job logs that and sends nothing. Failure causes: a malformed `Notification:ApiKey`,
+`Notification:Enabled` left `false`, or Notify rejecting the template or recipient (the log includes Notify's error
 message but never the recipient address).
 
 ### Automated tests
@@ -183,8 +183,8 @@ listed only once they have signed in; script `0083`), an external user shows **S
 **Sent**. The email goes through the same GOV.UK Notify sender as the review reminders, to the address saved on the
 user. It uses the Notify template `8c79693e-ad6e-4bc1-9b86-0b656b55b7de` (fixed in code, the same in every
 environment), which holds the subject and all the text and takes two placeholders: `((name))`, the user's full name, and
-`((AppUrl))`, filled from
-`App:BaseUrl` (required: without a valid web address nothing is sent). `ReviewNotifications:TestRecipient` redirects
+`((AppUrl))`, the external sign-in link: `App:BaseUrl` plus `Account/Login`, so it goes straight to the CIDM sign-in
+(`App:BaseUrl` is required: without a valid web address nothing is sent). `ReviewNotifications:TestRecipient` redirects
 it as it does the reminders. A user is marked as sent only once
 Notify accepts the email, and changing their saved email address brings **Send instructions** back and unlinks their
 CIDM account (so the next sign-in links the new one by email). Existing users show
@@ -317,7 +317,7 @@ CloudWatch Logs Insights query to see everything that happened for one update, a
 
 ```
 fields @timestamp, CorrelationId, SpeciesId, @message
-| filter SpeciesId = "…"
+| filter SpeciesId = "â€¦"
 | sort @timestamp asc
 ```
 

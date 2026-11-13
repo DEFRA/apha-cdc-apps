@@ -219,6 +219,22 @@ public class GlobalUsersRepositoryTests : IDisposable
         recorded.Parameters["IsProfileEditor"].Should().Be(false);
         recorded.Parameters["IsPolicyProfileUser"].Should().Be(true);
         recorded.Parameters["SubscribedToReviewEmails"].Should().Be(true);
+        recorded.Parameters["EmailAddress"].Should().BeNull();
+        recorded.Parameters["SsoUserIdInt"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SaveGlobalUserAsync_PassesTheDirectoryEmailAndObjectId()
+    {
+        connection.Script("spiGlobalUser", new FakeCommandScript());
+        var objectId = Guid.NewGuid();
+        var user = User(GlobalUserRole.ProfileEditor) with { EmailAddress = "jo.smith@example.test", SsoUserIdInt = objectId };
+
+        await CreateRepository().SaveGlobalUserAsync(user, CancellationToken.None);
+
+        var recorded = connection.Executed.Should().ContainSingle().Subject;
+        recorded.Parameters["EmailAddress"].Should().Be("jo.smith@example.test");
+        recorded.Parameters["SsoUserIdInt"].Should().Be(objectId);
     }
 
     [Fact]

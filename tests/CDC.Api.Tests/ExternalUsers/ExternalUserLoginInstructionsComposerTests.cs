@@ -27,7 +27,7 @@ public class ExternalUserLoginInstructionsComposerTests
         var message = ExternalUserLoginInstructionsComposer.Compose(User(), HomePage)!;
 
         message.Personalisation.Should().BeEquivalentTo(
-            new Dictionary<string, string> { ["name"] = "Jo Smith", ["AppUrl"] = "https://d2r2.example.test/" });
+            new Dictionary<string, string> { ["name"] = "Jo Smith", ["AppUrl"] = "https://d2r2.example.test/Account/Login" });
         message.Subject.Should().BeEmpty();
         message.Body.Should().BeEmpty();
     }
@@ -54,10 +54,15 @@ public class ExternalUserLoginInstructionsComposerTests
         ExternalUserLoginInstructionsComposer.Compose(user, HomePage)!.Personalisation!["name"].Should().Be("jo@example.test");
     }
 
-    [Fact]
-    public void Compose_NormalisesTheAppUrl() =>
-        ExternalUserLoginInstructionsComposer.Compose(User(), "https://d2r2.example.test")!.Personalisation!["AppUrl"]
-            .Should().Be("https://d2r2.example.test/");
+    [Theory]
+    [InlineData("https://d2r2.example.test", "https://d2r2.example.test/Account/Login")]
+    [InlineData("https://d2r2.example.test/", "https://d2r2.example.test/Account/Login")]
+    [InlineData("http://localhost:5214/", "http://localhost:5214/Account/Login")]
+    [InlineData("https://example.test/d2r2", "https://example.test/d2r2/Account/Login")]
+    [InlineData("https://example.test/d2r2/", "https://example.test/d2r2/Account/Login")]
+    [InlineData("https://d2r2.example.test/?x=1#top", "https://d2r2.example.test/Account/Login")]
+    public void Compose_LinksToTheExternalSignInPage_WhateverTheShapeOfTheBaseAddress(string homePageUrl, string expected) =>
+        ExternalUserLoginInstructionsComposer.Compose(User(), homePageUrl)!.Personalisation!["AppUrl"].Should().Be(expected);
 
     [Theory]
     [InlineData("")]

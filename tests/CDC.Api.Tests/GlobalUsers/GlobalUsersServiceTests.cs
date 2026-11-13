@@ -35,8 +35,10 @@ public class GlobalUsersServiceTests
         string userName = @"DEFRA\jsmith",
         string fullName = "Jo Smith",
         string organisation = "APHA",
-        GlobalUserRole role = GlobalUserRole.PolicyProfileUser) =>
-        new(id ?? Guid.NewGuid(), isNew, userName, fullName, organisation, role, false, [1, 2, 3, 4, 5, 6, 7, 8]);
+        GlobalUserRole role = GlobalUserRole.PolicyProfileUser,
+        string? emailAddress = null,
+        Guid? ssoUserIdInt = null) =>
+        new(id ?? Guid.NewGuid(), isNew, userName, fullName, organisation, role, false, [1, 2, 3, 4, 5, 6, 7, 8], emailAddress, ssoUserIdInt);
 
     [Fact]
     public async Task GetGlobalUsersAsync_ReturnsOnlyThatPage()
@@ -208,6 +210,77 @@ public class GlobalUsersServiceTests
         result.IsSuccess.Should().BeTrue();
         saved!.UserName.Should().Be(@"DEFRA\jsmith");
         saved.Role.Should().Be(GlobalUserRole.PolicyProfileUser);
+    }
+
+    private async Task<GlobalUser> SaveAndCaptureAsync(SaveGlobalUserCommand command, GlobalUser? existing)
+    {
+        repository.Setup(repo => repo.GetUserAsync(command.Id, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
+        GlobalUser? saved = null;
+        repository.Setup(repo => repo.SaveGlobalUserAsync(It.IsAny<GlobalUser>(), It.IsAny<CancellationToken>()))
+            .Callback<GlobalUser, CancellationToken>((user, _) => saved = user)
+            .Returns(Task.CompletedTask);
+
+        (await CreateService().SaveAsync(command, CancellationToken.None)).IsSuccess.Should().BeTrue();
+
+        return saved!;
+    }
+
+    [Fact]
+    public async Task SaveAsync_RecordsTheDirectoryEmailAndObjectId_ForANewUser()
+    {
+        var objectId = Guid.NewGuid();
+
+        var saved = await SaveAndCaptureAsync(
+            Save(isNew: true, emailAddress: "  jo.smith@example.test ", ssoUserIdInt: objectId), existing: null);
+
+        saved.EmailAddress.Should().Be("jo.smith@example.test");
+        saved.SsoUserIdInt.Should().Be(objectId);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-an-address")]
+    [InlineData("a-very-long-name-for-a-mailbox-that-cannot-be-stored@example.test")]
+    public async Task SaveAsync_LeavesOutADirectoryEmailThatCannotBeStored_WithoutFailingTheSave(string? emailAddress)
+    {
+        var saved = await SaveAndCaptureAsync(Save(isNew: true, emailAddress: emailAddress), existing: null);
+
+        saved.EmailAddress.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SaveAsync_AcceptsADirectoryEmailOfExactlyFiftyCharacters()
+    {
+        var email = $"{new string('a', 37)}@example.test";
+        email.Length.Should().Be(50);
+
+        var saved = await SaveAndCaptureAsync(Save(isNew: true, emailAddress: email), existing: null);
+
+        saved.EmailAddress.Should().Be(email);
+    }
+
+    [Fact]
+    public async Task SaveAsync_LeavesOutAnEmptyObjectId()
+    {
+        var saved = await SaveAndCaptureAsync(Save(isNew: true, ssoUserIdInt: Guid.Empty), existing: null);
+
+        saved.SsoUserIdInt.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SaveAsync_NeverChangesTheDirectoryDetailsOfAnExistingUser(bool isNew)
+    {
+        var existing = User(@"DEFRA\stored");
+
+        var saved = await SaveAndCaptureAsync(
+            Save(existing.Id, isNew, emailAddress: "other@example.test", ssoUserIdInt: Guid.NewGuid()), existing);
+
+        saved.EmailAddress.Should().BeNull();
+        saved.SsoUserIdInt.Should().BeNull();
     }
 
     [Fact]

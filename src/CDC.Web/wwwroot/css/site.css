@@ -205,6 +205,15 @@ html {
   min-width: 0;
 }
 
+/* Legacy validator " *" beside an invalid control; decorative, as the inline error message carries the meaning. */
+.app-validator-marker {
+  margin-left: 5px;
+  color: #d4351c;
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 1.1875rem;
+  font-weight: 700;
+}
+
 .app-inline-fields .govuk-form-group.app-inline-fields__full {
   display: block;
 }
@@ -518,7 +527,7 @@ html {
 }
 
 body {
-  margin-bottom: 60px;
+  margin-bottom: 0;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -744,6 +753,8 @@ body {
 }
 
 .app-tree__panel {
+  /* Containing block for the toggles' visually hidden labels, so off-screen rows can't stretch the page. */
+  position: relative;
   max-height: 480px;
   padding: 10px 15px 10px 5px;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);

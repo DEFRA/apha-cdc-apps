@@ -35,6 +35,7 @@ public sealed class GlobalUsersRepository(IDbConnectionFactory connectionFactory
     private const int RowVersionLength = 8;
     private const int UserNameMaxLength = 50;
     private const int NameMaxLength = 100;
+    private const int EmailMaxLength = 50;
 
     /// <inheritdoc />
     public Task<IReadOnlyList<GlobalUser>> GetGlobalUsersAsync(CancellationToken cancellationToken) =>
@@ -168,6 +169,8 @@ public sealed class GlobalUsersRepository(IDbConnectionFactory connectionFactory
             parameters.Add("@IsProfileEditor", user.Role == GlobalUserRole.ProfileEditor, DbType.Boolean);
             parameters.Add("@IsPolicyProfileUser", user.Role == GlobalUserRole.PolicyProfileUser, DbType.Boolean);
             parameters.Add("@LastUpdated", user.LastUpdated, DbType.Binary, size: RowVersionLength);
+            parameters.Add("@EmailAddress", user.EmailAddress, DbType.AnsiString, size: EmailMaxLength);
+            parameters.Add("@SsoUserIdInt", user.SsoUserIdInt, DbType.Guid);
             parameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
 
             await connection.ExecuteAsync(new CommandDefinition(

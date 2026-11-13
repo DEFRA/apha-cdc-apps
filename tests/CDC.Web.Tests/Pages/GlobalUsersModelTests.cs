@@ -437,6 +437,88 @@ public class GlobalUsersModelTests
     }
 
     [Fact]
+    public async Task Save_Add_SendsTheDirectoryEmailAndObjectId_ReadFromGraphAtSaveTime()
+    {
+        var objectId = Guid.NewGuid();
+        var api = new FakeGlobalUsersApiService();
+        var graph = new FakeGraphClient { User = new GraphUser(objectId.ToString(), "jsmith", " jo.smith@example.test ", "Jo", "Smith") };
+        var model = CreatePageModel(api, graph: graph);
+        model.IsNewUser = true;
+        model.UserId = Guid.NewGuid();
+        model.UserName = @"DEFRA\jsmith";
+        model.FullName = "Jo Smith";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+
+        await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.Equal("jsmith", graph.RequestedSamAccountName);
+        Assert.Equal("jo.smith@example.test", api.AddedRequest!.EmailAddress);
+        Assert.Equal(objectId, api.AddedRequest.SsoUserIdInt);
+    }
+
+    [Theory]
+    [InlineData(null, "not-a-guid")]
+    [InlineData("  ", "not-a-guid")]
+    public async Task Save_Add_LeavesOutDirectoryDetailsTheDirectoryDoesNotHold(string? mail, string id)
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api, graph: new FakeGraphClient { User = new GraphUser(id, "jsmith", mail, "Jo", "Smith") });
+        model.IsNewUser = true;
+        model.UserId = Guid.NewGuid();
+        model.UserName = @"DEFRA\jsmith";
+        model.FullName = "Jo Smith";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+
+        var result = await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Null(api.AddedRequest!.EmailAddress);
+        Assert.Null(api.AddedRequest.SsoUserIdInt);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Save_Add_StillSavesTheUser_WhenTheDirectoryHasNoMatchOrIsUnavailable(bool graphThrows)
+    {
+        var api = new FakeGlobalUsersApiService();
+        var model = CreatePageModel(api, graph: new FakeGraphClient { User = null, Throw = graphThrows });
+        model.IsNewUser = true;
+        model.UserId = Guid.NewGuid();
+        model.UserName = @"DEFRA\jsmith";
+        model.FullName = "Jo Smith";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+
+        var result = await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Null(api.AddedRequest!.EmailAddress);
+        Assert.Null(api.AddedRequest.SsoUserIdInt);
+    }
+
+    [Fact]
+    public async Task Save_Edit_DoesNotQueryTheDirectory_OrSendDirectoryDetails()
+    {
+        var api = new FakeGlobalUsersApiService();
+        var graph = new FakeGraphClient();
+        var model = CreatePageModel(api, graph: graph);
+        model.UserId = Guid.NewGuid();
+        model.UserName = @"DEFRA\jsmith";
+        model.FullName = "Jo Smith";
+        model.Organisation = "APHA";
+        model.Role = GlobalUserRole.ProfileEditor;
+
+        await model.OnPostSaveAsync(CancellationToken.None);
+
+        Assert.Null(graph.RequestedSamAccountName);
+        Assert.Null(api.Updated!.Value.Request.EmailAddress);
+        Assert.Null(api.Updated.Value.Request.SsoUserIdInt);
+    }
+
+    [Fact]
     public async Task Save_Edit_CallsUpdate()
     {
         var api = new FakeGlobalUsersApiService();
