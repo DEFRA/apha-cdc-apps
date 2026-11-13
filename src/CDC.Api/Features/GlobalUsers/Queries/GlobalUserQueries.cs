@@ -6,7 +6,7 @@ using MediatR;
 
 namespace CDC.Api.Features.GlobalUsers.Queries;
 
-/// <summary>Retrieves one page of global users.</summary>
+/// <summary>Retrieves one page of global users: the users linked to an Entra ID identity.</summary>
 /// <param name="PageNumber">The 1-based page to return.</param>
 /// <param name="PageSize">Items per page, or 0/negative for every user on a single page.</param>
 /// <param name="SortColumn">The column to sort by before paging.</param>
@@ -26,6 +26,19 @@ public sealed class GetGlobalUsersQueryHandler(IGlobalUsersService service)
     public async Task<Result<PagedResult<GlobalUserDto>>> Handle(GetGlobalUsersQuery request, CancellationToken cancellationToken) =>
         Result.Success(await service.GetGlobalUsersAsync(
             request.PageNumber, request.PageSize, request.SortColumn, request.SortDescending, cancellationToken));
+}
+
+/// <summary>Retrieves every user who holds a global role, whether or not they have signed in through Entra ID.</summary>
+public sealed record GetUsersWithGlobalRoleQuery : IRequest<Result<IReadOnlyList<GlobalUserDto>>>;
+
+/// <summary>Handles <see cref="GetUsersWithGlobalRoleQuery"/>.</summary>
+/// <param name="service">Global users application service.</param>
+public sealed class GetUsersWithGlobalRoleQueryHandler(IGlobalUsersService service)
+    : IRequestHandler<GetUsersWithGlobalRoleQuery, Result<IReadOnlyList<GlobalUserDto>>>
+{
+    /// <inheritdoc />
+    public async Task<Result<IReadOnlyList<GlobalUserDto>>> Handle(GetUsersWithGlobalRoleQuery request, CancellationToken cancellationToken) =>
+        Result.Success(await service.GetUsersWithGlobalRoleAsync(cancellationToken));
 }
 
 /// <summary>Looks a username up for the "Add global user" step. Mirrors the legacy <c>btnLookup_Click</c>.</summary>

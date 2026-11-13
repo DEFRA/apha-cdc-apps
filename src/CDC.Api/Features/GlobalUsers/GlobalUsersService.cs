@@ -55,6 +55,15 @@ public sealed partial class GlobalUsersService(
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<GlobalUserDto>> GetUsersWithGlobalRoleAsync(CancellationToken cancellationToken)
+    {
+        var users = await repository.GetUsersWithGlobalRoleAsync(cancellationToken);
+        logger.RetrievedUsersWithGlobalRole(users.Count);
+
+        return [.. Sort(users, GlobalUserSortColumn.FullName, descending: false).Select(ToDto)];
+    }
+
+    /// <inheritdoc />
     public async Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(userName);

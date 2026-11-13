@@ -35,6 +35,30 @@ public class GlobalUsersApiServiceTests
     }
 
     [Fact]
+    public async Task GetRoleHoldersAsync_RequestsTheRoleHoldersAndDeserialisesTheBody()
+    {
+        const string json = """[{"fullName":"Jo Smith","role":1},{"fullName":"Sam Poe","role":2}]""";
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var result = await client.GetRoleHoldersAsync();
+
+        Assert.Equal("/api/global-users/role-holders", handler.LastRequestUri!.PathAndQuery);
+        Assert.Equal(["Jo Smith", "Sam Poe"], result.Select(user => user.FullName));
+        Assert.Equal(GlobalUserRole.PolicyProfileUser, result[1].Role);
+    }
+
+    [Fact]
+    public async Task GetRoleHoldersAsync_ReturnsNoUsers_WhenTheBodyIsNull()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
+
+        var result = await client.GetRoleHoldersAsync();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
     public async Task LookupAsync_EscapesTheUserNameAndDeserialisesTheBody()
     {
         const string json = """{"outcome":1}""";

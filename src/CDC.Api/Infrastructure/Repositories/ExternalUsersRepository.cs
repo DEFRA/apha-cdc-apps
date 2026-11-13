@@ -8,16 +8,16 @@ using Dapper;
 namespace CDC.Api.Infrastructure.Repositories;
 
 /// <summary>
-/// Dapper implementation of <see cref="IExternalUsersRepository"/>, using the stored procedures the
-/// legacy <c>SsoUserMaintenance</c> CSLA object called.
+/// Dapper implementation of <see cref="IExternalUsersRepository"/>. External users are the users linked to a CIDM identity
+/// (<c>SsoUserIdExt</c> is set); the legacy <c>SsoUserMaintenance</c> procedures list the legacy <c>SsoUserId</c> users instead.
 /// </summary>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
 /// <param name="logger">Structured logger.</param>
 public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFactory, ILogger<ExternalUsersRepository> logger)
     : IExternalUsersRepository
 {
-    private const string GetAllProcedure = "spgaSsoUserMaintenance";
-    private const string SaveProcedure = "spiSsoUser";
+    private const string GetAllProcedure = "spgaExternalUserMaintenance";
+    private const string SaveProcedure = "spuExternalUserSubscribedToReviewEmails";
     private const string PreRegisterProcedure = "spiExternalUserPreRegistration";
     private const string AwaitingInstructionsProcedure = "spgaExternalUsersAwaitingLoginInstructions";
     private const string LoginRecipientProcedure = "spgExternalUserLoginInstructions";
@@ -50,8 +50,7 @@ public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFacto
                     FullName = reader.GetString(2),
                     EmailAddress = reader.GetString(3),
                     Organisation = reader.GetString(4),
-                    SubscribedToReviewEmails = reader.GetBoolean(5),
-                    SsoUserId = reader.GetGuid(6)
+                    SubscribedToReviewEmails = reader.GetBoolean(5)
                 });
             }
 
@@ -171,12 +170,8 @@ public sealed class ExternalUsersRepository(IDbConnectionFactory connectionFacto
         try
         {
             var parameters = new DynamicParameters();
-            parameters.Add("@UserName", user.UserName, DbType.AnsiString, size: UserNameMaxLength);
-            parameters.Add("@FullName", user.FullName, DbType.AnsiString, size: NameMaxLength);
-            parameters.Add("@EmailAddress", user.EmailAddress, DbType.AnsiString, size: EmailMaxLength);
-            parameters.Add("@Organisation", user.Organisation, DbType.AnsiString, size: NameMaxLength);
-            parameters.Add("@SubscribedToEmails", user.SubscribedToReviewEmails, DbType.Boolean);
-            parameters.Add("@SsoUserId", user.SsoUserId, DbType.Guid);
+            parameters.Add("@Id", user.Id, DbType.Guid);
+            parameters.Add("@SubscribedToReviewEmails", user.SubscribedToReviewEmails, DbType.Boolean);
 
             await connection.ExecuteAsync(new CommandDefinition(
                 SaveProcedure,

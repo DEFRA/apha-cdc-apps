@@ -2,10 +2,10 @@ using CDC.Api.Domain.Entities;
 
 namespace CDC.Api.Features.ExternalUsers.Interfaces;
 
-/// <summary>Data access for maintaining external (SSO) users.</summary>
+/// <summary>Data access for maintaining external users: the users linked to a CIDM identity.</summary>
 public interface IExternalUsersRepository
 {
-    /// <summary>Gets every external user, ordered by username.</summary>
+    /// <summary>Gets every external user (<c>SsoUserIdExt</c> set), ordered by username.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The external users.</returns>
     Task<IReadOnlyList<ExternalUserAccount>> GetExternalUsersAsync(CancellationToken cancellationToken);
@@ -27,10 +27,10 @@ public interface IExternalUsersRepository
     Task<bool> PreRegisterExternalUserAsync(
         Guid id, string userName, string fullName, string organisation, string emailAddress, CancellationToken cancellationToken);
 
-    /// <summary>Saves the user, including their review email subscription.</summary>
+    /// <summary>Saves the user's review email subscription.</summary>
     /// <param name="user">The user to save.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>A task that completes when the user is saved.</returns>
+    /// <returns>A task that completes when the subscription is saved.</returns>
     Task SaveExternalUserAsync(ExternalUserAccount user, CancellationToken cancellationToken);
 
     /// <summary>Gets the identifiers of the external users whose login instructions have not been sent yet.</summary>

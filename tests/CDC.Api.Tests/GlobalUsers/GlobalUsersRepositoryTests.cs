@@ -15,6 +15,9 @@ public class GlobalUsersRepositoryTests : IDisposable
 {
     private static readonly byte[] RowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
+    private static readonly string[] ListColumns =
+        ["Id", "UserName", "FullName", "Organisation", "SubscribedToReviewEmails", "IsProfileEditor", "IsPolicyProfileUser", "LastUpdated"];
+
     private readonly FakeDbConnection connection = new();
     private readonly Mock<ILogger<GlobalUsersRepository>> logger = new();
 
@@ -41,40 +44,71 @@ public class GlobalUsersRepositoryTests : IDisposable
     };
 
     [Fact]
-    public async Task GetGlobalUsersAsync_MapsRowsAndRoles()
+    public async Task GetGlobalUsersAsync_ReadsTheUsersLinkedToEntraId_WithOrWithoutARole()
     {
         var editorId = Guid.NewGuid();
         var policyId = Guid.NewGuid();
-        connection.Script("spgaGlobalUser", new FakeCommandScript
+        var noRoleId = Guid.NewGuid();
+        connection.Script("spgaInternalUser", new FakeCommandScript
         {
             ResultSets =
             [
                 new FakeResultSet(
-                    ["Id", "UserName", "FullName", "Organisation", "SubscribedToReviewEmails", "IsProfileEditor", "IsPolicyProfileUser", "LastUpdated"],
+                    ListColumns,
                     [
                         [editorId, @"D\a", "A", "APHA", true, true, false, RowVersion],
-                        [policyId, @"D\b", "B", "Defra", false, false, true, RowVersion]
+                        [policyId, @"D\b", "B", "Defra", false, false, true, RowVersion],
+                        [noRoleId, @"D\c", "C", "", false, false, false, RowVersion]
                     ])
             ]
         });
 
         var users = await CreateRepository().GetGlobalUsersAsync(CancellationToken.None);
 
-        users.Should().HaveCount(2);
+        users.Should().HaveCount(3);
         users[0].Id.Should().Be(editorId);
         users[0].Role.Should().Be(GlobalUserRole.ProfileEditor);
         users[0].SubscribedToReviewEmails.Should().BeTrue();
         users[1].Role.Should().Be(GlobalUserRole.PolicyProfileUser);
         users[1].LastUpdated.Should().Equal(RowVersion);
+        users[2].Id.Should().Be(noRoleId);
+        users[2].Role.Should().Be(GlobalUserRole.None);
         connection.Executed.Should().ContainSingle().Which.CommandType.Should().Be(CommandType.StoredProcedure);
     }
 
     [Fact]
     public async Task GetGlobalUsersAsync_Throws_WhenTheDatabaseFails()
     {
-        connection.Script("spgaGlobalUser", new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script("spgaInternalUser", new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetGlobalUsersAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
+    public async Task GetUsersWithGlobalRoleAsync_ReadsTheUsersHoldingAGlobalRole_WhetherOrNotLinkedToEntraId()
+    {
+        var editorId = Guid.NewGuid();
+        connection.Script("spgaGlobalUser", new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(ListColumns, [[editorId, @"D\a", "A", "APHA", true, true, false, RowVersion]])]
+        });
+
+        var users = await CreateRepository().GetUsersWithGlobalRoleAsync(CancellationToken.None);
+
+        var user = users.Should().ContainSingle().Subject;
+        user.Id.Should().Be(editorId);
+        user.Role.Should().Be(GlobalUserRole.ProfileEditor);
+        connection.Executed.Should().ContainSingle().Which.CommandType.Should().Be(CommandType.StoredProcedure);
+    }
+
+    [Fact]
+    public async Task GetUsersWithGlobalRoleAsync_Throws_WhenTheDatabaseFails()
+    {
+        connection.Script("spgaGlobalUser", new FakeCommandScript { Throws = new FakeDbException("boom") });
+
+        var act = () => CreateRepository().GetUsersWithGlobalRoleAsync(CancellationToken.None);
 
         await act.Should().ThrowAsync<FakeDbException>();
     }

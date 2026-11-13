@@ -22,7 +22,7 @@ namespace CDC.Api.Features.GlobalUsers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class GlobalUsersController(ISender mediator) : ControllerBase
 {
-    /// <summary>Gets one page of global users.</summary>
+    /// <summary>Gets one page of global users: the users linked to an Entra ID identity, including those with no global role yet.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user on a single page.</param>
     /// <param name="sortColumn">The column to sort by. Defaults to full name, as legacy did.</param>
@@ -39,6 +39,18 @@ public sealed class GlobalUsersController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var result = await mediator.Send(new GetGlobalUsersQuery(pageNumber, pageSize, sortColumn, sortDescending), cancellationToken);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>Gets every user who holds a global role, by full name, whether or not they have signed in through Entra ID.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <response code="200">The users were retrieved.</response>
+    [HttpGet("role-holders")]
+    [ProducesResponseType(typeof(IReadOnlyList<GlobalUserDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<GlobalUserDto>>> GetUsersWithGlobalRole(CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new GetUsersWithGlobalRoleQuery(), cancellationToken);
 
         return result.ToActionResult(this);
     }
