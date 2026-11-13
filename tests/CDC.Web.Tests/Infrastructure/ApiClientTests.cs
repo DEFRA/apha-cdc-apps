@@ -876,6 +876,23 @@ public class ApiClientTests
         Assert.Equal("The profile version could not be deleted. Please try again.", result.ErrorMessage);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent, true)]
+    [InlineData(HttpStatusCode.Forbidden, false)]
+    [InlineData(HttpStatusCode.InternalServerError, false)]
+    public async Task SetProfileVersionPublicAccessAsync_PutsToThePublicAccessEndpoint_AndReturnsWhetherTheCallSucceeded(HttpStatusCode status, bool expected)
+    {
+        var profileVersionId = Guid.NewGuid();
+        var handler = new RecordingHttpMessageHandler(status, string.Empty);
+        var client = CreateClient(handler);
+
+        var result = await client.SetProfileVersionPublicAccessAsync(profileVersionId);
+
+        Assert.Equal(expected, result);
+        Assert.Equal(HttpMethod.Put, handler.LastRequestMethod);
+        Assert.Equal($"/api/profiles/versions/{profileVersionId}/public-access", handler.LastRequestUri!.AbsolutePath);
+    }
+
     private static ApiClient CreateClient(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://cdc-api.test") };

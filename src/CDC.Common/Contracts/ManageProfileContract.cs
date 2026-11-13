@@ -65,6 +65,13 @@ public abstract record ManageProfileContract
     /// </summary>
     public Guid LatestVersionId { get; init; }
 
+    /// <summary>
+    /// Gets the legacy <c>CurrentPublishedVersion.Id</c>: the profile's current published version (the one the page labels
+    /// "Defranet only" until it is made public). This is the version "Allow public access" makes public.
+    /// <see cref="Guid.Empty"/> when the profile has no published version.
+    /// </summary>
+    public Guid CurrentPublishedVersionId { get; init; }
+
     /// <summary>Gets which action links are visible for the current user and profile state.</summary>
     public ManageProfileLinkVisibilityDto LinkVisibility { get; init; } = new();
 

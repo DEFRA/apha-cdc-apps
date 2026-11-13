@@ -3,9 +3,10 @@ import '../../src/CDC.Web/wwwroot/js/edit-profile-title.js';
 
 const SERVER_ERROR = 'The profile title is already in use for a different profile';
 
-function buildEditor({ html = 'Initial title', withSaveButton = true, withRequiredError = true, serverError = null, toolbarOnFocus = false, saveOnLoad = false } = {}) {
+function buildEditor({ html = 'Initial title', withSaveButton = true, withRequiredError = true, withRequiredMark = false, serverError = null, toolbarOnFocus = false, saveMode = null } = {}) {
   document.body.innerHTML = `
     <div class="govuk-form-group${serverError ? ' govuk-form-group--error' : ''}">
+      ${withRequiredMark ? '<label for="ProfileTitleEditor">Profile title:<span data-app-title-required-mark hidden>*</span></label>' : ''}
       ${serverError ? `<p id="ProfileTitle-error" class="govuk-error-message">${serverError}</p>` : ''}
       ${withRequiredError ? '<div aria-live="polite"><p id="ProfileTitle-required-error" class="govuk-error-message" data-app-title-required-error hidden>You must enter a profile title</p></div>' : ''}
       <div class="app-title-toolbar" data-app-title-toolbar="ProfileTitleEditor"${toolbarOnFocus ? ' data-app-title-toolbar-on-focus' : ''} role="toolbar" aria-label="Profile title formatting">
@@ -16,7 +17,7 @@ function buildEditor({ html = 'Initial title', withSaveButton = true, withRequir
       <div id="ProfileTitleEditor" class="govuk-input${serverError ? ' govuk-input--error' : ''}" contenteditable="true"${serverError ? ' aria-describedby="ProfileTitle-error"' : ''} data-app-title-hidden-input="ProfileTitle">${html}</div>
       <input id="ProfileTitle" type="hidden" value="" />
     </div>
-    ${withSaveButton ? `<button type="submit" data-app-title-save${saveOnLoad ? '="on-load"' : ''}>Save</button>` : ''}
+    ${withSaveButton ? `<button type="submit" data-app-title-save${saveMode ? `="${saveMode}"` : ''}>Save</button>` : ''}
     <a id="elsewhere" href="#">Elsewhere</a>
   `;
 
@@ -31,6 +32,7 @@ function buildEditor({ html = 'Initial title', withSaveButton = true, withRequir
     saveButton: document.querySelector('[data-app-title-save]'),
     group: document.querySelector('.govuk-form-group'),
     requiredError: document.getElementById('ProfileTitle-required-error'),
+    requiredMark: document.querySelector('[data-app-title-required-mark]'),
     serverError: document.getElementById('ProfileTitle-error')
   };
 }
@@ -324,26 +326,117 @@ describe('edit-profile-title', () => {
 
       expect(hiddenInput.value).toBe('');
     });
+  });
 
-    // Profile properties: creating a profile starts with no title, so there is nothing to create yet.
-    it('is hidden when the page loads with no title, where the page asks for that', () => {
-      const { saveButton } = buildEditor({ html: '', saveOnLoad: true });
+  // Profile properties: as in legacy, an emptied title is acted on once the title loses focus, not while it is being emptied, and never when the page loads.
+  describe('a page that acts on an emptied title only when it loses focus', () => {
+    function buildOnBlur(options = {}) {
+      return buildEditor({ saveMode: 'on-blur', withRequiredMark: true, ...options });
+    }
 
+    function expectNotYetActedOn({ saveButton, requiredError, requiredMark, group }) {
+      expect(saveButton.style.visibility).toBe('');
+      expect(requiredError.hidden).toBe(true);
+      expect(requiredMark.hidden).toBe(true);
+      expect(group.classList.contains('govuk-form-group--error')).toBe(false);
+    }
+
+    function expectActedOn({ saveButton, requiredError, requiredMark, group }) {
       expect(saveButton.style.visibility).toBe('hidden');
+      expect(requiredError.hidden).toBe(false);
+      expect(requiredMark.hidden).toBe(false);
+      expect(group.classList.contains('govuk-form-group--error')).toBe(true);
+    }
+
+    it('offers the Save button, and no message, when the page loads with no title', () => {
+      expectNotYetActedOn(buildOnBlur({ html: '' }));
     });
 
-    it('is shown when the page loads with a title, where the page asks for that', () => {
-      const { saveButton } = buildEditor({ html: 'Anthrax', saveOnLoad: true });
-
-      expect(saveButton.style.visibility).toBe('visible');
+    it('offers the Save button, and no message, when the page loads with a title', () => {
+      expectNotYetActedOn(buildOnBlur({ html: 'Anthrax' }));
     });
 
-    it('appears once a title is typed into a page that loaded with none', () => {
-      const { editor, saveButton } = buildEditor({ html: '', saveOnLoad: true });
+    it('keeps the Save button, and shows no message, while the title is emptied', () => {
+      const page = buildOnBlur({ html: 'Anthrax' });
 
-      typeInto(editor, 'Anthrax');
+      typeInto(page.editor, '');
 
-      expect(saveButton.style.visibility).toBe('visible');
+      expectNotYetActedOn(page);
+      expect(page.hiddenInput.value).toBe('');
+    });
+
+    it.each(['<br>', '<i></i>', '&nbsp;&nbsp;', '   '])('keeps the Save button while the title is only %j', (html) => {
+      const page = buildOnBlur({ html: 'Anthrax' });
+
+      typeInto(page.editor, html);
+
+      expectNotYetActedOn(page);
+    });
+
+    it('hides the Save button and shows the message and the mark once the title loses focus with no text', () => {
+      const page = buildOnBlur({ html: 'Anthrax' });
+      typeInto(page.editor, '');
+
+      page.editor.dispatchEvent(new Event('blur'));
+
+      expectActedOn(page);
+    });
+
+    it('hides the Save button and shows the message and the mark when the title loses focus having never had text', () => {
+      const page = buildOnBlur({ html: '' });
+
+      page.editor.dispatchEvent(new Event('blur'));
+
+      expectActedOn(page);
+    });
+
+    it('shows the Save button and drops the message and the mark as soon as text is typed', () => {
+      const page = buildOnBlur({ html: '' });
+      page.editor.dispatchEvent(new Event('blur'));
+      expectActedOn(page);
+
+      typeInto(page.editor, 'Anthrax');
+
+      expect(page.saveButton.style.visibility).toBe('visible');
+      expect(page.requiredError.hidden).toBe(true);
+      expect(page.requiredMark.hidden).toBe(true);
+      expect(page.group.classList.contains('govuk-form-group--error')).toBe(false);
+    });
+
+    it('leaves a title that undo emptied alone until it loses focus', async () => {
+      const page = buildOnBlur({ html: '' });
+      typeInto(page.editor, 'Alpha');
+      await vi.advanceTimersByTimeAsync(300);
+
+      page.undoButton.click();
+
+      expect(page.editor.innerHTML).toBe('');
+      expect(page.saveButton.style.visibility).toBe('visible');
+      expect(page.requiredError.hidden).toBe(true);
+
+      page.editor.dispatchEvent(new Event('blur'));
+
+      expectActedOn(page);
+    });
+
+    // Reset selections asks for this, as legacy validated the page when that button was clicked.
+    it('shows the message and the mark when asked to validate an empty title, leaving the Save button alone', () => {
+      const page = buildOnBlur({ html: '' });
+
+      page.editor.dispatchEvent(new Event('app-title-validate'));
+
+      expect(page.requiredError.hidden).toBe(false);
+      expect(page.requiredMark.hidden).toBe(false);
+      expect(page.group.classList.contains('govuk-form-group--error')).toBe(true);
+      expect(page.saveButton.style.visibility).toBe('');
+    });
+
+    it('shows nothing when asked to validate a title that has text', () => {
+      const page = buildOnBlur({ html: 'Anthrax' });
+
+      page.editor.dispatchEvent(new Event('app-title-validate'));
+
+      expectNotYetActedOn(page);
     });
   });
 
@@ -428,12 +521,37 @@ describe('edit-profile-title', () => {
   });
 
   describe('the required message', () => {
-    function expectShown({ editor, group, requiredError }) {
+    function expectShown({ editor, group, requiredError, requiredMark }) {
       expect(requiredError.hidden).toBe(false);
       expect(group.classList.contains('govuk-form-group--error')).toBe(true);
       expect(editor.classList.contains('govuk-input--error')).toBe(true);
       expect(editor.getAttribute('aria-describedby')).toBe('ProfileTitle-required-error');
+
+      if (requiredMark) {
+        expect(requiredMark.hidden).toBe(false);
+      }
     }
+
+    it('is shown with the legacy asterisk beside the label while the title is empty, and both go when text returns', () => {
+      const page = buildEditor({ withRequiredMark: true });
+
+      expect(page.requiredMark.hidden).toBe(true);
+
+      typeInto(page.editor, '');
+      expectShown(page);
+
+      typeInto(page.editor, 'Anthrax');
+      expect(page.requiredMark.hidden).toBe(true);
+    });
+
+    it('gives no asterisk for a message the server gave about something other than an empty title', () => {
+      const page = buildEditor({ withRequiredMark: true, serverError: SERVER_ERROR });
+
+      typeInto(page.editor, 'Anthrax');
+
+      expect(page.serverError.hidden).toBe(false);
+      expect(page.requiredMark.hidden).toBe(true);
+    });
 
     it('is not shown when the page loads, even with no text, as in legacy', () => {
       const { requiredError } = buildEditor({ html: '' });

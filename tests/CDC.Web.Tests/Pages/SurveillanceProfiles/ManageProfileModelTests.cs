@@ -476,5 +476,88 @@ public class ManageProfileModelTests
         Assert.IsType<PageResult>(result);
         Assert.True(pageModel.HasError);
     }
+
+    private static ManageProfileViewModel ProfileThatAllowsPublicAccess(Guid publishedVersionId, bool canAllowPublicAccess = true) =>
+        Profile() with
+        {
+            CurrentPublishedVersionId = publishedVersionId,
+            LinkVisibility = new ManageProfileLinkVisibilityDto { CanAllowPublicAccess = canAllowPublicAccess }
+        };
+
+    [Fact]
+    public async Task OnPostAllowPublicAccessAsync_MakesTheCurrentPublishedVersionPublic_AndStaysOnThePage()
+    {
+        var publishedVersionId = Guid.NewGuid();
+        var apiClient = new FakeApiClient(manageProfile: ProfileThatAllowsPublicAccess(publishedVersionId), profileStatusTypes: StatusTypes());
+        var pageModel = CreatePageModel(apiClient);
+
+        var result = await pageModel.OnPostAllowPublicAccessAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(publishedVersionId, apiClient.PublicAccessProfileVersionId);
+        Assert.Equal("Successfully made the latest published version public.", pageModel.StatusMessage);
+        Assert.Null(pageModel.StatusErrorMessage);
+        Assert.Null(pageModel.SuccessMessage);
+        Assert.NotNull(pageModel.Profile);
+        Assert.Equal(2, pageModel.ProfileStatusTypes.Count);
+    }
+
+    [Fact]
+    public async Task OnPostAllowPublicAccessAsync_ShowsAnError_WhenTheApiDoesNotMakeTheVersionPublic()
+    {
+        var apiClient = new FakeApiClient(
+            manageProfile: ProfileThatAllowsPublicAccess(Guid.NewGuid()),
+            profileStatusTypes: StatusTypes(),
+            setProfileVersionPublicAccessResult: false);
+        var pageModel = CreatePageModel(apiClient);
+
+        var result = await pageModel.OnPostAllowPublicAccessAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.NotNull(apiClient.PublicAccessProfileVersionId);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("This profile version could not be made public. Please try again.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostAllowPublicAccessAsync_ChangesNothing_WhenTheProfileDoesNotAllowPublicAccess()
+    {
+        var apiClient = new FakeApiClient(
+            manageProfile: ProfileThatAllowsPublicAccess(Guid.NewGuid(), canAllowPublicAccess: false),
+            profileStatusTypes: StatusTypes());
+        var pageModel = CreatePageModel(apiClient);
+
+        var result = await pageModel.OnPostAllowPublicAccessAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Null(apiClient.PublicAccessProfileVersionId);
+        Assert.Null(pageModel.StatusMessage);
+        Assert.Equal("This profile version cannot be made public.", pageModel.StatusErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnPostAllowPublicAccessAsync_ReturnsNotFound_WhenNoProfileExists()
+    {
+        var apiClient = new FakeApiClient(manageProfile: null);
+        var pageModel = CreatePageModel(apiClient);
+
+        var result = await pageModel.OnPostAllowPublicAccessAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Null(apiClient.PublicAccessProfileVersionId);
+    }
+
+    [Fact]
+    public async Task OnPostAllowPublicAccessAsync_ReturnsPageWithHasError_WhenLoadingTheProfileFails()
+    {
+        var apiClient = new FakeApiClient(throwOnGetManageProfile: new HttpRequestException("connection refused"));
+        var pageModel = CreatePageModel(apiClient);
+
+        var result = await pageModel.OnPostAllowPublicAccessAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasError);
+        Assert.Null(apiClient.PublicAccessProfileVersionId);
+    }
 }
 

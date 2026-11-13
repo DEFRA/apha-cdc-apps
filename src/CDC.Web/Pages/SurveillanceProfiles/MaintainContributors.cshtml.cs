@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CDC.Common.Contracts;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Infrastructure;
@@ -101,11 +102,17 @@ public class MaintainContributorsModel : PageModel
     public Guid RoleId { get; set; }
 
     /// <summary>Gets or sets the Full Name field on the edit form. Read-only for an SSO user.</summary>
+    /// <remarks>An empty value must stay an empty string: by default MVC binds it to <see langword="null"/>, which
+    /// the API rejects. A user created at first CIDM sign-in has no organisation, and the edit form posts the
+    /// read-only value back in a hidden field.</remarks>
     [BindProperty]
+    [DisplayFormat(ConvertEmptyStringToNull = false)]
     public string FullName { get; set; } = string.Empty;
 
     /// <summary>Gets or sets the Organisation field on the edit form. Read-only for an SSO user.</summary>
+    /// <remarks>See <see cref="FullName"/>: an empty value must stay an empty string.</remarks>
     [BindProperty]
+    [DisplayFormat(ConvertEmptyStringToNull = false)]
     public string Organisation { get; set; } = string.Empty;
 
     /// <summary>Gets or sets the checked profile section permission checkboxes on the edit form.</summary>

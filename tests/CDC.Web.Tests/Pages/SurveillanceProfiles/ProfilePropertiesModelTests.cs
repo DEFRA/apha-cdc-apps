@@ -370,12 +370,13 @@ public class ProfilePropertiesModelTests
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(["You must enter a profile title"], Errors(pageModel, nameof(ProfilePropertiesModel.ProfileTitle)));
+        Assert.Equal(["You must enter a title"], Errors(pageModel, nameof(ProfilePropertiesModel.ProfileTitle)));
         Assert.Null(properties.LastCreateRequest);
     }
 
+    // Legacy worded the message the same whichever kind of title the page was asked for.
     [Fact]
-    public async Task OnPostAsync_RequiresAScenarioTitle_WhenCloningAScenario()
+    public async Task OnPostAsync_RequiresATitleWithTheSameMessage_WhenCloningAScenario()
     {
         var pageModel = CreatePageModel(
             properties: new FakeProfilePropertiesApiService(defaults: Defaults()),
@@ -386,7 +387,8 @@ public class ProfilePropertiesModelTests
 
         await pageModel.OnPostAsync(CancellationToken.None);
 
-        Assert.Equal(["You must enter a scenario title"], Errors(pageModel, nameof(ProfilePropertiesModel.ProfileTitle)));
+        Assert.Equal(["You must enter a title"], Errors(pageModel, nameof(ProfilePropertiesModel.ProfileTitle)));
+        Assert.Equal("You must enter a title", pageModel.TitleRequiredMessage);
     }
 
     [Fact]

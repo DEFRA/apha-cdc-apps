@@ -1225,15 +1225,11 @@ body {
   overflow-y: auto;
 }
 
+/* The "Selected: ..." line is always shown, as in legacy; only the species named in it are bold (a <strong> in the markup). */
 .app-species-selector__status {
   display: block;
   margin-top: 10px;
   margin-bottom: 0;
-  font-weight: bold;
-}
-
-.app-species-selector__status[hidden] {
-  display: none;
 }
 
 /* Species filter toggle: same button-as-link reset as .app-filters__toggle, plus a circular

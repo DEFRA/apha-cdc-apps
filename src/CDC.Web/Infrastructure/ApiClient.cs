@@ -113,6 +113,11 @@ public interface IApiClient
 
     /// <summary>Deletes a profile version via <c>DELETE /api/profiles/versions/{profileVersionId}</c>.</summary>
     Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Makes a published profile version public via <c>PUT /api/profiles/versions/{profileVersionId}/public-access</c>,
+    /// as the legacy "Allow public access" link did. This cannot be undone.</summary>
+    /// <returns><see langword="true"/> when the version was made public.</returns>
+    Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -504,6 +509,12 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
     public async Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PutAsync($"/api/static-reports/versions/{staticReportVersionId}/public", null, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsync($"/api/profiles/versions/{profileVersionId}/public-access", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
 

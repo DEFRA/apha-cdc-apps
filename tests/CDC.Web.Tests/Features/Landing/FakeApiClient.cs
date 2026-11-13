@@ -29,7 +29,8 @@ internal sealed class FakeApiClient( // NOSONAR
     Exception? throwOnStaticReportOperation = null,
     PublishProfileResult? publishProfileResult = null,
     Exception? throwOnGetManageProfileForAVersion = null,
-    Action? onSearchProfiles = null) : IApiClient
+    Action? onSearchProfiles = null,
+    bool setProfileVersionPublicAccessResult = true) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -211,4 +212,14 @@ internal sealed class FakeApiClient( // NOSONAR
 
     public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_deleteProfileVersionResult);
+
+    /// <summary>Gets the version the last make-public request named, or <see langword="null"/> when none was made.</summary>
+    public Guid? PublicAccessProfileVersionId { get; private set; }
+
+    public Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        PublicAccessProfileVersionId = profileVersionId;
+
+        return Task.FromResult(setProfileVersionPublicAccessResult);
+    }
 }
