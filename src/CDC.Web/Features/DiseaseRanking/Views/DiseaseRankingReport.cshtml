@@ -1,6 +1,7 @@
 @using System.Globalization
 @using CDC.Common.Contracts
 @using CDC.Web.Features.DiseaseRanking
+@using CDC.Web.Infrastructure.Pdf
 @model DiseaseRankingReportDto
 @functions {
     static string N(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
@@ -14,8 +15,14 @@
     <meta charset="utf-8" />
     <title>@Model.FooterTitle</title>
     <style>
-        @@page front { size: A4 landscape; margin: 12mm 10mm 16mm 10mm; }
-        @@page graph { size: A4 portrait; margin: 12mm 10mm 16mm 10mm; }
+        @@page front { size: A4 landscape; margin: 12mm 10mm 22mm 10mm; }
+        @@page graph { size: A4 portrait; margin: 12mm 10mm 22mm 10mm; }
+        header.logo-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; padding-bottom: 4pt; border-bottom: 1pt solid #000; }
+        img.logo-header__apha { height: 50pt; }
+        .logo-header__text { flex: 1; padding: 6pt 0 0 20pt; }
+        .logo-header__text h1 { font-size: 12pt; font-weight: normal; margin: 0 0 4px; }
+        .logo-header__text p { font-size: 9px; margin: 0; }
+        img.logo-header__d2r2 { height: 38pt; align-self: center; }
         body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #0b0c0c; margin: 0; }
         h1 { font-size: 13pt; margin: 0 0 6px; }
         h2 { font-size: 10pt; margin: 0 0 4px; }
@@ -45,8 +52,14 @@
 </head>
 <body>
     <section class="front">
-        <h1>@Model.Title</h1>
-        <p>@Model.Subtitle</p>
+        <header class="logo-header">
+            <img class="logo-header__apha" src="@Html.Raw(ReportLogos.AphaLogoDataUri)" alt="Animal and Plant Health Agency" />
+            <div class="logo-header__text">
+                <h1>@Model.Title</h1>
+                <p>@Model.Subtitle</p>
+            </div>
+            <img class="logo-header__d2r2" src="@Html.Raw(ReportLogos.D2R2LogoDataUri)" alt="D2R2" />
+        </header>
 
         <div class="intro">
             <p>
