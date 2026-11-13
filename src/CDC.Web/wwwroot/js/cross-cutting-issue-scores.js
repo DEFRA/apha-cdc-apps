@@ -3,6 +3,14 @@
 (function () {
   'use strict';
 
+  const categoryForm = document.getElementById('category-form');
+  const categorySelect = document.getElementById('CategoryId');
+  if (categoryForm && categorySelect) {
+    categorySelect.addEventListener('change', function () {
+      categoryForm.submit();
+    });
+  }
+
   const form = document.getElementById('update-scores-form');
   if (!form) {
     return;
