@@ -864,7 +864,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
                 ItemNameSingular = SpeciesKey,
                 ItemNamePlural = SpeciesKey,
                 SelectedValue = SelectedSpeciesId?.ToString(),
-                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, preserveApiOrder: true)
+                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, preserveApiOrder: true, expandAll: true)
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
