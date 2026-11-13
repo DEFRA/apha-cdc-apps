@@ -1684,6 +1684,23 @@ body {
   max-width: 100%;
 }
 
+/* Radio rows share fixed-width columns so each choice lines up across rows, with space between the rows. */
+.app-radios-aligned {
+  display: grid;
+  grid-template-columns: repeat(3, 14rem);
+  column-gap: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #b1b4b6;
+  margin-bottom: 15px;
+}
+
+/* govuk-frontend has no inline checkboxes; lay the items out in a wrapping row. */
+.govuk-checkboxes--inline {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 20px;
+}
+
 /* All Revision dates tab */
 .app-revision-set-all {
     margin-bottom: 20px;

@@ -11,6 +11,11 @@ public abstract class BreadcrumbPageModelBase : PageModel
         Breadcrumb = new BreadcrumbViewModel(pageName);
     }
 
+    protected BreadcrumbPageModelBase(string pageName, string parentPageName, string parentUrl)
+    {
+        Breadcrumb = new BreadcrumbViewModel(pageName, parentPageName, parentUrl);
+    }
+
     // Settable so pages whose breadcrumb depends on a querystring (e.g. StaticReports?UserManual=1)
     // can update it once the request is known, in OnGet.
     public BreadcrumbViewModel Breadcrumb { get; protected set; }
