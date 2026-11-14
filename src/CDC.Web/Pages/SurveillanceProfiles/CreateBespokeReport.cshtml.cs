@@ -49,9 +49,6 @@ public class CreateBespokeReportModel(
     /// <summary>The message shown when the selected template no longer exists.</summary>
     public const string TemplateMissingMessage = "The template no longer exists.";
 
-    /// <summary>The message shown when "Generate bespoke report" is used with nothing ticked.</summary>
-    public const string NothingSelectedMessage = "Select at least one section, question or guidance to include in the report.";
-
     /// <summary>The message shown after a template was saved, as the legacy page's script worded it.</summary>
     public const string TemplateSavedMessage = "Template saved";
 
@@ -246,18 +243,13 @@ public class CreateBespokeReportModel(
     }
 
     /// <summary>Builds the bespoke report for the ticked nodes and downloads it ("Generate bespoke report").</summary>
+    /// <remarks>Nothing needs to be ticked, as in the legacy <c>GenerateCustomPdf</c>, which asked for no selection and built the
+    /// report from whatever was ticked: with nothing ticked that is the front page and the closing note, with no sections.</remarks>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The PDF, named after the selected template, or the page with what went wrong.</returns>
     public async Task<IActionResult> OnPostGenerateAsync(CancellationToken cancellationToken)
     {
         var selection = BespokeReportNodes.ToSelection(CheckedNodes);
-
-        if (selection.Sections.Count == 0)
-        {
-            ErrorMessage = NothingSelectedMessage;
-
-            return await RedisplayAsync(cancellationToken);
-        }
 
         try
         {

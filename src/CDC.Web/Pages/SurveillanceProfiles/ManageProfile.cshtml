@@ -106,7 +106,7 @@
                         @Model.Profile.LatestPublishedVersionDefraNetOnly
                         @if (Model.Profile.LinkVisibility.CanAllowPublicAccess)
                         {
-                            <a class="govuk-link govuk-!-margin-left-3" asp-page="./AllowPublicAccess" asp-route-profileId="@Model.ProfileId">Allow public access</a>
+                            <button type="button" class="govuk-link app-link-button govuk-!-margin-left-3" data-confirm-target="#confirmAllowPublicAccessModal">Allow public access</button>
                         }
                     </dd>
                 </div>
@@ -217,6 +217,14 @@
                     "confirmPublishDefranetOnlyModal",
                     "Are you sure you want to publish this profile but not make it public?",
                     "PublishDefranetOnly",
+                    Model.ProfileId))" />
+            }
+            @if (Model.Profile.LinkVisibility.CanAllowPublicAccess)
+            {
+                <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                    "confirmAllowPublicAccessModal",
+                    "Are you sure you want to make this profile version public (this cannot be undone)?",
+                    "AllowPublicAccess",
                     Model.ProfileId))" />
             }
         }

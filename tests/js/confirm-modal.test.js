@@ -20,10 +20,21 @@ beforeAll(async () => {
     <dialog class="app-modal" id="server-opened" data-open-on-load="true"></dialog>
     <dialog class="app-modal" id="server-not-opened" data-open-on-load="false"></dialog>
     <dialog class="app-modal" id="plain"></dialog>
+    <form id="regenerate-form">
+      <button type="submit" id="regenerate" data-progress-dialog="#progress-dialog">Regenerate report</button>
+      <button type="submit" id="plain-submit">Save</button>
+      <button type="submit" id="missing-target" data-progress-dialog="#not-on-the-page">Go</button>
+    </form>
+    <dialog class="app-modal app-progress-dialog" id="progress-dialog"><h2>Regenerating report - please wait</h2></dialog>
   `;
 
   await import('../../src/CDC.Web/wwwroot/js/confirm-modal.js');
 });
+
+// The submit event a browser fires when the button is used, without going anywhere.
+function submit(button) {
+  button.form.dispatchEvent(new SubmitEvent('submit', { submitter: button, bubbles: true, cancelable: true }));
+}
 
 describe('confirm-modal', () => {
   it('opens, when the page loads, only the dialogs the server marked to open', () => {
@@ -103,5 +114,70 @@ describe('confirm-modal when the page is left and restored from the back/forward
     showPage(false);
 
     expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('closes an open progress dialog when the page is hidden, and reloads the page restored from the cache', () => {
+    submit(document.getElementById('regenerate'));
+    expect(document.getElementById('progress-dialog').hasAttribute('open')).toBe(true);
+
+    leavePage();
+    showPage(true);
+
+    expect(document.getElementById('progress-dialog').hasAttribute('open')).toBe(false);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A long-running submit (regenerating a report) shows its progress message until the response replaces the page, as the legacy LongTaskUI popup did.
+describe('confirm-modal progress dialog', () => {
+  const progress = () => document.getElementById('progress-dialog');
+
+  beforeEach(() => {
+    document.querySelectorAll('dialog').forEach((dialog) => dialog.removeAttribute('open'));
+  });
+
+  it('opens the dialog that the submitting button names', () => {
+    submit(document.getElementById('regenerate'));
+
+    expect(progress().hasAttribute('open')).toBe(true);
+    expect(progress().textContent).toBe('Regenerating report - please wait');
+  });
+
+  it('opens nothing for a button that names no dialog', () => {
+    submit(document.getElementById('plain-submit'));
+
+    expect(progress().hasAttribute('open')).toBe(false);
+  });
+
+  it('opens nothing when the named dialog is not on the page', () => {
+    expect(() => submit(document.getElementById('missing-target'))).not.toThrow();
+
+    expect(progress().hasAttribute('open')).toBe(false);
+  });
+
+  it('opens nothing when something else has already stopped the form from submitting', () => {
+    const form = document.getElementById('regenerate-form');
+    form.addEventListener('submit', (event) => event.preventDefault(), { once: true });
+
+    submit(document.getElementById('regenerate'));
+
+    expect(progress().hasAttribute('open')).toBe(false);
+  });
+
+  it('cannot be dismissed with Escape, which asks a dialog to cancel', () => {
+    submit(document.getElementById('regenerate'));
+    const cancel = new Event('cancel', { cancelable: true });
+
+    progress().dispatchEvent(cancel);
+
+    expect(cancel.defaultPrevented).toBe(true);
+  });
+
+  it('leaves the other dialogs dismissible', () => {
+    const cancel = new Event('cancel', { cancelable: true });
+
+    document.getElementById('confirm-dialog').dispatchEvent(cancel);
+
+    expect(cancel.defaultPrevented).toBe(false);
   });
 });

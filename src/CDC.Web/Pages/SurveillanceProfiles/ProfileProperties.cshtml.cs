@@ -39,6 +39,9 @@ public class ProfilePropertiesModel(
     public const string ProfiledSpeciesFieldName = nameof(ProfiledSpeciesIds);
     public const string OtherSpeciesFieldName = nameof(OtherSpeciesIds);
 
+    /// <summary>The message shown while the title has no text, worded as the legacy required field validator was whichever kind of title it is.</summary>
+    public const string TitleRequiredMessage = "You must enter a title";
+
     private const int MaxTitleLength = 255;
     private const string SavedMessage = "Your changes were successfully saved";
     private const string CreatedMessage = "Your changes are successfully saved";
@@ -105,9 +108,6 @@ public class ProfilePropertiesModel(
 
     /// <summary>Gets the label of the title field.</summary>
     public string TitleLabel => IsScenarioTitle ? "Scenario title" : "Profile title";
-
-    /// <summary>Gets the message shown while the title has no text, as the legacy required field validator did.</summary>
-    public string TitleRequiredMessage => $"You must enter a {TitleLabel.ToLowerInvariant()}";
 
     /// <summary>Gets the label of the button that saves the form.</summary>
     public string SubmitButtonText => Mode == ProfilePropertiesMode.Edit ? "Update" : "Create profile";

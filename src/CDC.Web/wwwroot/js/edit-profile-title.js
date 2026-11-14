@@ -3,7 +3,9 @@
 // The title is edited in a contenteditable div (so HTML formatting renders as the user types)
 // and mirrored into a hidden input on every change, which is what actually gets posted.
 // The editor behaves as the legacy TinyMCE one did: italic only, one line, plain ASCII pasted text, and no more
-// than the title column holds. Where the page marks them, Save is hidden and a required message shown while the title has no text.
+// than the title column holds. Where the page marks them, Save is hidden, and a required message and asterisk shown, while the title has no text.
+// A Save button marked data-app-title-save="on-blur" is left alone while the title is being emptied, and when the page opens, and is dealt with
+// only once the title loses focus, as legacy did. A page that empties the title itself (Reset selections) tells its editor with app-title-cleared.
 // A toolbar marked data-app-title-toolbar-on-focus shows only while the title or the toolbar has focus, like legacy's inline editor.
 (function () {
     'use strict';
@@ -25,10 +27,14 @@
         var italicButton = toolbar.querySelector('[data-app-title-action="italic"]');
         var saveButton = document.querySelector('[data-app-title-save]');
         var requiredError = document.querySelector('[data-app-title-required-error]');
+        var requiredMark = document.querySelector('[data-app-title-required-mark]');
 
         if (!editor || !hiddenInput || !undoButton || !redoButton || !italicButton) {
             return;
         }
+
+        // Creating a profile opens with no title, and the person is still to type one, so on such a page nothing is held against an empty title until it loses focus.
+        var actsOnBlur = Boolean(saveButton) && saveButton.dataset.appTitleSave === 'on-blur';
 
         var formGroup = editor.closest('.govuk-form-group');
         // GOV.UK ids a field's error message "<field id>-error", so this is the one the server rendered for the title, if any.
@@ -125,7 +131,7 @@
             }
         }
 
-        // Legacy's required-field validator: the message replaces any the server gave for the title, so only one shows.
+        // Legacy's required-field validator: the message and its asterisk replace any message the server gave for the title, so only one shows.
         function updateRequiredError() {
             if (!requiredError) {
                 return;
@@ -135,6 +141,9 @@
             var shownMessage = isEmpty ? requiredError : serverError;
 
             requiredError.hidden = !isEmpty;
+            if (requiredMark) {
+                requiredMark.hidden = !isEmpty;
+            }
             if (serverError) {
                 serverError.hidden = isEmpty;
             }
@@ -149,10 +158,15 @@
             }
         }
 
-        // Everything that follows a change to the title.
-        function onChange() {
+        // Everything that follows a change to the title. finished is true once the title has lost focus.
+        function onChange(finished) {
             enforceLimit();
             syncHiddenInput();
+
+            if (actsOnBlur && !finished && isTitleEmpty()) {
+                return;
+            }
+
             updateSaveButton();
             updateRequiredError();
         }
@@ -189,7 +203,18 @@
             debounceTimer = window.setTimeout(pushHistory, HISTORY_DEBOUNCE_MS);
         });
 
-        editor.addEventListener('blur', onChange);
+        editor.addEventListener('blur', function () {
+            onChange(true);
+        });
+
+        // Reset selections on ProfileProperties has just emptied the title: it is checked at once, and Save is on offer again, as when legacy redrew the page.
+        editor.addEventListener('app-title-cleared', function () {
+            updateRequiredError();
+
+            if (saveButton) {
+                saveButton.style.visibility = 'visible';
+            }
+        });
 
         undoButton.addEventListener('click', function () {
             window.clearTimeout(debounceTimer);
@@ -237,11 +262,6 @@
 
         syncHiddenInput();
         updateButtonStates();
-
-        // Only where the page asks: a page that opens with no title (creating a profile) must not offer to save it.
-        if (saveButton && saveButton.dataset.appTitleSave === 'on-load') {
-            updateSaveButton();
-        }
 
         if (toolbar.hasAttribute('data-app-title-toolbar-on-focus')) {
             showToolbarOnFocus();

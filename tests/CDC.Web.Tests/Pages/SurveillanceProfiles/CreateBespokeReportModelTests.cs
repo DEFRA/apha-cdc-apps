@@ -556,7 +556,26 @@ public class CreateBespokeReportModelTests
     }
 
     [Fact]
-    public async Task OnPostGenerateAsync_AsksForASelection_WhenNothingIsTicked()
+    public async Task OnPostGenerateAsync_BuildsTheReportWithNoSelection_WhenNothingIsTicked()
+    {
+        var builder = new FakeBespokeReportPdfBuilder();
+        var model = CreateModel(builder: builder);
+        model.CheckedNodes = [];
+
+        var result = await model.OnPostGenerateAsync(CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.Equal("Bespoke Profile Report.pdf", file.FileDownloadName);
+        Assert.Null(model.ErrorMessage);
+        Assert.Equal(ProfileVersionId, builder.ProfileVersionId);
+        Assert.Empty(builder.Selection!.Sections);
+        Assert.Empty(builder.Selection.Questions);
+        Assert.Empty(builder.Selection.Guidance);
+    }
+
+    [Fact]
+    public async Task OnPostGenerateAsync_BuildsTheReportFromWhatIsTicked_EvenWhenNoSectionIsTicked()
     {
         var builder = new FakeBespokeReportPdfBuilder();
         var model = CreateModel(builder: builder);
@@ -564,10 +583,10 @@ public class CreateBespokeReportModelTests
 
         var result = await model.OnPostGenerateAsync(CancellationToken.None);
 
-        Assert.IsType<PageResult>(result);
-        Assert.Equal(CreateBespokeReportModel.NothingSelectedMessage, model.ErrorMessage);
-        Assert.Null(builder.Selection);
-        Assert.Contains(QuestionValue, model.Tree!.SelectedValues);
+        Assert.IsType<FileContentResult>(result);
+        Assert.Null(model.ErrorMessage);
+        Assert.Empty(builder.Selection!.Sections);
+        Assert.Equal([Question.Id], builder.Selection.Questions);
     }
 
     [Theory]

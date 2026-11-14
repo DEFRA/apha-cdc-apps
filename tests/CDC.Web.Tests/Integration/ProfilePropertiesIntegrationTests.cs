@@ -70,6 +70,34 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("href=\"/SurveillanceProfiles/ProfileProperties\"", page);
     }
 
+    // As in legacy, the right-aligned Manage profile link comes below the page heading, not above it.
+    [Fact]
+    public async Task EditPage_PutsTheManageProfileLinkBelowTheHeading()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
+
+        Assert.Matches(
+            $"<h1 class=\"govuk-heading-l\">Profile properties for [^<]*<em>tuberculosis</em></h1>\\s*<p class=\"govuk-body govuk-!-text-align-right\">\\s*<a class=\"govuk-link\" href=\"/SurveillanceProfiles/ManageProfile/{ProfileId}\">Manage profile</a>",
+            page);
+        Assert.Equal(1, Regex.Count(page, "Manage profile</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+    }
+
+    // As in legacy, where the warning was an ErrorLabel, the warning about removing profiled species is red (the GOV.UK warning text is black).
+    [Fact]
+    public async Task EditPage_ShowsTheRemovalWarningInRed_UntilAProfiledSpeciesIsUnticked()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
+
+        Assert.Contains("<div class=\"govuk-warning-text app-warning-text--error\" data-species-warning hidden>", page);
+        Assert.Contains("Removing profiled species from a profile will remove all of the data associated with that species from the profile.", page);
+    }
+
     [Fact]
     public async Task CreatePage_ShowsTheIntroduction_AndTheHeaderMenuLinksToIt()
     {
@@ -87,7 +115,8 @@ public partial class ProfilePropertiesIntegrationTests
     }
 
     // As the legacy table did, the title box sits to the right of its label; its formatting toolbar shows only while editing,
-    // and the button is hidden while there is no title, with the legacy required message ready for when the title is emptied.
+    // and the button is offered when the page opens (even with no title) and hidden only once the title loses focus empty,
+    // with the legacy required message and asterisk ready for the scripts to show.
     [Fact]
     public async Task CreatePage_PutsTheTitleBoxBesideItsLabel_WithTheEditingAidsTheScriptsUse()
     {
@@ -97,13 +126,53 @@ public partial class ProfilePropertiesIntegrationTests
         var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
 
         Assert.Matches(
-            "<div class=\"app-edit-title-row app-edit-title-row--message-below\">\\s*<label class=\"govuk-label app-edit-title-row__label app-edit-title-row__label--quarter\" id=\"ProfileTitleLabel\" for=\"ProfileTitleEditor\">Profile title:</label>\\s*<div class=\"app-edit-title-row__input-wrapper\">",
+            "<div class=\"app-edit-title-row app-edit-title-row--message-below\">\\s*<label class=\"govuk-label app-edit-title-row__label app-edit-title-row__label--quarter\" id=\"ProfileTitleLabel\" for=\"ProfileTitleEditor\">Profile title:<span class=\"app-validator-marker\" data-app-title-required-mark title=\"You must enter a title\" aria-hidden=\"true\" hidden=\"hidden\">\\*</span></label>\\s*<div class=\"app-edit-title-row__input-wrapper\">",
             page);
         Assert.Contains("data-app-title-toolbar=\"ProfileTitleEditor\" data-app-title-toolbar-on-focus role=\"toolbar\"", page);
         Assert.Contains(
-            "<p id=\"ProfileTitle-required-error\" class=\"govuk-error-message\" data-app-title-required-error hidden><span class=\"govuk-visually-hidden\">Error:</span> You must enter a profile title</p>",
+            "<p id=\"ProfileTitle-required-error\" class=\"govuk-error-message\" data-app-title-required-error hidden=\"hidden\"><span class=\"govuk-visually-hidden\">Error:</span> You must enter a title</p>",
             page);
-        Assert.Contains("data-app-title-save=\"on-load\">Create profile</button>", page);
+        Assert.Contains("data-app-title-save=\"on-blur\">Create profile</button>", page);
+        Assert.DoesNotContain("data-app-title-save=\"on-load\"", page);
+    }
+
+    // As in legacy, the page opens with no message or asterisk against the title or the profiled species; the scripts flag them
+    // when the person leaves them empty, or resets the page.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProfileProperties_OpensWithoutAMessageOrAsteriskAgainstTheTitleOrTheProfiledSpecies(bool editing)
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync(PageUrl(editing));
+
+        Assert.Contains(TitleMark(hidden: true), page);
+        Assert.Contains(SpeciesMark(hidden: true), page);
+        Assert.Contains("data-app-title-required-error hidden=\"hidden\"><span class=\"govuk-visually-hidden\">Error:</span> You must enter a title</p>", page);
+        Assert.DoesNotContain("id=\"ProfileTitle-error\"", page);
+        Assert.DoesNotContain("id=\"profiled-species-error\"", page);
+        Assert.DoesNotContain("govuk-form-group--error", page);
+    }
+
+    // As in legacy, "Selected:" is under both species boxes from the start, even with nothing selected, and only the species named after it are bold.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProfileProperties_ShowsSelectedUnderBothSpeciesBoxesFromTheStart_WithOnlyTheSpeciesNamedInBold(bool editing)
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync(PageUrl(editing));
+
+        foreach (var kind in new[] { "profiled", "other" })
+        {
+            Assert.Contains(
+                $"<output class=\"govuk-body app-species-selector__status\" id=\"{kind}-species-status\" data-species-status=\"{kind}\">Selected: <strong data-species-selected></strong></output>",
+                page);
+        }
     }
 
     // As the legacy page showed its validation message under the title box, the required message comes after the textbox, not before it.
@@ -118,11 +187,11 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-required-error\"", page);
     }
 
-    // The Search page links to Clone scenario with the legacy Scenario=1; Manage profile uses true.
+    // The Search page links to Clone scenario with the legacy Scenario=1; Manage profile uses true. Legacy's required message does not name the kind of title.
     [Theory]
     [InlineData("1")]
     [InlineData("true")]
-    public async Task CloneScenarioPage_NamesTheScenarioTitleInTheLabelAndTheRequiredMessage(string scenario)
+    public async Task CloneScenarioPage_NamesTheScenarioTitleInTheLabel_AndUsesTheLegacyRequiredMessage(string scenario)
     {
         var properties = new FakeProfilePropertiesApiService(defaults: new NewProfileDefaultsDto { ScenarioTitle = "Outbreak", ParentTitle = "Anthrax" });
         using var factory = CreateFactory(properties);
@@ -131,20 +200,21 @@ public partial class ProfilePropertiesIntegrationTests
         var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={CloneVersionId}&scenario={scenario}");
 
         Assert.Equal((CloneVersionId, true), properties.LastDefaultsRequest);
-        Assert.Contains("for=\"ProfileTitleEditor\">Scenario title:</label>", page);
-        Assert.Contains("Error:</span> You must enter a scenario title</p>", page);
+        Assert.Contains("for=\"ProfileTitleEditor\">Scenario title:<span", page);
+        Assert.Contains("Error:</span> You must enter a title</p>", page);
+        Assert.DoesNotContain("You must enter a scenario title", page);
         Assert.Contains("Outbreak</div>", page);
     }
 
     [Fact]
-    public async Task EditPage_HidesTheUpdateButtonOnlyWhileThereIsNoTitle()
+    public async Task EditPage_OffersTheUpdateButtonUntilTheTitleLosesFocusEmpty()
     {
         using var factory = CreateFactory(new FakeProfilePropertiesApiService());
         var client = await factory.SignedInClientAsync();
 
         var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
 
-        Assert.Contains("data-app-title-save=\"on-load\">Update</button>", page);
+        Assert.Contains("data-app-title-save=\"on-blur\">Update</button>", page);
     }
 
     // As the legacy page did, each species box holds its own "Close all" above its tree, rather than one control above both boxes.
@@ -223,7 +293,7 @@ public partial class ProfilePropertiesIntegrationTests
         var reloaded = await client.GetStringAsync(url);
         Assert.Contains("govuk-notification-banner--success", reloaded);
         Assert.Contains("Your changes are successfully saved", reloaded);
-        Assert.Contains("data-app-title-save=\"on-load\">Update</button>", reloaded);
+        Assert.Contains("data-app-title-save=\"on-blur\">Update</button>", reloaded);
         Assert.DoesNotContain("Use this function to create a brand new Surveillance Profile", reloaded);
         Assert.DoesNotContain("Your changes are successfully saved", await client.GetStringAsync(url));
     }
@@ -245,11 +315,42 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Null(properties.LastCreateRequest);
         Assert.Contains("There is a problem", body);
-        Assert.Contains("<a href=\"#ProfileTitleEditor\">You must enter a profile title</a>", body);
+        Assert.Contains("<a href=\"#ProfileTitleEditor\">You must enter a title</a>", body);
         Assert.Contains("<a href=\"#profiled-species-group\">You must specify at least one profiled species</a>", body);
         Assert.Contains("<title>Error: Create new profile", body);
-        Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-error\"", body);
         Assert.Matches(CheckedBoxRegex("other-species", Sheep), body);
+
+        // A missing title or profiled species is shown through the elements the scripts manage, with the legacy asterisks,
+        // so the message and the asterisk go as soon as the person puts it right.
+        Assert.Matches("id=\"ProfileTitleEditor\"[\\s\\S]*?id=\"ProfileTitle-required-error\"", body);
+        Assert.Contains(
+            "<p id=\"ProfileTitle-required-error\" class=\"govuk-error-message\" data-app-title-required-error><span class=\"govuk-visually-hidden\">Error:</span> You must enter a title</p>",
+            body);
+        Assert.DoesNotContain("id=\"ProfileTitle-error\"", body);
+        Assert.Contains("aria-describedby=\"ProfileTitle-required-error\"", body);
+        Assert.Contains(TitleMark(hidden: false), body);
+        Assert.Contains(SpeciesMark(hidden: false), body);
+    }
+
+    // A message that is not about a missing title stays a server message, and gets no asterisk.
+    [Fact]
+    public async Task Create_KeepsAServerMessageForATitleOverTheLimit_WithoutAnAsterisk()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await SignedInClientWithoutRedirectsAsync(factory);
+
+        var response = await PostAsync(client, "/SurveillanceProfiles/ProfileProperties", new Dictionary<string, string[]>
+        {
+            ["ProfileTitle"] = [new string('a', 256)],
+            ["ProfiledSpeciesIds"] = [Sheep.ToString()]
+        });
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Matches("<p id=\"ProfileTitle-error\"[^>]*>\\s*<span class=\"govuk-visually-hidden\">Error:</span> Profile title cannot exceed 255 characters\\s*</p>", body);
+        Assert.Contains("aria-describedby=\"ProfileTitle-error\"", body);
+        Assert.Contains("data-app-title-required-error hidden=\"hidden\"", body);
+        Assert.Contains(TitleMark(hidden: true), body);
+        Assert.Contains(SpeciesMark(hidden: true), body);
     }
 
     [Fact]
@@ -283,6 +384,16 @@ public partial class ProfilePropertiesIntegrationTests
 
     private static Regex CheckedBoxRegex(string treePrefix, Guid speciesId) =>
         new($"""id="{treePrefix}-{speciesId}"[^>]*checked""", RegexOptions.None, TimeSpan.FromSeconds(5));
+
+    private static string PageUrl(bool editing) =>
+        editing ? $"/SurveillanceProfiles/ProfileProperties/{ProfileId}" : "/SurveillanceProfiles/ProfileProperties";
+
+    // The legacy asterisks, as rendered: hidden until the page (or a script) flags the title or the profiled species as missing.
+    private static string TitleMark(bool hidden) =>
+        $"data-app-title-required-mark title=\"You must enter a title\" aria-hidden=\"true\"{(hidden ? " hidden=\"hidden\"" : string.Empty)}>*</span>";
+
+    private static string SpeciesMark(bool hidden) =>
+        $"data-species-required-mark title=\"{AffectedSpeciesSelection.NoProfiledSpeciesMessage}\" aria-hidden=\"true\"{(hidden ? " hidden=\"hidden\"" : string.Empty)}>*</span>";
 
     private static async Task<HttpClient> SignedInClientWithoutRedirectsAsync(WebApplicationFactory<Program> factory)
     {

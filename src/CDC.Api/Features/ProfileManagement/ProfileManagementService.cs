@@ -206,6 +206,7 @@ public sealed class ProfileManagementService(
             CurrentProfileVersionId = currentProfileVersionId,
             NewDraftVersionLabel = newDraftVersionLabel,
             LatestVersionId = latestVersionId,
+            CurrentPublishedVersionId = profile.CurrentPublishedProfileVersionId,
             LinkVisibility = linkVisibility,
             CurrentVersionNumber = currentVersionSummary is null
                 ? string.Empty

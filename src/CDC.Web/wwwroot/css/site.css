@@ -1225,15 +1225,16 @@ body {
   overflow-y: auto;
 }
 
+/* The "Selected: ..." line is always shown, as in legacy; only the species named in it are bold (a <strong> in the markup). */
 .app-species-selector__status {
   display: block;
   margin-top: 10px;
   margin-bottom: 0;
-  font-weight: bold;
 }
 
-.app-species-selector__status[hidden] {
-  display: none;
+/* The warning about removing profiled species is red, as legacy's ErrorLabel was; the GOV.UK warning text, and its icon, are black. */
+.app-warning-text--error {
+  --govuk-text-colour: #d4351c;
 }
 
 /* Species filter toggle: same button-as-link reset as .app-filters__toggle, plus a circular

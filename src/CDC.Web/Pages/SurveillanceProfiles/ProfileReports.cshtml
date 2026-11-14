@@ -120,7 +120,7 @@
                                 @if (row.CanRegenerate)
                                 {
                                     <form method="post" asp-page-handler="Regenerate" asp-route-profileVersionId="@Model.ProfileVersionId" asp-route-reportId="@row.Id" class="app-inline-form">
-                                        <button type="submit" class="govuk-link app-link-button app-link-button--link-colour">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
+                                        <button type="submit" class="govuk-link app-link-button app-link-button--link-colour" data-progress-dialog="#profile-report-progress">Regenerate report<span class="govuk-visually-hidden"> for @row.DisplayName</span></button>
                                     </form>
                                 }
                             </td>
@@ -128,6 +128,15 @@
                     }
                 </tbody>
             </table>
+
+            @if (Model.Rows.Any(row => row.CanRegenerate))
+            {
+                @* Legacy LongTaskUI popup: shown while a report regenerates and gone when the page comes back. *@
+                <dialog class="app-modal app-progress-dialog" id="profile-report-progress" aria-labelledby="profile-report-progress-title">
+                    <h2 class="govuk-heading-s" id="profile-report-progress-title">Regenerating report - please wait</h2>
+                    <div class="app-spinner" aria-hidden="true"></div>
+                </dialog>
+            }
 
             @if (Model.CanCreateBespokeReport)
             {
