@@ -52,14 +52,14 @@
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
+        <h1 class="govuk-heading-l">@ProfileTitleHtmlFormatter.Format(Model.Heading)</h1>
+
         @if (Model.ManageProfileId is { } manageLinkProfileId)
         {
             <p class="govuk-body govuk-!-text-align-right">
                 <a class="govuk-link" asp-page="./ManageProfile" asp-route-profileId="@manageLinkProfileId">Manage profile</a>
             </p>
         }
-
-        <h1 class="govuk-heading-l">@ProfileTitleHtmlFormatter.Format(Model.Heading)</h1>
 
         @if (hasErrors)
         {
@@ -231,7 +231,7 @@
                         @if (Model.ShowRemovalWarning)
                         {
                             <div aria-live="assertive">
-                                <div class="govuk-warning-text" data-species-warning hidden>
+                                <div class="govuk-warning-text app-warning-text--error" data-species-warning hidden>
                                     <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
                                     <strong class="govuk-warning-text__text">
                                         <span class="govuk-visually-hidden">Warning</span>

@@ -245,8 +245,8 @@
                 $editor.innerHTML = '';
                 // Lets the title editor's script copy the empty title to the hidden input and record it for undo.
                 $editor.dispatchEvent(new Event('input', { bubbles: true }));
-                // Legacy validated the page when this button was clicked, so the cleared title is checked now, not when it next loses focus.
-                $editor.dispatchEvent(new Event('app-title-validate'));
+                // Legacy redrew the page when this button was clicked, so the title is checked and Save offered again now, not when the title next loses focus.
+                $editor.dispatchEvent(new Event('app-title-cleared'));
             }
 
             if (this.selector) {

@@ -1232,6 +1232,11 @@ body {
   margin-bottom: 0;
 }
 
+/* The warning about removing profiled species is red, as legacy's ErrorLabel was; the GOV.UK warning text, and its icon, are black. */
+.app-warning-text--error {
+  --govuk-text-colour: #d4351c;
+}
+
 /* Species filter toggle: same button-as-link reset as .app-filters__toggle, plus a circular
    chevron icon that rotates and inverts to black/white on hover, matching app-tree__toggle-all. */
 .app-species-filter__toggle {

@@ -47,6 +47,35 @@ public class ProfileReportsIntegrationTests
         Assert.DoesNotContain("profile-reports-intro", body);
     }
 
+    // As the legacy LongTaskUI popup did, the message appears while a report regenerates (the script opens the dialog when the button submits).
+    [Fact]
+    public async Task ProfileReports_NamesTheLegacyProgressMessageDialog_ForEveryRegenerateButton()
+    {
+        using var factory = CreateFactory(CreateApi());
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"/SurveillanceProfiles/ProfileReports/{ProfileVersionId}");
+
+        Assert.Contains(
+            "data-progress-dialog=\"#profile-report-progress\">Regenerate report<span class=\"govuk-visually-hidden\"> for Summary profile</span></button>",
+            body);
+        Assert.Contains("<dialog class=\"app-modal app-progress-dialog\" id=\"profile-report-progress\" aria-labelledby=\"profile-report-progress-title\">", body);
+        Assert.Contains("<h2 class=\"govuk-heading-s\" id=\"profile-report-progress-title\">Regenerating report - please wait</h2>", body);
+        Assert.Contains("<div class=\"app-spinner\" aria-hidden=\"true\"></div>", body);
+    }
+
+    [Fact]
+    public async Task ProfileReports_HasNoProgressDialog_WhenNoReportCanBeRegenerated()
+    {
+        using var factory = CreateFactory(CreateApi(canCreateReports: false));
+        var client = await factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync($"/SurveillanceProfiles/ProfileReports/{ProfileVersionId}");
+
+        Assert.DoesNotContain("Regenerate report", body);
+        Assert.DoesNotContain("profile-report-progress", body);
+    }
+
     [Fact]
     public async Task ProfileReports_DownloadsTheStoredPdf()
     {
@@ -85,7 +114,7 @@ public class ProfileReportsIntegrationTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static FakeProfileReportsApiService CreateApi() => new(
+    private static FakeProfileReportsApiService CreateApi(bool canCreateReports = true) => new(
         overview: new ProfileReportsOverviewResult(ProfileReportsOutcome.Success, new ProfileReportsOverviewDto
         {
             ProfileVersionId = ProfileVersionId,
@@ -93,7 +122,7 @@ public class ProfileReportsIntegrationTests
             FullTitle = "Anthrax",
             VersionLabel = "1.2",
             IsCurrent = true,
-            CanCreateReports = true,
+            CanCreateReports = canCreateReports,
             Reports =
             [
                 new ProfileReportListItemDto { Id = StoredReportId, ReportName = "SummaryProfileGUID", DisplayName = "Summary profile", HasPdfData = true, FileSize = 12 },

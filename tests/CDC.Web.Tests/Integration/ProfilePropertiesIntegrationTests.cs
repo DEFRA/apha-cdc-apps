@@ -70,6 +70,34 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("href=\"/SurveillanceProfiles/ProfileProperties\"", page);
     }
 
+    // As in legacy, the right-aligned Manage profile link comes below the page heading, not above it.
+    [Fact]
+    public async Task EditPage_PutsTheManageProfileLinkBelowTheHeading()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
+
+        Assert.Matches(
+            $"<h1 class=\"govuk-heading-l\">Profile properties for [^<]*<em>tuberculosis</em></h1>\\s*<p class=\"govuk-body govuk-!-text-align-right\">\\s*<a class=\"govuk-link\" href=\"/SurveillanceProfiles/ManageProfile/{ProfileId}\">Manage profile</a>",
+            page);
+        Assert.Equal(1, Regex.Count(page, "Manage profile</a>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+    }
+
+    // As in legacy, where the warning was an ErrorLabel, the warning about removing profiled species is red (the GOV.UK warning text is black).
+    [Fact]
+    public async Task EditPage_ShowsTheRemovalWarningInRed_UntilAProfiledSpeciesIsUnticked()
+    {
+        using var factory = CreateFactory(new FakeProfilePropertiesApiService());
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/ProfileProperties/{ProfileId}");
+
+        Assert.Contains("<div class=\"govuk-warning-text app-warning-text--error\" data-species-warning hidden>", page);
+        Assert.Contains("Removing profiled species from a profile will remove all of the data associated with that species from the profile.", page);
+    }
+
     [Fact]
     public async Task CreatePage_ShowsTheIntroduction_AndTheHeaderMenuLinksToIt()
     {
@@ -110,29 +138,34 @@ public partial class ProfilePropertiesIntegrationTests
 
     // As in legacy, the page opens with no message or asterisk against the title or the profiled species; the scripts flag them
     // when the person leaves them empty, or resets the page.
-    [Fact]
-    public async Task CreatePage_OpensWithoutAMessageOrAsteriskAgainstTheTitleOrTheProfiledSpecies()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProfileProperties_OpensWithoutAMessageOrAsteriskAgainstTheTitleOrTheProfiledSpecies(bool editing)
     {
         using var factory = CreateFactory(new FakeProfilePropertiesApiService());
         var client = await factory.SignedInClientAsync();
 
-        var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
+        var page = await client.GetStringAsync(PageUrl(editing));
 
         Assert.Contains(TitleMark(hidden: true), page);
         Assert.Contains(SpeciesMark(hidden: true), page);
+        Assert.Contains("data-app-title-required-error hidden=\"hidden\"><span class=\"govuk-visually-hidden\">Error:</span> You must enter a title</p>", page);
         Assert.DoesNotContain("id=\"ProfileTitle-error\"", page);
         Assert.DoesNotContain("id=\"profiled-species-error\"", page);
         Assert.DoesNotContain("govuk-form-group--error", page);
     }
 
     // As in legacy, "Selected:" is under both species boxes from the start, even with nothing selected, and only the species named after it are bold.
-    [Fact]
-    public async Task CreatePage_ShowsSelectedUnderBothSpeciesBoxesFromTheStart_WithOnlyTheSpeciesNamedInBold()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProfileProperties_ShowsSelectedUnderBothSpeciesBoxesFromTheStart_WithOnlyTheSpeciesNamedInBold(bool editing)
     {
         using var factory = CreateFactory(new FakeProfilePropertiesApiService());
         var client = await factory.SignedInClientAsync();
 
-        var page = await client.GetStringAsync("/SurveillanceProfiles/ProfileProperties");
+        var page = await client.GetStringAsync(PageUrl(editing));
 
         foreach (var kind in new[] { "profiled", "other" })
         {
@@ -351,6 +384,9 @@ public partial class ProfilePropertiesIntegrationTests
 
     private static Regex CheckedBoxRegex(string treePrefix, Guid speciesId) =>
         new($"""id="{treePrefix}-{speciesId}"[^>]*checked""", RegexOptions.None, TimeSpan.FromSeconds(5));
+
+    private static string PageUrl(bool editing) =>
+        editing ? $"/SurveillanceProfiles/ProfileProperties/{ProfileId}" : "/SurveillanceProfiles/ProfileProperties";
 
     // The legacy asterisks, as rendered: hidden until the page (or a script) flags the title or the profiled species as missing.
     private static string TitleMark(bool hidden) =>

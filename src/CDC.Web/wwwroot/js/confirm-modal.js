@@ -36,6 +36,22 @@
         }
     });
 
+    // A long-running submit (regenerating a report) shows the progress dialog its button names, as the legacy
+    // LongTaskUI popup did, until the response replaces the page. Escape does not dismiss it.
+    function keepOpen(event) {
+        event.preventDefault();
+    }
+
+    document.addEventListener("submit", function (event) {
+        var selector = event.submitter?.dataset.progressDialog;
+        var progress = selector ? document.querySelector(selector) : null;
+
+        if (progress && !event.defaultPrevented && typeof progress.showModal === "function") {
+            progress.addEventListener("cancel", keepOpen);
+            progress.showModal();
+        }
+    });
+
     // The back/forward cache restores a page left through a dialog's form with that dialog open and the old content.
     var leftWithDialogOpen = "data-left-with-dialog-open";
 

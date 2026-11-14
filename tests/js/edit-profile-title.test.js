@@ -419,24 +419,36 @@ describe('edit-profile-title', () => {
       expectActedOn(page);
     });
 
-    // Reset selections asks for this, as legacy validated the page when that button was clicked.
-    it('shows the message and the mark when asked to validate an empty title, leaving the Save button alone', () => {
+    // Reset selections tells the editor it emptied the title: as when legacy redrew the page, the title is checked at once and Save is on offer again.
+    it('shows the message and the mark when told the page emptied the title', () => {
       const page = buildOnBlur({ html: '' });
 
-      page.editor.dispatchEvent(new Event('app-title-validate'));
+      page.editor.dispatchEvent(new Event('app-title-cleared'));
 
       expect(page.requiredError.hidden).toBe(false);
       expect(page.requiredMark.hidden).toBe(false);
       expect(page.group.classList.contains('govuk-form-group--error')).toBe(true);
-      expect(page.saveButton.style.visibility).toBe('');
     });
 
-    it('shows nothing when asked to validate a title that has text', () => {
+    it('offers the Save button again when told the page emptied the title, even after it was hidden', () => {
+      const page = buildOnBlur({ html: 'Anthrax' });
+      typeInto(page.editor, '');
+      page.editor.dispatchEvent(new Event('blur'));
+      expect(page.saveButton.style.visibility).toBe('hidden');
+
+      page.editor.dispatchEvent(new Event('app-title-cleared'));
+
+      expect(page.saveButton.style.visibility).toBe('visible');
+    });
+
+    it('checks the title as it is, so shows no message for one that has text', () => {
       const page = buildOnBlur({ html: 'Anthrax' });
 
-      page.editor.dispatchEvent(new Event('app-title-validate'));
+      page.editor.dispatchEvent(new Event('app-title-cleared'));
 
-      expectNotYetActedOn(page);
+      expect(page.requiredError.hidden).toBe(true);
+      expect(page.requiredMark.hidden).toBe(true);
+      expect(page.saveButton.style.visibility).toBe('visible');
     });
   });
 

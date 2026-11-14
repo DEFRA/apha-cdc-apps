@@ -427,15 +427,15 @@ describe('profile-properties reset', () => {
     expect(document.activeElement).toBe(reset);
   });
 
-  // As in legacy, where Reset selections validated the page: both required fields are flagged at once.
-  it('asks the title to be checked once it is cleared, after its editor has been told of the change', () => {
+  // As in legacy, where Reset selections redrew the page: the title is flagged as required and Save is on offer again.
+  it('tells the title editor that it cleared the title, after telling it of the change', () => {
     const { editor, reset } = build();
     const seen = [];
-    ['input', 'app-title-validate'].forEach((type) => editor.addEventListener(type, () => seen.push(type)));
+    ['input', 'app-title-cleared'].forEach((type) => editor.addEventListener(type, () => seen.push(type)));
 
     reset.click();
 
-    expect(seen).toEqual(['input', 'app-title-validate']);
+    expect(seen).toEqual(['input', 'app-title-cleared']);
   });
 
   it('flags the profiled species as required, whether or not any were ticked', () => {

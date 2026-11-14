@@ -5,7 +5,7 @@
 // The editor behaves as the legacy TinyMCE one did: italic only, one line, plain ASCII pasted text, and no more
 // than the title column holds. Where the page marks them, Save is hidden, and a required message and asterisk shown, while the title has no text.
 // A Save button marked data-app-title-save="on-blur" is left alone while the title is being emptied, and when the page opens, and is dealt with
-// only once the title loses focus, as legacy did. The page can also ask for the title to be checked now by sending its editor app-title-validate.
+// only once the title loses focus, as legacy did. A page that empties the title itself (Reset selections) tells its editor with app-title-cleared.
 // A toolbar marked data-app-title-toolbar-on-focus shows only while the title or the toolbar has focus, like legacy's inline editor.
 (function () {
     'use strict';
@@ -207,8 +207,14 @@
             onChange(true);
         });
 
-        // Reset selections on ProfileProperties checks the title it has just cleared, as legacy validated the page when that button was clicked.
-        editor.addEventListener('app-title-validate', updateRequiredError);
+        // Reset selections on ProfileProperties has just emptied the title: it is checked at once, and Save is on offer again, as when legacy redrew the page.
+        editor.addEventListener('app-title-cleared', function () {
+            updateRequiredError();
+
+            if (saveButton) {
+                saveButton.style.visibility = 'visible';
+            }
+        });
 
         undoButton.addEventListener('click', function () {
             window.clearTimeout(debounceTimer);
