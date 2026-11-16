@@ -14,7 +14,7 @@
         {
             <span class="govuk-caption-l">@Model.Table.Name</span>
         }
-        <h1 class="govuk-heading-l">Reference data audit trail</h1>
+        <h1 class="govuk-heading-l">Audit trail for reference table : @Model.Table?.Name</h1>
 
         @if (Model.LoadErrorMessage is not null)
         {
@@ -82,7 +82,10 @@
                                 <a class="govuk-link govuk-link--no-visited-state"
                                    asp-page="/CrossProfileAdmin/ReferenceDataAuditDetails"
                                    asp-route-tableId="@entry.ReferenceTableId"
-                                   asp-route-auditId="@entry.Id">
+                                   asp-route-auditId="@entry.Id"
+                                   asp-route-PageNumber="@Model.PageNumber"
+                                   asp-route-PageSize="@Model.PageSize"
+                                   data-app-region-link data-app-region-focus="audit-details-heading">
                                     View details<span class="govuk-visually-hidden"> of the change from @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(entry.OldLookupValue) to @CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.ToPlainText(entry.NewLookupValue)</span>
                                 </a>
                             </td>
@@ -92,6 +95,35 @@
             </table>
 
             <partial name="_Pagination" model="pagination" />
+
+            @if (Model.SelectedEntry is { } selected)
+            {
+                <section class="govuk-!-margin-top-6" aria-labelledby="audit-details-heading">
+                    <h2 class="govuk-heading-m" id="audit-details-heading" tabindex="-1">Change details</h2>
+                    <dl class="govuk-summary-list">
+                        <div class="govuk-summary-list__row">
+                            <dt class="govuk-summary-list__key">Old value</dt>
+                            <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(selected.OldLookupValue)</dd>
+                        </div>
+                        <div class="govuk-summary-list__row">
+                            <dt class="govuk-summary-list__key">New value</dt>
+                            <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(selected.NewLookupValue)</dd>
+                        </div>
+                        <div class="govuk-summary-list__row">
+                            <dt class="govuk-summary-list__key">Changed by</dt>
+                            <dd class="govuk-summary-list__value">@selected.UserFullName</dd>
+                        </div>
+                        <div class="govuk-summary-list__row">
+                            <dt class="govuk-summary-list__key">Date of change</dt>
+                            <dd class="govuk-summary-list__value">@selected.LogDate.ToString("d MMMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)</dd>
+                        </div>
+                        <div class="govuk-summary-list__row">
+                            <dt class="govuk-summary-list__key">Reason for change</dt>
+                            <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.Reports.ReportRichText.ToHtml(selected.Reason)</dd>
+                        </div>
+                    </dl>
+                </section>
+            }
             </div>
         }
     </div>
