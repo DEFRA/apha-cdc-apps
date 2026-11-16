@@ -67,21 +67,21 @@
     </div>
 </form>
 
-<form method="get">
+<form method="get" id="category-form" class="app-inline-fields app-inline-fields--auto-label">
     <div class="govuk-form-group">
         <label class="govuk-label govuk-label--s" for="CategoryId">Cross-cutting issue</label>
         <select class="govuk-select" id="CategoryId" name="CategoryId" asp-items="Model.CategoryOptions"></select>
     </div>
-    <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Show criteria</button>
+    <noscript>
+        <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Show criteria</button>
+    </noscript>
 </form>
 
 @if (Model.SelectedCategory is not null)
 {
-    <h2 class="govuk-heading-m">@Model.SelectedCategory.Name</h2>
-
     <table class="govuk-table">
         <caption class="govuk-table__caption govuk-visually-hidden">Criteria for @Model.SelectedCategory.Name</caption>
-        <thead class="govuk-table__head">
+        <thead class="govuk-table__head govuk-visually-hidden">
             <tr class="govuk-table__row">
                 <th scope="col" class="govuk-table__header">Criterion</th>
             </tr>
