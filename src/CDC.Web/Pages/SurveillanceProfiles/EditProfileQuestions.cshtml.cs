@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
+using CDC.Web.Infrastructure.Reports;
 using CDC.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -53,6 +54,14 @@ public class EditProfileQuestionsModel(
     /// <inheritdoc />
     public override ProfileSectionTab ActiveTab => ProfileSectionTab.Questions;
 
+    /// <summary>Gets the paragraph the legacy Questions tab showed under the pagination, about the questions that are no longer updated.</summary>
+    public override string? PaginationFootnote => ProfileReportLayout.WarningText;
+
+    /// <summary>Gets a value indicating whether every question opens collapsed. The legacy panels opened collapsed whenever the page was
+    /// opened and kept their state only across the page's own postbacks, so what the accordion remembered of an earlier visit is
+    /// cleared when the page is opened (a GET), and kept when the answers come back from Save, Validate or Clear.</summary>
+    public bool CollapseQuestionsOnOpen => HttpMethods.IsGet(Request.Method);
+
     /// <summary>Gets every validation error found by the most recent "Validate" button submission, in the order the
     /// legacy page listed them: the revision-date errors, then each question's errors. Empty until Validate has been
     /// used, and when the section is valid.</summary>
@@ -81,6 +90,10 @@ public class EditProfileQuestionsModel(
     /// <summary>Gets the real questions and recorded answers for the selected section, each field either
     /// rendered as a real editable control or, for a per-species/repeating question, as a static read-only value.</summary>
     public IReadOnlyList<ProfileQuestionEditView> Questions { get; private set; } = [];
+
+    /// <summary>Gets the types of reference the "Add/Select a reference" dialog offers. Empty for a user who may not edit the
+    /// section, who has no edit references icon, and when the types could not be loaded.</summary>
+    public IReadOnlyList<ProfileNoteTypeDto> ReferenceNoteTypes { get; private set; } = [];
 
     /// <inheritdoc />
     public override bool HasFormErrors => SaveValidationErrors.Count > 0 || InvalidReasons.Count > 0 || ActionMessageIsError;
@@ -125,6 +138,11 @@ public class EditProfileQuestionsModel(
 
         if (IsReady)
         {
+            if (CanEditProfileSection)
+            {
+                await LoadReferenceNoteTypesAsync(cancellationToken);
+            }
+
             try
             {
                 await LoadQuestionsAsync(CurrentProfileVersionId, CurrentSection!, cancellationToken);
@@ -415,6 +433,19 @@ public class EditProfileQuestionsModel(
         return result.Outcome == ProfileNoteChangeOutcome.Success ? null : result.ErrorMessage;
     }
 
+    // A failure is logged and leaves no types, so the dialog says they could not be loaded rather than the page failing.
+    private async Task LoadReferenceNoteTypesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            ReferenceNoteTypes = await ProfileSectionsApi.GetProfileNoteTypesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            Logger.ReferenceNoteTypesLoadFailed(exception, ProfileId);
+        }
+    }
+
     private async Task LoadQuestionsAsync(Guid profileVersionId, ProfileSectionMetadataDto section, CancellationToken cancellationToken)
     {
         var answers = await ProfileSectionsApi.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
@@ -450,6 +481,7 @@ public class EditProfileQuestionsModel(
 
                 return new ProfileQuestionEditView
                 {
+                    Id = question.Id,
                     Number = $"{section.SectionNumber}.{question.QuestionNumber}",
                     Text = namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
                     IsValid = GetQuestionValidationStatus(question.Id),

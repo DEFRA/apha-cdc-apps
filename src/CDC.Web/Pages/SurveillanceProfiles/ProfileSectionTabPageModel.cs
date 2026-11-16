@@ -150,6 +150,10 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets how many pages the list this page shows has. A page that paginates a list overrides this; otherwise it is 1.</summary>
     public virtual int ListTotalPages => 1;
 
+    /// <summary>Gets the paragraph shown under the previous and next section links, or <see langword="null"/> for none. A page whose
+    /// legacy tab had one overrides this.</summary>
+    public virtual string? PaginationFootnote => null;
+
     /// <summary>Gets the typed client for the profile sections endpoints.</summary>
     protected IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
 

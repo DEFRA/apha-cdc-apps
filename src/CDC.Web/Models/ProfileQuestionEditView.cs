@@ -58,6 +58,9 @@ public sealed record ProfileFieldEditView
 /// <summary>One real question (e.g. "2.1 ...") with its editable/read-only fields.</summary>
 public sealed record ProfileQuestionEditView
 {
+    /// <summary>Gets the question's identifier, which the edit references and help icons name when they open their dialogs.</summary>
+    public Guid Id { get; init; }
+
     /// <summary>Gets the question's display number (for example "2.1").</summary>
     public required string Number { get; init; }
 
@@ -87,7 +90,12 @@ public sealed record ProfileQuestionEditView
 /// <param name="IdPrefix">Prefix for the accordion's HTML element ids, unique per page.</param>
 /// <param name="EmptyMessage">Message shown when there are no questions to render.</param>
 /// <param name="Questions">The questions to render.</param>
-public sealed record QuestionEditAccordionViewModel(string IdPrefix, string EmptyMessage, IReadOnlyList<ProfileQuestionEditView> Questions)
+/// <param name="CollapseOnOpen">Whether every question opens collapsed, whatever the accordion remembered of an earlier visit.</param>
+public sealed record QuestionEditAccordionViewModel(
+    string IdPrefix,
+    string EmptyMessage,
+    IReadOnlyList<ProfileQuestionEditView> Questions,
+    bool CollapseOnOpen = false)
 {
     /// <summary>Builds the id of one question's heading in the accordion, which a validation error links to.</summary>
     /// <param name="idPrefix">The accordion's id prefix.</param>

@@ -1,5 +1,6 @@
 using System.Net;
 using CDC.Common.Contracts;
+using CDC.Web.Infrastructure.Reports;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;
@@ -39,7 +40,10 @@ public class EditProfileQuestionsModelTests
         ProfileSectionValidationResultDto? sectionValidationResult = null,
         ProfileSectionWriteResult? clearResult = null,
         Exception? throwOnClearProfileVersionSection = null,
-        Exception? throwOnGetProfileSectionAnswers = null)
+        Exception? throwOnGetProfileSectionAnswers = null,
+        IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
+        Exception? throwOnGetProfileNoteTypes = null,
+        AlwaysEnabledLogger<EditProfileQuestionsModel>? logger = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -53,8 +57,10 @@ public class EditProfileQuestionsModelTests
                 sectionValidationResult: sectionValidationResult,
                 clearResult: clearResult,
                 throwOnClearProfileVersionSection: throwOnClearProfileVersionSection,
-                throwOnGetProfileSectionAnswers: throwOnGetProfileSectionAnswers),
-            new AlwaysEnabledLogger<EditProfileQuestionsModel>())
+                throwOnGetProfileSectionAnswers: throwOnGetProfileSectionAnswers,
+                noteTypes: noteTypes,
+                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes),
+            logger ?? new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
             Section = section,
@@ -1258,6 +1264,89 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(Assert.Single(editablePageModel.Questions).CanEditReferences);
         Assert.False(Assert.Single(readOnlyPageModel.Questions).CanEditReferences);
+    }
+
+    // The icons of a question name it when they open their dialogs.
+    [Fact]
+    public async Task OnGetAsync_GivesEachQuestionItsId()
+    {
+        var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), section: StandardSectionId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(StandardQuestionId, Assert.Single(pageModel.Questions).Id);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ReadsTheTypesOfReference_ForAUserWhoCanEditTheSection()
+    {
+        ProfileNoteTypeDto[] noteTypes =
+        [
+            new() { Id = Guid.NewGuid(), Name = "Scientific paper reference" },
+            new() { Id = Guid.NewGuid(), Name = "Legislative reference" }
+        ];
+        var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), section: StandardSectionId, noteTypes: noteTypes);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(noteTypes, pageModel.ReferenceNoteTypes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_OffersNoTypesOfReference_ToAUserWhoCannotEditTheSection()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            metadata: StandardQuestionMetadata(),
+            section: StandardSectionId,
+            noteTypes: [new() { Id = Guid.NewGuid(), Name = "Scientific paper reference" }]);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(pageModel.ReferenceNoteTypes);
+    }
+
+    [Theory]
+    [InlineData(typeof(HttpRequestException))]
+    [InlineData(typeof(TaskCanceledException))]
+    [InlineData(typeof(NotSupportedException))]
+    public async Task OnGetAsync_ShowsTheQuestionsWithoutTheTypesOfReference_AndLogsIt_WhenTheyCannotBeRead(Type exceptionType)
+    {
+        var logger = new AlwaysEnabledLogger<EditProfileQuestionsModel>();
+        var pageModel = CreatePageModel(
+            EditableProfile(),
+            metadata: StandardQuestionMetadata(),
+            section: StandardSectionId,
+            throwOnGetProfileNoteTypes: (Exception)Activator.CreateInstance(exceptionType)!,
+            logger: logger);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasError);
+        Assert.Empty(pageModel.ReferenceNoteTypes);
+        Assert.Single(pageModel.Questions);
+        Assert.Contains(logger.Messages, message => message.Contains(ProfileId.ToString(), StringComparison.Ordinal));
+    }
+
+    // The legacy panels opened collapsed whenever the page was opened, and kept their state only across the page's own postbacks.
+    [Theory]
+    [InlineData("GET", true)]
+    [InlineData("POST", false)]
+    public void CollapseQuestionsOnOpen_IsTrueOnlyWhenThePageIsOpened(string method, bool expected)
+    {
+        var pageModel = CreatePageModel();
+        pageModel.HttpContext.Request.Method = method;
+
+        Assert.Equal(expected, pageModel.CollapseQuestionsOnOpen);
+    }
+
+    [Fact]
+    public void PaginationFootnote_IsTheStatementAboutQuestionsThatAreNoLongerUpdated()
+    {
+        var pageModel = CreatePageModel();
+
+        Assert.Equal(ProfileReportLayout.WarningText, pageModel.PaginationFootnote);
+        Assert.StartsWith("The content in a number of questions constitutes static information", pageModel.PaginationFootnote, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,0 +1,15 @@
+@page
+@model CDC.Web.Pages.SurveillanceProfiles.ProfileQuestionHelpModel
+@{
+    // The fragment the "User guidance" dialog of the Questions tab shows, so there is no layout around it.
+    Layout = null;
+}
+<h3 class="govuk-heading-s">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(Model.QuestionName)</h3>
+@if (Model.HasGuidance)
+{
+    <div class="govuk-body">@Html.Raw(Model.GuidanceHtml)</div>
+}
+else
+{
+    <p class="govuk-body">There is no user guidance for this question.</p>
+}

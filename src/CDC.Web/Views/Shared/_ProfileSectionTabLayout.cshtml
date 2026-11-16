@@ -76,7 +76,15 @@ else
             {
                 @body
 
-                <partial name="_SectionPagination" model="paginationModel" />
+                @* As the legacy SectionPagination did, Previous sits at the left corner of the section and Next at the right. *@
+                <div class="app-section-pagination">
+                    <partial name="_SectionPagination" model="paginationModel" />
+                </div>
+
+                @if (Model.PaginationFootnote is { } footnote)
+                {
+                    <p class="govuk-body govuk-!-margin-top-6">@footnote</p>
+                }
             }
         </div>
     </div>

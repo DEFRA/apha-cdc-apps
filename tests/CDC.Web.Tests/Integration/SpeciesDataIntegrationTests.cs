@@ -426,7 +426,7 @@ public partial class SpeciesDataIntegrationTests
         Assert.DoesNotContain("rel=\"prev\"", body);
 
         // The wrapper is what site.css keys on to put Previous and Next on the left and right of the panel.
-        var wrapper = body.IndexOf("<div class=\"app-species-pagination\">", StringComparison.Ordinal);
+        var wrapper = body.IndexOf("<div class=\"app-section-pagination\">", StringComparison.Ordinal);
         Assert.InRange(wrapper, 0, body.IndexOf("<nav class=\"govuk-pagination", StringComparison.Ordinal) - 1);
 
         // The title is centred, and the accordion forgets which sub-sections were open so a section always opens collapsed, as the legacy page did.

@@ -503,6 +503,54 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.DoesNotContain("<select", body);
     }
 
+    // The legacy SectionPagination floated Previous to the left and Next to the right of the section, on every tab.
+    [Theory]
+    [InlineData("EditProfileQuestions")]
+    [InlineData("EditProfileReferences")]
+    [InlineData("EditProfileFurtherInformation")]
+    [InlineData("EditProfileReviewComments")]
+    [InlineData("EditProfileContributions")]
+    [InlineData("EditProfileAllRevisionDates")]
+    public async Task TabPages_PutThePreviousAndNextLinksInTheCornersOfTheSection(string page)
+    {
+        var body = await GetAsync(page, Profile());
+
+        var wrapper = body.IndexOf("<div class=\"app-section-pagination\">", StringComparison.Ordinal);
+
+        Assert.True(wrapper >= 0, "The pagination should sit in the wrapper that spreads Previous and Next to the corners.");
+        Assert.True(body.IndexOf("<nav class=\"govuk-pagination govuk-pagination--block", wrapper, StringComparison.Ordinal) > wrapper);
+    }
+
+    // Only the Questions tab of the legacy page had this paragraph, under the pagination.
+    [Fact]
+    public async Task EditProfileQuestions_ShowsTheStaticContentStatement_UnderThePagination()
+    {
+        var body = await GetAsync("EditProfileQuestions", Profile());
+
+        var pagination = body.IndexOf("aria-label=\"Section pagination\"", StringComparison.Ordinal);
+        var statement = body.IndexOf(StaticContentStatement, StringComparison.Ordinal);
+
+        Assert.True(pagination >= 0);
+        Assert.True(statement > pagination, "The statement should follow the pagination.");
+    }
+
+    [Theory]
+    [InlineData("EditProfileReferences")]
+    [InlineData("EditProfileFurtherInformation")]
+    [InlineData("EditProfileReviewComments")]
+    [InlineData("EditProfileContributions")]
+    [InlineData("EditProfileAllRevisionDates")]
+    public async Task OtherTabPages_DoNotShowTheStaticContentStatement(string page)
+    {
+        var body = await GetAsync(page, Profile());
+
+        Assert.DoesNotContain("constitutes static information", body);
+    }
+
+    private const string StaticContentStatement =
+        "The content in a number of questions constitutes static information, or is no longer deemed critical, and, to minimise the "
+        + "resource requirements of D2R2, is not scheduled to be updated. Please see the D2R2 quality statement for a list of these questions.";
+
     private static int CountOf(string text, string value)
     {
         var count = 0;
