@@ -27,6 +27,7 @@ public sealed class StaticReportServiceTests
         public bool IsPolicyProfileUser => false;
         public UserKind Kind => isProfileEditor ? UserKind.Internal : UserKind.Unclassified;
         public bool HoldsAnyProfileRole => false;
+        public IReadOnlySet<Guid> AssignedProfileIds { get; } = new HashSet<Guid>();
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
         public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;
         public IEnumerable<Guid> GetAssignedSectionIds(Guid profileId) => [];

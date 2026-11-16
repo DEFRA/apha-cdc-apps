@@ -65,10 +65,11 @@ function build({ profiled = [], other = [], warningEnabled = true } = {}) {
       <div id="ProfileTitleEditor" contenteditable="true" data-app-title-hidden-input="ProfileTitle">Anthrax</div>
       <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="Anthrax">
       <div data-module="app-species-selector" data-species-warning-enabled="${warningEnabled}">
+        <span class="app-validator-marker" data-species-required-mark aria-hidden="true" hidden>*</span>
         ${panel('profiled', profiled)}
-        <output data-species-status="profiled" hidden></output>
+        <output data-species-status="profiled">Selected: <strong data-species-selected></strong></output>
         ${panel('other', other)}
-        <output data-species-status="other" hidden></output>
+        <output data-species-status="other">Selected: <strong data-species-selected></strong></output>
         <div data-species-warning hidden>Removing profiled species removes their data.</div>
         <div data-species-announcement></div>
       </div>
@@ -88,6 +89,8 @@ function build({ profiled = [], other = [], warningEnabled = true } = {}) {
     form,
     box,
     status: (kind) => document.querySelector(`[data-species-status="${kind}"]`),
+    selected: (kind) => document.querySelector(`[data-species-status="${kind}"] [data-species-selected]`).textContent,
+    requiredMark: document.querySelector('[data-species-required-mark]'),
     warning: document.querySelector('[data-species-warning]'),
     announcement: document.querySelector('[data-species-announcement]'),
     editor: document.getElementById('ProfileTitleEditor'),
@@ -207,20 +210,51 @@ describe('profile-properties species selector', () => {
   });
 
   it('lists the species ticked directly, in order, and not those beneath a group', () => {
-    const { box, status } = build();
+    const { box, status, selected } = build();
 
     tick(box('profiled', 'sheep'));
     tick(box('profiled', 'cattle'));
 
-    expect(status('profiled').hidden).toBe(false);
     expect(status('profiled').textContent).toBe('Selected: Cattle, Sheep');
-    expect(status('other').hidden).toBe(true);
+    expect(selected('profiled')).toBe('Cattle, Sheep');
+    expect(selected('other')).toBe('');
   });
 
   it('includes an inactive species that is still ticked in the summary', () => {
     const { status } = build({ other: ['goats'] });
 
     expect(status('other').textContent).toBe('Selected: Goats (inactive)');
+  });
+
+  // As in legacy, "Selected:" is always there, and only the species named after it are in bold.
+  it('shows "Selected:" in both boxes when no species is ticked, with nothing in bold', () => {
+    const { status, selected } = build();
+
+    ['profiled', 'other'].forEach((kind) => {
+      expect(status(kind).hidden).toBe(false);
+      expect(status(kind).textContent.trim()).toBe('Selected:');
+      expect(selected(kind)).toBe('');
+    });
+  });
+
+  it('puts the species in bold, and not the "Selected:" before them', () => {
+    const { box, status } = build();
+
+    tick(box('other', 'sheep'));
+
+    const bold = [...status('other').querySelectorAll('strong')];
+    expect(bold.map((element) => element.textContent)).toEqual(['Sheep']);
+    expect(status('other').textContent).toBe('Selected: Sheep');
+  });
+
+  it('goes back to a bare "Selected:" when the last species is unticked', () => {
+    const { box, status, selected } = build({ profiled: ['sheep'] });
+
+    tick(box('profiled', 'sheep'), false);
+
+    expect(status('profiled').hidden).toBe(false);
+    expect(status('profiled').textContent.trim()).toBe('Selected:');
+    expect(selected('profiled')).toBe('');
   });
 
   it('warns that data will be removed when a profiled species is unticked', () => {
@@ -295,6 +329,77 @@ describe('profile-properties species selector', () => {
   });
 });
 
+describe('profile-properties required profiled species', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  it('shows no asterisk when the page loads, whatever is ticked', () => {
+    expect(build().requiredMark.hidden).toBe(true);
+    expect(build({ profiled: ['sheep'] }).requiredMark.hidden).toBe(true);
+  });
+
+  it('shows the asterisk once the last profiled species is unticked', () => {
+    const { box, requiredMark } = build({ profiled: ['sheep'] });
+
+    tick(box('profiled', 'sheep'), false);
+
+    expect(requiredMark.hidden).toBe(false);
+  });
+
+  it('takes the asterisk away when a profiled species is ticked again', () => {
+    const { box, requiredMark } = build({ profiled: ['sheep'] });
+    tick(box('profiled', 'sheep'), false);
+
+    tick(box('profiled', 'sheep'));
+
+    expect(requiredMark.hidden).toBe(true);
+  });
+
+  it('shows no asterisk while a profiled species is still ticked', () => {
+    const { box, requiredMark } = build({ profiled: ['sheep', 'cattle'] });
+
+    tick(box('profiled', 'sheep'), false);
+
+    expect(requiredMark.hidden).toBe(true);
+  });
+
+  it('counts a group as a profiled species', () => {
+    const { box, requiredMark } = build({ profiled: ['sheep'] });
+    tick(box('profiled', 'sheep'), false);
+    expect(requiredMark.hidden).toBe(false);
+
+    tick(box('profiled', 'cattle'));
+    expect(requiredMark.hidden).toBe(true);
+
+    tick(box('profiled', 'cattle'), false);
+    expect(requiredMark.hidden).toBe(false);
+  });
+
+  it('leaves the asterisk away when other affected species change and a profiled species stays ticked', () => {
+    const { box, requiredMark } = build({ profiled: ['sheep'] });
+
+    tick(box('other', 'cattle'));
+    tick(box('other', 'cattle'), false);
+
+    expect(requiredMark.hidden).toBe(true);
+  });
+
+  it('shows the asterisk when ticking a group among the other affected species takes the last profiled species', () => {
+    const { box, requiredMark } = build({ profiled: ['bulls'] });
+
+    tick(box('other', 'cattle'));
+
+    expect(box('profiled', 'bulls').checked).toBe(false);
+    expect(requiredMark.hidden).toBe(false);
+  });
+});
+
 describe('profile-properties reset', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -306,7 +411,7 @@ describe('profile-properties reset', () => {
   });
 
   it('clears the title and every selection, and keeps focus on the button', () => {
-    const { box, state, editor, reset, status } = build({ profiled: ['cattle'], other: ['sheep'] });
+    const { box, state, editor, reset, selected } = build({ profiled: ['cattle'], other: ['sheep'] });
     const inputSeen = vi.fn();
     editor.addEventListener('input', inputSeen);
 
@@ -317,8 +422,30 @@ describe('profile-properties reset', () => {
     expect(box('profiled', 'cattle').checked).toBe(false);
     expect(state('profiled', 'bulls')).toEqual({ checked: false, disabled: false });
     expect(state('other', 'sheep')).toEqual({ checked: false, disabled: false });
-    expect(status('profiled').hidden).toBe(true);
+    expect(selected('profiled')).toBe('');
+    expect(selected('other')).toBe('');
     expect(document.activeElement).toBe(reset);
+  });
+
+  // As in legacy, where Reset selections redrew the page: the title is flagged as required and Save is on offer again.
+  it('tells the title editor that it cleared the title, after telling it of the change', () => {
+    const { editor, reset } = build();
+    const seen = [];
+    ['input', 'app-title-cleared'].forEach((type) => editor.addEventListener(type, () => seen.push(type)));
+
+    reset.click();
+
+    expect(seen).toEqual(['input', 'app-title-cleared']);
+  });
+
+  it('flags the profiled species as required, whether or not any were ticked', () => {
+    const first = build({ profiled: ['cattle'] });
+    first.reset.click();
+    expect(first.requiredMark.hidden).toBe(false);
+
+    const second = build();
+    second.reset.click();
+    expect(second.requiredMark.hidden).toBe(false);
   });
 
   it('announces that the selection was cleared', () => {

@@ -333,6 +333,83 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("<input type=\"hidden\" name=\"SelectedLetter\" value=\"All\" />", page);
     }
 
+    // Legacy showed "Display my own profiles only" below the Scenarios checkbox, to a user who is a contributor or a reviewer of a profile.
+    [Fact]
+    public async Task Search_OffersTheMyProfilesCheckboxBelowTheScenariosCheckbox_ToAUserWhoMayFilterToTheirOwnProfiles()
+    {
+        using var factory = CreateFactory(new FakeApiClient(SearchResults, canFilterToMyProfiles: true));
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.Contains("id=\"DisplayMyProfiles\" name=\"DisplayMyProfiles\" type=\"checkbox\" value=\"true\" data-app-search-auto-refresh", page);
+        Assert.True(Regex.IsMatch(
+            page, "<label[^>]* for=\"DisplayMyProfiles\">\\s*Display my own profiles only\\s*</label>", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.Contains("<input type=\"hidden\" name=\"DisplayMyProfiles\" value=\"false\" />", page);
+        Assert.False(IsChecked(page, "DisplayMyProfiles"));
+        Assert.True(page.IndexOf("id=\"DisplayMyProfiles\"", StringComparison.Ordinal) > page.IndexOf("id=\"DisplayScenarios\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Search_DoesNotOfferTheMyProfilesCheckbox_ToAUserWhoIsNotAContributorOrReviewerOfAnyProfile()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.Contains("id=\"DisplayScenarios\"", page);
+        Assert.DoesNotContain("Display my own profiles only", page);
+        Assert.DoesNotContain("id=\"DisplayMyProfiles\"", page);
+        Assert.DoesNotContain("name=\"DisplayMyProfiles\"", page);
+    }
+
+    // The checkbox is submitted with the hidden false that follows it, as the other Display checkboxes are, and only a ticked box asks for the user's own profiles.
+    [Theory]
+    [InlineData("?DisplayMyProfiles=true&DisplayMyProfiles=false", true)]
+    [InlineData("?DisplayMyProfiles=false", false)]
+    [InlineData("", false)]
+    public async Task Search_AsksForOnlyTheUsersOwnProfiles_OnlyWhenTheCheckboxIsTicked(string query, bool expected)
+    {
+        var apiClient = new FakeApiClient(SearchResults, canFilterToMyProfiles: true);
+        using var factory = CreateFactory(apiClient);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync($"/SurveillanceProfiles/Search{query}");
+
+        Assert.Equal(expected, apiClient.LastSearchDisplayMyProfiles);
+        Assert.Equal(expected, IsChecked(page, "DisplayMyProfiles"));
+    }
+
+    // A change to the checkbox refreshes the results in the background, and that request is what carries the choice to the search.
+    [Fact]
+    public async Task Search_SendsTheMyProfilesChoiceToTheSearch_WhenTheResultsAreRefreshedInTheBackground()
+    {
+        var apiClient = new FakeApiClient(SearchResults, canFilterToMyProfiles: true);
+        using var factory = CreateFactory(apiClient);
+        var client = await factory.SignedInClientAsync();
+        using var refresh = new HttpRequestMessage(HttpMethod.Get, "/SurveillanceProfiles/Search?DisplayMyProfiles=true&DisplayMyProfiles=false");
+        refresh.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var response = await client.SendAsync(refresh);
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.True(apiClient.LastSearchDisplayMyProfiles);
+        Assert.Contains("Bovine tuberculosis", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Search_ShowsTheMyProfilesChoiceLastMade_OnComingBackToThePageWithNoneInTheAddress()
+    {
+        using var factory = CreateFactory(new FakeApiClient(SearchResults, canFilterToMyProfiles: true));
+        var client = await factory.SignedInClientAsync();
+        await client.GetStringAsync("/SurveillanceProfiles/Search?DisplayMyProfiles=true&DisplayMyProfiles=false");
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search");
+
+        Assert.True(IsChecked(page, "DisplayMyProfiles"));
+    }
+
     // The filters live in the user's own session, so what one user chose is not what another finds.
     [Fact]
     public async Task Search_DoesNotShowTheFiltersOfOneUser_ToAnother()
@@ -525,11 +602,14 @@ public class SurveillanceProfilesSearchIntegrationTests
     }
 
     private static WebApplicationFactory<Program> CreateFactory(IReadOnlyList<ProfileSearchResultDto> searchResults, IReadOnlyList<SpeciesDto>? species = null) =>
+        CreateFactory(new FakeApiClient(searchResults), species);
+
+    private static WebApplicationFactory<Program> CreateFactory(FakeApiClient apiClient, IReadOnlyList<SpeciesDto>? species = null) =>
         new CdcWebTestFactory().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IApiClient>();
-                services.AddSingleton<IApiClient>(new FakeApiClient(searchResults));
+                services.AddSingleton<IApiClient>(apiClient);
                 services.RemoveAll<ISpeciesApiService>();
                 services.AddSingleton<ISpeciesApiService>(new FakeSpeciesApiService(species ?? []));
             }));
