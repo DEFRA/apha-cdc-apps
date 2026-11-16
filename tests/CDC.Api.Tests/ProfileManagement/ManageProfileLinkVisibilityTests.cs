@@ -377,6 +377,8 @@ public sealed class ManageProfileLinkVisibilityTests
 
         public bool HoldsAnyProfileRole => false;
 
+        public IReadOnlySet<Guid> AssignedProfileIds { get; } = new HashSet<Guid>();
+
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
 
         public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;

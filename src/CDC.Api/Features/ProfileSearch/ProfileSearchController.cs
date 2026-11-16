@@ -23,6 +23,7 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
     /// <param name="displayPublished">Include profiles with a published version (default: true).</param>
     /// <param name="displayDraft">Include profiles with a draft version (default: false).</param>
     /// <param name="displayScenarios">Return each profile's "what-if" scenarios too (default: false); it never makes a profile match on its own.</param>
+    /// <param name="displayMyProfiles">Keep only the profiles the signed-in user is assigned to as an author or a reviewer (default: false); it has no effect for a user who is assigned to no profile.</param>
     /// <param name="searchForType">Whether <paramref name="searchText"/> is matched as one phrase or as all of its words.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>List of profiles matching the search criteria.</returns>
@@ -33,6 +34,7 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
         [FromQuery] bool displayPublished = true,
         [FromQuery] bool displayDraft = false,
         [FromQuery] bool displayScenarios = false,
+        [FromQuery] bool displayMyProfiles = false,
         [FromQuery] SearchForType searchForType = SearchForType.ExactWordOrPhrase,
         CancellationToken cancellationToken = default)
     {
@@ -41,11 +43,21 @@ public sealed class ProfileSearchController(IProfileSearchService profileSearchS
             displayPublished,
             displayDraft,
             displayScenarios,
+            displayMyProfiles,
             searchForType,
             cancellationToken);
 
         return Ok(results);
     }
+
+    /// <summary>
+    /// Gets whether the signed-in user may filter the search to their own profiles: only an author or a reviewer of at least one profile may.
+    /// </summary>
+    /// <response code="200">The permission was retrieved.</response>
+    [HttpGet("my-profiles-permission")]
+    [ProducesResponseType(typeof(MyProfilesFilterPermissionDto), StatusCodes.Status200OK)]
+    public ActionResult<MyProfilesFilterPermissionDto> GetMyProfilesFilterPermission() =>
+        Ok(new MyProfilesFilterPermissionDto { CanFilter = profileSearchService.CanFilterToMyProfiles });
 
     /// <summary>
     /// Gets profiles starting with a specific letter.

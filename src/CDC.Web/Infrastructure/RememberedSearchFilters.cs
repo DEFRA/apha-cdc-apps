@@ -5,12 +5,14 @@ namespace CDC.Web.Infrastructure;
 /// <summary>
 /// The Search page's Display checkboxes and selected letter as the user last chose them, held in the session so that
 /// they are as the user left them on coming back to the page from another one, as the legacy page kept them in its
-/// session. The keyword, species, sort order and page size are not kept, as in legacy.
+/// session. The keyword, species, sort order and page size are not kept, as in legacy. A session started before
+/// <see cref="DisplayMyProfiles"/> existed holds none, which reads as off.
 /// </summary>
 internal sealed record RememberedSearchFilters(
     bool DisplayPublished,
     bool DisplayDraft,
     bool DisplayScenarios,
+    bool DisplayMyProfiles,
     string SelectedLetter)
 {
     private const string SessionKey = "SearchFilters";

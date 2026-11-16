@@ -43,25 +43,28 @@ public class ApiClientTests
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
         var client = CreateClient(handler);
 
-        var results = await client.SearchProfilesAsync("tb", true, false, true, SearchForType.ExactWordOrPhrase);
+        var results = await client.SearchProfilesAsync("tb", true, false, true, false, SearchForType.ExactWordOrPhrase);
 
         var item = Assert.Single(results);
         Assert.Equal("Bovine tuberculosis", item.Title);
     }
 
-    [Fact]
-    public async Task SearchProfilesAsync_BuildsTheQueryStringFromEveryFilter()
+    [Theory]
+    [InlineData(true, "displayMyProfiles=True")]
+    [InlineData(false, "displayMyProfiles=False")]
+    public async Task SearchProfilesAsync_BuildsTheQueryStringFromEveryFilter(bool displayMyProfiles, string expectedMyProfiles)
     {
         var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, "[]");
         var client = CreateClient(handler);
 
-        await client.SearchProfilesAsync("tb", true, false, true, SearchForType.AllWords);
+        await client.SearchProfilesAsync("tb", true, false, true, displayMyProfiles, SearchForType.AllWords);
 
         var query = handler.LastRequestUri!.Query;
         Assert.Contains("searchText=tb", query);
         Assert.Contains("displayPublished=True", query);
         Assert.Contains("displayDraft=False", query);
         Assert.Contains("displayScenarios=True", query);
+        Assert.Contains(expectedMyProfiles, query);
         Assert.Contains("searchForType=AllWords", query);
     }
 
@@ -70,7 +73,7 @@ public class ApiClientTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var results = await client.SearchProfilesAsync(null, true, false, false, SearchForType.ExactWordOrPhrase);
+        var results = await client.SearchProfilesAsync(null, true, false, false, false, SearchForType.ExactWordOrPhrase);
 
         Assert.Empty(results);
     }
@@ -80,7 +83,30 @@ public class ApiClientTests
     {
         var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProfilesAsync(null, true, false, false, SearchForType.ExactWordOrPhrase));
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProfilesAsync(null, true, false, false, false, SearchForType.ExactWordOrPhrase));
+    }
+
+    [Theory]
+    [InlineData("""{"canFilter":true}""", true)]
+    [InlineData("""{"canFilter":false}""", false)]
+    [InlineData("null", false)]
+    public async Task CanFilterToMyProfilesAsync_ReadsThePermission(string json, bool expected)
+    {
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, json);
+        var client = CreateClient(handler);
+
+        var canFilter = await client.CanFilterToMyProfilesAsync();
+
+        Assert.Equal(expected, canFilter);
+        Assert.Equal("/api/profile-search/my-profiles-permission", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task CanFilterToMyProfilesAsync_Throws_OnANonSuccessStatusCode()
+    {
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.InternalServerError, string.Empty));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.CanFilterToMyProfilesAsync());
     }
 
     [Fact]

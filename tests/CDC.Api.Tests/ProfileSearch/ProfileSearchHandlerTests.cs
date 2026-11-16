@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Domain.Common;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.ProfileSearch;
@@ -99,7 +100,7 @@ public class ProfileSearchHandlerTests
                 }
             ]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var profiles = await service.GetAllProfilesAsync(CancellationToken.None);
 
@@ -111,7 +112,7 @@ public class ProfileSearchHandlerTests
     public async Task ProfileSearchService_GetProfileVersionAsync_ReturnsVersion()
     {
         var profileVersionId = Guid.NewGuid();
-        var service = new ProfileSearchService(Mock.Of<IProfileRepository>());
+        var service = CreateService(Mock.Of<IProfileRepository>());
 
         var version = await service.GetProfileVersionAsync(profileVersionId, CancellationToken.None);
 
@@ -136,7 +137,7 @@ public class ProfileSearchHandlerTests
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", profileStatus)]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: displayPublished,
@@ -155,7 +156,7 @@ public class ProfileSearchHandlerTests
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Published", hasDraftVersionToo: true)]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: false,
@@ -184,7 +185,7 @@ public class ProfileSearchHandlerTests
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Scenario")]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: displayPublished,
@@ -207,7 +208,7 @@ public class ProfileSearchHandlerTests
             .Setup(r => r.GetAllProfilesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<ProfileSearchResultDto>)[CreateProfile("Bovine tuberculosis", "Scenario")]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var results = await service.GetProfileSearchResultsAsync(
             displayDraft: true,
@@ -229,7 +230,7 @@ public class ProfileSearchHandlerTests
                 CreateProfile("Avian influenza", "Published")
             ]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var results = await service.GetProfileSearchResultsAsync(searchText: "bovine", cancellationToken: CancellationToken.None);
 
@@ -251,7 +252,7 @@ public class ProfileSearchHandlerTests
                 CreateProfile("Avian influenza", "Published")
             ]);
 
-        var service = new ProfileSearchService(repository.Object);
+        var service = CreateService(repository.Object);
 
         var results = await service.GetProfilesByLetterAsync(letter, CancellationToken.None);
 
@@ -262,7 +263,7 @@ public class ProfileSearchHandlerTests
     public async Task GetProfileSearchResultsAsync_ListsTheDraftsOfEveryProfile_AsLegacyListedThemToEveryUser()
     {
         var draftProfile = CreateProfile("Bovine tuberculosis", "Draft");
-        var service = new ProfileSearchService(RepositoryReturning(draftProfile));
+        var service = CreateService(RepositoryReturning(draftProfile));
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: false,
@@ -280,7 +281,7 @@ public class ProfileSearchHandlerTests
             NextReviewDate = new DateTime(2027, 1, 1),
             ReviewIncomplete = true
         };
-        var service = new ProfileSearchService(RepositoryReturning(profile));
+        var service = CreateService(RepositoryReturning(profile));
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: true,
@@ -298,7 +299,7 @@ public class ProfileSearchHandlerTests
     public async Task GetProfileSearchResultsAsync_ListsTheDraftsOfAScenario()
     {
         var scenarioProfile = CreateProfile("Bovine tuberculosis", "Scenario");
-        var service = new ProfileSearchService(RepositoryReturning(scenarioProfile));
+        var service = CreateService(RepositoryReturning(scenarioProfile));
 
         var results = await service.GetProfileSearchResultsAsync(
             displayPublished: false,
@@ -313,7 +314,7 @@ public class ProfileSearchHandlerTests
     public async Task GetProfilesByLetterAsync_ListsTheDraftsOfEveryProfile()
     {
         var profile = CreateProfile("Bovine tuberculosis", "Published", hasDraftVersionToo: true);
-        var service = new ProfileSearchService(RepositoryReturning(profile));
+        var service = CreateService(RepositoryReturning(profile));
 
         var results = await service.GetProfilesByLetterAsync("All", CancellationToken.None);
 
@@ -324,12 +325,14 @@ public class ProfileSearchHandlerTests
     public async Task GetProfilesByLetterAsync_ListsAProfileWhoseOnlyVersionIsADraft()
     {
         var draftProfile = CreateProfile("Bovine tuberculosis", "Draft");
-        var service = new ProfileSearchService(RepositoryReturning(draftProfile));
+        var service = CreateService(RepositoryReturning(draftProfile));
 
         var results = await service.GetProfilesByLetterAsync("B", CancellationToken.None);
 
         results.Should().ContainSingle().Which.DraftVersions.Should().ContainSingle();
     }
+
+    private static ProfileSearchService CreateService(IProfileRepository repository) => new(repository, new RequestUserContext());
 
     private static IProfileRepository RepositoryReturning(params ProfileSearchResultDto[] profiles)
     {

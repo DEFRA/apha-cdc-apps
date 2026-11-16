@@ -1,3 +1,4 @@
+using CDC.Api.Application;
 using CDC.Api.Features.ProfileSearch.Dtos;
 using CDC.Api.Features.ProfileSearch.Interfaces;
 
@@ -9,8 +10,12 @@ namespace CDC.Api.Features.ProfileSearch;
 /// user (<c>ProfileInfoList.CanGetProfileInfoList</c>: "this data is available to all"); a draft is refused only when it is browsed.
 /// </summary>
 /// <param name="repository">Profile data access.</param>
-public sealed class ProfileSearchService(IProfileRepository repository) : IProfileSearchService
+/// <param name="userContext">The signed-in user, whose assignments to profiles decide the "Display my own profiles only" filter.</param>
+public sealed class ProfileSearchService(IProfileRepository repository, IUserContext userContext) : IProfileSearchService
 {
+    /// <inheritdoc />
+    public bool CanFilterToMyProfiles => userContext.AssignedProfileIds.Count > 0;
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<ProfileDto>> GetAllProfilesAsync(CancellationToken cancellationToken)
     {
@@ -53,20 +58,30 @@ public sealed class ProfileSearchService(IProfileRepository repository) : IProfi
         bool displayPublished = true,
         bool displayDraft = false,
         bool displayScenarios = false,
+        bool displayMyProfiles = false,
         SearchForType searchForType = SearchForType.ExactWordOrPhrase,
         CancellationToken cancellationToken = default)
     {
         var allProfiles = await repository.GetAllProfilesAsync(cancellationToken);
+        var assignedProfileIds = userContext.AssignedProfileIds;
+        var onlyMyProfiles = displayMyProfiles && assignedProfileIds.Count > 0;
 
         return
         [
             .. allProfiles
                 .Where(profile => MatchesVersionFilter(profile, displayPublished, displayDraft)
-                    && TitleMatches(profile.Title, searchText, searchForType))
+                    && TitleMatches(profile.Title, searchText, searchForType)
+                    && (!onlyMyProfiles || IsAssignedTo(profile, assignedProfileIds, displayScenarios)))
                 // As in legacy, the scenarios are listed only when asked for.
                 .Select(profile => displayScenarios ? profile : profile with { WhatIfScenarios = [] })
         ];
     }
+
+    /// <summary>Mirrors the legacy <c>ProfileInfoList.Filter</c>'s "my profiles" test: the user is assigned to the profile's own lineage as
+    /// an author or a reviewer, or to one of its "what-if" scenarios while scenarios are displayed.</summary>
+    private static bool IsAssignedTo(ProfileSearchResultDto profile, IReadOnlySet<Guid> assignedProfileIds, bool displayScenarios) =>
+        assignedProfileIds.Contains(profile.Id)
+        || (displayScenarios && profile.WhatIfScenarios.Any(scenario => assignedProfileIds.Contains(scenario.ScenarioId)));
 
     /// <summary>Mirrors the legacy <c>ProfileInfoList.Filter</c>: a profile matches when any of its
     /// scenarios - its own, or a "what-if" - has a published version and published versions are

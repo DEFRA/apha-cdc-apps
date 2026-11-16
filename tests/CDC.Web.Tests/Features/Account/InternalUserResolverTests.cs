@@ -459,9 +459,13 @@ public class InternalUserResolverTests
             bool displayPublished,
             bool displayDraft,
             bool displayScenarios,
+            bool displayMyProfiles,
             SearchForType searchForType,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ProfileSearchResultDto>>([]);
+
+        public Task<bool> CanFilterToMyProfilesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
 
         public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
             Task.FromResult<ProfileAttributesDto?>(null);
