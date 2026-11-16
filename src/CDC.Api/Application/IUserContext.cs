@@ -100,7 +100,7 @@ public sealed class RequestUserContext : IUserContext
 
     /// <inheritdoc />
     public IReadOnlySet<Guid> AssignedProfileIds => Kind == UserKind.Unclassified
-        ? new HashSet<Guid>()
+        ? []
         : actingUser!.ProfileRoles.Select(role => role.ProfileId).ToHashSet();
 
     /// <inheritdoc />
