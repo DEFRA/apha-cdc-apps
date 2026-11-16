@@ -186,16 +186,17 @@ else
                 </div>
             }
 
-            <h2 class="govuk-heading-m">Upload a report</h2>
+            <h2 class="govuk-heading-m">Upload a static report</h2>
 
             <div class="govuk-form-group @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-form-group--error")">
-                <label class="govuk-label govuk-label--s" for="ReportFile">Report file</label>
-                <div id="ReportFile-hint" class="govuk-hint">The file must be a PDF.</div>
                 @if (!string.IsNullOrEmpty(Model.UploadError))
                 {
                     <p id="ReportFile-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @Model.UploadError</p>
                 }
-                <input class="govuk-file-upload @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-file-upload--error")" id="ReportFile" name="ReportFile" type="file" accept=".pdf,application/pdf" aria-describedby="ReportFile-hint@(string.IsNullOrEmpty(Model.UploadError) ? "" : " ReportFile-error")" />
+                <div class="app-label-select-inline">
+                    <label class="govuk-label" for="ReportFile">Report file:</label>
+                    <input class="govuk-file-upload @(string.IsNullOrEmpty(Model.UploadError) ? "" : "govuk-file-upload--error")" id="ReportFile" name="ReportFile" type="file" accept=".pdf,application/pdf" aria-describedby="@(string.IsNullOrEmpty(Model.UploadError) ? null : "ReportFile-error")" />
+                </div>
             </div>
 
             <div class="govuk-form-group">
@@ -207,9 +208,9 @@ else
                 </div>
             </div>
 
-            <div class="govuk-button-group">
-                <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
-                <a class="govuk-link" asp-page="/Reports/General">Cancel</a>
+            <div class="govuk-button-group app-button-group--right">
+                <button type="submit" class="govuk-button" data-module="govuk-button">Ok</button>
+                <a class="govuk-button govuk-button--secondary" data-module="govuk-button" asp-page="/Reports/General">Cancel</a>
             </div>
         </form>
     }

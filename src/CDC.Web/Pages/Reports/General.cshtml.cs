@@ -163,9 +163,10 @@ public partial class GeneralModel : BreadcrumbPageModelBase
             return ("Choose a file to upload", null, null);
         }
 
-        var title = Path.GetFileNameWithoutExtension(ReportFile.FileName);
-        if (!string.Equals(Path.GetExtension(ReportFile.FileName), ".pdf", StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(title))
+        // Path.GetFileName ignores '\' on Linux, so strip any client-supplied Windows path by hand; the title must match
+        // the existing one exactly (no trimming) for spiStaticReport to add a version rather than a new report.
+        var fileName = ReportFile.FileName[(ReportFile.FileName.LastIndexOfAny(['/', '\\']) + 1)..];
+        if (!fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(fileName[..^4]))
         {
             return ("Choose a PDF file to upload", null, null);
         }
@@ -180,7 +181,7 @@ public partial class GeneralModel : BreadcrumbPageModelBase
         var pdfData = stream.ToArray();
 
         return pdfData.AsSpan().StartsWith(PdfSignature)
-            ? (null, title.Trim(), pdfData)
+            ? (null, fileName[..^4], pdfData)
             : ("Choose a PDF file to upload", null, null);
     }
 
