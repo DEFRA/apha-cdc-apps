@@ -149,9 +149,9 @@ public class PrioritisationVariablesControllerTests
     }
 
     [Fact]
-    public async Task ExportCategoryScoreData_ReturnsCsvFile()
+    public async Task ExportCategoryScoreData_ReturnsExcelFile()
     {
-        var export = new PrioritisationCsvExport("Welfare.csv", [1, 2, 3]);
+        var export = new PrioritisationWorkbookExport("Welfare.xls", [1, 2, 3]);
         mediator
             .Setup(sender => sender.Send(
                 It.Is<ExportCategoryScoreDataQuery>(query => query.CategoryId == CriterionId),
@@ -161,8 +161,8 @@ public class PrioritisationVariablesControllerTests
         var response = await CreateController().ExportCategoryScoreData(CriterionId, CancellationToken.None);
 
         var file = response.Should().BeOfType<FileContentResult>().Subject;
-        file.ContentType.Should().Be("text/csv");
-        file.FileDownloadName.Should().Be("Welfare.csv");
+        file.ContentType.Should().Be("application/ms-excel");
+        file.FileDownloadName.Should().Be("Welfare.xls");
         file.FileContents.Should().Equal(export.Content);
     }
 
@@ -171,7 +171,7 @@ public class PrioritisationVariablesControllerTests
     {
         mediator
             .Setup(sender => sender.Send(It.IsAny<ExportCategoryScoreDataQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.NotFound<PrioritisationCsvExport>("not found"));
+            .ReturnsAsync(Result.NotFound<PrioritisationWorkbookExport>("not found"));
 
         var response = await CreateController().ExportCategoryScoreData(CriterionId, CancellationToken.None);
 
@@ -179,16 +179,16 @@ public class PrioritisationVariablesControllerTests
     }
 
     [Fact]
-    public async Task ExportNormalisedScores_ReturnsCsvFile()
+    public async Task ExportNormalisedScores_ReturnsExcelFile()
     {
-        var export = new PrioritisationCsvExport("NormalisedScoreSummary.csv", [4, 5]);
+        var export = new PrioritisationWorkbookExport("NormalisedScoreSummary.xls", [4, 5]);
         mediator
             .Setup(sender => sender.Send(It.IsAny<ExportNormalisedScoresQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(export));
 
         var response = await CreateController().ExportNormalisedScores(CancellationToken.None);
 
-        response.Should().BeOfType<FileContentResult>().Which.FileDownloadName.Should().Be("NormalisedScoreSummary.csv");
+        response.Should().BeOfType<FileContentResult>().Which.FileDownloadName.Should().Be("NormalisedScoreSummary.xls");
     }
 
     private static ProblemDetails AssertProblem(IActionResult result, int expectedStatusCode)

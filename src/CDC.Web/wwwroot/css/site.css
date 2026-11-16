@@ -1627,6 +1627,20 @@ body {
   text-align: right;
 }
 
+/* Result messages are red, as the legacy maintenance screens showed them. */
+.app-result-message {
+  color: #d4351c;
+  font-weight: bold;
+}
+
+/* Heading with a dividing line beneath it, as the legacy collapse panel headers had. */
+.app-section-heading {
+  border-bottom: 1px solid #0b0c0c;
+  padding-bottom: 5px;
+  margin-top: 20px;
+  width: 100%;
+}
+
 /* A wrapper that exists only so script can replace its children; they lay out as if it weren't there. */
 .app-display-contents {
   display: contents;
@@ -1664,16 +1678,8 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem;
-  border: 2px solid #0b0c0c;
+  border: 1px solid var(--govuk-border-colour, #0b0c0c);
   border-bottom: 0;
-}
-
-.app-criterion-edit__field .app-richtext-toolbar__divider {
-  flex: 0 0 2px;
-  align-self: stretch;
-  width: 2px;
-  margin: 0 0.5rem;
-  background-color: #505a5f;
 }
 
 /* Legacy TinyMCE was held at its 100px minimum, toolbar included, leaving about 60px to type in. */
@@ -1922,6 +1928,33 @@ body {
   background-color: #505a5f;
 }
 
+/* Buttons that belong together form a section of the toolbar, split from the next by a full-height line. */
+.app-richtext-toolbar.app-richtext-toolbar:has(> .app-richtext-toolbar__group) {
+  gap: 0;
+  padding: 0;
+  align-items: stretch;
+}
+
+.app-richtext-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem;
+}
+
+.app-richtext-toolbar__group + .app-richtext-toolbar__group {
+  border-left: 1px solid #505a5f;
+}
+
+.app-richtext-toolbar__group .app-richtext-toolbar__button--icon {
+  border-color: transparent;
+  background-color: transparent;
+}
+
+.app-richtext-toolbar__group .app-richtext-toolbar__button--icon:disabled {
+  background-color: transparent;
+}
+
 .app-richtext-editor {
   border: 1px solid var(--govuk-border-colour, #0b0c0c);
   min-height: 150px;
@@ -1971,13 +2004,6 @@ body {
 /* An empty error message still has a bottom margin, which pushed the control below its label. */
 .app-legacy-form__field .govuk-error-message:empty {
   display: none;
-}
-
-.app-legacy-form__field .app-richtext-toolbar__divider {
-  flex: 0 0 2px;
-  width: 2px;
-  margin: 0 0.5rem;
-  background-color: #505a5f;
 }
 
 .app-legacy-form__field--wide {

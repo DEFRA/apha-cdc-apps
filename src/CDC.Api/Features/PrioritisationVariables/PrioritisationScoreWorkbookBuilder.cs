@@ -8,32 +8,45 @@ using CDC.Api.Features.DiseaseRanking;
 namespace CDC.Api.Features.PrioritisationVariables;
 
 /// <summary>
-/// Builds the "Export score data" and "Export normalised scores (all categories)" CSV files. Ports the legacy
+/// Builds the "Export score data" and "Export normalised scores (all categories)" Excel files. Ports the legacy
 /// <c>MaintainPrioritisationVariables.BuildScoreDataTable</c> and <c>BuildSummaryDataTable</c>, which wrote the same
-/// columns and rows to an HTML table served as an Excel file.
+/// columns, rows and category header colours to an HTML table served as an Excel file.
 /// </summary>
-internal static partial class PrioritisationScoreCsvBuilder
+internal static partial class PrioritisationScoreWorkbookBuilder
 {
-    /// <summary>The legacy summary export's file name, with a CSV extension.</summary>
-    public const string NormalisedScoresFileName = "NormalisedScoreSummary.csv";
+    /// <summary>The content type the legacy page served its Excel export with.</summary>
+    public const string ContentType = "application/ms-excel";
 
-    private const string CombinedRfiHeader =
-        "Ranking of combined RFI scores (calculated by adding scores for public health, welfare, wider society and international trade and then ranking this overall total)";
+    /// <summary>The legacy summary export's file name, with an .xls extension.</summary>
+    public const string NormalisedScoresFileName = "NormalisedScoreSummary.xls";
 
-    private const string CombinedRfiPlusRiskHeader =
-        "Ranking of combined RFI scores plus post mitigation risk score (calculated by adding scores for public health, welfare, wider society, international trade and post mitigation risk and then ranking this overall total)";
+    private const string General = "general";
+
+    // Legacy cell widths, in pixels.
+    private const double CellWidth = 80;
+    private const double TotalCellWidth = 120;
+
+    private const string CombinedRfiTitle = "Ranking of combined RFI scores ";
+
+    private const string CombinedRfiNote =
+        "(calculated by adding scores for public health, welfare, wider society and international trade and then ranking this overall total)";
+
+    private const string CombinedRfiPlusRiskTitle = "Ranking of combined RFI scores plus post mitigation risk score ";
+
+    private const string CombinedRfiPlusRiskNote =
+        "(calculated by adding scores for public health, welfare, wider society, international trade and post mitigation risk and then ranking this overall total)";
+
+    // Characters that make Excel treat a cell as a formula.
+    private static readonly char[] FormulaPrefixes = ['=', '+', '-', '@'];
 
     private static readonly string[] ProfileHeaders =
         ["Disease / Issue", "Version number", "Profiled species", "Published / Draft", "Profile status", "Standard / Scenario"];
 
-    // Characters that make Excel treat a cell as a formula (CSV injection).
-    private static readonly char[] FormulaPrefixes = ['=', '+', '-', '@', '\t', '\r'];
-
     /// <summary>Builds the score data for one category, or returns <see langword="null"/> when the category does not exist.</summary>
     /// <param name="data">The score data.</param>
     /// <param name="categoryId">The category to export.</param>
-    /// <returns>The CSV file, or <see langword="null"/>.</returns>
-    public static PrioritisationCsvExport? BuildCategoryScoreData(PrioritisationScoreData data, Guid categoryId)
+    /// <returns>The Excel file, or <see langword="null"/>.</returns>
+    public static PrioritisationWorkbookExport? BuildCategoryScoreData(PrioritisationScoreData data, Guid categoryId)
     {
         var category = data.Categories.FirstOrDefault(candidate => candidate.Id == categoryId);
 
@@ -43,19 +56,19 @@ internal static partial class PrioritisationScoreCsvBuilder
         }
 
         var questions = data.PrioritisationQuestions.Where(question => question.CategoryId == categoryId).ToList();
-        var csv = new StringBuilder();
+        var style = category.Name.ToLowerInvariant();
+        var rows = new List<List<string>>();
 
-        var header = new List<string>(ProfileHeaders);
-        header.AddRange(data.CommonQuestions.Select(question => QuestionHeader(question.Name, question.DisplayQuestionNumber)));
+        var header = ProfileHeaders.Select(text => new HeaderCell(text, style)).ToList();
+        header.AddRange(data.CommonQuestions.Select(question => new HeaderCell(QuestionHeader(question.Name, question.DisplayQuestionNumber), style)));
 
         foreach (var question in questions)
         {
-            header.Add(QuestionHeader(question.Name, question.DisplayQuestionNumber));
-            header.Add($"Weighted score for {question.DisplayQuestionNumber}");
+            header.Add(new HeaderCell(QuestionHeader(question.Name, question.DisplayQuestionNumber), style));
+            header.Add(new HeaderCell($"Weighted score for {question.DisplayQuestionNumber}", style));
         }
 
-        header.Add("Normalised score");
-        AppendRow(csv, header);
+        header.Add(new HeaderCell("Normalised score", style));
 
         foreach (var row in BuildRows(data))
         {
@@ -72,32 +85,31 @@ internal static partial class PrioritisationScoreCsvBuilder
             }
 
             cells.Add(FormatNormalisedScore(data, row, categoryId));
-            AppendRow(csv, cells);
+            rows.Add(cells);
         }
 
-        return new PrioritisationCsvExport(BuildFileName(category.Name), Encode(csv));
+        return new PrioritisationWorkbookExport(BuildFileName(category.Name), WriteWorkbook(header, rows));
     }
 
     /// <summary>Builds the normalised score and rank of every category, plus the combined RFI rankings.</summary>
     /// <param name="data">The score data.</param>
     /// <param name="rankedProfiles">Every ranked profile, as read for the disease ranking reports.</param>
-    /// <returns>The CSV file.</returns>
-    public static PrioritisationCsvExport BuildNormalisedScores(PrioritisationScoreData data, IReadOnlyList<RankedProfile> rankedProfiles)
+    /// <returns>The Excel file.</returns>
+    public static PrioritisationWorkbookExport BuildNormalisedScores(PrioritisationScoreData data, IReadOnlyList<RankedProfile> rankedProfiles)
     {
-        var csv = new StringBuilder();
+        var rows = new List<List<string>>();
 
-        var header = new List<string>(ProfileHeaders);
-        header.AddRange(data.CommonQuestions.Select(question => QuestionHeader(question.Name, question.DisplayQuestionNumber)));
+        var header = ProfileHeaders.Select(text => new HeaderCell(text, General)).ToList();
+        header.AddRange(data.CommonQuestions.Select(question => new HeaderCell(QuestionHeader(question.Name, question.DisplayQuestionNumber), General)));
 
         foreach (var categoryName in data.Categories.Select(category => category.Name))
         {
-            header.Add($"{categoryName} normalised score");
-            header.Add($"{categoryName} rank");
+            header.Add(new HeaderCell($"{categoryName} normalised score", categoryName.ToLowerInvariant()));
+            header.Add(new HeaderCell($"{categoryName} rank", categoryName.ToLowerInvariant()));
         }
 
-        header.Add(CombinedRfiHeader);
-        header.Add(CombinedRfiPlusRiskHeader);
-        AppendRow(csv, header);
+        header.Add(new HeaderCell(CombinedRfiTitle, General, CombinedRfiNote, TotalCellWidth));
+        header.Add(new HeaderCell(CombinedRfiPlusRiskTitle, General, CombinedRfiPlusRiskNote, TotalCellWidth));
 
         var categoryRanks = data.Categories.ToDictionary(category => category.Id, category => BuildCategoryRanks(category.Name, rankedProfiles));
         var totalRanks = BuildTotalRanks(rankedProfiles, RankCategory.Total);
@@ -120,10 +132,10 @@ internal static partial class PrioritisationScoreCsvBuilder
 
             cells.Add(row.Version.IsScenario ? string.Empty : FormatRank(totalRanks.GetValueOrDefault((row.ProfileId, row.SpeciesId))));
             cells.Add(row.Version.IsScenario ? string.Empty : FormatRank(totalIncludingRiskRanks.GetValueOrDefault((row.ProfileId, row.SpeciesId))));
-            AppendRow(csv, cells);
+            rows.Add(cells);
         }
 
-        return new PrioritisationCsvExport(NormalisedScoresFileName, Encode(csv));
+        return new PrioritisationWorkbookExport(NormalisedScoresFileName, WriteWorkbook(header, rows));
     }
 
     /// <summary>
@@ -253,35 +265,103 @@ internal static partial class PrioritisationScoreCsvBuilder
 
     private static string Format(int value) => value.ToString(CultureInfo.InvariantCulture);
 
-    private static void AppendRow(StringBuilder csv, IEnumerable<string> cells)
+    // The legacy page rendered an ASP.NET Table to HTML and served it to Excel as a .xls file.
+    private static byte[] WriteWorkbook(IReadOnlyList<HeaderCell> header, List<List<string>> rows)
     {
-        csv.AppendJoin(',', cells.Select(Escape));
-        csv.Append("\r\n");
-    }
+        var html = new StringBuilder("<html><head><meta charset=\"utf-8\"></head><body><table border=\"1\" style=\"border-collapse:collapse\"><tr>");
 
-    private static string Escape(string value)
-    {
-        var text = WebUtility.HtmlDecode(MarkupRegex().Replace(value, string.Empty));
-
-        if (text.Length > 0 && Array.IndexOf(FormulaPrefixes, text[0]) >= 0)
+        foreach (var headerCell in header)
         {
-            text = "'" + text;
+            var foreColor = headerCell.Style == "post mitigation risk" ? "White" : "Black";
+
+            // A td, as the legacy TableCell was: Excel bottom-aligns it, where a th would be centred.
+            html.Append(CultureInfo.InvariantCulture,
+                $"<td style=\"width:{headerCell.Width}px;background-color:{BackColor(headerCell.Style)};color:{foreColor};font-family:Arial;font-size:10pt;font-weight:bold;white-space:normal;vertical-align:bottom\">")
+                .Append(ToCellHtml(headerCell.Text));
+
+            if (headerCell.Note is not null)
+            {
+                html.Append("<span style=\"font-size:12px\">").Append(WebUtility.HtmlEncode(headerCell.Note)).Append("</span>");
+            }
+
+            html.Append("</td>");
         }
 
-        return $"\"{text.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+        html.Append("</tr>");
+
+        foreach (var row in rows)
+        {
+            html.Append("<tr>");
+
+            foreach (var value in row)
+            {
+                // Excel evaluates imported cell text that starts with these characters as a formula unless it is forced to text.
+                var text = Clean(value);
+                var textFormat = text.Length > 0 && FormulaPrefixes.Contains(text[0]) ? "mso-number-format:'\\@';" : string.Empty;
+                html.Append(CultureInfo.InvariantCulture, $"<td style=\"width:{CellWidth}px;{textFormat}font-family:Arial;font-size:10pt;white-space:nowrap;vertical-align:bottom\">")
+                    .Append(ToCellHtml(value))
+                    .Append("</td>");
+            }
+
+            html.Append("</tr>");
+        }
+
+        html.Append("</table></body></html>");
+
+        return [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(html.ToString())];
     }
 
-    private static byte[] Encode(StringBuilder csv) => [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(csv.ToString())];
+    // Titles, species and question names are stored with italic markup, which the legacy cells showed; any other markup is dropped.
+    private static string ToCellHtml(string value)
+    {
+        var html = new StringBuilder();
+        var position = 0;
+
+        foreach (var tag in MarkupRegex().Matches(value).Cast<Match>())
+        {
+            html.Append(WebUtility.HtmlEncode(WebUtility.HtmlDecode(value[position..tag.Index])));
+            position = tag.Index + tag.Length;
+
+            var italic = ItalicTagRegex().Match(tag.Value);
+
+            if (italic.Success)
+            {
+                html.Append(italic.Groups[1].Length > 0 ? "</i>" : "<i>");
+            }
+        }
+
+        return html.Append(WebUtility.HtmlEncode(WebUtility.HtmlDecode(value[position..]))).ToString();
+    }
+
+    // The text of a cell without markup, as Excel reads it.
+    private static string Clean(string value) => WebUtility.HtmlDecode(MarkupRegex().Replace(value, string.Empty));
+
+    // The legacy category header colours.
+    private static string BackColor(string style) => style switch
+    {
+        "international trade" => "rgb(255,255,189)",
+        "wider society" => "rgb(153,204,255)",
+        "welfare" => "rgb(193,255,193)",
+        "public health" => "rgb(255,153,204)",
+        "post mitigation risk" => "rgb(0,0,0)",
+        General => "rgb(200,200,200)",
+        _ => "rgb(102,102,0)"
+    };
 
     private static string BuildFileName(string categoryName)
     {
         var safeName = new string([.. categoryName.Where(character => char.IsLetterOrDigit(character) || character is ' ' or '-' or '_')]).Trim();
 
-        return $"{(safeName.Length == 0 ? "ScoreData" : safeName)}.csv";
+        return $"{(safeName.Length == 0 ? "ScoreData" : safeName)}.xls";
     }
 
     [GeneratedRegex("<.*?>", RegexOptions.Singleline)]
     private static partial Regex MarkupRegex();
+
+    [GeneratedRegex(@"^<(/?)(?:em|i)\s*>$", RegexOptions.IgnoreCase)]
+    private static partial Regex ItalicTagRegex();
+
+    private sealed record HeaderCell(string Text, string Style, string? Note = null, double Width = CellWidth);
 
     private sealed record ExportRow(ScoreDataProfile Profile, ScoreDataProfileVersion Version, Guid SpeciesId, string SpeciesName)
     {

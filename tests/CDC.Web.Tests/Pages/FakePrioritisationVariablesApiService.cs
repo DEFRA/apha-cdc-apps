@@ -109,13 +109,13 @@ internal sealed class FakePrioritisationVariablesApiService(
         }
 
         return Task.FromResult(_categories.Any(category => category.Id == categoryId)
-            ? new PrioritisationScoreExport("a,b"u8.ToArray(), "Category.csv")
+            ? new PrioritisationScoreExport("xlsx"u8.ToArray(), "Category.xls")
             : null);
     }
 
     public Task<PrioritisationScoreExport> ExportNormalisedScoresAsync(CancellationToken cancellationToken = default) =>
         ThrowOnExport is not null
             ? Task.FromException<PrioritisationScoreExport>(ThrowOnExport)
-            : Task.FromResult(new PrioritisationScoreExport("a,b"u8.ToArray(), "NormalisedScoreSummary.csv"));
+            : Task.FromResult(new PrioritisationScoreExport("xlsx"u8.ToArray(), "NormalisedScoreSummary.xls"));
 }
 
