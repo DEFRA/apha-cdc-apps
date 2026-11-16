@@ -200,6 +200,11 @@ html {
   margin-bottom: 0;
 }
 
+.app-inline-fields--auto-label .govuk-form-group > .govuk-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .app-inline-fields__control {
   flex: 1 1 0;
   min-width: 0;
