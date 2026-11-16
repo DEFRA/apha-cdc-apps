@@ -58,11 +58,11 @@ else
                     }
                     <div class="govuk-radios govuk-radios--inline govuk-radios--small" data-module="govuk-radios">
                         <div class="govuk-radios__item">
-                            <input class="govuk-radios__input" id="@(inputName)-yes" name="@inputName" type="radio" value="true" checked="@(Model.BooleanValue == true ? "checked" : null)" />
+                            <input class="govuk-radios__input" id="@(inputName)-yes" name="@inputName" type="radio" value="true" checked="@(Model.BooleanValue == true ? "checked" : null)" @Model.RelevanceAttribute />
                             <label class="govuk-label govuk-radios__label" for="@(inputName)-yes">Yes</label>
                         </div>
                         <div class="govuk-radios__item">
-                            <input class="govuk-radios__input" id="@(inputName)-no" name="@inputName" type="radio" value="false" checked="@(Model.BooleanValue == false ? "checked" : null)" />
+                            <input class="govuk-radios__input" id="@(inputName)-no" name="@inputName" type="radio" value="false" checked="@(Model.BooleanValue == false ? "checked" : null)" @Model.RelevanceAttribute />
                             <label class="govuk-label govuk-radios__label" for="@(inputName)-no">No</label>
                         </div>
                     </div>
@@ -83,7 +83,7 @@ else
                             var option = Model.Options[optionIndex];
                             var optionId = $"{inputName}-{optionIndex}";
                             <div class="govuk-radios__item">
-                                <input class="govuk-radios__input" id="@optionId" name="@inputName" type="radio" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
+                                <input class="govuk-radios__input" id="@optionId" name="@inputName" type="radio" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" @Model.RelevanceAttribute />
                                 <label class="govuk-label govuk-radios__label" for="@optionId">@option.Text</label>
                             </div>
                         }

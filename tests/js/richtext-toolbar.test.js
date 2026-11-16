@@ -58,4 +58,27 @@ describe('richtext-toolbar', () => {
     const { textarea } = await setup('');
     expect(textarea.value).toBe('');
   });
+
+  it('fills any element with an answer through the same allow-list, so one editor can show each species answer in turn', async () => {
+    const { editor } = await setup('<p>First</p>');
+    const view = document.createElement('div');
+    document.body.appendChild(view);
+
+    window.appRichText.fill(view, '<p onclick="x()">Second <em>one</em></p><script>alert(2)</script>');
+    window.appRichText.fill(editor, '<ul><li>Only</li></ul>');
+
+    expect(view.querySelector('script')).toBeNull();
+    expect(view.querySelector('p').hasAttribute('onclick')).toBe(false);
+    expect(view.querySelector('em').textContent).toBe('one');
+    expect(editor.querySelectorAll('li')).toHaveLength(1);
+    expect(editor.textContent).toBe('Only');
+  });
+
+  it('empties the element it fills when there is no answer', async () => {
+    const { editor } = await setup('<p>First</p>');
+
+    window.appRichText.fill(editor, undefined);
+
+    expect(editor.childNodes).toHaveLength(0);
+  });
 });

@@ -20,6 +20,13 @@
         <input type="hidden" name="Section" value="@Model.CurrentSection.Id" />
         <input type="hidden" name="lastUpdated" value="@Model.SectionLastUpdated" />
 
+        @if (Model.CanEditProfileSection && !Model.HasNoVersion)
+        {
+            @* Pressed by relevance-confirm.js once the user has confirmed an answer that decides whether other questions apply: it saves the
+               section so that the questions the answers make irrelevant are hidden, as the legacy page's hidden Save button (btnHiddenRefresh) did. *@
+            <button type="submit" asp-page-handler="RefreshQuestions" hidden data-relevance-refresh>Refresh the questions</button>
+        }
+
         @if (Model.CanEditProfileSection || Model.CanClearProfileSection || Model.CanPrintProfileSection)
         {
             <div class="govuk-button-group app-button-group--right">
@@ -178,6 +185,17 @@
     @if (Model.CanEditProfileSection && !Model.HasNoVersion)
     {
         <partial name="_QuestionReferenceDialog" model="new QuestionReferenceDialogViewModel(Model.ProfileId, Model.CurrentSection.Id, Model.ReferenceNoteTypes, [.. Model.Questions.Select(question => new QuestionReferenceChoice(question.Id, question.Number, question.Text, false))])" />
+
+        @* Asks the user to confirm a change to an answer that decides whether other questions apply, as the legacy page did; relevance-confirm.js
+           fills in the questions that may be affected. It is outside the form, as the other dialogs are. *@
+        <dialog class="app-modal" id="relevance-confirm-dialog" aria-labelledby="relevance-confirm-dialog-title">
+            <h2 class="govuk-heading-m" id="relevance-confirm-dialog-title">Confirm</h2>
+            <p class="govuk-body">Changing the answer to this question may affect the relevancy of other parts of this section, any questions that become irrelevant will be cleared and hidden. Questions that may be affected are:</p>
+            <p class="govuk-body"><strong data-relevance-questions></strong>.</p>
+            <p class="govuk-body">Do you want to continue?</p>
+            <button type="button" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2" data-module="govuk-button" data-relevance-ok>OK</button>
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" data-confirm-close>Cancel</button>
+        </dialog>
     }
 
     @if (Model.CanClearProfileSection)
@@ -203,4 +221,6 @@
     <script src="~/js/question-references.js" asp-append-version="true"></script>
     <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
     <script src="~/js/spell-check.js" asp-append-version="true"></script>
+    <script src="~/js/question-species.js" asp-append-version="true"></script>
+    <script src="~/js/relevance-confirm.js" asp-append-version="true"></script>
 }

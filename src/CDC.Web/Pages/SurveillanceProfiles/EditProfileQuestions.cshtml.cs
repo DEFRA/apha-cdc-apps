@@ -43,6 +43,12 @@ public class EditProfileQuestionsModel(
     // The start of the message shown when the answers were cleared but a later step could not be; what failed and the reason follow it.
     private const string ClearFailedWhileClearingMessage = "Clear section failed while trying to clear the ";
 
+    // The data types the panel that edits one species' answers has a control for.
+    private static readonly string[] PerSpeciesEditableTypes = ["Boolean", "List", "MultiValueList", "Decimal", "Text", "Long Text"];
+
+    // The species the profile version profiles, as CDC.Api listed them when the answers were loaded; a save reads an answer for each.
+    private IReadOnlyList<ProfileSpeciesDto> profiledSpecies = [];
+
     // The notes a cleared section is unlinked from, in the order the legacy Clear button did it, with how its failure names them.
     private static readonly (string NoteType, string Description)[] ClearedNoteTypes =
     [
@@ -278,6 +284,28 @@ public class EditProfileQuestionsModel(
     }
 
     /// <summary>
+    /// Handles the page's hidden refresh button as the legacy <c>btnHiddenRefresh_Click</c> did. The page presses it when the user has
+    /// changed an answer that decides whether other questions apply and confirmed the change: it saves the section as Save does, so
+    /// that the questions the answers made irrelevant are cleared and hidden, and then says nothing of the save, which the user did not
+    /// ask for.
+    /// </summary>
+    /// <param name="profileVersionId">The profile version being answered, posted from a hidden field.</param>
+    /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The page, with the questions the saved answers make irrelevant hidden; with the reason when the answers could not be saved.</returns>
+    public async Task<IActionResult> OnPostRefreshQuestionsAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken)
+    {
+        await OnGetAsync(cancellationToken);
+
+        if (IsReady && CanEditProfileSection)
+        {
+            await TrySaveSectionAsync(profileVersionId, lastUpdated, cancellationToken, announceSuccess: false);
+        }
+
+        return Page();
+    }
+
+    /// <summary>
     /// Handles a click on a tab. Legacy <c>tabStrip_TabClick</c> persists the section's answers before opening the
     /// tab's page and stays put when they are invalid, so an edit is never lost by switching tab.
     /// </summary>
@@ -307,8 +335,12 @@ public class EditProfileQuestionsModel(
 
     /// <summary>Saves the submitted answers and reloads the page's answers; reports a rejected value, a concurrent edit or a
     /// CDC.Api failure on the page, which stays usable, as the legacy page did.</summary>
+    /// <param name="profileVersionId">The profile version being answered.</param>
+    /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <param name="announceSuccess">Whether to report that the answers were saved; the refresh does not.</param>
     /// <returns><see langword="true"/> when the answers were saved.</returns>
-    private async Task<bool> TrySaveSectionAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken)
+    private async Task<bool> TrySaveSectionAsync(Guid profileVersionId, string? lastUpdated, CancellationToken cancellationToken, bool announceSuccess = true)
     {
         var (answers, validationErrors) = ParseSubmittedAnswers(CurrentSection!);
 
@@ -341,7 +373,10 @@ public class EditProfileQuestionsModel(
             return false;
         }
 
-        SetAction(SaveSucceededMessage, isError: false);
+        if (announceSuccess)
+        {
+            SetAction(SaveSucceededMessage, isError: false);
+        }
 
         // Re-load so the page reflects the newly-saved answers, their validation icons and the section's new row version
         // rather than the stale ones already fetched by OnGetAsync above.
@@ -450,6 +485,7 @@ public class EditProfileQuestionsModel(
     {
         var answers = await ProfileSectionsApi.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
         SectionLastUpdated = Convert.ToBase64String(answers.LastUpdated);
+        profiledSpecies = answers.ProfiledSpecies;
 
         var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
         var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
@@ -472,37 +508,96 @@ public class EditProfileQuestionsModel(
 
         Questions =
         [
-            .. section.Questions.Select(question =>
-            {
-                // Only a standard (non-per-species, non-repeating) question's fields are
-                // editable; editing those two question kinds is not yet supported.
-                var isQuestionEditable = CanEditProfileSection && !question.IsPerSpecies && !question.IsRepeating;
-                var questionValues = valuesByQuestion[question.Id].ToList();
-
-                return new ProfileQuestionEditView
-                {
-                    Id = question.Id,
-                    Number = $"{section.SectionNumber}.{question.QuestionNumber}",
-                    Text = namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
-                    IsValid = GetQuestionValidationStatus(question.Id),
-                    IsHidden = IsQuestionIrrelevant(question.Id),
-                    CanEditReferences = CanEditProfileSection,
-                    Fields =
-                    [
-                        // "Field Group" entries are containers for a repeating question's nested
-                        // fields, not values themselves, so they have nothing to render on their own.
-                        .. question.Fields
-                            .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-                            .Select(field => BuildFieldEditView(
-                                field,
-                                isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario),
-                                questionValues.Where(value => value.FieldNumber == field.FieldNumber).ToList(),
-                                referenceValuesByTable))
-                    ]
-                };
-            })
+            .. section.Questions.Select(question => BuildQuestionView(
+                section,
+                question,
+                namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
+                [.. valuesByQuestion[question.Id]],
+                referenceValuesByTable))
         ];
     }
+
+    /// <summary>Builds one question's view. The fields of a standard question are real controls for whoever may edit the section, and
+    /// those of a repeating question read-only because editing its rows is not yet supported. A per-species question has a row for each
+    /// profiled species, and its fields are the definitions of the panel that edits one species' answers.</summary>
+    private ProfileQuestionEditView BuildQuestionView(
+        ProfileSectionMetadataDto section,
+        ProfileQuestionMetadataDto question,
+        string text,
+        List<ProfileFieldValueDto> questionValues,
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
+    {
+        var isPerSpecies = IsPerSpeciesQuestion(question);
+        var isQuestionEditable = CanEditProfileSection && !question.IsRepeating;
+
+        // "Field Group" entries are containers for a repeating question's nested fields, not values themselves, so they have nothing to
+        // render on their own.
+        var fields = question.Fields
+            .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var fieldViews = fields
+            .Select(field => BuildFieldEditView(
+                field,
+                isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario) && (!isPerSpecies || CanEditPerSpecies(field)),
+                isPerSpecies ? [] : [.. questionValues.Where(value => value.FieldNumber == field.FieldNumber)],
+                referenceValuesByTable))
+            .ToList();
+
+        return new ProfileQuestionEditView
+        {
+            Id = question.Id,
+            Number = $"{section.SectionNumber}.{question.QuestionNumber}",
+            Text = text,
+            IsValid = GetQuestionValidationStatus(question.Id),
+            IsHidden = IsQuestionIrrelevant(question.Id),
+            CanEditReferences = CanEditProfileSection,
+            Fields = fieldViews,
+            SpeciesRows = isPerSpecies ? BuildSpeciesRows(question, fields, questionValues, referenceValuesByTable) : null,
+            CanEditSpecies = isPerSpecies && fieldViews.Any(field => field.IsEditable)
+        };
+    }
+
+    /// <summary>Builds the row of each profiled species, in the order CDC.Api lists them, as the legacy table did.</summary>
+    private List<ProfileSpeciesRowView> BuildSpeciesRows(
+        ProfileQuestionMetadataDto question,
+        List<ProfileFieldMetadataDto> fields,
+        List<ProfileFieldValueDto> questionValues,
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable) =>
+    [
+        .. profiledSpecies.Select(species =>
+        {
+            var speciesValues = questionValues.Where(value => value.SpeciesId == species.Id).ToList();
+
+            return new ProfileSpeciesRowView
+            {
+                SpeciesId = species.Id,
+                Name = species.Name,
+                IsRelevant = !IsSpeciesIrrelevant(question.Id, species.Id),
+                Answers =
+                [
+                    .. fields.Select(field =>
+                    {
+                        List<ProfileFieldValueDto> fieldValues = [.. speciesValues.Where(value => value.FieldNumber == field.FieldNumber)];
+                        var options = referenceValuesByTable.TryGetValue(field.ReferenceTableId, out var items) ? items : [];
+
+                        return new ProfileSpeciesAnswerView(
+                            field.Id,
+                            ProfileSpeciesAnswerFormatter.FormValue(field, fieldValues),
+                            ProfileSpeciesAnswerFormatter.SummaryText(field, fieldValues, options));
+                    })
+                ]
+            };
+        })
+    ];
+
+    /// <summary>A question answered once for each profiled species. A question that is also repeating is not edited, as before.</summary>
+    private static bool IsPerSpeciesQuestion(ProfileQuestionMetadataDto question) => question.IsPerSpecies && !question.IsRepeating;
+
+    /// <summary>The panel that edits one species' answers can edit these types. A date is not among them, for no per-species question has
+    /// one, so such a field is shown and left as it is.</summary>
+    private static bool CanEditPerSpecies(ProfileFieldMetadataDto field) =>
+        PerSpeciesEditableTypes.Contains(field.DataTypeName, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Builds one field's view: a real editable control matching its data type when
     /// <paramref name="isEditable"/>, otherwise the same static read-only rendering as before
@@ -532,6 +627,8 @@ public class EditProfileQuestionsModel(
                 DataTypeName = field.DataTypeName,
                 IsMandatory = field.IsMandatory,
                 IsEditable = isEditable,
+                IncludeInSummary = field.IncludeInSummary,
+                AffectsRelevanceOf = field.AffectsRelevanceOf,
                 Options = [.. options.Select(option => new ProfileFieldOptionEditView(option.Id, option.Value, selectedValues.Contains(option.Id)))]
             };
         }
@@ -546,6 +643,8 @@ public class EditProfileQuestionsModel(
             DataTypeName = field.DataTypeName,
             IsMandatory = field.IsMandatory,
             IsEditable = isEditable,
+            IncludeInSummary = field.IncludeInSummary,
+            AffectsRelevanceOf = field.AffectsRelevanceOf,
             ValueDisplay = FormatFieldValues(recordedValues),
             IsHtml = isHtml,
             BooleanValue = recordedValue?.BooleanValue,
@@ -558,7 +657,8 @@ public class EditProfileQuestionsModel(
     /// <summary>Reads the posted form values for every editable field in <paramref name="section"/>
     /// and builds the corresponding <see cref="ProfileFieldAnswerInputDto"/> entries, matching the
     /// legacy per-datatype controls' Save() logic. A field that is read-only for the kind of profile has no
-    /// control, so it is not read. An invalid decimal or date is reported as a
+    /// control, so it is not read. A per-species question's field is read once for each profiled species, from the
+    /// hidden input the page keeps that species' answer in, and only when the page posted it. An invalid decimal or date is reported as a
     /// validation error rather than silently dropped or thrown.</summary>
     private (IReadOnlyList<ProfileFieldAnswerInputDto> Answers, IReadOnlyList<string> Errors) ParseSubmittedAnswers(
         ProfileSectionMetadataDto section)
@@ -566,43 +666,60 @@ public class EditProfileQuestionsModel(
         var answers = new List<ProfileFieldAnswerInputDto>();
         var errors = new List<string>();
 
-        foreach (var question in section.Questions)
+        foreach (var question in section.Questions.Where(question => !question.IsRepeating))
         {
-            if (question.IsPerSpecies || question.IsRepeating)
+            foreach (var field in question.Fields.Where(field => !HasNoControl(field)))
             {
-                continue;
-            }
+                var questionDisplay = $"{section.SectionNumber}.{question.QuestionNumber} {field.Name}";
 
-            foreach (var field in question.Fields)
-            {
-                if (string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase)
-                    || field.IsReadOnlyFor(IsWhatIfScenario))
+                if (!IsPerSpeciesQuestion(question))
                 {
-                    continue;
+                    ParseSubmittedField(field, speciesId: null, $"field_{field.Id}", questionDisplay, answers, errors);
                 }
-
-                ParseSubmittedField(section, question, field, answers, errors);
+                else if (CanEditPerSpecies(field))
+                {
+                    ParseSubmittedSpeciesAnswers(field, questionDisplay, answers, errors);
+                }
             }
         }
 
         return (answers, errors);
     }
 
+    /// <summary>A field group only holds other fields, and a field that is read-only for the kind of profile has no control to read.</summary>
+    private bool HasNoControl(ProfileFieldMetadataDto field) =>
+        string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase) || field.IsReadOnlyFor(IsWhatIfScenario);
+
+    private void ParseSubmittedSpeciesAnswers(
+        ProfileFieldMetadataDto field, string questionDisplay, List<ProfileFieldAnswerInputDto> answers, List<string> errors)
+    {
+        foreach (var species in profiledSpecies)
+        {
+            var formKey = ProfileSpeciesRowView.InputName(species.Id, field.Id);
+
+            // An answer the page did not post is not one the user could have changed, so it is left as it is.
+            if (Request.Form.ContainsKey(formKey))
+            {
+                ParseSubmittedField(
+                    field, species.Id, formKey, $"{questionDisplay} ({SpeciesNameHtml.ToPlainText(species.Name)})", answers, errors);
+            }
+        }
+    }
+
     private void ParseSubmittedField(
-        ProfileSectionMetadataDto section,
-        ProfileQuestionMetadataDto question,
         ProfileFieldMetadataDto field,
+        Guid? speciesId,
+        string formKey,
+        string questionDisplay,
         List<ProfileFieldAnswerInputDto> answers,
         List<string> errors)
     {
-        var formKey = $"field_{field.Id}";
-        var questionDisplay = $"{section.SectionNumber}.{question.QuestionNumber} {field.Name}";
-
         if (string.Equals(field.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
         {
             answers.Add(new ProfileFieldAnswerInputDto
             {
                 ProfileFieldId = field.Id,
+                SpeciesId = speciesId,
                 BooleanValue = Request.Form[formKey].ToString() switch { "true" => true, "false" => false, _ => null }
             });
         }
@@ -611,17 +728,21 @@ public class EditProfileQuestionsModel(
             answers.Add(new ProfileFieldAnswerInputDto
             {
                 ProfileFieldId = field.Id,
+                SpeciesId = speciesId,
                 ListValue = Guid.TryParse(Request.Form[formKey].ToString(), out var listValue) ? listValue : null
             });
         }
         else if (string.Equals(field.DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase))
         {
+            // A species' answer is kept in one hidden input, so its items are separated by commas; checkboxes post one value each.
             answers.Add(new ProfileFieldAnswerInputDto
             {
                 ProfileFieldId = field.Id,
+                SpeciesId = speciesId,
                 MultiListValues =
                 [
                     .. Request.Form[formKey]
+                        .SelectMany(value => (value ?? string.Empty).Split(','))
                         .Select(value => Guid.TryParse(value, out var guid) ? guid : (Guid?)null)
                         .Where(guid => guid is not null)
                         .Select(guid => guid!.Value)
@@ -630,7 +751,7 @@ public class EditProfileQuestionsModel(
         }
         else if (string.Equals(field.DataTypeName, "Decimal", StringComparison.OrdinalIgnoreCase))
         {
-            ParseDecimalField(field.Id, questionDisplay, Request.Form[formKey].ToString(), answers, errors);
+            ParseDecimalField(field.Id, speciesId, questionDisplay, Request.Form[formKey].ToString(), answers, errors);
         }
         else if (string.Equals(field.DataTypeName, "Date", StringComparison.OrdinalIgnoreCase))
         {
@@ -642,21 +763,22 @@ public class EditProfileQuestionsModel(
             answers.Add(new ProfileFieldAnswerInputDto
             {
                 ProfileFieldId = field.Id,
+                SpeciesId = speciesId,
                 TextValue = string.IsNullOrWhiteSpace(rawValue) ? null : rawValue.Trim()
             });
         }
     }
 
     private static void ParseDecimalField(
-        Guid fieldId, string questionDisplay, string rawValue, List<ProfileFieldAnswerInputDto> answers, List<string> errors)
+        Guid fieldId, Guid? speciesId, string questionDisplay, string rawValue, List<ProfileFieldAnswerInputDto> answers, List<string> errors)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
         {
-            answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId });
+            answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, SpeciesId = speciesId });
         }
         else if (decimal.TryParse(rawValue, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
         {
-            answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, DecimalValue = decimalValue });
+            answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, SpeciesId = speciesId, DecimalValue = decimalValue });
         }
         else
         {

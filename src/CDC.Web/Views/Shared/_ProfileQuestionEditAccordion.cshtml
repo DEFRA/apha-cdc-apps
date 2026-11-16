@@ -41,9 +41,16 @@ else
                 </div>
                 @* The accordion script points each button's aria-controls at {accordion id}-content-{position}, and remembers what is open under that name. *@
                 <div id="@(Model.IdPrefix)-content-@(index + 1)" class="govuk-accordion__section-content">
-                    @foreach (var field in question.Fields)
+                    @if (question.SpeciesRows is not null)
                     {
-                        <partial name="_ProfileFieldEdit" model="field" />
+                        <partial name="_ProfileSpeciesQuestion" model="question" />
+                    }
+                    else
+                    {
+                        @foreach (var field in question.Fields)
+                        {
+                            <partial name="_ProfileFieldEdit" model="field" />
+                        }
                     }
                 </div>
             </div>

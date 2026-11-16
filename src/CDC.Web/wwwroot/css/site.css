@@ -1519,6 +1519,57 @@ body {
   box-shadow: 0 -2px var(--govuk-focus-colour, #ffdd00), 0 4px var(--govuk-focus-text-colour, #0b0c0c);
 }
 
+/* The table of a per-species question, and the one panel below it that edits a species' answers (the legacy PerSpeciesListPanel;
+   _ProfileSpeciesQuestion.cshtml, question-species.js). */
+.app-species-table .govuk-table__header,
+.app-species-table .govuk-table__cell {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+/* The Edit or View link takes the width it needs, and is not broken to fit a narrower column. */
+.app-species-table .app-species-table__action {
+  width: 1%;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.app-species-answer-panel {
+  margin-bottom: 20px;
+  padding: 0 20px 15px;
+  border: 0;
+  border-left: 5px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #f3f2f1;
+}
+
+/* A fieldset's padding starts below its legend, so the heading takes the space above it. */
+.app-species-answer-panel > .govuk-fieldset__legend {
+  padding-top: 15px;
+}
+
+/* A hidden panel stays out of the page whatever display the fieldset is given. */
+.app-species-answer-panel[hidden] {
+  display: none;
+}
+
+.app-species-answer-panel:focus {
+  outline: 3px solid var(--govuk-focus-colour, #ffdd00);
+  outline-offset: 0;
+}
+
+/* A species left out of the list of those to apply an answer to: the Design System's checkbox item sets a display of its own, which
+   the hidden attribute alone would not beat. */
+.app-species-picker .govuk-checkboxes__item[hidden] {
+  display: none;
+}
+
+/* A read-only answer shown as it is formatted, in place of a text area. */
+.app-species-readonly-text {
+  max-height: 20rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
 /* The "Add/Select a reference to question" dialog of the Questions tab (_QuestionReferenceDialog.cshtml, question-references.js). */
 .app-reference-dialog {
   max-width: 760px;

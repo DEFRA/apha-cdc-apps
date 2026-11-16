@@ -133,6 +133,8 @@ public abstract class ProfileSectionTabPageModel(
 
     private HashSet<Guid> irrelevantQuestionIds = [];
 
+    private HashSet<(Guid QuestionId, Guid SpeciesId)> irrelevantSpecies = [];
+
     /// <summary>Gets the tab this page implements, used to highlight the active tab and to build pagination links.</summary>
     public abstract ProfileSectionTab ActiveTab { get; }
 
@@ -179,6 +181,14 @@ public abstract class ProfileSectionTabPageModel(
     /// <param name="questionId">The question.</param>
     /// <returns><see langword="true"/> when the question is irrelevant.</returns>
     public bool IsQuestionIrrelevant(Guid questionId) => irrelevantQuestionIds.Contains(questionId);
+
+    /// <summary>Gets whether the answers make a per-species question of the selected section irrelevant for one species, so the page
+    /// leaves the species out of the question's table as the legacy page did (<c>QuestionSpecies.IsRelevant</c>). A species is
+    /// shown when this is not known.</summary>
+    /// <param name="questionId">The per-species question.</param>
+    /// <param name="speciesId">The species.</param>
+    /// <returns><see langword="true"/> when the question does not apply to the species.</returns>
+    public bool IsSpeciesIrrelevant(Guid questionId, Guid speciesId) => irrelevantSpecies.Contains((questionId, speciesId));
 
     /// <summary>Builds the URL a left-nav section link opens. Legacy <c>ProfileSectionLinks</c> always opens the
     /// section's Questions tab, whichever tab is showing.</summary>
@@ -351,6 +361,13 @@ public abstract class ProfileSectionTabPageModel(
                     .Where(section => section.ProfileSectionId == CurrentSection?.Id)
                     .SelectMany(section => section.IrrelevantQuestionIds)
             ];
+            irrelevantSpecies =
+            [
+                .. validationStatus.Sections
+                    .Where(section => section.ProfileSectionId == CurrentSection?.Id)
+                    .SelectMany(section => section.IrrelevantSpecies)
+                    .Select(item => (item.QuestionId, item.SpeciesId))
+            ];
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
@@ -358,6 +375,7 @@ public abstract class ProfileSectionTabPageModel(
             SectionValidationStatus = new Dictionary<Guid, bool>();
             invalidQuestionIds = [];
             irrelevantQuestionIds = [];
+            irrelevantSpecies = [];
         }
     }
 }

@@ -2,13 +2,16 @@ namespace CDC.Api.Domain.Entities;
 
 /// <summary>
 /// Instructs the repository to write one field's answer for a profile version section, matching
-/// the legacy <c>IProfileField.Save()</c> pathway for a standard (non-per-species, non-repeating)
-/// question.
+/// the legacy <c>IProfileField.Save()</c> pathway for a standard question, or for one species of a
+/// per-species question.
 /// </summary>
 public sealed record ProfileFieldSaveInstruction
 {
     /// <summary>Gets the field being answered.</summary>
     public required Guid ProfileFieldId { get; init; }
+
+    /// <summary>Gets the species the answer is recorded against, for a per-species question; otherwise <see langword="null"/>.</summary>
+    public Guid? SpeciesId { get; init; }
 
     /// <summary>Gets the answer for a "Boolean" field.</summary>
     public bool? BooleanValue { get; init; }

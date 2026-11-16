@@ -43,4 +43,10 @@ public sealed record ProfileFieldMetadata : BaseEntity
 
     /// <summary>Gets a value indicating whether the field is read-only for a "what-if" scenario.</summary>
     public bool IsReadOnlyScenario { get; init; }
+
+    /// <summary>Gets a value indicating whether the field is listed as a column of the table that summarises a per-species question.</summary>
+    public bool IncludeInSummary { get; init; }
+
+    /// <summary>Gets the numbers of the questions (for example <c>5.2</c>) that the answer to the field can make irrelevant, in question order.</summary>
+    public IReadOnlyList<string> AffectsRelevanceOf { get; init; } = [];
 }

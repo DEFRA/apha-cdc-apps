@@ -22,7 +22,7 @@ internal sealed class ProfileSectionChangePlanner
     private readonly Dictionary<Guid, FieldEntry> editableFields;
     private readonly List<ReportFieldValue> recorded;
     private readonly List<ReportFieldValue> working;
-    private readonly Dictionary<Guid, ProfileFieldSaveInstruction> saves = [];
+    private readonly Dictionary<(Guid FieldId, Guid? SpeciesId), ProfileFieldSaveInstruction> saves = [];
     private readonly HashSet<(Guid FieldId, Guid? SpeciesId)> cleared = [];
     private readonly HashSet<Guid> deletedRows = [];
     private ILookup<Guid, ReportFieldValue>? valuesByField;
@@ -37,10 +37,10 @@ internal sealed class ProfileSectionChangePlanner
         sectionAnswers = answersBySection[section.Id];
         fields = FieldsOf(section);
 
-        // Only standard (non-per-species, non-repeating) questions are edited through the page. A field group is a
-        // container for a repeating question's nested fields, not an answerable field.
+        // Only the answers to a standard question, or to a per-species question for one of the version's profiled species, are edited
+        // through the page. A field group is a container for a repeating question's nested fields, not an answerable field.
         editableFields = section.Questions
-            .Where(question => !question.IsPerSpecies && !question.IsRepeating)
+            .Where(question => !question.IsRepeating)
             .SelectMany(question => question.Fields.Select(field => new FieldEntry(question, field)))
             .Where(entry => IsChangeable(entry.Field, isWhatIfScenario))
             .ToDictionary(entry => entry.Field.Id);
@@ -120,6 +120,22 @@ internal sealed class ProfileSectionChangePlanner
                 : !QuestionRelevance.IsRelevant(question, null, valuesByField))
             .Select(question => question.Id)];
 
+    /// <summary>Finds the species a per-species question is irrelevant for, replicating the legacy <c>QuestionSpecies.IsRelevant</c>: the
+    /// page leaves such a species out of the question's table, and a save clears the question's answers for it.</summary>
+    /// <param name="section">The section's questionnaire definition.</param>
+    /// <param name="answers">The section's recorded answers, which name the profiled species.</param>
+    /// <param name="valuesByField">Every recorded value in the profile version, by field.</param>
+    /// <returns>Each question and species it does not apply to. A question with no relevance rule applies to every species.</returns>
+    public static IReadOnlyList<ProfileQuestionSpeciesDto> FindIrrelevantSpecies(
+        ReportSection section,
+        ReportSectionAnswers answers,
+        ILookup<Guid, ReportFieldValue> valuesByField) =>
+        [.. section.Questions
+            .Where(question => question.IsPerSpecies && question.IrrelevanceFieldId != Guid.Empty)
+            .SelectMany(question => answers.ProfiledSpecies
+                .Where(species => !QuestionRelevance.IsRelevant(question, species.Id, valuesByField))
+                .Select(species => new ProfileQuestionSpeciesDto { QuestionId = question.Id, SpeciesId = species.Id }))];
+
     private static Dictionary<Guid, FieldEntry> FieldsOf(ReportSection section) =>
         section.Questions
             .SelectMany(question => question.Fields
@@ -171,6 +187,7 @@ internal sealed class ProfileSectionChangePlanner
     private static ProfileFieldSaveInstruction ToSaveInstruction(ReportField field, ProfileFieldAnswerInputDto answer) => new()
     {
         ProfileFieldId = field.Id,
+        SpeciesId = answer.SpeciesId,
         BooleanValue = answer.BooleanValue,
         ListValue = NormaliseList(answer.ListValue),
         MultiListValues = [.. answer.MultiListValues.Where(id => id != Guid.Empty).Distinct()],
@@ -184,7 +201,13 @@ internal sealed class ProfileSectionChangePlanner
     {
         if (save.IsMultiValueList)
         {
-            return save.MultiListValues.Select(listValue => new ReportFieldValue { QuestionId = entry.Question.Id, FieldId = entry.Field.Id, ListValue = listValue });
+            return save.MultiListValues.Select(listValue => new ReportFieldValue
+            {
+                QuestionId = entry.Question.Id,
+                FieldId = entry.Field.Id,
+                SpeciesId = save.SpeciesId,
+                ListValue = listValue
+            });
         }
 
         var hasValue = save.BooleanValue is not null || save.ListValue is not null || save.DecimalValue is not null || save.DateValue is not null || save.TextValue is not null;
@@ -194,6 +217,7 @@ internal sealed class ProfileSectionChangePlanner
             {
                 QuestionId = entry.Question.Id,
                 FieldId = entry.Field.Id,
+                SpeciesId = save.SpeciesId,
                 BooleanValue = save.BooleanValue,
                 ListValue = save.ListValue,
                 DecimalValue = save.DecimalValue,
@@ -203,21 +227,28 @@ internal sealed class ProfileSectionChangePlanner
             : [];
     }
 
-    private static bool IsDirectValue(ReportFieldValue value, Guid fieldId) =>
-        value.FieldId == fieldId && value.SpeciesId is null && value.RowId is null;
+    private static bool IsDirectValue(ReportFieldValue value, Guid fieldId, Guid? speciesId) =>
+        value.FieldId == fieldId && value.SpeciesId == speciesId && value.RowId is null;
 
     private ILookup<Guid, ReportFieldValue> ValuesByField => valuesByField ??= working.ToLookup(value => value.FieldId);
+
+    /// <summary>A standard question is answered without a species. A per-species question is answered once for each species the
+    /// version profiles, and an answer for any other species is not one the page offered.</summary>
+    private bool IsAnswerableFor(ReportQuestion question, Guid? speciesId) =>
+        question.IsPerSpecies
+            ? speciesId is { } id && sectionAnswers.ProfiledSpecies.Any(species => species.Id == id)
+            : speciesId is null;
 
     private void ApplyPostedAnswers(IReadOnlyList<ProfileFieldAnswerInputDto> posted)
     {
         foreach (var answer in posted)
         {
-            if (!editableFields.TryGetValue(answer.ProfileFieldId, out var entry))
+            if (!editableFields.TryGetValue(answer.ProfileFieldId, out var entry) || !IsAnswerableFor(entry.Question, answer.SpeciesId))
             {
                 continue;
             }
 
-            var existing = working.Where(value => IsDirectValue(value, entry.Field.Id)).ToList();
+            var existing = working.Where(value => IsDirectValue(value, entry.Field.Id, answer.SpeciesId)).ToList();
 
             if (!Differs(entry.Field, existing, answer))
             {
@@ -225,8 +256,8 @@ internal sealed class ProfileSectionChangePlanner
             }
 
             var save = ToSaveInstruction(entry.Field, answer);
-            saves[entry.Field.Id] = save;
-            working.RemoveAll(value => IsDirectValue(value, entry.Field.Id));
+            saves[(entry.Field.Id, answer.SpeciesId)] = save;
+            working.RemoveAll(value => IsDirectValue(value, entry.Field.Id, answer.SpeciesId));
             working.AddRange(ToValues(entry, save));
             valuesByField = null;
         }
@@ -314,7 +345,7 @@ internal sealed class ProfileSectionChangePlanner
 
         return new ProfileSectionChange
         {
-            Saves = [.. saves.Values.Where(save => !cleared.Contains((save.ProfileFieldId, null)))],
+            Saves = [.. saves.Values.Where(save => !cleared.Contains((save.ProfileFieldId, save.SpeciesId)))],
             Clears = clears,
             QuestionRowIdsToDelete = [.. deletedRows],
             ExpectedLastUpdated = lastUpdated

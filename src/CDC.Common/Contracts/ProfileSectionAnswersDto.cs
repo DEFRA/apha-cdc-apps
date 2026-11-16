@@ -14,6 +14,10 @@ public sealed record ProfileSectionAnswersDto
     /// <summary>Gets the section the answers belong to.</summary>
     public Guid ProfileSectionId { get; init; }
 
+    /// <summary>Gets the species the profile version profiles, in the order the database returns them. A per-species question is
+    /// answered once for each of them.</summary>
+    public IReadOnlyList<ProfileSpeciesDto> ProfiledSpecies { get; init; } = [];
+
     /// <summary>Gets the display names of each question in this section.</summary>
     public IReadOnlyList<ProfileQuestionNameDto> QuestionNames { get; init; } = [];
 
@@ -26,6 +30,19 @@ public sealed record ProfileSectionAnswersDto
     /// <summary>Gets the row version of the profile version section when the answers were read. Send it back with a save so
     /// the save fails, rather than overwrites, when someone else has saved the section since. Empty when unknown.</summary>
     public byte[] LastUpdated { get; init; } = [];
+}
+
+/// <summary>A species a profile version profiles, which each per-species question is answered for.</summary>
+public sealed record ProfileSpeciesDto
+{
+    /// <summary>Gets the species identifier, which a per-species value and a per-species answer name.</summary>
+    public Guid Id { get; init; }
+
+    /// <summary>Gets the species name, which may contain simple formatting markup.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether the species is still active (has no end date).</summary>
+    public bool IsActive { get; init; } = true;
 }
 
 /// <summary>One row of a repeating profile question.</summary>

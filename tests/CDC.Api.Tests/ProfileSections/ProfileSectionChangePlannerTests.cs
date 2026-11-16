@@ -11,7 +11,7 @@ namespace CDC.Api.Tests.ProfileSections;
 /// <item>Q1 "Endemic" (standard, always relevant): a Boolean, a Date, a Decimal and a List field.</item>
 /// <item>Q2 "Details": relevant only while Q1 is answered Yes; holds a Text, a MultiValueList and a Boolean ("Confirmed") field.</item>
 /// <item>Q3 "Follow-up": relevant only while Q2's "Confirmed" is answered Yes, so clearing Q2 cascades to it.</item>
-/// <item>Q4 "Presence" (per species, always relevant) and Q5 "Details by species" (per species): relevant for a species while Q4 is Yes for it.</item>
+/// <item>Q4 "Presence" (per species, always relevant) and Q5 "Details by species" (per species, a Text and a MultiValueList field): relevant for a species while Q4 is Yes for it.</item>
 /// <item>Q6 "Rows" (repeating): relevant only while Q1 is answered Yes.</item>
 /// <item>Q7 "Locked": relevant only while Q1 is answered Yes; one field read-only for the current situation, one for a scenario, one editable.</item>
 /// </list>
@@ -49,6 +49,7 @@ public class ProfileSectionChangePlannerTests
     private static readonly Guid Locked = Guid.Parse("f000000c-0000-0000-0000-000000000000");
     private static readonly Guid ScenarioLocked = Guid.Parse("f000000d-0000-0000-0000-000000000000");
     private static readonly Guid Open = Guid.Parse("f000000e-0000-0000-0000-000000000000");
+    private static readonly Guid SpeciesAreas = Guid.Parse("f000000f-0000-0000-0000-000000000000");
 
     private static ReportSection Section() => new()
     {
@@ -62,7 +63,7 @@ public class ProfileSectionChangePlannerTests
             Question(DetailsQuestion, 2, [Field(Notes, "Text"), Field(Areas, "MultiValueList"), Field(Confirmed, "Boolean")], controlledBy: Endemic),
             Question(FollowUpQuestion, 3, [Field(FollowUp, "Text")], controlledBy: Confirmed),
             Question(PresenceQuestion, 4, [Field(Present, "Boolean")], isPerSpecies: true),
-            Question(SpeciesDetailsQuestion, 5, [Field(SpeciesNote, "Text")], isPerSpecies: true, controlledBy: Present),
+            Question(SpeciesDetailsQuestion, 5, [Field(SpeciesNote, "Text"), Field(SpeciesAreas, "MultiValueList")], isPerSpecies: true, controlledBy: Present),
             Question(RowsQuestion, 6, [Field(RowText, "Text")], isRepeating: true, controlledBy: Endemic),
             Question(
                 LockedQuestion,
@@ -125,8 +126,8 @@ public class ProfileSectionChangePlannerTests
         ProfileSectionChangePlanner.PlanSave(
             Section(), new Dictionary<Guid, ReportSectionAnswers> { [SectionId] = answers }, isWhatIfScenario, posted, lastUpdated);
 
-    private static ProfileFieldAnswerInputDto Answer(Guid fieldId, bool? boolean = null, string? text = null, IReadOnlyList<Guid>? options = null) =>
-        new() { ProfileFieldId = fieldId, BooleanValue = boolean, TextValue = text, MultiListValues = options ?? [] };
+    private static ProfileFieldAnswerInputDto Answer(Guid fieldId, bool? boolean = null, string? text = null, IReadOnlyList<Guid>? options = null, Guid? speciesId = null) =>
+        new() { ProfileFieldId = fieldId, SpeciesId = speciesId, BooleanValue = boolean, TextValue = text, MultiListValues = options ?? [] };
 
     private static ProfileFieldClearInstruction Clear(Guid fieldId, bool isMultiValueList = false, Guid? speciesId = null) =>
         new() { ProfileFieldId = fieldId, SpeciesId = speciesId, IsMultiValueList = isMultiValueList };
@@ -282,13 +283,113 @@ public class ProfileSectionChangePlannerTests
     }
 
     [Fact]
-    public void PlanSave_IgnoresAnswersForPerSpeciesAndRepeatingQuestions_AndForUnknownFields()
+    public void PlanSave_IgnoresAnAnswerForARepeatingQuestion_AndForUnknownFields_AndAPerSpeciesAnswerThatNamesNoSpecies()
     {
         var change = PlanSave(
             Answers(Boolean(EndemicQuestion, Endemic, true)),
             [Answer(Endemic, boolean: true), Answer(SpeciesNote, text: "x"), Answer(RowText, text: "x"), Answer(Guid.NewGuid(), text: "x")]);
 
         change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_SavesAPerSpeciesAnswerAgainstItsSpecies_OnlyWhenItDiffersFromWhatIsRecordedForThatSpecies()
+    {
+        var answers = Answers(
+            Boolean(EndemicQuestion, Endemic, true),
+            Boolean(PresenceQuestion, Present, true, SpeciesA),
+            Boolean(PresenceQuestion, Present, false, SpeciesB));
+
+        PlanSave(answers, [Answer(Present, boolean: true, speciesId: SpeciesA), Answer(Present, boolean: false, speciesId: SpeciesB)])
+            .ValueChangeCount.Should().Be(0);
+
+        var change = PlanSave(answers, [Answer(Present, boolean: true, speciesId: SpeciesB)]);
+
+        var save = change.Saves.Should().ContainSingle().Subject;
+        save.ProfileFieldId.Should().Be(Present);
+        save.SpeciesId.Should().Be(SpeciesB);
+        save.BooleanValue.Should().BeTrue();
+        change.Clears.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PlanSave_KeepsEachSpeciesAnswerToTheSameFieldApart()
+    {
+        var answers = Answers(Boolean(PresenceQuestion, Present, false, SpeciesA), Boolean(PresenceQuestion, Present, false, SpeciesB));
+
+        var change = PlanSave(answers, [Answer(Present, boolean: true, speciesId: SpeciesA), Answer(Present, boolean: true, speciesId: SpeciesB)]);
+
+        change.Saves.Select(save => (save.ProfileFieldId, save.SpeciesId)).Should().BeEquivalentTo([(Present, (Guid?)SpeciesA), (Present, SpeciesB)]);
+    }
+
+    [Fact]
+    public void PlanSave_ComparesAPerSpeciesMultiValueListAsASet_ForThatSpeciesOnly()
+    {
+        var answers = Answers(
+            Boolean(EndemicQuestion, Endemic, true),
+            Boolean(PresenceQuestion, Present, true, SpeciesA),
+            Boolean(PresenceQuestion, Present, true, SpeciesB),
+            new ReportFieldValue { QuestionId = SpeciesDetailsQuestion, FieldId = SpeciesAreas, SpeciesId = SpeciesA, ListValue = FirstOption },
+            new ReportFieldValue { QuestionId = SpeciesDetailsQuestion, FieldId = SpeciesAreas, SpeciesId = SpeciesA, ListValue = SecondOption });
+
+        PlanSave(answers, [Answer(SpeciesAreas, options: [SecondOption, FirstOption], speciesId: SpeciesA)]).ValueChangeCount.Should().Be(0);
+
+        var change = PlanSave(answers, [Answer(SpeciesAreas, options: [SecondOption, FirstOption], speciesId: SpeciesB)]);
+
+        var save = change.Saves.Should().ContainSingle().Subject;
+        save.SpeciesId.Should().Be(SpeciesB);
+        save.IsMultiValueList.Should().BeTrue();
+        save.MultiListValues.Should().BeEquivalentTo([FirstOption, SecondOption]);
+    }
+
+    [Fact]
+    public void PlanSave_IgnoresAPerSpeciesAnswerForASpeciesTheVersionDoesNotProfile_AndAStandardAnswerThatNamesASpecies()
+    {
+        var answers = Answers(Boolean(EndemicQuestion, Endemic, true), Boolean(PresenceQuestion, Present, true, SpeciesA));
+
+        var change = PlanSave(
+            answers,
+            [Answer(Present, boolean: false, speciesId: Guid.NewGuid()), Answer(Endemic, boolean: false, speciesId: SpeciesA)]);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_IgnoresAPerSpeciesAnswerForAFieldThatIsReadOnlyForTheKindOfProfile()
+    {
+        var section = Section() with
+        {
+            Questions = [.. Section().Questions.Select(question => question.Id == PresenceQuestion ? question with { Fields = [Field(Present, "Boolean", readOnlyCurrent: true)] } : question)]
+        };
+        var answers = Answers(Boolean(EndemicQuestion, Endemic, true), Boolean(PresenceQuestion, Present, false, SpeciesA));
+
+        var change = ProfileSectionChangePlanner.PlanSave(
+            section,
+            new Dictionary<Guid, ReportSectionAnswers> { [SectionId] = answers },
+            isWhatIfScenario: false,
+            [Answer(Present, boolean: true, speciesId: SpeciesA)],
+            lastUpdated: null);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_ClearsTheQuestionsAPerSpeciesAnswerHasMadeIrrelevantForThatSpecies_AndDropsAnswersPostedForThem()
+    {
+        var answers = Answers(
+            Boolean(EndemicQuestion, Endemic, true),
+            Boolean(PresenceQuestion, Present, true, SpeciesA),
+            Boolean(PresenceQuestion, Present, true, SpeciesB),
+            Text(SpeciesDetailsQuestion, SpeciesNote, "Cattle detail", SpeciesA),
+            Text(SpeciesDetailsQuestion, SpeciesNote, "Sheep detail", SpeciesB));
+
+        var change = PlanSave(
+            answers,
+            [Answer(Present, boolean: false, speciesId: SpeciesA), Answer(SpeciesNote, text: "Typed just now", speciesId: SpeciesA)]);
+
+        change.Saves.Should().ContainSingle().Which.Should().BeEquivalentTo(
+            new { ProfileFieldId = Present, SpeciesId = (Guid?)SpeciesA, BooleanValue = (bool?)false });
+        change.Clears.Should().BeEquivalentTo([Clear(SpeciesNote, speciesId: SpeciesA)]);
     }
 
     [Fact]
@@ -466,5 +567,39 @@ public class ProfileSectionChangePlannerTests
         var ids = ProfileSectionChangePlanner.FindIrrelevantQuestionIds(Section(), answers, answers.Values.ToLookup(value => value.FieldId));
 
         ids.Should().NotContain([EndemicQuestion, PresenceQuestion]);
+    }
+
+    [Fact]
+    public void FindIrrelevantSpecies_ListsEachSpeciesAPerSpeciesQuestionIsIrrelevantFor_EvenWhenItIsRelevantForAnother()
+    {
+        var answers = Answers(
+            Boolean(EndemicQuestion, Endemic, true),
+            Boolean(PresenceQuestion, Present, true, SpeciesA),
+            Boolean(PresenceQuestion, Present, false, SpeciesB));
+
+        var species = ProfileSectionChangePlanner.FindIrrelevantSpecies(Section(), answers, answers.Values.ToLookup(value => value.FieldId));
+
+        species.Should().ContainSingle().Which.Should().BeEquivalentTo(new ProfileQuestionSpeciesDto { QuestionId = SpeciesDetailsQuestion, SpeciesId = SpeciesB });
+    }
+
+    [Fact]
+    public void FindIrrelevantSpecies_ListsEveryProfiledSpecies_WhenTheControllingFieldIsUnanswered()
+    {
+        var answers = Answers();
+
+        var species = ProfileSectionChangePlanner.FindIrrelevantSpecies(Section(), answers, answers.Values.ToLookup(value => value.FieldId));
+
+        species.Select(item => item.SpeciesId).Should().BeEquivalentTo([SpeciesA, SpeciesB]);
+        species.Should().OnlyContain(item => item.QuestionId == SpeciesDetailsQuestion);
+    }
+
+    [Fact]
+    public void FindIrrelevantSpecies_ListsNothing_ForAStandardQuestion_OrAPerSpeciesQuestionWithNoRelevanceRule()
+    {
+        var answers = Answers(Boolean(EndemicQuestion, Endemic, false));
+
+        var species = ProfileSectionChangePlanner.FindIrrelevantSpecies(Section(), answers, answers.Values.ToLookup(value => value.FieldId));
+
+        species.Should().NotContain(item => item.QuestionId == PresenceQuestion || item.QuestionId == DetailsQuestion);
     }
 }

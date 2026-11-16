@@ -94,7 +94,9 @@ public class ProfileSectionServiceTests
                                     DataTypeName = "List",
                                     IsMandatory = true,
                                     ReferenceTableId = ProfileSectionTestData.ReferenceTableId,
-                                    ReferenceTableIsMaintainable = false
+                                    ReferenceTableIsMaintainable = false,
+                                    IncludeInSummary = true,
+                                    AffectsRelevanceOf = ["3.2", "3.3"]
                                 }
                             ]
                         }
@@ -116,15 +118,19 @@ public class ProfileSectionServiceTests
         var field = question.Fields.Should().ContainSingle().Subject;
         field.Name.Should().Be("Affected species");
         field.DataTypeName.Should().Be("List");
+        field.IncludeInSummary.Should().BeTrue();
+        field.AffectsRelevanceOf.Should().Equal("3.2", "3.3");
     }
 
     [Fact]
     public async Task GetProfileSectionAnswersAsync_MapsQuestionNamesAndFieldValues()
     {
+        var cattleId = Guid.NewGuid();
         var answers = new ProfileSectionAnswers
         {
             ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
             ProfileSectionId = ProfileSectionTestData.SectionId,
+            ProfiledSpecies = [new ReportSpecies(cattleId, "Cattle", IsActive: false)],
             QuestionNames =
             [
                 new ProfileQuestionName
@@ -162,6 +168,10 @@ public class ProfileSectionServiceTests
         result.ProfileSectionId.Should().Be(ProfileSectionTestData.SectionId);
         result.QuestionNames.Should().ContainSingle().Which.Name.Should().Be("Is it endemic?");
         result.FieldValues.Should().ContainSingle().Which.BooleanValue.Should().BeTrue();
+        var species = result.ProfiledSpecies.Should().ContainSingle().Subject;
+        species.Id.Should().Be(cattleId);
+        species.Name.Should().Be("Cattle");
+        species.IsActive.Should().BeFalse();
     }
 
     [Fact]
@@ -603,6 +613,53 @@ public class ProfileSectionServiceTests
         var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
 
         result.Sections.Should().ContainSingle().Which.IrrelevantQuestionIds.Should().Equal(followUpQuestionId);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_ListsTheSpeciesAPerSpeciesQuestionIsIrrelevantFor_ButNotTheQuestionWhileASpeciesIsRelevant()
+    {
+        var cattleId = Guid.NewGuid();
+        var sheepId = Guid.NewGuid();
+        var perSpeciesQuestionId = Guid.NewGuid();
+        var perSpeciesFieldId = Guid.NewGuid();
+        var section = QuestionnaireWithOneMandatoryField().Sections[0];
+
+        // The Boolean field is answered per species: Yes for cattle makes the question relevant for them, none for sheep does not.
+        var questionnaire = new ReportQuestionnaire
+        {
+            Sections =
+            [
+                section with
+                {
+                    Questions =
+                    [
+                        section.Questions[0] with { IsPerSpecies = true },
+                        new ReportQuestion
+                        {
+                            Id = perSpeciesQuestionId,
+                            QuestionNumber = 2,
+                            ShortName = "Q2",
+                            IsPerSpecies = true,
+                            IrrelevanceFieldId = ProfileSectionTestData.FieldId,
+                            IrrelevanceFlag = false,
+                            Fields = [new ReportField { Id = perSpeciesFieldId, Name = "Impact", ShortName = "Impact", DataTypeName = "Text" }]
+                        }
+                    ]
+                }
+            ]
+        };
+        SetupValidation(
+            CompleteRevision(),
+            answerTheMandatoryField: false,
+            questionnaire: questionnaire,
+            values: [new ReportFieldValue { QuestionId = ProfileSectionTestData.QuestionId, FieldId = ProfileSectionTestData.FieldId, SpeciesId = cattleId, BooleanValue = true }],
+            species: [new ReportSpecies(cattleId, "Cattle"), new ReportSpecies(sheepId, "Sheep")]);
+
+        var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        var status = result.Sections.Should().ContainSingle().Subject;
+        status.IrrelevantSpecies.Should().ContainSingle().Which.Should().BeEquivalentTo(new ProfileQuestionSpeciesDto { QuestionId = perSpeciesQuestionId, SpeciesId = sheepId });
+        status.IrrelevantQuestionIds.Should().BeEmpty();
     }
 
     [Fact]
@@ -1088,7 +1145,8 @@ public class ProfileSectionServiceTests
         ReportSectionRevision? revision,
         bool answerTheMandatoryField,
         ReportQuestionnaire? questionnaire = null,
-        IReadOnlyList<ReportFieldValue>? values = null)
+        IReadOnlyList<ReportFieldValue>? values = null,
+        IReadOnlyList<ReportSpecies>? species = null)
     {
         contentRepository
             .Setup(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()))
@@ -1097,6 +1155,7 @@ public class ProfileSectionServiceTests
             .Setup(repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ReportSectionAnswers
             {
+                ProfiledSpecies = species ?? [],
                 Revision = revision,
                 QuestionNames = [new ProfileQuestionName { Id = ProfileSectionTestData.QuestionId, Name = "Is it endemic?", NonTechnicalName = "Is it endemic?" }],
                 Values = values ?? (answerTheMandatoryField

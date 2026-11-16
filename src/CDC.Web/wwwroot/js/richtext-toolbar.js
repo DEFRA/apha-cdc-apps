@@ -258,6 +258,16 @@
         });
     }
 
+    // The panel that edits a species' answers (question-species.js) has one editor for all of a question's species and fills it as each
+    // is opened, and shows a read-only answer as it is formatted. Both use the same allow-list as the editor, so the answer is never
+    // interpreted as HTML.
+    window.appRichText = {
+        fill: function (target, html) {
+            target.replaceChildren();
+            fillEditor(target, html || '');
+        }
+    };
+
     // Content swapped in by paged-region.js (a section opened in place) has editors of its own to set up.
     document.addEventListener('app:region-updated', function (event) { initialiseRichTextEditors(event.target); });
 

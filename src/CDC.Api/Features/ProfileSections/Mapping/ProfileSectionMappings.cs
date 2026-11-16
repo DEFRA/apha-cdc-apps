@@ -58,7 +58,9 @@ public static class ProfileSectionMappings
         ReferenceTableId = field.ReferenceTableId,
         ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
         IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
-        IsReadOnlyScenario = field.IsReadOnlyScenario
+        IsReadOnlyScenario = field.IsReadOnlyScenario,
+        IncludeInSummary = field.IncludeInSummary,
+        AffectsRelevanceOf = field.AffectsRelevanceOf
     };
 
     /// <summary>Projects one profile version section's recorded answers.</summary>
@@ -68,6 +70,12 @@ public static class ProfileSectionMappings
     {
         ProfileVersionId = answers.ProfileVersionId,
         ProfileSectionId = answers.ProfileSectionId,
+        ProfiledSpecies = [.. answers.ProfiledSpecies.Select(species => new ProfileSpeciesDto
+        {
+            Id = species.Id,
+            Name = species.Name,
+            IsActive = species.IsActive
+        })],
         QuestionNames = [.. answers.QuestionNames.Select(ToDto)],
         FieldValues = [.. answers.FieldValues.Select(ToDto)],
         QuestionRows = [.. answers.QuestionRows.Select(row => new ProfileQuestionRowDto

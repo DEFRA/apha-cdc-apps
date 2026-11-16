@@ -74,7 +74,8 @@ public sealed class ProfileSectionService(
                 ProfileSectionId = section.Id,
                 IsValid = reasons.Count == 0,
                 InvalidQuestionIds = [.. reasons.Where(reason => reason.QuestionId != Guid.Empty).Select(reason => reason.QuestionId).Distinct()],
-                IrrelevantQuestionIds = ProfileSectionChangePlanner.FindIrrelevantQuestionIds(section, validation.Answers[section.Id], validation.ValuesByField)
+                IrrelevantQuestionIds = ProfileSectionChangePlanner.FindIrrelevantQuestionIds(section, validation.Answers[section.Id], validation.ValuesByField),
+                IrrelevantSpecies = ProfileSectionChangePlanner.FindIrrelevantSpecies(section, validation.Answers[section.Id], validation.ValuesByField)
             });
         }
 
