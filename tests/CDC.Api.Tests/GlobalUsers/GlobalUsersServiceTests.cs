@@ -284,6 +284,26 @@ public class GlobalUsersServiceTests
     }
 
     [Fact]
+    public async Task SaveAsync_RecordsANewUserAddedFromTheLookupAsInternal()
+    {
+        var saved = await SaveAndCaptureAsync(Save(isNew: true), existing: null);
+
+        saved.IsInternal.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task SaveAsync_RecordsAnExistingUserAsInternal_OnlyWhenAddingThemFromTheLookup(bool isNew, bool expected)
+    {
+        var existing = User(@"DEFRA\stored");
+
+        var saved = await SaveAndCaptureAsync(Save(existing.Id, isNew), existing);
+
+        saved.IsInternal.Should().Be(expected);
+    }
+
+    [Fact]
     public async Task SaveAsync_KeepsStoredUserName_WhenEditing()
     {
         var existing = User(@"DEFRA\stored");

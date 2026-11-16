@@ -115,7 +115,8 @@ public sealed partial class GlobalUsersService(
                     Role = command.Role,
                     LastUpdated = command.LastUpdated is { Length: RowVersionLength } ? command.LastUpdated : new byte[RowVersionLength],
                     EmailAddress = existing is null ? NormaliseDirectoryEmail(command.EmailAddress) : null,
-                    SsoUserIdInt = existing is null && command.SsoUserIdInt is { } objectId && objectId != Guid.Empty ? objectId : null
+                    SsoUserIdInt = existing is null && command.SsoUserIdInt is { } objectId && objectId != Guid.Empty ? objectId : null,
+                    IsInternal = command.IsNew
                 },
                 cancellationToken);
 

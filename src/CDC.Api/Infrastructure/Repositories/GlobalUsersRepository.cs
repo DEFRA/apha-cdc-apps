@@ -171,6 +171,7 @@ public sealed class GlobalUsersRepository(IDbConnectionFactory connectionFactory
             parameters.Add("@LastUpdated", user.LastUpdated, DbType.Binary, size: RowVersionLength);
             parameters.Add("@EmailAddress", user.EmailAddress, DbType.AnsiString, size: EmailMaxLength);
             parameters.Add("@SsoUserIdInt", user.SsoUserIdInt, DbType.Guid);
+            parameters.Add("@IsInternal", user.IsInternal, DbType.Boolean);
             parameters.Add("@NewLastUpdated", null, DbType.Binary, ParameterDirection.Output, RowVersionLength);
 
             await connection.ExecuteAsync(new CommandDefinition(

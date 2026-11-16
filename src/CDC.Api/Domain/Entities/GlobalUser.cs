@@ -43,4 +43,10 @@ public sealed record GlobalUser
     /// from their first sign-in. Never changes an existing user.
     /// </summary>
     public Guid? SsoUserIdInt { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether saving records the user as an internal user: set when a user is added from the lookup, whether
+    /// the user is new or already exists. Saving an edit leaves the stored flag as it is.
+    /// </summary>
+    public bool IsInternal { get; init; }
 }
