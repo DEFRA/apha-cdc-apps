@@ -10,16 +10,14 @@ using Dapper;
 namespace CDC.Api.Infrastructure.Repositories;
 
 /// <summary>
-/// Dapper implementation of <see cref="IGlobalUsersRepository"/>. The Global users list is the users linked to an Entra ID
-/// identity (<c>SsoUserIdInt</c> is set); the stored procedure the legacy <c>GlobalUserList</c> CSLA object called lists the
-/// users holding a global role instead, and the other procedures here are the ones that object's items called.
+/// Dapper implementation of <see cref="IGlobalUsersRepository"/>. The Global users list is the users holding a global role,
+/// as the legacy <c>GlobalUserList</c> CSLA object listed them, so an added user appears at once and a revoked one drops off.
 /// </summary>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
 /// <param name="logger">Structured logger.</param>
 public sealed class GlobalUsersRepository(IDbConnectionFactory connectionFactory, ILogger<GlobalUsersRepository> logger)
     : IGlobalUsersRepository
 {
-    private const string GetAllProcedure = "spgaInternalUser";
     private const string GetRoleHoldersProcedure = "spgaGlobalUser";
     private const string GetUserProcedure = "spgUser";
     private const string FindByUsernameProcedure = "spgUserAuthorisation";
@@ -39,7 +37,7 @@ public sealed class GlobalUsersRepository(IDbConnectionFactory connectionFactory
 
     /// <inheritdoc />
     public Task<IReadOnlyList<GlobalUser>> GetGlobalUsersAsync(CancellationToken cancellationToken) =>
-        ReadUsersAsync(GetAllProcedure, cancellationToken);
+        ReadUsersAsync(GetRoleHoldersProcedure, cancellationToken);
 
     /// <inheritdoc />
     public Task<IReadOnlyList<GlobalUser>> GetUsersWithGlobalRoleAsync(CancellationToken cancellationToken) =>
