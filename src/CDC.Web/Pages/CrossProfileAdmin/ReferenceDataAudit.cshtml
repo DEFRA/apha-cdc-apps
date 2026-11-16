@@ -10,10 +10,6 @@
 
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-        @if (Model.Table is not null)
-        {
-            <span class="govuk-caption-l">@Model.Table.Name</span>
-        }
         <h1 class="govuk-heading-l">Audit trail for reference table : @Model.Table?.Name</h1>
 
         @if (Model.LoadErrorMessage is not null)
@@ -80,7 +76,7 @@
                             <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)</td>
                             <td class="govuk-table__cell">
                                 <a class="govuk-link govuk-link--no-visited-state"
-                                   asp-page="/CrossProfileAdmin/ReferenceDataAuditDetails"
+                                   asp-page="/CrossProfileAdmin/ReferenceDataAudit"
                                    asp-route-tableId="@entry.ReferenceTableId"
                                    asp-route-auditId="@entry.Id"
                                    asp-route-PageNumber="@Model.PageNumber"
@@ -99,29 +95,23 @@
             @if (Model.SelectedEntry is { } selected)
             {
                 <section class="govuk-!-margin-top-6" aria-labelledby="audit-details-heading">
-                    <h2 class="govuk-heading-m" id="audit-details-heading" tabindex="-1">Change details</h2>
-                    <dl class="govuk-summary-list">
-                        <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Old value</dt>
-                            <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(selected.OldLookupValue)</dd>
-                        </div>
-                        <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">New value</dt>
-                            <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(selected.NewLookupValue)</dd>
-                        </div>
-                        <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Changed by</dt>
-                            <dd class="govuk-summary-list__value">@selected.UserFullName</dd>
-                        </div>
-                        <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Date of change</dt>
-                            <dd class="govuk-summary-list__value">@selected.LogDate.ToString("d MMMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)</dd>
-                        </div>
-                        <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Reason for change</dt>
-                            <dd class="govuk-summary-list__value">@CDC.Web.Infrastructure.Reports.ReportRichText.ToHtml(selected.Reason)</dd>
-                        </div>
-                    </dl>
+                    <h2 class="govuk-heading-m" id="audit-details-heading" tabindex="-1"><strong>@Model.Table?.Name</strong> : Reference data change</h2>
+                    <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+                    <div class="app-legacy-form">
+                        <span class="app-legacy-form__label">Old value:</span>
+                        <span class="app-legacy-form__text app-legacy-form__field--wide">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(selected.OldLookupValue)</span>
+
+                        <span class="app-legacy-form__label">New value:</span>
+                        <span class="app-legacy-form__text app-legacy-form__field--wide">@CDC.Web.Infrastructure.ProfileTitleHtmlFormatter.Format(selected.NewLookupValue)</span>
+
+                        <span class="app-legacy-form__label">Changed by:</span>
+                        <span class="app-legacy-form__text">@selected.UserFullName</span>
+                        <span class="app-legacy-form__label">Date of change:</span>
+                        <span class="app-legacy-form__text">@selected.LogDate.ToString("d MMMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)</span>
+
+                        <span class="app-legacy-form__label">Reason for change:</span>
+                        <div class="app-legacy-form__text app-legacy-form__field--wide">@CDC.Web.Infrastructure.Reports.ReportRichText.ToHtml(selected.Reason)</div>
+                    </div>
                 </section>
             }
             </div>

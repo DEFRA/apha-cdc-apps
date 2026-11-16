@@ -90,7 +90,7 @@ public class MenuPageAuthorizationIntegrationTests : IClassFixture<CdcWebTestFac
     [InlineData("/SurveillanceProfiles/ViewContributionsReport/6f1c2a3b-0000-4000-8000-000000000001")]
     [InlineData("/SpeciesData/Maintain")]
     [InlineData("/UserAdmin/GlobalUsers")]
-    [InlineData("/CrossProfileAdmin/ReferenceDataAuditDetails")]
+    [InlineData("/CrossProfileAdmin/ReferenceDataAudit")]
     [InlineData("/DiseaseRanking/EditFilters")]
     [InlineData("/SurveillanceProfiles/MaintainContributors/6f1c2a3b-0000-4000-8000-000000000001")]
     public async Task ExternalUser_IsRefusedPagesThatNeedAGlobalRole(string path)
