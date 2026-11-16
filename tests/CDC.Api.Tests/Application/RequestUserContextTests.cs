@@ -191,6 +191,65 @@ public class RequestUserContextTests
     }
 
     [Fact]
+    public void AssignedProfileIds_IsEmpty_ForAnAnonymousRequest() =>
+        new RequestUserContext().AssignedProfileIds.Should().BeEmpty();
+
+    // Unlike GetProfileRole, which gives only the roles that count for access, this says which profiles are the user's own: the legacy
+    // identity read every assignment of the user, so a profile editor or policy profile user who was also made an author or a reviewer is one.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void AssignedProfileIds_ListsEveryProfileAnInternalUserIsAssignedTo_WhateverGlobalRoleTheyHold(bool isProfileEditor, bool isPolicyProfileUser)
+    {
+        var context = new RequestUserContext();
+
+        context.SetActingUser(Internal(isProfileEditor, isPolicyProfileUser) with
+        {
+            ProfileRoles =
+            [
+                new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "Technical author", true),
+                new ProfileRoleAssignment(OtherProfileId, Guid.NewGuid(), "Technical reviewer", false)
+            ]
+        });
+
+        context.AssignedProfileIds.Should().BeEquivalentTo([ProfileId, OtherProfileId]);
+    }
+
+    [Fact]
+    public void AssignedProfileIds_ListsEveryProfileAnExternalUserIsAssignedTo_AndNoneForOneAssignedToNone()
+    {
+        var assigned = new RequestUserContext();
+        assigned.SetActingUser(External() with { ProfileRoles = [new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "VA author", true)] });
+        var unassigned = new RequestUserContext();
+        unassigned.SetActingUser(External());
+
+        assigned.AssignedProfileIds.Should().BeEquivalentTo([ProfileId]);
+        unassigned.AssignedProfileIds.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void AssignedProfileIds_IsEmpty_ForAUserWhoIsNeitherOrBothInternalAndExternal(bool hasInternalId, bool hasExternalId)
+    {
+        var context = new RequestUserContext();
+
+        context.SetActingUser(new ActingUser
+        {
+            Id = UserId,
+            IsProfileEditor = false,
+            IsPolicyProfileUser = false,
+            SsoUserIdInt = hasInternalId ? Guid.NewGuid() : null,
+            SsoUserIdExt = hasExternalId ? Guid.NewGuid() : null,
+            ProfileRoles = [new ProfileRoleAssignment(ProfileId, Guid.NewGuid(), "Technical author", true)]
+        });
+
+        context.AssignedProfileIds.Should().BeEmpty();
+    }
+
+    [Fact]
     public void RequireUserId_ReturnsTheActingUsersId()
     {
         var context = new RequestUserContext();

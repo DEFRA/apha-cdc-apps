@@ -34,13 +34,41 @@ public class ProfileSearchControllerTests
         ];
 
         profileSearchService
-            .Setup(service => service.GetProfileSearchResultsAsync("bovine", true, false, false, SearchForType.ExactWordOrPhrase, It.IsAny<CancellationToken>()))
+            .Setup(service => service.GetProfileSearchResultsAsync("bovine", true, false, false, false, SearchForType.ExactWordOrPhrase, It.IsAny<CancellationToken>()))
             .ReturnsAsync(results);
 
-        var response = await CreateController().SearchProfiles("bovine", true, false, false, SearchForType.ExactWordOrPhrase, CancellationToken.None);
+        var response = await CreateController().SearchProfiles("bovine", true, false, false, false, SearchForType.ExactWordOrPhrase, CancellationToken.None);
 
         var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeSameAs(results);
+    }
+
+    [Fact]
+    public async Task SearchProfiles_PassesDisplayMyProfilesOnToTheService()
+    {
+        IReadOnlyList<ProfileSearchResultDto> results = [];
+
+        profileSearchService
+            .Setup(service => service.GetProfileSearchResultsAsync(null, true, true, true, true, SearchForType.AllWords, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(results);
+
+        var response = await CreateController().SearchProfiles(null, true, true, true, true, SearchForType.AllWords, CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(results);
+        profileSearchService.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GetMyProfilesFilterPermission_ReturnsWhetherTheUserMayFilterToTheirOwnProfiles(bool canFilter)
+    {
+        profileSearchService.SetupGet(service => service.CanFilterToMyProfiles).Returns(canFilter);
+
+        var response = CreateController().GetMyProfilesFilterPermission();
+
+        var ok = response.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().Be(new MyProfilesFilterPermissionDto { CanFilter = canFilter });
     }
 
     [Fact]

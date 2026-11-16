@@ -324,6 +324,7 @@ public class ProfileManagementServiceTests
         result.ProfileStatus.Should().Be("Draft");
         result.ProfileStatusId.Should().Be(ProfileManagementTestData.ProfileStatusId);
         result.CurrentProfileVersionId.Should().Be(ProfileManagementTestData.ProfileVersionId);
+        result.CurrentPublishedVersionId.Should().Be(publishedVersionId);
         result.NewDraftVersionLabel.Should().Be("8.1");
     }
 
@@ -394,6 +395,7 @@ public class ProfileManagementServiceTests
         var result = await CreateService().GetManageProfileAsync(ProfileManagementTestData.ProfileId, CancellationToken.None);
 
         result.Should().NotBeNull();
+        result.CurrentPublishedVersionId.Should().Be(Guid.Empty);
         result.CanPrintProfileSection.Should().BeTrue();
         result.CanViewProfileReports.Should().BeTrue();
         result.CanEditProfileSection.Should().BeTrue();

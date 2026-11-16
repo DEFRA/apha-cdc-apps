@@ -105,6 +105,17 @@
                             </label>
                         </div>
                         <input type="hidden" name="DisplayScenarios" value="false" />
+
+                        @if (Model.CanDisplayMyProfiles)
+                        {
+                            <div class="govuk-checkboxes__item">
+                                <input class="govuk-checkboxes__input" id="DisplayMyProfiles" name="DisplayMyProfiles" type="checkbox" value="true" data-app-search-auto-refresh @(Model.DisplayMyProfiles ? "checked" : null) />
+                                <label class="govuk-label govuk-checkboxes__label" for="DisplayMyProfiles">
+                                    Display my own profiles only
+                                </label>
+                            </div>
+                            <input type="hidden" name="DisplayMyProfiles" value="false" />
+                        }
                     </div>
                 </fieldset>
 

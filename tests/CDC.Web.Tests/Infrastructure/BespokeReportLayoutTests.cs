@@ -234,6 +234,16 @@ public class ProfileBespokeReportDocumentsTests
     }
 
     [Fact]
+    public void Build_PrintsTheFrontPageWithNoSections_WhenNothingIsTicked()
+    {
+        var document = ProfileBespokeReportDocuments.Build(Content, Selection(), new Dictionary<Guid, string>(), templateTitle: null);
+
+        Assert.Equal("Bespoke Profile Report", document.ReportTitle);
+        Assert.True(document.ShowFrontPage);
+        Assert.Empty(document.Sections);
+    }
+
+    [Fact]
     public void Build_PrintsTheSectionNote_AndEachTickedQuestionThenItsGuidanceInQuestionOrder()
     {
         var guidance = new Dictionary<Guid, string> { [QuestionOne.Id] = "<p>Read the <em>manual</em></p>", [QuestionTwo.Id] = "More" };

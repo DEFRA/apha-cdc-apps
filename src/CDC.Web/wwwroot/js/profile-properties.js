@@ -13,6 +13,8 @@
 // - Unticking a profiled species warns that its data will be removed (when the page is editing a profile).
 // - Opening or closing a branch in one tree does the same in the other, so the two stay level; each box's
 //   "Open all"/"Close all" works on its own tree only.
+// - Each box has a "Selected: ..." line, always shown as in legacy, with only the species named in it in bold.
+// - An asterisk beside "Profiled species" shows while none is ticked, once the species have been changed or reset.
 (function () {
     'use strict';
 
@@ -94,6 +96,7 @@
             this.warningEnabled = $root.dataset.speciesWarningEnabled === 'true';
             this.$warning = $root.querySelector('[data-species-warning]');
             this.$announcement = $root.querySelector('[data-species-announcement]');
+            this.$requiredMark = $root.querySelector('[data-species-required-mark]');
             this.statuses = {
                 profiled: $root.querySelector('[data-species-status="profiled"]'),
                 other: $root.querySelector('[data-species-status="other"]')
@@ -125,6 +128,7 @@
             }
 
             this.refresh();
+            this.validateProfiled();
         }
 
         release(tree, node) {
@@ -147,20 +151,27 @@
         }
 
         // "Selected: ..." lists the species ticked directly - not those ticked for the user beneath a group.
+        // The "Selected:" before them is always there, even when there are none, and is not in bold as the species are.
         updateStatus(kind, tree) {
             const $status = this.statuses[kind];
+            const $names = $status ? $status.querySelector('[data-species-selected]') : null;
 
-            if (!$status) {
+            if (!$names) {
                 return;
             }
 
-            const labels = tree.nodes
+            $names.textContent = tree.nodes
                 .filter((node) => node.input.checked && !node.input.disabled)
                 .map(labelOf)
-                .sort((first, second) => first.localeCompare(second));
+                .sort((first, second) => first.localeCompare(second))
+                .join(', ');
+        }
 
-            $status.hidden = labels.length === 0;
-            $status.textContent = labels.length > 0 ? `Selected: ${labels.join(', ')}` : '';
+        // Legacy's required-species validator, shown only once the species have been changed (or reset), not when the page opens.
+        validateProfiled() {
+            if (this.$requiredMark) {
+                this.$requiredMark.hidden = this.profiled.nodes.some((node) => node.input.checked);
+            }
         }
 
         showWarning() {
@@ -185,6 +196,7 @@
             }
 
             this.refresh();
+            this.validateProfiled();
             this.announce('Selection cleared');
         }
 
@@ -233,6 +245,8 @@
                 $editor.innerHTML = '';
                 // Lets the title editor's script copy the empty title to the hidden input and record it for undo.
                 $editor.dispatchEvent(new Event('input', { bubbles: true }));
+                // Legacy redrew the page when this button was clicked, so the title is checked and Save offered again now, not when the title next loses focus.
+                $editor.dispatchEvent(new Event('app-title-cleared'));
             }
 
             if (this.selector) {

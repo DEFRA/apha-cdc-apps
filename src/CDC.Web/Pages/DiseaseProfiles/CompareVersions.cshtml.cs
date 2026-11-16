@@ -160,6 +160,7 @@ public class CompareVersionsModel(
                 displayPublished: true,
                 displayDraft: true,
                 displayScenarios: true,
+                displayMyProfiles: false,
                 SearchForType.ExactWordOrPhrase,
                 cancellationToken);
 

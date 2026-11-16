@@ -84,7 +84,7 @@ public class ProfileVersionValidatorTests
 
         var reasons = await ValidateAsync(section, Answers(values: values));
 
-        reasons.Any().Should().Be(expectedRequired);
+        (reasons.Count > 0).Should().Be(expectedRequired);
     }
 
     [Fact]
@@ -242,7 +242,7 @@ public class ProfileVersionValidatorTests
             section,
             Answers(values: [Value(ControllingFieldId, list: selected, questionId: ControllingQuestionId), Value(FieldId, text: "Some text")]));
 
-        reasons.Any().Should().Be(expectedIrrelevant);
+        (reasons.Count > 0).Should().Be(expectedIrrelevant);
     }
 
     [Fact]
@@ -288,7 +288,7 @@ public class ProfileVersionValidatorTests
         var reasons = await CreateValidator(answers.Values, new ReportVersionContext { IsWhatIfScenario = isWhatIfScenario })
             .ValidateSectionAsync(section, answers, CancellationToken.None);
 
-        reasons.Any().Should().Be(expectedReported);
+        (reasons.Count > 0).Should().Be(expectedReported);
     }
 
     [Fact]
@@ -323,7 +323,7 @@ public class ProfileVersionValidatorTests
                 new ReportVersionContext { HasInactiveProfiledSpecies = inactiveProfiled, HasInactiveOtherAffectedSpecies = inactiveOther })
             .ValidateSectionAsync(section, answers, CancellationToken.None);
 
-        reasons.Any().Should().Be(expectedReported);
+        (reasons.Count > 0).Should().Be(expectedReported);
         if (expectedReported)
         {
             reasons.Single().Description.Should().Be("\"Species\" contains inactive species");

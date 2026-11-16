@@ -39,6 +39,15 @@ public interface IUserContext
     /// </summary>
     bool HoldsAnyProfileRole { get; }
 
+    /// <summary>
+    /// Gets the profiles the user is assigned to as a contributor or reviewer - the profile itself or, for a "what-if" scenario, the
+    /// scenario - whatever global role they also hold. The legacy <c>ProfilesIdentity</c> read every assignment of the user, whereas
+    /// <see cref="GetProfileRole"/> gives only the roles that count for access, which a global role supersedes. This says which profiles
+    /// are the user's own, for the Search page's "Display my own profiles only" filter, and grants nothing. Empty for an anonymous
+    /// request and for a user who cannot be classified as internal or external.
+    /// </summary>
+    IReadOnlySet<Guid> AssignedProfileIds { get; }
+
     /// <summary>Gets the role a user holds on a profile.</summary>
     /// <param name="profileId">The profile.</param>
     /// <returns>
@@ -88,6 +97,11 @@ public sealed class RequestUserContext : IUserContext
 
     /// <inheritdoc />
     public bool HoldsAnyProfileRole => HoldsProfileRoles && actingUser!.ProfileRoles.Count > 0;
+
+    /// <inheritdoc />
+    public IReadOnlySet<Guid> AssignedProfileIds => Kind == UserKind.Unclassified
+        ? []
+        : actingUser!.ProfileRoles.Select(role => role.ProfileId).ToHashSet();
 
     /// <inheritdoc />
     public ProfileRoleAssignment? GetProfileRole(Guid profileId) =>

@@ -13,14 +13,20 @@ public interface IApiClient
     Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Gets enriched profile search results, with version history, from
-    /// <c>GET /api/profile-search/search</c>.</summary>
+    /// <c>GET /api/profile-search/search</c>. <paramref name="displayMyProfiles"/> keeps only the profiles the signed-in user is an author or a
+    /// reviewer of.</summary>
     Task<IReadOnlyList<ProfileSearchResultDto>> SearchProfilesAsync(
         string? searchText,
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        bool displayMyProfiles,
         SearchForType searchForType,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Gets whether the signed-in user is offered the "Display my own profiles only" filter - an author or a reviewer of at least one
+    /// profile - from <c>GET /api/profile-search/my-profiles-permission</c>.</summary>
+    Task<bool> CanFilterToMyProfilesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Gets a profile's attributes from <c>GET /api/profiles/{profileId}/attributes</c>.</summary>
     /// <returns>The profile's attributes, or <see langword="null"/> when no such profile exists.</returns>
@@ -113,6 +119,11 @@ public interface IApiClient
 
     /// <summary>Deletes a profile version via <c>DELETE /api/profiles/versions/{profileVersionId}</c>.</summary>
     Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Makes a published profile version public via <c>PUT /api/profiles/versions/{profileVersionId}/public-access</c>,
+    /// as the legacy "Allow public access" link did. This cannot be undone.</summary>
+    /// <returns><see langword="true"/> when the version was made public.</returns>
+    Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default);
 }
 
 // Thin typed HttpClient wrapper around CDC.Api. All business-logic/data calls from CDC.Web go through
@@ -127,6 +138,7 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        bool displayMyProfiles,
         SearchForType searchForType,
         CancellationToken cancellationToken = default)
     {
@@ -136,12 +148,21 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
             ["displayPublished"] = displayPublished.ToString(),
             ["displayDraft"] = displayDraft.ToString(),
             ["displayScenarios"] = displayScenarios.ToString(),
+            ["displayMyProfiles"] = displayMyProfiles.ToString(),
             ["searchForType"] = searchForType.ToString()
         });
 
         var results = await httpClient.GetFromJsonAsync<IReadOnlyList<ProfileSearchResultDto>>(url, cancellationToken);
 
         return results ?? [];
+    }
+
+    public async Task<bool> CanFilterToMyProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        var permission = await httpClient.GetFromJsonAsync<MyProfilesFilterPermissionDto>(
+            "/api/profile-search/my-profiles-permission", cancellationToken);
+
+        return permission?.CanFilter ?? false;
     }
 
     public async Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default)
@@ -504,6 +525,12 @@ public sealed class ApiClient(HttpClient httpClient) : IApiClient
     public async Task<bool> SetStaticReportPublicAccessAsync(Guid staticReportVersionId, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PutAsync($"/api/static-reports/versions/{staticReportVersionId}/public", null, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsync($"/api/profiles/versions/{profileVersionId}/public-access", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
