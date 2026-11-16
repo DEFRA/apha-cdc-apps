@@ -81,16 +81,18 @@ public interface IProfileSectionService
     /// <summary>
     /// Saves the answers submitted for one section, matching the legacy save of the "Edit profile questions" page: only
     /// the answers that differ from what is recorded are written, after the questions the answers have made irrelevant
-    /// have been cleared. Nothing is written, and the section is not touched, when nothing changed. Read-only fields and
-    /// the answers of per-species and repeating questions, which the page cannot edit yet, are ignored.
+    /// have been cleared. Nothing is written, and the section is not touched, when nothing changed. Read-only fields are
+    /// ignored.
     /// </summary>
     /// <param name="profileVersionId">The profile version being answered.</param>
     /// <param name="profileSectionId">The section being answered.</param>
-    /// <param name="answers">The submitted field answers.</param>
+    /// <param name="answers">The submitted field answers of the standard and per-species questions.</param>
+    /// <param name="repeatingQuestions">The submitted rows of the repeating questions, each question's list standing for all its rows. A
+    /// repeating question that is not listed is left as it is.</param>
     /// <param name="lastUpdated">The row version of the section the caller last read, or <see langword="null"/> to save
     /// over whatever the section holds now.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The number of recorded values saved or cleared.</returns>
+    /// <returns>The number of recorded values saved or cleared, and of rows added, moved or deleted.</returns>
     /// <exception cref="Domain.Exceptions.ConcurrencyException">
     /// Thrown when the section was saved by another user since it was read, or the version is not a current draft.
     /// </exception>
@@ -98,6 +100,7 @@ public interface IProfileSectionService
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> repeatingQuestions,
         byte[]? lastUpdated,
         CancellationToken cancellationToken);
 

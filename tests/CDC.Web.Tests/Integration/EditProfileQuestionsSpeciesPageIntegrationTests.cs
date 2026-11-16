@@ -236,7 +236,7 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
         var welfare = QuestionMarkup(body, WelfareQuestionId);
         var panelId = $"species-{WelfareQuestionId}-field-{WelfareFieldId}";
 
-        Assert.Contains($"<fieldset class=\"govuk-fieldset app-species-answer-panel\" id=\"species-{WelfareQuestionId}-panel\" data-species-panel hidden tabindex=\"-1\">", welfare);
+        Assert.Contains($"<fieldset class=\"govuk-fieldset app-answer-panel\" id=\"species-{WelfareQuestionId}-panel\" data-species-panel hidden tabindex=\"-1\">", welfare);
         Assert.Contains("<h3 class=\"govuk-fieldset__heading\" data-species-panel-heading>Edit answer</h3>", welfare);
         Assert.Contains($"<label class=\"govuk-label govuk-label--s\" for=\"{panelId}\">Compromised welfare?</label>", welfare);
         Assert.Contains("<option value=\"\">Please select...</option>", welfare);
@@ -279,7 +279,7 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
 
         var welfare = QuestionMarkup(body, WelfareQuestionId);
 
-        Assert.Contains($"id=\"species-{WelfareQuestionId}-field-{CommentsFieldId}\" aria-labelledby=\"species-{WelfareQuestionId}-field-{CommentsFieldId}-label\" data-species-longtext-view", welfare);
+        Assert.Contains($"id=\"species-{WelfareQuestionId}-field-{CommentsFieldId}\" aria-labelledby=\"species-{WelfareQuestionId}-field-{CommentsFieldId}-label\" data-answer-text-view", welfare);
         Assert.DoesNotContain("<textarea", welfare);
         Assert.DoesNotContain("data-richtext-command", welfare);
         Assert.Matches($"<select class=\"govuk-select\" id=\"species-{WelfareQuestionId}-field-{WelfareFieldId}\" disabled=\"disabled\"", welfare);
@@ -292,7 +292,7 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
 
         var welfare = QuestionMarkup(body, WelfareQuestionId);
 
-        Assert.Contains("data-species-editor data-relevance-affects=\"5.2, 5.3\">", welfare);
+        Assert.Contains("data-answer-editor data-relevance-affects=\"5.2, 5.3\">", welfare);
 
         // No other control is marked.
         Assert.Equal(1, Regex.Count(welfare, "data-relevance-affects"));
@@ -375,7 +375,7 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
     }
 
     [Fact]
-    public async Task StandardQuestion_MarksTheRadiosOfAnAnswerThatDecidesWhetherOtherQuestionsApply()
+    public async Task StandardQuestion_MarksTheDropDownOfAnAnswerThatDecidesWhetherOtherQuestionsApply()
     {
         var metadata = Metadata();
         var standard = metadata.Sections[0].Questions[0] with { IsPerSpecies = false };
@@ -383,12 +383,11 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
             DraftProfile(),
             CreateApi(metadata: metadata with { Sections = [metadata.Sections[0] with { Questions = [standard] }] }, answers: new ProfileSectionAnswersDto()));
 
-        Assert.Contains($"id=\"field_{WelfareFieldId}-yes\" name=\"field_{WelfareFieldId}\" type=\"radio\" value=\"true\" data-relevance-affects=\"5.2, 5.3\" />", body);
-        Assert.Contains($"id=\"field_{WelfareFieldId}-no\" name=\"field_{WelfareFieldId}\" type=\"radio\" value=\"false\" data-relevance-affects=\"5.2, 5.3\" />", body);
+        Assert.Contains($"<select class=\"govuk-select\" id=\"field_{WelfareFieldId}\" name=\"field_{WelfareFieldId}\" data-relevance-affects=\"5.2, 5.3\">", body);
     }
 
     [Fact]
-    public async Task StandardQuestion_MarksNoRadio_WhenItsAnswerDecidesNothing()
+    public async Task StandardQuestion_MarksNoDropDown_WhenItsAnswerDecidesNothing()
     {
         var metadata = Metadata();
         var standard = metadata.Sections[0].Questions[0] with

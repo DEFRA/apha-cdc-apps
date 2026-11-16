@@ -1534,7 +1534,21 @@ body {
   white-space: nowrap;
 }
 
-.app-species-answer-panel {
+/* The table of a repeating question, and the panel below it (the legacy ProfileRowListPanel; _ProfileRepeatingQuestion.cshtml,
+   question-rows.js), which is the one the per-species questions use. Its Edit or View link and its Delete link are not broken either. */
+.app-row-table .govuk-table__header,
+.app-row-table .govuk-table__cell {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.app-row-table .app-row-table__action {
+  width: 1%;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.app-answer-panel {
   margin-bottom: 20px;
   padding: 0 20px 15px;
   border: 0;
@@ -1543,16 +1557,16 @@ body {
 }
 
 /* A fieldset's padding starts below its legend, so the heading takes the space above it. */
-.app-species-answer-panel > .govuk-fieldset__legend {
+.app-answer-panel > .govuk-fieldset__legend {
   padding-top: 15px;
 }
 
 /* A hidden panel stays out of the page whatever display the fieldset is given. */
-.app-species-answer-panel[hidden] {
+.app-answer-panel[hidden] {
   display: none;
 }
 
-.app-species-answer-panel:focus {
+.app-answer-panel:focus {
   outline: 3px solid var(--govuk-focus-colour, #ffdd00);
   outline-offset: 0;
 }
@@ -1564,7 +1578,7 @@ body {
 }
 
 /* A read-only answer shown as it is formatted, in place of a text area. */
-.app-species-readonly-text {
+.app-answer-readonly-text {
   max-height: 20rem;
   overflow-y: auto;
   overflow-wrap: anywhere;

@@ -52,29 +52,29 @@ function page({ canEdit = true } = {}) {
         </tbody></table>
         <div id="panel" data-species-panel hidden tabindex="-1">
           <h3 data-species-panel-heading></h3>
-          <div data-species-field="${WELFARE}" data-field-type="Boolean" data-field-editable="${editable}">
+          <div data-answer-field="${WELFARE}" data-field-type="Boolean" data-field-editable="${editable}">
             <label for="welfare-select">Compromised welfare?</label>
-            <select id="welfare-select" data-species-editor data-relevance-affects="5.2, 5.3">
+            <select id="welfare-select" data-answer-editor data-relevance-affects="5.2, 5.3">
               <option value="">Please select...</option><option value="true">Yes</option><option value="false">No</option>
             </select>
           </div>
-          <div data-species-field="${COMMENTS}" data-field-type="Long Text" data-field-editable="${editable}">
+          <div data-answer-field="${COMMENTS}" data-field-type="Long Text" data-field-editable="${editable}">
             <label for="comments-text">Supporting comments</label>
-            <textarea id="comments-text" data-species-editor></textarea>
+            <textarea id="comments-text" data-answer-editor></textarea>
           </div>
-          <div data-species-field="${IMPACT}" data-field-type="List" data-field-editable="${editable}">
+          <div data-answer-field="${IMPACT}" data-field-type="List" data-field-editable="${editable}">
             <label for="impact-select">Impact</label>
-            <select id="impact-select" data-species-editor>
+            <select id="impact-select" data-answer-editor>
               <option value="">Please select...</option><option value="mild">Mild</option><option value="severe">Severe</option>
             </select>
           </div>
-          <div data-species-field="${AREAS}" data-field-type="MultiValueList" data-field-editable="${editable}">
-            <input type="checkbox" id="area-north" value="north" data-species-editor><label for="area-north">North</label>
-            <input type="checkbox" id="area-south" value="south" data-species-editor><label for="area-south">South</label>
+          <div data-answer-field="${AREAS}" data-field-type="MultiValueList" data-field-editable="${editable}">
+            <input type="checkbox" id="area-north" value="north" data-answer-editor><label for="area-north">North</label>
+            <input type="checkbox" id="area-south" value="south" data-answer-editor><label for="area-south">South</label>
           </div>
-          <div data-species-field="${RATE}" data-field-type="Decimal" data-field-editable="${editable}">
+          <div data-answer-field="${RATE}" data-field-type="Decimal" data-field-editable="${editable}">
             <label for="rate-input">Rate</label>
-            <input type="text" id="rate-input" data-species-editor>
+            <input type="text" id="rate-input" data-answer-editor>
           </div>
           <details id="picker" data-species-picker>
             <summary>Apply this answer also to: <span data-species-picker-names></span></summary>
@@ -109,6 +109,7 @@ function tick(box, checked = true) {
 
 async function load() {
   vi.resetModules();
+  await import('../../src/CDC.Web/wwwroot/js/answer-fields.js');
   await import('../../src/CDC.Web/wwwroot/js/question-species.js');
 }
 
@@ -120,6 +121,7 @@ describe('question-species', () => {
 
   afterEach(() => {
     delete window.appRichText;
+    delete window.appAnswerFields;
   });
 
   describe('opening a species', () => {
@@ -542,7 +544,7 @@ describe('question-species', () => {
     it('shows a read-only answer as it is formatted', async () => {
       page({ canEdit: false });
       get('comments-text').replaceWith(Object.assign(document.createElement('div'), { id: 'comments-view' }));
-      get('comments-view').setAttribute('data-species-longtext-view', '');
+      get('comments-view').setAttribute('data-answer-text-view', '');
       await load();
       window.appRichText = { fill: vi.fn() };
 
@@ -554,7 +556,7 @@ describe('question-species', () => {
     it('shows a read-only answer as plain text when the rich text script is not there', async () => {
       page({ canEdit: false });
       get('comments-text').replaceWith(Object.assign(document.createElement('div'), { id: 'comments-view' }));
-      get('comments-view').setAttribute('data-species-longtext-view', '');
+      get('comments-view').setAttribute('data-answer-text-view', '');
       await load();
 
       get('edit-cattle').click();

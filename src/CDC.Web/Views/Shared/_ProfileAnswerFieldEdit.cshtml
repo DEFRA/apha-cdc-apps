@@ -1,4 +1,4 @@
-@model CDC.Web.Models.ProfileSpeciesFieldEditModel
+@model CDC.Web.Models.ProfileAnswerFieldEditModel
 @using Microsoft.AspNetCore.Html
 @{
     var field = Model.Field;
@@ -12,7 +12,7 @@
 }
 @* One control of the panel that edits a species' answers. It has no name, so it is not posted: question-species.js copies its value into
    the hidden input the species' row keeps the answer in, which is what the form posts. *@
-<div class="govuk-form-group" data-species-field="@field.FieldId" data-field-type="@field.DataTypeName" data-field-editable="@(field.IsEditable ? "true" : "false")">
+<div class="govuk-form-group" data-answer-field="@field.FieldId" data-field-type="@field.DataTypeName" data-field-editable="@(field.IsEditable ? "true" : "false")">
     @switch (field.DataTypeName)
     {
         case "Boolean":
@@ -21,7 +21,7 @@
             {
                 <div class="govuk-hint" id="@hintId">(optional)</div>
             }
-            <select class="govuk-select" id="@controlId" disabled="@disabled" aria-describedby="@describedBy" data-species-editor @relevance>
+            <select class="govuk-select" id="@controlId" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor @relevance>
                 <option value="">Please select...</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
@@ -33,7 +33,7 @@
             {
                 <div class="govuk-hint" id="@hintId">(optional)</div>
             }
-            <select class="govuk-select" id="@controlId" disabled="@disabled" aria-describedby="@describedBy" data-species-editor @relevance>
+            <select class="govuk-select" id="@controlId" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor @relevance>
                 <option value="">Please select...</option>
                 @foreach (var option in field.Options)
                 {
@@ -42,7 +42,7 @@
             </select>
             break;
         case "MultiValueList":
-            <div class="govuk-form-group" data-species-multi>
+            <div class="govuk-form-group" data-answer-multi>
                 <fieldset class="govuk-fieldset" aria-describedby="@describedBy">
                     <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label (select all that apply)</legend>
                     @if (describedBy is not null)
@@ -55,7 +55,7 @@
                             var option = field.Options[optionIndex];
                             var optionId = $"{controlId}-{optionIndex}";
                             <div class="govuk-checkboxes__item">
-                                <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" value="@option.Id" disabled="@disabled" data-species-editor />
+                                <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" value="@option.Id" disabled="@disabled" data-answer-editor />
                                 <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
                             </div>
                         }
@@ -69,7 +69,7 @@
             {
                 <div class="govuk-hint" id="@hintId">(optional)</div>
             }
-            <input class="govuk-input govuk-input--width-10" id="@controlId" type="text" inputmode="decimal" disabled="@disabled" aria-describedby="@describedBy" data-species-editor />
+            <input class="govuk-input govuk-input--width-10" id="@controlId" type="text" inputmode="decimal" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor />
             break;
         case "Long Text" when field.IsEditable:
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
@@ -86,13 +86,13 @@
                 <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
                 <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="@controlId" aria-label="Insert link" title="Insert link">&#128279;</button>
             </div>
-            <textarea class="govuk-textarea app-richtext-editor" id="@controlId" rows="8" spellcheck="true" aria-describedby="@describedBy" data-species-editor></textarea>
+            <textarea class="govuk-textarea app-richtext-editor" id="@controlId" rows="8" spellcheck="true" aria-describedby="@describedBy" data-answer-editor></textarea>
             <button type="button" class="govuk-button govuk-!-margin-top-2" data-module="govuk-button" data-spellcheck-target="@controlId">Spell check</button>
             break;
         case "Long Text":
             @* Read-only: the answer is shown as it is formatted, which question-species.js fills in. *@
             <p class="govuk-label govuk-label--s" id="@(controlId)-label">@field.Label</p>
-            <div class="govuk-body app-species-readonly-text" id="@controlId" aria-labelledby="@(controlId)-label" data-species-longtext-view></div>
+            <div class="govuk-body app-answer-readonly-text" id="@controlId" aria-labelledby="@(controlId)-label" data-answer-text-view></div>
             break;
         default:
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
@@ -100,7 +100,7 @@
             {
                 <div class="govuk-hint" id="@hintId">(optional)</div>
             }
-            <input class="govuk-input" id="@controlId" type="text" maxlength="255" spellcheck="true" disabled="@disabled" aria-describedby="@describedBy" data-species-editor />
+            <input class="govuk-input" id="@controlId" type="text" maxlength="255" spellcheck="true" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor />
             @if (field.IsEditable)
             {
                 <button type="button" class="govuk-button govuk-!-margin-top-2" data-module="govuk-button" data-spellcheck-target="@controlId">Spell check</button>

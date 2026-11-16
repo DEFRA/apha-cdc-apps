@@ -1,0 +1,36 @@
+@model CDC.Web.Models.ProfileRepeatingRowModel
+@using CDC.Web.Models
+@{
+    var question = Model.Question;
+    var row = Model.Row;
+    var panelId = $"rows-{question.Id}-panel";
+    var actionText = question.CanEditRows ? "Edit" : "View";
+}
+@* One row of a repeating question's table. The row's answers are in hidden inputs, which question-rows.js keeps up to date as the panel below the
+   table is used to change them; only the inputs of a field the user may change are named, and so posted. The row also lists itself in the
+   question's list of rows, whose order is the order the rows are kept in. *@
+<tr class="govuk-table__row" data-row="@row.RowId">
+    @foreach (var field in question.Fields.Where(field => field.IncludeInSummary))
+    {
+        <td class="govuk-table__cell" data-row-summary="@field.FieldId">@row.AnswerTo(field.FieldId)?.SummaryText</td>
+    }
+    <td class="govuk-table__cell govuk-table__cell--numeric app-row-table__action">
+        <button type="button" class="govuk-link app-link-button" aria-controls="@panelId" aria-expanded="false" data-row-edit>@actionText<span class="govuk-visually-hidden"> answer <span data-row-number>@Model.Position</span> to question @question.Number</span></button>
+        @if (question.CanEditRows)
+        {
+            <input type="hidden" name="@ProfileQuestionRowView.RowsInputName(question.Id)" value="@row.RowId" />
+        }
+        @foreach (var field in question.Fields)
+        {
+            var answer = row.AnswerTo(field.FieldId);
+
+            <input type="hidden" name="@(field.IsEditable ? ProfileQuestionRowView.InputName(row.RowId, field.FieldId) : null)" value="@answer?.FormValue" data-row-value="@field.FieldId" />
+        }
+    </td>
+    @if (question.CanEditRows)
+    {
+        <td class="govuk-table__cell govuk-table__cell--numeric app-row-table__action">
+            <button type="button" class="govuk-link app-link-button" data-row-delete>Delete<span class="govuk-visually-hidden"> answer <span data-row-number>@Model.Position</span> to question @question.Number</span></button>
+        </td>
+    }
+</tr>

@@ -5,21 +5,22 @@ using CDC.Web.Models;
 namespace CDC.Web.Infrastructure;
 
 /// <summary>
-/// Formats one species' answer to a field of a per-species question for the questions page: the value the page posts back with the
-/// section's answers, and the text the question's table shows for it (the legacy <c>FieldValueBase.ToString()</c>, cut to
-/// <see cref="SummaryLength"/> characters).
+/// Formats one answer to a field of a question that is answered once for each species, or in rows, for the questions page: the value the
+/// page posts back with the section's answers, and the text the question's table shows for it (the legacy
+/// <c>FieldValueBase.ToString()</c>, cut to <see cref="SummaryLength"/> characters).
 /// </summary>
-public static class ProfileSpeciesAnswerFormatter
+public static class ProfileAnswerFormatter
 {
     /// <summary>How many characters of an answer the table shows, as the legacy table did.</summary>
     public const int SummaryLength = 50;
 
     /// <summary>Builds the value the page posts for an answer, in the form the page's save reads: <c>true</c> or <c>false</c> for a
     /// Boolean, the identifier of the selected item for a list, the identifiers of the selected items separated by commas for a
-    /// multi-value list, a decimal without trailing zeros, a date as day, month and year (which the page only shows, as a per-species
-    /// date cannot be edited), and the stored value for any other type. It is empty when the field has no answer.</summary>
+    /// multi-value list, a decimal without trailing zeros, a date as day, month and year (which the page only shows, as the date of a
+    /// per-species or repeating question cannot be edited), and the stored value for any other type. It is empty when the field has no
+    /// answer.</summary>
     /// <param name="field">The field the answer is for.</param>
-    /// <param name="values">The values recorded for the species and the field: several for a multi-value list, otherwise at most one.</param>
+    /// <param name="values">The values recorded for the species or row and the field: several for a multi-value list, otherwise at most one.</param>
     /// <returns>The posted value.</returns>
     public static string FormValue(ProfileFieldMetadataDto field, IReadOnlyList<ProfileFieldValueDto> values)
     {
@@ -60,7 +61,7 @@ public static class ProfileSpeciesAnswerFormatter
     /// list, those of the selected items for a multi-value list, a decimal to two places, a date as day, month and year, and for text
     /// the first <see cref="SummaryLength"/> characters with its markup removed. It is empty when the field has no answer.</summary>
     /// <param name="field">The field the answer is for.</param>
-    /// <param name="values">The values recorded for the species and the field.</param>
+    /// <param name="values">The values recorded for the species or row and the field.</param>
     /// <param name="options">The items of the field's reference table, which a list answer names.</param>
     /// <returns>The text to show, which the page encodes.</returns>
     public static string SummaryText(ProfileFieldMetadataDto field, IReadOnlyList<ProfileFieldValueDto> values, IReadOnlyList<ReferenceValueDto> options)

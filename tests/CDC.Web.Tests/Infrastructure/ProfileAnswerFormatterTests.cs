@@ -4,7 +4,7 @@ using CDC.Web.Models;
 
 namespace CDC.Web.Tests.Infrastructure;
 
-public class ProfileSpeciesAnswerFormatterTests
+public class ProfileAnswerFormatterTests
 {
     private static readonly Guid FirstOption = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid SecondOption = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -29,15 +29,15 @@ public class ProfileSpeciesAnswerFormatterTests
     {
         var values = answer is null ? [] : Values(new ProfileFieldValueDto { BooleanValue = answer });
 
-        Assert.Equal(expected, ProfileSpeciesAnswerFormatter.FormValue(Field("Boolean"), values));
+        Assert.Equal(expected, ProfileAnswerFormatter.FormValue(Field("Boolean"), values));
     }
 
     [Fact]
     public void FormValue_PostsTheSelectedItemOfAList_OrNothingWhenNoneIsSelected()
     {
-        Assert.Equal(SecondOption.ToString(), ProfileSpeciesAnswerFormatter.FormValue(Field("List"), Values(new ProfileFieldValueDto { ListValue = SecondOption })));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.FormValue(Field("List"), []));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.FormValue(Field("List"), Values(new ProfileFieldValueDto { ListValue = Guid.Empty })));
+        Assert.Equal(SecondOption.ToString(), ProfileAnswerFormatter.FormValue(Field("List"), Values(new ProfileFieldValueDto { ListValue = SecondOption })));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.FormValue(Field("List"), []));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.FormValue(Field("List"), Values(new ProfileFieldValueDto { ListValue = Guid.Empty })));
     }
 
     [Fact]
@@ -48,8 +48,8 @@ public class ProfileSpeciesAnswerFormatterTests
             new ProfileFieldValueDto { ListValue = null },
             new ProfileFieldValueDto { ListValue = ThirdOption });
 
-        Assert.Equal($"{FirstOption},{ThirdOption}", ProfileSpeciesAnswerFormatter.FormValue(Field("MultiValueList"), values));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.FormValue(Field("MultiValueList"), []));
+        Assert.Equal($"{FirstOption},{ThirdOption}", ProfileAnswerFormatter.FormValue(Field("MultiValueList"), values));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.FormValue(Field("MultiValueList"), []));
     }
 
     [Theory]
@@ -60,7 +60,7 @@ public class ProfileSpeciesAnswerFormatterTests
     {
         var values = Values(new ProfileFieldValueDto { DecimalValue = decimal.Parse(stored, System.Globalization.CultureInfo.InvariantCulture) });
 
-        Assert.Equal(expected, ProfileSpeciesAnswerFormatter.FormValue(Field("Decimal"), values));
+        Assert.Equal(expected, ProfileAnswerFormatter.FormValue(Field("Decimal"), values));
     }
 
     [Theory]
@@ -68,8 +68,8 @@ public class ProfileSpeciesAnswerFormatterTests
     [InlineData("Long Text")]
     public void FormValue_PostsTheTextAsStored(string dataType)
     {
-        Assert.Equal("<p>Some <em>text</em></p>", ProfileSpeciesAnswerFormatter.FormValue(Field(dataType), Values(new ProfileFieldValueDto { TextValue = "<p>Some <em>text</em></p>" })));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.FormValue(Field(dataType), []));
+        Assert.Equal("<p>Some <em>text</em></p>", ProfileAnswerFormatter.FormValue(Field(dataType), Values(new ProfileFieldValueDto { TextValue = "<p>Some <em>text</em></p>" })));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.FormValue(Field(dataType), []));
     }
 
     [Theory]
@@ -80,15 +80,15 @@ public class ProfileSpeciesAnswerFormatterTests
     {
         var values = answer is null ? [] : Values(new ProfileFieldValueDto { BooleanValue = answer });
 
-        Assert.Equal(expected, ProfileSpeciesAnswerFormatter.SummaryText(Field("Boolean"), values, []));
+        Assert.Equal(expected, ProfileAnswerFormatter.SummaryText(Field("Boolean"), values, []));
     }
 
     [Fact]
     public void SummaryText_ShowsTheTextOfTheSelectedItemOfAList_OrNothingWhenItIsNotAmongTheOptions()
     {
-        Assert.Equal("Moderate", ProfileSpeciesAnswerFormatter.SummaryText(Field("List"), Values(new ProfileFieldValueDto { ListValue = SecondOption }), Options));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.SummaryText(Field("List"), Values(new ProfileFieldValueDto { ListValue = Guid.NewGuid() }), Options));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.SummaryText(Field("List"), [], Options));
+        Assert.Equal("Moderate", ProfileAnswerFormatter.SummaryText(Field("List"), Values(new ProfileFieldValueDto { ListValue = SecondOption }), Options));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.SummaryText(Field("List"), Values(new ProfileFieldValueDto { ListValue = Guid.NewGuid() }), Options));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.SummaryText(Field("List"), [], Options));
     }
 
     [Fact]
@@ -96,15 +96,15 @@ public class ProfileSpeciesAnswerFormatterTests
     {
         var values = Values(new ProfileFieldValueDto { ListValue = ThirdOption }, new ProfileFieldValueDto { ListValue = FirstOption });
 
-        Assert.Equal("Mild, Severe", ProfileSpeciesAnswerFormatter.SummaryText(Field("MultiValueList"), values, Options));
+        Assert.Equal("Mild, Severe", ProfileAnswerFormatter.SummaryText(Field("MultiValueList"), values, Options));
     }
 
     [Fact]
     public void SummaryText_ShowsADecimalToTwoPlacesAndADateAsDayMonthYear()
     {
-        Assert.Equal("1.50", ProfileSpeciesAnswerFormatter.SummaryText(Field("Decimal"), Values(new ProfileFieldValueDto { DecimalValue = 1.5m }), []));
-        Assert.Equal("02/03/2026", ProfileSpeciesAnswerFormatter.SummaryText(Field("Date"), Values(new ProfileFieldValueDto { DateValue = new DateTime(2026, 3, 2) }), []));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.SummaryText(Field("Decimal"), [], []));
+        Assert.Equal("1.50", ProfileAnswerFormatter.SummaryText(Field("Decimal"), Values(new ProfileFieldValueDto { DecimalValue = 1.5m }), []));
+        Assert.Equal("02/03/2026", ProfileAnswerFormatter.SummaryText(Field("Date"), Values(new ProfileFieldValueDto { DateValue = new DateTime(2026, 3, 2) }), []));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.SummaryText(Field("Decimal"), [], []));
     }
 
     [Fact]
@@ -112,16 +112,16 @@ public class ProfileSpeciesAnswerFormatterTests
     {
         var values = Values(new ProfileFieldValueDto { TextValue = "<p>Only the impact &amp; associated with <em>any</em> severe disease would be considered here, which is rare.</p>" });
 
-        var summary = ProfileSpeciesAnswerFormatter.SummaryText(Field("Long Text"), values, []);
+        var summary = ProfileAnswerFormatter.SummaryText(Field("Long Text"), values, []);
 
         Assert.Equal("Only the impact & associated with any severe disea", summary);
-        Assert.Equal(ProfileSpeciesAnswerFormatter.SummaryLength, summary.Length);
+        Assert.Equal(ProfileAnswerFormatter.SummaryLength, summary.Length);
     }
 
     [Fact]
     public void SummaryText_ShowsAShortTextInFull_AndNothingWhenThereIsNone()
     {
-        Assert.Equal("Wild animal", ProfileSpeciesAnswerFormatter.SummaryText(Field("Text"), Values(new ProfileFieldValueDto { TextValue = "Wild animal" }), []));
-        Assert.Equal(string.Empty, ProfileSpeciesAnswerFormatter.SummaryText(Field("Long Text"), [], []));
+        Assert.Equal("Wild animal", ProfileAnswerFormatter.SummaryText(Field("Text"), Values(new ProfileFieldValueDto { TextValue = "Wild animal" }), []));
+        Assert.Equal(string.Empty, ProfileAnswerFormatter.SummaryText(Field("Long Text"), [], []));
     }
 }

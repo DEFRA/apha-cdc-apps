@@ -63,6 +63,12 @@ public static class ProfileSectionStoredProcedures
     /// <summary>Deletes one repeating question row, together with the field values it holds.</summary>
     public const string DeleteProfileVersionQuestionRow = "spdProfileVersionQuestionRow";
 
+    /// <summary>Adds one repeating question row, which field values are then recorded against.</summary>
+    public const string InsertProfileVersionQuestionRow = "spiProfileVersionQuestionRow";
+
+    /// <summary>Moves one repeating question row to another position among its question's rows.</summary>
+    public const string UpdateProfileVersionQuestionRow = "spuProfileVersionQuestionRow";
+
     /// <summary>Reads a user's logon name and full name by id. No stored procedure does this, so it is a
     /// parameterised text query.</summary>
     public const string GetReviewCommentUser = "SELECT [UserName], [FullName] FROM [dbo].[User] WHERE [Id] = @Id";

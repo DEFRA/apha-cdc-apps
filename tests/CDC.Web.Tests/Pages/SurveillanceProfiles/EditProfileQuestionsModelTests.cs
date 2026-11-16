@@ -98,8 +98,6 @@ public class EditProfileQuestionsModelTests
                         SectionId = SummarySectionId,
                         ShortName = "Overview",
                         QuestionNumber = 1,
-                        IsPerSpecies = true,
-                        IsRepeating = true,
                         Fields =
                         [
                             new ProfileFieldMetadataDto
@@ -520,10 +518,9 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_MarksFieldsReadOnly_ForAPerSpeciesOrRepeatingQuestion_EvenWhenUserCanEditProfileSection()
+    public async Task OnGetAsync_MarksFieldsReadOnly_WhenUserCannotEditProfileSection()
     {
-        var profile = EditableProfile();
-        var pageModel = CreatePageModel(profile, metadata: TwoSectionMetadata(), section: SummarySectionId);
+        var pageModel = CreatePageModel(Profile(), metadata: StandardQuestionMetadata(), section: StandardSectionId);
 
         await pageModel.OnGetAsync(CancellationToken.None);
 

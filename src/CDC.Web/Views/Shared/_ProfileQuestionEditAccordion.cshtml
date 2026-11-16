@@ -45,6 +45,10 @@ else
                     {
                         <partial name="_ProfileSpeciesQuestion" model="question" />
                     }
+                    else if (question.Rows is not null)
+                    {
+                        <partial name="_ProfileRepeatingQuestion" model="question" />
+                    }
                     else
                     {
                         @foreach (var field in question.Fields)

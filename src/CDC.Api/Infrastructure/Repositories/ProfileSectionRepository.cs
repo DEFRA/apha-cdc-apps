@@ -210,6 +210,30 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     cancellationToken: cancellationToken));
             }
 
+            storedProcedure = ProfileSectionStoredProcedures.InsertProfileVersionQuestionRow;
+
+            foreach (var row in change.QuestionRowsToInsert)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    storedProcedure,
+                    new { row.Id, ProfileVersionId = profileVersionId, ProfileQuestionId = row.QuestionId, row.SequenceNumber },
+                    transaction,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+            }
+
+            storedProcedure = ProfileSectionStoredProcedures.UpdateProfileVersionQuestionRow;
+
+            foreach (var row in change.QuestionRowsToUpdate)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    storedProcedure,
+                    new { row.Id, row.SequenceNumber },
+                    transaction,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+            }
+
             storedProcedure = ProfileSectionStoredProcedures.ClearProfileVersionFieldValue;
 
             foreach (var instruction in change.Clears)
@@ -727,7 +751,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             // existing rows are replaced wholesale rather than upserted individually.
             await connection.ExecuteAsync(new CommandDefinition(
                 ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue,
-                new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, instruction.SpeciesId, ProfileVersionQuestionRowId = (Guid?)null },
+                new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, instruction.SpeciesId, instruction.ProfileVersionQuestionRowId },
                 transaction,
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
@@ -736,7 +760,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             {
                 await connection.ExecuteAsync(new CommandDefinition(
                     ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue,
-                    new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, instruction.SpeciesId, ProfileVersionQuestionRowId = (Guid?)null, ListValue = listValue },
+                    new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, instruction.SpeciesId, instruction.ProfileVersionQuestionRowId, ListValue = listValue },
                     transaction,
                     commandType: CommandType.StoredProcedure,
                     cancellationToken: cancellationToken));
@@ -754,7 +778,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                 ProfileVersionId = profileVersionId,
                 instruction.ProfileFieldId,
                 instruction.SpeciesId,
-                ProfileVersionQuestionRowId = (Guid?)null,
+                instruction.ProfileVersionQuestionRowId,
                 instruction.BooleanValue,
                 instruction.ListValue,
                 instruction.DecimalValue,

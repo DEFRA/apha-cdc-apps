@@ -54,14 +54,14 @@ else
             </tbody>
         </table>
 
-        <fieldset class="govuk-fieldset app-species-answer-panel" id="@(prefix)-panel" data-species-panel hidden tabindex="-1">
+        <fieldset class="govuk-fieldset app-answer-panel" id="@(prefix)-panel" data-species-panel hidden tabindex="-1">
             <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
                 <h3 class="govuk-fieldset__heading" data-species-panel-heading>Edit answer</h3>
             </legend>
 
             @foreach (var field in Model.Fields)
             {
-                <partial name="_ProfileSpeciesFieldEdit" model="new ProfileSpeciesFieldEditModel(prefix, field)" />
+                <partial name="_ProfileAnswerFieldEdit" model="new ProfileAnswerFieldEditModel(prefix, field)" />
             }
 
             @if (Model.CanEditSpecies)

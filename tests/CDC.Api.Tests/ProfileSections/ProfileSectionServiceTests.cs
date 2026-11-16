@@ -497,7 +497,7 @@ public class ProfileSectionServiceTests
         };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(1);
         applied.Should().NotBeNull();
@@ -519,7 +519,7 @@ public class ProfileSectionServiceTests
         };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(0);
         repository.Verify(
@@ -540,7 +540,7 @@ public class ProfileSectionServiceTests
             .ReturnsAsync(new ReportSectionAnswers());
 
         await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         contentRepository.Verify(
             repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, otherSectionId, It.IsAny<CancellationToken>()), Times.Once);
@@ -558,7 +558,7 @@ public class ProfileSectionServiceTests
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true } };
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConcurrencyException>();
     }
@@ -576,7 +576,7 @@ public class ProfileSectionServiceTests
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId } };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], null, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(0);
     }
@@ -907,7 +907,7 @@ public class ProfileSectionServiceTests
         userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
@@ -935,7 +935,7 @@ public class ProfileSectionServiceTests
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true } };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(1);
     }
@@ -946,7 +946,7 @@ public class ProfileSectionServiceTests
         GivenAnExternalUser("Policy author", isContributor: true, Guid.NewGuid());
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         contentRepository.VerifyNoOtherCalls();
@@ -959,7 +959,7 @@ public class ProfileSectionServiceTests
         GivenAnExternalUser("VA reviewer", isContributor: false, ProfileSectionTestData.SectionId);
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         repository.VerifyNoOtherCalls();
@@ -971,7 +971,7 @@ public class ProfileSectionServiceTests
         userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         repository.VerifyNoOtherCalls();
@@ -989,7 +989,7 @@ public class ProfileSectionServiceTests
 
         Func<Task>[] changes =
         [
-            () => service.SaveProfileVersionSectionAsync(versionId, sectionId, [], null, CancellationToken.None),
+            () => service.SaveProfileVersionSectionAsync(versionId, sectionId, [], [], null, CancellationToken.None),
             () => service.ClearProfileVersionSectionAsync(versionId, sectionId, null, CancellationToken.None),
             () => service.SaveProfileVersionRevisionDatesAsync(versionId, [Input(sectionId)], CancellationToken.None)
         ];

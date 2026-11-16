@@ -238,7 +238,7 @@ public class EditProfileQuestionsSpeciesTests
     }
 
     [Fact]
-    public async Task OnGetAsync_GivesARepeatingQuestionNoSpeciesRows_AndLeavesItsFieldsReadOnly()
+    public async Task OnGetAsync_TakesAQuestionThatIsPerSpeciesAndRepeating_ForARepeatingQuestion()
     {
         var (page, _) = CreatePage(metadata: Metadata() with
         {
@@ -248,7 +248,7 @@ public class EditProfileQuestionsSpeciesTests
         await page.OnGetAsync(CancellationToken.None);
 
         Assert.Null(page.Questions[0].SpeciesRows);
-        Assert.All(page.Questions[0].Fields, field => Assert.False(field.IsEditable));
+        Assert.NotNull(page.Questions[0].Rows);
     }
 
     [Fact]

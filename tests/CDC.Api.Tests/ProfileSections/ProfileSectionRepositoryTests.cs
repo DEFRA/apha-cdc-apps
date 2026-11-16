@@ -473,6 +473,84 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_DeletesThenAddsThenMovesRows_BeforeWritingTheAnswersRecordedAgainstThem()
+    {
+        ScriptSectionRow();
+        var questionId = Guid.NewGuid();
+        var deletedRow = Guid.NewGuid();
+        var newRow = Guid.NewGuid();
+        var movedRow = Guid.NewGuid();
+        var multiValueFieldId = Guid.NewGuid();
+
+        var change = new ProfileSectionChange
+        {
+            QuestionRowIdsToDelete = [deletedRow],
+            QuestionRowsToInsert = [new ProfileQuestionRowInstruction(newRow, questionId, 1)],
+            QuestionRowsToUpdate = [new ProfileQuestionRowInstruction(movedRow, questionId, 0)],
+            Saves =
+            [
+                new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, ProfileVersionQuestionRowId = newRow, TextValue = "A row", IsMultiValueList = false },
+                new ProfileFieldSaveInstruction { ProfileFieldId = multiValueFieldId, ProfileVersionQuestionRowId = newRow, MultiListValues = [Guid.NewGuid()], IsMultiValueList = true }
+            ]
+        };
+
+        var changed = await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
+
+        changed.Should().Be(5);
+        connection.Executed.Select(command => command.CommandText).Should().Equal(
+            ProfileSectionStoredProcedures.GetProfileVersionSection,
+            ProfileSectionStoredProcedures.UpdateProfileVersionSection,
+            ProfileSectionStoredProcedures.DeleteProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.InsertProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.UpdateProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue,
+            ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.LogProfileVersionSectionContribution);
+
+        var inserted = connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionQuestionRow).Parameters;
+        inserted["Id"].Should().Be(newRow);
+        inserted["ProfileVersionId"].Should().Be(ProfileSectionTestData.ProfileVersionId);
+        inserted["ProfileQuestionId"].Should().Be(questionId);
+        inserted["SequenceNumber"].Should().Be(1);
+
+        var moved = connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionQuestionRow).Parameters;
+        moved["Id"].Should().Be(movedRow);
+        moved["SequenceNumber"].Should().Be(0);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().Be(newRow);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().Be(newRow);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().Be(newRow);
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_WritesAnAnswerOutsideARowWithNoRow()
+    {
+        ScriptSectionRow();
+
+        var change = new ProfileSectionChange
+        {
+            Saves =
+            [
+                new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true, IsMultiValueList = false },
+                new ProfileFieldSaveInstruction { ProfileFieldId = Guid.NewGuid(), MultiListValues = [Guid.NewGuid()], IsMultiValueList = true }
+            ]
+        };
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().BeNull();
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().BeNull();
+    }
+
+    [Fact]
     public async Task ApplyProfileVersionSectionChangeAsync_WritesTheSectionsRevisionDataBackUnchanged_WithBlankCompletedDates()
     {
         ScriptSectionRow();

@@ -181,10 +181,18 @@ public sealed class ProfileSectionsApiService(HttpClient httpClient) : IProfileS
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> repeatingQuestions,
         byte[]? lastUpdated,
         CancellationToken cancellationToken = default)
     {
-        var request = new { ProfileVersionId = profileVersionId, ProfileSectionId = profileSectionId, Answers = answers, LastUpdated = lastUpdated };
+        var request = new
+        {
+            ProfileVersionId = profileVersionId,
+            ProfileSectionId = profileSectionId,
+            Answers = answers,
+            RepeatingQuestions = repeatingQuestions,
+            LastUpdated = lastUpdated
+        };
         using var response = await httpClient.PostAsJsonAsync("/api/profile-sections/save", request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)

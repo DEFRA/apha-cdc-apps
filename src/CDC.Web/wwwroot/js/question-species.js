@@ -9,116 +9,11 @@
 (function () {
     'use strict';
 
-    // How many characters of a text answer the table shows, as the legacy table did.
-    var SUMMARY_LENGTH = 50;
+    var fields = window.appAnswerFields;
 
     // Set when the user has confirmed a change to an answer that decides whether other questions apply (relevance-confirm.js). The
     // next OK then saves the section, so that the questions that have become irrelevant are hidden, as the legacy page did.
     var refreshNeeded = false;
-
-    function plainText(html) {
-        var parsed = new DOMParser().parseFromString(html, 'text/html');
-
-        return (parsed.body.textContent || '').trim();
-    }
-
-    function labelOf(control) {
-        var label = document.querySelector('label[for="' + control.id + '"]');
-
-        return label ? label.textContent.trim() : '';
-    }
-
-    function dataType(wrapper) {
-        return wrapper.dataset.fieldType;
-    }
-
-    function booleanText(value) {
-        if (value === 'true') {
-            return 'Yes';
-        }
-
-        return value === 'false' ? 'No' : '';
-    }
-
-    // The text the table shows for an answer, which the server works out in the same way for the answers it renders.
-    function summaryText(wrapper, value) {
-        if (value === '') {
-            return '';
-        }
-
-        switch (dataType(wrapper)) {
-            case 'Boolean':
-                return booleanText(value);
-            case 'List':
-                var option = wrapper.querySelector('option[value="' + value + '"]');
-                return option ? option.textContent : '';
-            case 'MultiValueList':
-                var chosen = new Set(value.split(','));
-                return Array.prototype.filter.call(wrapper.querySelectorAll('input[type="checkbox"]'), function (box) {
-                    return chosen.has(box.value);
-                }).map(labelOf).join(', ');
-            case 'Decimal':
-                return Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
-            case 'Date':
-                return value;
-            default:
-                return plainText(value).slice(0, SUMMARY_LENGTH);
-        }
-    }
-
-    function readControl(wrapper) {
-        if (dataType(wrapper) === 'MultiValueList') {
-            return Array.prototype.filter.call(wrapper.querySelectorAll('input[type="checkbox"]'), function (box) {
-                return box.checked;
-            }).map(function (box) {
-                return box.value;
-            }).join(',');
-        }
-
-        var control = wrapper.querySelector('[data-species-editor]');
-
-        return control ? control.value : '';
-    }
-
-    function writeControl(wrapper, value) {
-        if (dataType(wrapper) === 'MultiValueList') {
-            var chosen = new Set(value === '' ? [] : value.split(','));
-            wrapper.querySelectorAll('input[type="checkbox"]').forEach(function (box) {
-                box.checked = chosen.has(box.value);
-            });
-            return;
-        }
-
-        var control = wrapper.querySelector('[data-species-editor]');
-
-        if (control) {
-            control.value = value;
-
-            // A drop-down that decides whether other questions apply is put back to this answer when a change to it is not confirmed.
-            if ('relevanceAffects' in control.dataset) {
-                control.dataset.relevanceHeld = control.value;
-            }
-
-            // A rich text field shows an editor in place of its text area, which has to be filled as well.
-            var editor = document.getElementById(control.id + '-editor');
-            if (editor && window.appRichText) {
-                window.appRichText.fill(editor, value);
-            }
-            return;
-        }
-
-        var view = wrapper.querySelector('[data-species-longtext-view]');
-
-        if (view && window.appRichText) {
-            window.appRichText.fill(view, value);
-        } else if (view) {
-            view.textContent = plainText(value);
-        }
-    }
-
-    function fieldIdOf(wrapper) {
-        return wrapper.dataset.speciesField;
-    }
 
     function valueInput(row, fieldId) {
         return row.querySelector('[data-species-value="' + fieldId + '"]');
@@ -167,7 +62,7 @@
         }
 
         function wrappers() {
-            return Array.prototype.slice.call(panel.querySelectorAll('[data-species-field]'));
+            return Array.prototype.slice.call(panel.querySelectorAll('[data-answer-field]'));
         }
 
         function pickBoxes() {
@@ -224,11 +119,11 @@
             var targets = [current.row].concat(pickedRows());
 
             wrappers().filter(function (wrapper) {
-                return wrapper.dataset.fieldEditable === 'true';
+                return fields.isEditable(wrapper);
             }).forEach(function (wrapper) {
-                var fieldId = fieldIdOf(wrapper);
-                var value = current.changed[fieldId] ? readControl(wrapper) : storedValue(current.row, fieldId);
-                var summary = summaryText(wrapper, value);
+                var fieldId = fields.fieldId(wrapper);
+                var value = current.changed[fieldId] ? fields.read(wrapper) : storedValue(current.row, fieldId);
+                var summary = fields.summaryText(wrapper, value);
 
                 targets.forEach(function (row) {
                     store(row, fieldId, value, summary);
@@ -264,7 +159,7 @@
             heading.textContent = (canEdit ? 'Edit' : 'View') + ' answer for ' + (row.dataset.speciesName || '').toLowerCase();
 
             wrappers().forEach(function (wrapper) {
-                writeControl(wrapper, storedValue(row, fieldIdOf(wrapper)));
+                fields.write(wrapper, storedValue(row, fields.fieldId(wrapper)));
             });
 
             resetPicker(speciesId);
@@ -287,10 +182,10 @@
         }
 
         function noteChange(event) {
-            var wrapper = event.target.closest('[data-species-field]');
+            var wrapper = event.target.closest('[data-answer-field]');
 
             if (wrapper && current) {
-                current.changed[fieldIdOf(wrapper)] = true;
+                current.changed[fields.fieldId(wrapper)] = true;
             }
         }
 

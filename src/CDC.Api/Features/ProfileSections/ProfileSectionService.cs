@@ -173,6 +173,7 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> repeatingQuestions,
         byte[]? lastUpdated,
         CancellationToken cancellationToken)
     {
@@ -192,7 +193,7 @@ public sealed class ProfileSectionService(
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
-        var change = ProfileSectionChangePlanner.PlanSave(section, versionAnswers.Answers, versionAnswers.Context.IsWhatIfScenario, answers, lastUpdated);
+        var change = ProfileSectionChangePlanner.PlanSave(section, versionAnswers.Answers, versionAnswers.Context.IsWhatIfScenario, answers, repeatingQuestions, lastUpdated);
 
         // The legacy page saved nothing, and so did not touch the section, when no answer had changed.
         if (change.ValueChangeCount == 0)

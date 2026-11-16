@@ -20,11 +20,15 @@ internal sealed class ProfileSectionChangePlanner
     private readonly bool isWhatIfScenario;
     private readonly Dictionary<Guid, FieldEntry> fields;
     private readonly Dictionary<Guid, FieldEntry> editableFields;
+    private readonly Dictionary<Guid, FieldEntry> rowFields;
+    private readonly Dictionary<Guid, Guid> questionOfRow;
     private readonly List<ReportFieldValue> recorded;
     private readonly List<ReportFieldValue> working;
-    private readonly Dictionary<(Guid FieldId, Guid? SpeciesId), ProfileFieldSaveInstruction> saves = [];
+    private readonly Dictionary<(Guid FieldId, Guid? SpeciesId, Guid? RowId), ProfileFieldSaveInstruction> saves = [];
     private readonly HashSet<(Guid FieldId, Guid? SpeciesId)> cleared = [];
     private readonly HashSet<Guid> deletedRows = [];
+    private readonly List<ProfileQuestionRowInstruction> rowInserts = [];
+    private readonly List<ProfileQuestionRowInstruction> rowUpdates = [];
     private ILookup<Guid, ReportFieldValue>? valuesByField;
 
     private ProfileSectionChangePlanner(
@@ -38,23 +42,35 @@ internal sealed class ProfileSectionChangePlanner
         fields = FieldsOf(section);
 
         // Only the answers to a standard question, or to a per-species question for one of the version's profiled species, are edited
-        // through the page. A field group is a container for a repeating question's nested fields, not an answerable field.
+        // through the page as answers in their own right. A field group is a container for a repeating question's nested fields, not an
+        // answerable field.
         editableFields = section.Questions
             .Where(question => !question.IsRepeating)
             .SelectMany(question => question.Fields.Select(field => new FieldEntry(question, field)))
             .Where(entry => IsChangeable(entry.Field, isWhatIfScenario))
             .ToDictionary(entry => entry.Field.Id);
 
+        // The answers to a repeating question are edited row by row.
+        rowFields = section.Questions
+            .Where(question => question.IsRepeating)
+            .SelectMany(question => question.Fields.Select(field => new FieldEntry(question, field)))
+            .Where(entry => IsChangeable(entry.Field, isWhatIfScenario))
+            .ToDictionary(entry => entry.Field.Id);
+
+        // A row's identifier belongs to one question of one section, so a new row may not take the identifier of another's.
+        questionOfRow = answersBySection.Values.SelectMany(answers => answers.Rows).ToDictionary(row => row.Id, row => row.QuestionId);
+
         // A question's relevance can hang on an answer in another section, so every section's answers are considered.
         recorded = [.. answersBySection.Values.SelectMany(answers => answers.Values)];
         working = [.. recorded];
     }
 
-    /// <summary>Plans a save: the posted answers that differ from what is recorded, then the clearing of what the answers have made irrelevant.</summary>
+    /// <summary>Plans a save: the posted answers that differ from what is recorded, the posted rows of the repeating questions, then the clearing of what the answers have made irrelevant.</summary>
     /// <param name="section">The section's questionnaire definition.</param>
     /// <param name="answersBySection">Every section's recorded answers, by section.</param>
     /// <param name="isWhatIfScenario">Whether the profile is a "what-if" scenario, which has its own read-only fields.</param>
     /// <param name="posted">The answers submitted for the section.</param>
+    /// <param name="postedRows">The rows submitted for the section's repeating questions; a question that is not listed keeps the rows it has.</param>
     /// <param name="lastUpdated">The row version of the section the caller last read, or <see langword="null"/>.</param>
     /// <returns>The change to apply; it has no value changes when the answers equal what is recorded and nothing is irrelevant.</returns>
     public static ProfileSectionChange PlanSave(
@@ -62,11 +78,13 @@ internal sealed class ProfileSectionChangePlanner
         IReadOnlyDictionary<Guid, ReportSectionAnswers> answersBySection,
         bool isWhatIfScenario,
         IReadOnlyList<ProfileFieldAnswerInputDto> posted,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> postedRows,
         byte[]? lastUpdated)
     {
         var planner = new ProfileSectionChangePlanner(section, answersBySection, isWhatIfScenario);
 
         planner.ApplyPostedAnswers(posted);
+        planner.ApplyPostedRows(postedRows);
         planner.ClearIrrelevantQuestions();
 
         return planner.ToChange(lastUpdated);
@@ -184,10 +202,11 @@ internal sealed class ProfileSectionChangePlanner
     /// <summary>A browser posts a text area's line breaks as CRLF whatever was stored, which is not a change to the text.</summary>
     private static string? ComparableText(string? text) => NormaliseText(text)?.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-    private static ProfileFieldSaveInstruction ToSaveInstruction(ReportField field, ProfileFieldAnswerInputDto answer) => new()
+    private static ProfileFieldSaveInstruction ToSaveInstruction(ReportField field, ProfileFieldAnswerInputDto answer, Guid? rowId = null) => new()
     {
         ProfileFieldId = field.Id,
-        SpeciesId = answer.SpeciesId,
+        SpeciesId = rowId is null ? answer.SpeciesId : null,
+        ProfileVersionQuestionRowId = rowId,
         BooleanValue = answer.BooleanValue,
         ListValue = NormaliseList(answer.ListValue),
         MultiListValues = [.. answer.MultiListValues.Where(id => id != Guid.Empty).Distinct()],
@@ -206,6 +225,7 @@ internal sealed class ProfileSectionChangePlanner
                 QuestionId = entry.Question.Id,
                 FieldId = entry.Field.Id,
                 SpeciesId = save.SpeciesId,
+                RowId = save.ProfileVersionQuestionRowId,
                 ListValue = listValue
             });
         }
@@ -218,6 +238,7 @@ internal sealed class ProfileSectionChangePlanner
                 QuestionId = entry.Question.Id,
                 FieldId = entry.Field.Id,
                 SpeciesId = save.SpeciesId,
+                RowId = save.ProfileVersionQuestionRowId,
                 BooleanValue = save.BooleanValue,
                 ListValue = save.ListValue,
                 DecimalValue = save.DecimalValue,
@@ -229,6 +250,9 @@ internal sealed class ProfileSectionChangePlanner
 
     private static bool IsDirectValue(ReportFieldValue value, Guid fieldId, Guid? speciesId) =>
         value.FieldId == fieldId && value.SpeciesId == speciesId && value.RowId is null;
+
+    private static bool IsRowValue(ReportFieldValue value, Guid fieldId, Guid rowId) =>
+        value.FieldId == fieldId && value.RowId == rowId;
 
     private ILookup<Guid, ReportFieldValue> ValuesByField => valuesByField ??= working.ToLookup(value => value.FieldId);
 
@@ -256,8 +280,86 @@ internal sealed class ProfileSectionChangePlanner
             }
 
             var save = ToSaveInstruction(entry.Field, answer);
-            saves[(entry.Field.Id, answer.SpeciesId)] = save;
+            saves[(entry.Field.Id, answer.SpeciesId, null)] = save;
             working.RemoveAll(value => IsDirectValue(value, entry.Field.Id, answer.SpeciesId));
+            working.AddRange(ToValues(entry, save));
+            valuesByField = null;
+        }
+    }
+
+    /// <summary>Applies the rows posted for each listed repeating question, which stand for all the question's rows: a recorded row that is
+    /// not among them is deleted, a row that is not recorded is added, and the rows are numbered in the order posted, as the legacy
+    /// <c>QuestionRowList</c> numbered them.</summary>
+    private void ApplyPostedRows(IReadOnlyList<ProfileRepeatingQuestionInputDto> postedRows)
+    {
+        // A question listed twice is taken as its last listing says.
+        foreach (var posted in postedRows.GroupBy(item => item.QuestionId).Select(group => group.Last()))
+        {
+            var question = section.Questions.FirstOrDefault(candidate => candidate.Id == posted.QuestionId && candidate.IsRepeating);
+
+            // A question none of whose fields can be changed has no rows to change.
+            if (question is not null && question.Fields.Any(field => rowFields.ContainsKey(field.Id)))
+            {
+                ApplyPostedRows(question, posted.Rows);
+            }
+        }
+    }
+
+    private void ApplyPostedRows(ReportQuestion question, IReadOnlyList<ProfileQuestionRowInputDto> postedRows)
+    {
+        var recordedRows = sectionAnswers.Rows.Where(row => row.QuestionId == question.Id).OrderBy(row => row.SequenceNumber).ToList();
+        var recordedIds = recordedRows.Select(row => row.Id).ToHashSet();
+        var seen = new HashSet<Guid>();
+
+        // A row is a recorded row of the question, or a new one, whose identifier no recorded row of any question has. An identifier the
+        // page repeats or leaves empty is not a row.
+        var kept = postedRows
+            .Where(row => row.Id != Guid.Empty && (recordedIds.Contains(row.Id) || !questionOfRow.ContainsKey(row.Id)) && seen.Add(row.Id))
+            .ToList();
+
+        foreach (var goneId in recordedRows.Where(row => !seen.Contains(row.Id)).Select(row => row.Id))
+        {
+            deletedRows.Add(goneId);
+            working.RemoveAll(value => value.RowId == goneId);
+            valuesByField = null;
+        }
+
+        for (var position = 0; position < kept.Count; position++)
+        {
+            var recordedRow = recordedRows.FirstOrDefault(row => row.Id == kept[position].Id);
+
+            if (recordedRow is null)
+            {
+                rowInserts.Add(new ProfileQuestionRowInstruction(kept[position].Id, question.Id, position));
+            }
+            else if (recordedRow.SequenceNumber != position)
+            {
+                rowUpdates.Add(new ProfileQuestionRowInstruction(recordedRow.Id, question.Id, position));
+            }
+
+            ApplyPostedRowAnswers(question, kept[position]);
+        }
+    }
+
+    private void ApplyPostedRowAnswers(ReportQuestion question, ProfileQuestionRowInputDto row)
+    {
+        foreach (var answer in row.Answers)
+        {
+            if (!rowFields.TryGetValue(answer.ProfileFieldId, out var entry) || entry.Question.Id != question.Id)
+            {
+                continue;
+            }
+
+            var existing = working.Where(value => IsRowValue(value, entry.Field.Id, row.Id)).ToList();
+
+            if (!Differs(entry.Field, existing, answer))
+            {
+                continue;
+            }
+
+            var save = ToSaveInstruction(entry.Field, answer, row.Id);
+            saves[(entry.Field.Id, null, row.Id)] = save;
+            working.RemoveAll(value => IsRowValue(value, entry.Field.Id, row.Id));
             working.AddRange(ToValues(entry, save));
             valuesByField = null;
         }
@@ -323,14 +425,18 @@ internal sealed class ProfileSectionChangePlanner
     private void DeleteRows(ReportQuestion question)
     {
         var rowIds = sectionAnswers.Rows.Where(row => row.QuestionId == question.Id).Select(row => row.Id).ToList();
+        var rowsToAdd = rowInserts.Where(row => row.QuestionId == question.Id).ToList();
 
-        if (rowIds.Count == 0)
+        if (rowIds.Count == 0 && rowsToAdd.Count == 0)
         {
             return;
         }
 
+        // A row this save was going to add or move is not wanted either: none of the question's rows are.
         deletedRows.UnionWith(rowIds);
-        working.RemoveAll(value => value.RowId is { } rowId && deletedRows.Contains(rowId));
+        rowInserts.RemoveAll(row => row.QuestionId == question.Id);
+        rowUpdates.RemoveAll(row => row.QuestionId == question.Id);
+        working.RemoveAll(value => value.RowId is { } rowId && (deletedRows.Contains(rowId) || rowsToAdd.Any(row => row.Id == rowId)));
         valuesByField = null;
     }
 
@@ -343,11 +449,19 @@ internal sealed class ProfileSectionChangePlanner
             .Distinct()
             .ToList();
 
+        // An answer in a row goes with the row, so one whose row is not wanted after all is not saved.
+        var liveRowIds = sectionAnswers.Rows.Select(row => row.Id).Where(id => !deletedRows.Contains(id)).Concat(rowInserts.Select(row => row.Id)).ToHashSet();
+        var savesToApply = saves.Values.Where(save => save.ProfileVersionQuestionRowId is { } rowId
+            ? liveRowIds.Contains(rowId)
+            : !cleared.Contains((save.ProfileFieldId, save.SpeciesId)));
+
         return new ProfileSectionChange
         {
-            Saves = [.. saves.Values.Where(save => !cleared.Contains((save.ProfileFieldId, save.SpeciesId)))],
+            Saves = [.. savesToApply],
             Clears = clears,
             QuestionRowIdsToDelete = [.. deletedRows],
+            QuestionRowsToInsert = [.. rowInserts],
+            QuestionRowsToUpdate = [.. rowUpdates],
             ExpectedLastUpdated = lastUpdated
         };
     }

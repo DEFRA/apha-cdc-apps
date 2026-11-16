@@ -171,14 +171,16 @@ public sealed class ProfileSectionsController(ISender mediator) : ControllerBase
     /// Saves the answers submitted for one profile version's section.
     /// </summary>
     /// <remarks>
-    /// Matches the legacy save of <c>EditProfileQuestions.aspx</c>, for standard (non-per-species, non-repeating) questions
-    /// only: answers for a per-species question, a repeating question, a read-only field or an unrecognised field are
-    /// ignored. Only the answers that differ from what is recorded are written, after the questions they have made
-    /// irrelevant have been cleared, and nothing is written, and the section is not touched, when nothing changed.
+    /// Matches the legacy save of <c>EditProfileQuestions.aspx</c>: the answers to standard questions, to per-species
+    /// questions (one for each profiled species) and to the rows of repeating questions. An answer for a read-only field
+    /// or an unrecognised field is ignored. Only the answers that differ from what is recorded are written, after the
+    /// questions they have made irrelevant have been cleared, and nothing is written, and the section is not touched,
+    /// when nothing changed. A repeating question listed in <c>repeatingQuestions</c> has its rows replaced by the ones
+    /// sent: a recorded row that is missing is deleted and a new one added; a question that is not listed keeps its rows.
     /// Send the <c>lastUpdated</c> read with the section's answers to be refused, rather than overwrite, when someone
     /// else has saved the section since.
     /// </remarks>
-    /// <param name="command">The profile version, section and submitted field answers.</param>
+    /// <param name="command">The profile version, section, submitted field answers and rows of the repeating questions.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The number of values saved or cleared.</returns>
     /// <response code="200">The section was saved.</response>

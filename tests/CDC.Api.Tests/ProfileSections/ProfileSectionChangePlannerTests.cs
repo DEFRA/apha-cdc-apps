@@ -50,6 +50,9 @@ public class ProfileSectionChangePlannerTests
     private static readonly Guid ScenarioLocked = Guid.Parse("f000000d-0000-0000-0000-000000000000");
     private static readonly Guid Open = Guid.Parse("f000000e-0000-0000-0000-000000000000");
     private static readonly Guid SpeciesAreas = Guid.Parse("f000000f-0000-0000-0000-000000000000");
+    private static readonly Guid RowAreas = Guid.Parse("f0000010-0000-0000-0000-000000000000");
+    private static readonly Guid NewRow = Guid.Parse("c3000000-0000-0000-0000-000000000003");
+    private static readonly Guid OtherQuestionRow = Guid.Parse("c4000000-0000-0000-0000-000000000004");
 
     private static ReportSection Section() => new()
     {
@@ -122,9 +125,11 @@ public class ProfileSectionChangePlannerTests
         ReportSectionAnswers answers,
         IReadOnlyList<ProfileFieldAnswerInputDto> posted,
         bool isWhatIfScenario = false,
-        byte[]? lastUpdated = null) =>
+        byte[]? lastUpdated = null,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto>? postedRows = null,
+        ReportSection? section = null) =>
         ProfileSectionChangePlanner.PlanSave(
-            Section(), new Dictionary<Guid, ReportSectionAnswers> { [SectionId] = answers }, isWhatIfScenario, posted, lastUpdated);
+            section ?? Section(), new Dictionary<Guid, ReportSectionAnswers> { [SectionId] = answers }, isWhatIfScenario, posted, postedRows ?? [], lastUpdated);
 
     private static ProfileFieldAnswerInputDto Answer(Guid fieldId, bool? boolean = null, string? text = null, IReadOnlyList<Guid>? options = null, Guid? speciesId = null) =>
         new() { ProfileFieldId = fieldId, SpeciesId = speciesId, BooleanValue = boolean, TextValue = text, MultiListValues = options ?? [] };
@@ -368,6 +373,7 @@ public class ProfileSectionChangePlannerTests
             new Dictionary<Guid, ReportSectionAnswers> { [SectionId] = answers },
             isWhatIfScenario: false,
             [Answer(Present, boolean: true, speciesId: SpeciesA)],
+            postedRows: [],
             lastUpdated: null);
 
         change.ValueChangeCount.Should().Be(0);
@@ -482,9 +488,217 @@ public class ProfileSectionChangePlannerTests
             new Dictionary<Guid, ReportSectionAnswers> { [SectionId] = thisAnswers, [otherSectionId] = otherAnswers },
             isWhatIfScenario: false,
             [],
+            postedRows: [],
             lastUpdated: null);
 
         change.ValueChangeCount.Should().Be(0);
+    }
+
+    private static ProfileRepeatingQuestionInputDto RowsOf(params ProfileQuestionRowInputDto[] rows) => new() { QuestionId = RowsQuestion, Rows = rows };
+
+    private static ProfileQuestionRowInputDto Row(Guid id, string? text = null) => new() { Id = id, Answers = [Answer(RowText, text: text)] };
+
+    // The Rows question is relevant while Endemic is Yes, and holds two recorded rows with one answer each.
+    private static ReportSectionAnswers RowAnswers() => Answers(
+        Boolean(EndemicQuestion, Endemic, true),
+        Text(RowsQuestion, RowText, "Row one", rowId: RowOne),
+        Text(RowsQuestion, RowText, "Row two", rowId: RowTwo));
+
+    [Fact]
+    public void PlanSave_SavesTheAnswerOfARowThatChanged_AgainstTheRow_AndLeavesTheOthersAlone()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowOne, "Changed"), Row(RowTwo, "Row two"))]);
+
+        change.Saves.Should().ContainSingle().Which.Should().BeEquivalentTo(
+            new { ProfileFieldId = RowText, ProfileVersionQuestionRowId = (Guid?)RowOne, SpeciesId = (Guid?)null, TextValue = "Changed" });
+        change.QuestionRowsToInsert.Should().BeEmpty();
+        change.QuestionRowsToUpdate.Should().BeEmpty();
+        change.QuestionRowIdsToDelete.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PlanSave_AddsANewRowAfterTheRecordedOnes_AndSavesItsAnswers()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowOne, "Row one"), Row(RowTwo, "Row two"), Row(NewRow, "Row three"))]);
+
+        change.QuestionRowsToInsert.Should().ContainSingle().Which.Should().Be(new ProfileQuestionRowInstruction(NewRow, RowsQuestion, 2));
+        change.Saves.Should().ContainSingle().Which.Should().BeEquivalentTo(
+            new { ProfileFieldId = RowText, ProfileVersionQuestionRowId = (Guid?)NewRow, TextValue = "Row three" });
+        change.QuestionRowsToUpdate.Should().BeEmpty();
+        change.ValueChangeCount.Should().Be(2);
+    }
+
+    [Fact]
+    public void PlanSave_AddsANewRowWithNoAnswers_WithoutSavingAnything()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowOne, "Row one"), Row(RowTwo, "Row two"), Row(NewRow))]);
+
+        change.QuestionRowsToInsert.Should().ContainSingle().Which.Id.Should().Be(NewRow);
+        change.Saves.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PlanSave_DeletesARecordedRowThatIsNoLongerPosted_AndNumbersTheRowsThatRemain()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowTwo, "Row two"))]);
+
+        change.QuestionRowIdsToDelete.Should().BeEquivalentTo([RowOne]);
+        change.QuestionRowsToUpdate.Should().ContainSingle().Which.Should().Be(new ProfileQuestionRowInstruction(RowTwo, RowsQuestion, 0));
+        change.Saves.Should().BeEmpty();
+        change.QuestionRowsToInsert.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PlanSave_DeletesEveryRow_WhenTheQuestionIsPostedWithNone()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf()]);
+
+        change.QuestionRowIdsToDelete.Should().BeEquivalentTo([RowOne, RowTwo]);
+        change.QuestionRowsToUpdate.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PlanSave_NumbersTheRowsInTheOrderTheyArePosted()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowTwo, "Row two"), Row(RowOne, "Row one"))]);
+
+        change.QuestionRowsToUpdate.Should().BeEquivalentTo(
+            [new ProfileQuestionRowInstruction(RowTwo, RowsQuestion, 0), new ProfileQuestionRowInstruction(RowOne, RowsQuestion, 1)]);
+        change.QuestionRowIdsToDelete.Should().BeEmpty();
+        change.Saves.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PlanSave_LeavesTheRowsOfAQuestionAlone_WhenTheSaveDoesNotListIt()
+    {
+        var change = PlanSave(RowAnswers(), []);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_ChangesNoRow_WhenThePostedRowsMatchTheRecordedOnes()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowOne, "Row one"), Row(RowTwo, "Row two"))]);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_TakesTheLastListingOfAQuestion_WhenItIsListedMoreThanOnce()
+    {
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowOne, "Row one")), RowsOf(Row(RowOne, "Row one"), Row(RowTwo, "Row two"))]);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_IgnoresARowWhoseIdentifierIsEmptyRepeatedOrBelongsToAnotherQuestion()
+    {
+        var answers = RowAnswers() with
+        {
+            Rows = [new ReportQuestionRow(RowOne, RowsQuestion, 0), new ReportQuestionRow(RowTwo, RowsQuestion, 1), new ReportQuestionRow(OtherQuestionRow, DetailsQuestion, 0)]
+        };
+
+        var change = PlanSave(
+            answers,
+            [],
+            postedRows: [RowsOf(Row(RowOne, "Row one"), Row(Guid.Empty, "Empty"), Row(RowOne, "Repeated"), Row(OtherQuestionRow, "Taken"), Row(RowTwo, "Row two"))]);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_IgnoresAnAnswerPostedForAFieldThatIsNotInTheRow_OrNotInTheQuestion()
+    {
+        var change = PlanSave(
+            RowAnswers(),
+            [],
+            postedRows: [RowsOf(new ProfileQuestionRowInputDto { Id = RowOne, Answers = [Answer(Notes, text: "Not a field of the rows"), Answer(Guid.NewGuid(), text: "Unknown")] }, Row(RowTwo, "Row two"))]);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_IgnoresAListingOfAQuestionThatIsNotRepeating_OrIsNotInTheSection()
+    {
+        var change = PlanSave(
+            RowAnswers(),
+            [],
+            postedRows:
+            [
+                new ProfileRepeatingQuestionInputDto { QuestionId = DetailsQuestion, Rows = [Row(NewRow, "Not a repeating question")] },
+                new ProfileRepeatingQuestionInputDto { QuestionId = Guid.NewGuid(), Rows = [Row(NewRow, "No such question")] }
+            ]);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_ChangesNoRow_ForAQuestionWhoseFieldsAreAllReadOnlyForTheKindOfProfile()
+    {
+        var section = Section() with
+        {
+            Questions = [.. Section().Questions.Select(question => question.Id == RowsQuestion ? question with { Fields = [Field(RowText, "Text", readOnlyCurrent: true)] } : question)]
+        };
+
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(Row(RowOne, "Changed"))], section: section);
+
+        change.ValueChangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void PlanSave_LeavesAReadOnlyFieldOfARowAlone_WhileSavingTheOthers()
+    {
+        var section = Section() with
+        {
+            Questions = [.. Section().Questions.Select(question => question.Id == RowsQuestion
+                ? question with { Fields = [Field(RowText, "Text", readOnlyCurrent: true), Field(RowAreas, "MultiValueList")] }
+                : question)]
+        };
+        ProfileQuestionRowInputDto row = new() { Id = RowOne, Answers = [Answer(RowText, text: "Changed"), Answer(RowAreas, options: [FirstOption])] };
+
+        var change = PlanSave(RowAnswers(), [], postedRows: [RowsOf(row, Row(RowTwo, "Row two"))], section: section);
+
+        change.Saves.Should().ContainSingle().Which.ProfileFieldId.Should().Be(RowAreas);
+    }
+
+    [Fact]
+    public void PlanSave_SavesTheItemsOfAMultiValueListInARow_AgainstTheRow()
+    {
+        var section = Section() with
+        {
+            Questions = [.. Section().Questions.Select(question => question.Id == RowsQuestion
+                ? question with { Fields = [Field(RowText, "Text"), Field(RowAreas, "MultiValueList")] }
+                : question)]
+        };
+        var answers = RowAnswers() with
+        {
+            Values = [.. RowAnswers().Values, new ReportFieldValue { QuestionId = RowsQuestion, FieldId = RowAreas, ListValue = FirstOption, RowId = RowOne }]
+        };
+        ProfileQuestionRowInputDto row = new() { Id = RowOne, Answers = [Answer(RowText, text: "Row one"), Answer(RowAreas, options: [SecondOption, FirstOption])] };
+
+        var change = PlanSave(answers, [], postedRows: [RowsOf(row, Row(RowTwo, "Row two"))], section: section);
+
+        var save = change.Saves.Should().ContainSingle().Which;
+        save.ProfileFieldId.Should().Be(RowAreas);
+        save.ProfileVersionQuestionRowId.Should().Be(RowOne);
+        save.IsMultiValueList.Should().BeTrue();
+        save.MultiListValues.Should().BeEquivalentTo([FirstOption, SecondOption]);
+    }
+
+    [Fact]
+    public void PlanSave_DropsThePostedRows_OfAQuestionTheSameSaveMakesIrrelevant()
+    {
+        var change = PlanSave(
+            RowAnswers(),
+            [Answer(Endemic, boolean: false)],
+            postedRows: [RowsOf(Row(RowOne, "Changed"), Row(NewRow, "New row"))]);
+
+        change.QuestionRowIdsToDelete.Should().BeEquivalentTo([RowOne, RowTwo]);
+        change.QuestionRowsToInsert.Should().BeEmpty();
+        change.QuestionRowsToUpdate.Should().BeEmpty();
+        change.Saves.Should().ContainSingle().Which.ProfileFieldId.Should().Be(Endemic);
     }
 
     [Fact]

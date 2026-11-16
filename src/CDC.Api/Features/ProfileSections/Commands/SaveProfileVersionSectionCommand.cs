@@ -9,8 +9,8 @@ namespace CDC.Api.Features.ProfileSections.Commands;
 
 /// <summary>
 /// Saves the answers submitted for one profile version's section, matching the legacy save of the "Edit profile questions"
-/// page for standard (non-per-species, non-repeating) questions: only the answers that changed are written, after the
-/// questions the answers have made irrelevant have been cleared.
+/// page: only the answers that changed are written, after the questions the answers have made irrelevant have been cleared.
+/// The rows of a repeating question are saved as a whole: a row that is no longer posted is deleted and a new one added.
 /// </summary>
 public sealed record SaveProfileVersionSectionCommand : IRequest<Result<SaveProfileSectionResultDto>>
 {
@@ -20,8 +20,11 @@ public sealed record SaveProfileVersionSectionCommand : IRequest<Result<SaveProf
     /// <summary>Gets the section being answered.</summary>
     public required Guid ProfileSectionId { get; init; }
 
-    /// <summary>Gets the submitted field answers.</summary>
+    /// <summary>Gets the submitted field answers of the standard and per-species questions.</summary>
     public required IReadOnlyList<ProfileFieldAnswerInputDto> Answers { get; init; }
+
+    /// <summary>Gets the submitted rows of the repeating questions. A repeating question that is not listed keeps its rows.</summary>
+    public IReadOnlyList<ProfileRepeatingQuestionInputDto> RepeatingQuestions { get; init; } = [];
 
     /// <summary>Gets the row version of the section the caller last read (<c>lastUpdated</c> in the answers response). The save
     /// is refused with a conflict when someone else has saved the section since. When omitted the save is made over whatever
@@ -76,6 +79,7 @@ public sealed class SaveProfileVersionSectionCommandHandler(
                 request.ProfileVersionId,
                 request.ProfileSectionId,
                 request.Answers,
+                request.RepeatingQuestions,
                 request.LastUpdated,
                 cancellationToken);
 
