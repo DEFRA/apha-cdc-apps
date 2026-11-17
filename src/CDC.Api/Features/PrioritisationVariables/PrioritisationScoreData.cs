@@ -100,7 +100,7 @@ public sealed record PrioritisationScoreData
     public IReadOnlyList<ScoreDataNormalisedScore> NormalisedScores { get; init; } = [];
 }
 
-/// <summary>A CSV file built from the score data.</summary>
+/// <summary>An Excel file built from the score data.</summary>
 /// <param name="FileName">The download file name.</param>
-/// <param name="Content">The UTF-8 encoded CSV, with a byte order mark so Excel detects the encoding.</param>
-public sealed record PrioritisationCsvExport(string FileName, byte[] Content);
+/// <param name="Content">The HTML table Excel opens as a .xls file.</param>
+public sealed record PrioritisationWorkbookExport(string FileName, byte[] Content);

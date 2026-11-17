@@ -134,25 +134,25 @@ public class PrioritisationVariablesApiServiceTests
     [Fact]
     public async Task ExportCategoryScoreDataAsync_ReturnsTheFileWithItsDispositionName()
     {
-        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, "a,b", "Welfare.csv");
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, "xlsx", "Welfare.xls");
         var categoryId = Guid.NewGuid();
 
         var export = await CreateClient(handler).ExportCategoryScoreDataAsync(categoryId);
 
         Assert.NotNull(export);
-        Assert.Equal("Welfare.csv", export.FileName);
-        Assert.Equal("a,b", Encoding.UTF8.GetString(export.Content));
+        Assert.Equal("Welfare.xls", export.FileName);
+        Assert.Equal("xlsx", Encoding.UTF8.GetString(export.Content));
         Assert.Equal($"/api/prioritisation-variables/categories/{categoryId}/score-data", handler.LastRequestUri!.AbsolutePath);
     }
 
     [Fact]
     public async Task ExportCategoryScoreDataAsync_FallsBackToTheDefaultFileName_WhenNoDispositionIsReturned()
     {
-        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "a,b"));
+        var client = CreateClient(new RecordingHttpMessageHandler(HttpStatusCode.OK, "xlsx"));
 
         var export = await client.ExportCategoryScoreDataAsync(Guid.NewGuid());
 
-        Assert.Equal("ScoreData.csv", export!.FileName);
+        Assert.Equal("ScoreData.xls", export!.FileName);
     }
 
     [Fact]
@@ -166,11 +166,11 @@ public class PrioritisationVariablesApiServiceTests
     [Fact]
     public async Task ExportNormalisedScoresAsync_ReturnsTheFile()
     {
-        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, "a,b");
+        var handler = new RecordingHttpMessageHandler(HttpStatusCode.OK, "xlsx");
 
         var export = await CreateClient(handler).ExportNormalisedScoresAsync();
 
-        Assert.Equal("NormalisedScoreSummary.csv", export.FileName);
+        Assert.Equal("NormalisedScoreSummary.xls", export.FileName);
         Assert.Equal("/api/prioritisation-variables/normalised-scores", handler.LastRequestUri!.AbsolutePath);
     }
 

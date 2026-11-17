@@ -127,40 +127,40 @@ public sealed class PrioritisationVariablesController(ISender mediator) : Contro
     }
 
     /// <summary>
-    /// Downloads the score data of one prioritisation category as CSV.
+    /// Downloads the score data of one prioritisation category as an Excel file.
     /// </summary>
     /// <param name="categoryId">The category to export.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <response code="200">The CSV file.</response>
+    /// <response code="200">The Excel file.</response>
     /// <response code="404">No category exists with that id.</response>
     [HttpGet("categories/{categoryId:guid}/score-data")]
-    [Produces("text/csv", "application/problem+json")]
+    [Produces(PrioritisationScoreWorkbookBuilder.ContentType, "application/problem+json")]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult> ExportCategoryScoreData(Guid categoryId, CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new ExportCategoryScoreDataQuery(categoryId), cancellationToken);
 
-        return ToCsvResult(result);
+        return ToWorkbookResult(result);
     }
 
     /// <summary>
-    /// Downloads the normalised score and rank of every category, plus the combined rankings, as CSV.
+    /// Downloads the normalised score and rank of every category, plus the combined rankings, as an Excel file.
     /// </summary>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <response code="200">The CSV file.</response>
+    /// <response code="200">The Excel file.</response>
     [HttpGet("normalised-scores")]
-    [Produces("text/csv", "application/problem+json")]
+    [Produces(PrioritisationScoreWorkbookBuilder.ContentType, "application/problem+json")]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<ActionResult> ExportNormalisedScores(CancellationToken cancellationToken)
     {
         var result = await mediator.Send(new ExportNormalisedScoresQuery(), cancellationToken);
 
-        return ToCsvResult(result);
+        return ToWorkbookResult(result);
     }
 
-    private ActionResult ToCsvResult(Result<PrioritisationCsvExport> result) =>
+    private ActionResult ToWorkbookResult(Result<PrioritisationWorkbookExport> result) =>
         result.IsSuccess
-            ? File(result.Value.Content, "text/csv", result.Value.FileName)
+            ? File(result.Value.Content, PrioritisationScoreWorkbookBuilder.ContentType, result.Value.FileName)
             : result.ToActionResult(this).Result!;
 }

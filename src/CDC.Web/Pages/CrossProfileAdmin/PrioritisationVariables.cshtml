@@ -68,7 +68,7 @@
     for this purpose.
 </p>
 
-<h2 class="govuk-heading-m">Draft prioritisation</h2>
+<h2 class="govuk-heading-m app-section-heading">Draft prioritisation</h2>
 @* Go submits the update form, so whatever is on screen comes back unchanged, as the legacy partial postback left it. *@
 <div>
     <div class="govuk-form-group @(draftError is null ? string.Empty : "govuk-form-group--error")">
@@ -86,7 +86,7 @@
         </div>
         @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
         {
-            <output class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">@Model.SuccessMessage</output>
+            <output class="govuk-body app-result-message govuk-!-margin-top-2 govuk-!-margin-bottom-0">@Model.SuccessMessage</output>
         }
     </div>
 </div>
@@ -96,7 +96,7 @@
 </div>
 @if (!string.IsNullOrWhiteSpace(Model.UpdateResultMessage))
 {
-    <output class="govuk-body app-text-align-right">@Model.UpdateResultMessage</output>
+    <output class="govuk-body app-result-message app-text-align-right">@Model.UpdateResultMessage</output>
 }
 <div class="govuk-warning-text" id="pending-changes-message" hidden="@(Model.PendingCriteria.Count == 0)">
     <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
@@ -111,7 +111,7 @@
 
     <div class="govuk-form-group @(lowerBoundError is null && upperBoundError is null ? string.Empty : "govuk-form-group--error")">
         <fieldset class="govuk-fieldset">
-            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m app-section-heading">
                 <h2 class="govuk-fieldset__heading">Edit ranking range</h2>
             </legend>
             @if (lowerBoundError is not null)
