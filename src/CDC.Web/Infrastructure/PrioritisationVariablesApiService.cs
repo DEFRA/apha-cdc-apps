@@ -98,7 +98,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
             return null;
         }
 
-        return await ReadExportAsync(response, "ScoreData.csv", cancellationToken);
+        return await ReadExportAsync(response, "ScoreData.xls", cancellationToken);
     }
 
     /// <inheritdoc />
@@ -106,7 +106,7 @@ public sealed class PrioritisationVariablesApiService(HttpClient httpClient) : I
     {
         using var response = await httpClient.GetAsync("/api/prioritisation-variables/normalised-scores", cancellationToken);
 
-        return await ReadExportAsync(response, "NormalisedScoreSummary.csv", cancellationToken);
+        return await ReadExportAsync(response, "NormalisedScoreSummary.xls", cancellationToken);
     }
 
     private static async Task<PrioritisationScoreExport> ReadExportAsync(HttpResponseMessage response, string defaultFileName, CancellationToken cancellationToken)

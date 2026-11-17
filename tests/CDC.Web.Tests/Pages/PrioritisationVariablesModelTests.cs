@@ -407,7 +407,7 @@ public class PrioritisationVariablesModelTests
     }
 
     [Fact]
-    public async Task OnGetExportScoreDataAsync_ReturnsCsv_ForTheSelectedCategory()
+    public async Task OnGetExportScoreDataAsync_ReturnsExcelFile_ForTheSelectedCategory()
     {
         var model = CreatePageModel();
         model.SelectedCategoryId = CategoryId;
@@ -415,8 +415,8 @@ public class PrioritisationVariablesModelTests
         var result = await model.OnGetExportScoreDataAsync(CancellationToken.None);
 
         var file = Assert.IsType<FileContentResult>(result);
-        Assert.Equal("text/csv", file.ContentType);
-        Assert.Equal("Category.csv", file.FileDownloadName);
+        Assert.Equal("application/ms-excel", file.ContentType);
+        Assert.Equal("Category.xls", file.FileDownloadName);
     }
 
     [Fact]
@@ -489,14 +489,14 @@ public class PrioritisationVariablesModelTests
     }
 
     [Fact]
-    public async Task OnGetExportNormalisedScoresAsync_ReturnsCsv()
+    public async Task OnGetExportNormalisedScoresAsync_ReturnsExcelFile()
     {
         var model = CreatePageModel();
 
         var result = await model.OnGetExportNormalisedScoresAsync(CancellationToken.None);
 
         var file = Assert.IsType<FileContentResult>(result);
-        Assert.Equal("NormalisedScoreSummary.csv", file.FileDownloadName);
+        Assert.Equal("NormalisedScoreSummary.xls", file.FileDownloadName);
     }
 
     [Fact]

@@ -1,0 +1,53 @@
+@model CDC.Web.Features.Account.LoadTestLoginViewModel
+@{
+    var emailError = ViewData.ModelState[nameof(Model.EmailAddress)]?.Errors.FirstOrDefault()?.ErrorMessage;
+    var hasError = emailError is not null;
+
+    ViewData["Title"] = hasError ? "Error: Load test login" : "Load test login";
+    ViewData["HideAccountBar"] = true;
+    ViewData["HideFooterNavigation"] = true;
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        @if (hasError)
+        {
+            <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="load-test-login-error-summary-title">
+                <div role="alert">
+                    <h2 class="govuk-error-summary__title" id="load-test-login-error-summary-title">There is a problem</h2>
+                    <div class="govuk-error-summary__body">
+                        <ul class="govuk-list govuk-error-summary__list">
+                            <li><a href="#EmailAddress">@emailError</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <h1 class="govuk-heading-l">Load test login</h1>
+        <p class="govuk-body">You chose to continue as an @Model.Kind user. Your access is decided by the permissions of the user whose email address you enter.</p>
+
+        <form asp-controller="Account" asp-action="LoadTestLogin" method="post" novalidate>
+            <input type="hidden" asp-for="Kind" />
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div class="govuk-form-group @(hasError ? "govuk-form-group--error" : null)">
+                @if (hasError)
+                {
+                    <p id="EmailAddress-error" class="govuk-error-message">
+                        <span class="govuk-visually-hidden">Error:</span> @emailError
+                    </p>
+                }
+                <div class="app-label-select-inline">
+                    <label class="govuk-label" for="EmailAddress">Login as</label>
+                    <input class="govuk-input govuk-input--width-30 @(hasError ? "govuk-input--error" : null)"
+                           id="EmailAddress" name="EmailAddress" type="email" value="@Model.EmailAddress"
+                           maxlength="50" autocomplete="off" spellcheck="false"
+                           aria-describedby="@(hasError ? "EmailAddress-error" : null)" />
+                </div>
+            </div>
+
+            <button type="submit" class="govuk-button" data-module="govuk-button">Login</button>
+        </form>
+    </div>
+</div>
