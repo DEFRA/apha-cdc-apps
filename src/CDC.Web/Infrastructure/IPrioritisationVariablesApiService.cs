@@ -50,17 +50,17 @@ public interface IPrioritisationVariablesApiService
     /// <summary>Calls <c>GET /api/prioritisation-variables/categories/{categoryId}/score-data</c>.</summary>
     /// <param name="categoryId">The category to export.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The CSV file, or <see langword="null"/> when the category does not exist.</returns>
+    /// <returns>The Excel file, or <see langword="null"/> when the category does not exist.</returns>
     Task<PrioritisationScoreExport?> ExportCategoryScoreDataAsync(Guid categoryId, CancellationToken cancellationToken = default);
 
     /// <summary>Calls <c>GET /api/prioritisation-variables/normalised-scores</c>.</summary>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The CSV file.</returns>
+    /// <returns>The Excel file.</returns>
     Task<PrioritisationScoreExport> ExportNormalisedScoresAsync(CancellationToken cancellationToken = default);
 }
 
-/// <summary>A CSV score export downloaded from CDC.Api.</summary>
-/// <param name="Content">The CSV bytes.</param>
+/// <summary>An Excel score export downloaded from CDC.Api.</summary>
+/// <param name="Content">The Excel file bytes.</param>
 /// <param name="FileName">The download file name.</param>
 public sealed record PrioritisationScoreExport(byte[] Content, string FileName);
 

@@ -5,12 +5,12 @@ using MediatR;
 
 namespace CDC.Api.Features.PrioritisationVariables.Queries;
 
-/// <summary>Builds the "Export score data" CSV for one prioritisation category.</summary>
+/// <summary>Builds the "Export score data" Excel file for one prioritisation category.</summary>
 /// <param name="CategoryId">The category to export.</param>
-public sealed record ExportCategoryScoreDataQuery(Guid CategoryId) : IRequest<Result<PrioritisationCsvExport>>;
+public sealed record ExportCategoryScoreDataQuery(Guid CategoryId) : IRequest<Result<PrioritisationWorkbookExport>>;
 
-/// <summary>Builds the "Export normalised scores (all categories)" CSV.</summary>
-public sealed record ExportNormalisedScoresQuery : IRequest<Result<PrioritisationCsvExport>>;
+/// <summary>Builds the "Export normalised scores (all categories)" Excel file.</summary>
+public sealed record ExportNormalisedScoresQuery : IRequest<Result<PrioritisationWorkbookExport>>;
 
 /// <summary>
 /// Handles <see cref="ExportCategoryScoreDataQuery"/> and <see cref="ExportNormalisedScoresQuery"/>.
@@ -20,32 +20,32 @@ public sealed record ExportNormalisedScoresQuery : IRequest<Result<Prioritisatio
 public sealed class ExportPrioritisationScoresQueryHandler(
     IPrioritisationVariablesRepository repository,
     IDiseaseRankingRepository rankingRepository)
-    : IRequestHandler<ExportCategoryScoreDataQuery, Result<PrioritisationCsvExport>>,
-      IRequestHandler<ExportNormalisedScoresQuery, Result<PrioritisationCsvExport>>
+    : IRequestHandler<ExportCategoryScoreDataQuery, Result<PrioritisationWorkbookExport>>,
+      IRequestHandler<ExportNormalisedScoresQuery, Result<PrioritisationWorkbookExport>>
 {
     /// <summary>Executes the category query.</summary>
     /// <param name="request">The query.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The CSV file, or not-found when the category does not exist.</returns>
-    public async Task<Result<PrioritisationCsvExport>> Handle(ExportCategoryScoreDataQuery request, CancellationToken cancellationToken)
+    /// <returns>The Excel file, or not-found when the category does not exist.</returns>
+    public async Task<Result<PrioritisationWorkbookExport>> Handle(ExportCategoryScoreDataQuery request, CancellationToken cancellationToken)
     {
         var data = await repository.GetScoreDataAsync(cancellationToken);
-        var export = PrioritisationScoreCsvBuilder.BuildCategoryScoreData(data, request.CategoryId);
+        var export = PrioritisationScoreWorkbookBuilder.BuildCategoryScoreData(data, request.CategoryId);
 
         return export is null
-            ? Result.NotFound<PrioritisationCsvExport>($"No prioritisation category exists with id '{request.CategoryId}'.")
+            ? Result.NotFound<PrioritisationWorkbookExport>($"No prioritisation category exists with id '{request.CategoryId}'.")
             : Result.Success(export);
     }
 
     /// <summary>Executes the all-categories query.</summary>
     /// <param name="request">The query.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The CSV file.</returns>
-    public async Task<Result<PrioritisationCsvExport>> Handle(ExportNormalisedScoresQuery request, CancellationToken cancellationToken)
+    /// <returns>The Excel file.</returns>
+    public async Task<Result<PrioritisationWorkbookExport>> Handle(ExportNormalisedScoresQuery request, CancellationToken cancellationToken)
     {
         var data = await repository.GetScoreDataAsync(cancellationToken);
         var rankedProfiles = await rankingRepository.GetRankedProfilesAsync(null, cancellationToken);
 
-        return Result.Success(PrioritisationScoreCsvBuilder.BuildNormalisedScores(data, rankedProfiles));
+        return Result.Success(PrioritisationScoreWorkbookBuilder.BuildNormalisedScores(data, rankedProfiles));
     }
 }

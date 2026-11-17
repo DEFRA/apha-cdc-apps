@@ -284,6 +284,29 @@ public class GlobalUsersServiceTests
     }
 
     [Fact]
+    public async Task LookupAsync_ReturnsTheUserNameAsTyped_WhenItMatchesAnExistingUserInADifferentCase()
+    {
+        var user = User(@"Defra\jsmith");
+        repository.Setup(repo => repo.FindUserByUsernameAsync(@"defra\jsmith", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserVerification { Id = user.Id, IsUserManagementSystem = false });
+        repository.Setup(repo => repo.GetUserAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var result = await CreateService().LookupAsync(@"defra\jsmith", CancellationToken.None);
+
+        result.UserName.Should().Be(@"defra\jsmith");
+    }
+
+    [Fact]
+    public async Task SaveAsync_KeepsTheTypedCase_WhenAddingAnExistingUser()
+    {
+        var existing = User(@"Defra\jsmith");
+
+        var saved = await SaveAndCaptureAsync(Save(existing.Id, isNew: true, userName: @"defra\jsmith"), existing);
+
+        saved.UserName.Should().Be(@"defra\jsmith");
+    }
+
+    [Fact]
     public async Task SaveAsync_RecordsANewUserAddedFromTheLookupAsInternal()
     {
         var saved = await SaveAndCaptureAsync(Save(isNew: true), existing: null);

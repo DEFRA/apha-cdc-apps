@@ -48,10 +48,10 @@ public class PrioritisationVariablesModel(
     /// <summary>The model state key for a draft prioritisation failure, linked to the Go button.</summary>
     public const string DraftPrioritisationErrorKey = "DraftPrioritisation";
 
-    /// <summary>The model state key for a CSV export failure, linked to the export buttons.</summary>
+    /// <summary>The model state key for a Excel export failure, linked to the export buttons.</summary>
     public const string ExportErrorKey = "Export";
 
-    private const string CsvContentType = "text/csv";
+    private const string ExcelContentType = "application/ms-excel";
 
     private const int MaxCriterionNameLength = 255;
 
@@ -269,9 +269,9 @@ public class PrioritisationVariablesModel(
         }
     }
 
-    /// <summary>Downloads the score data of the selected category as CSV - the legacy "Export score data" button.</summary>
+    /// <summary>Downloads the score data of the selected category as an Excel file - the legacy "Export score data" button.</summary>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The CSV file, or the page with an error when it could not be built.</returns>
+    /// <returns>The Excel file, or the page with an error when it could not be built.</returns>
     public async Task<IActionResult> OnGetExportScoreDataAsync(CancellationToken cancellationToken)
     {
         if (SelectedCategoryId is not { } categoryId)
@@ -283,7 +283,7 @@ public class PrioritisationVariablesModel(
         {
             var export = await prioritisationVariablesApiService.ExportCategoryScoreDataAsync(categoryId, cancellationToken);
 
-            return export is null ? NotFound() : File(export.Content, CsvContentType, export.FileName);
+            return export is null ? NotFound() : File(export.Content, ExcelContentType, export.FileName);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
@@ -293,16 +293,16 @@ public class PrioritisationVariablesModel(
         return await ShowExportErrorAsync("We could not export the score data. Try again later.", cancellationToken);
     }
 
-    /// <summary>Downloads the normalised scores of every category as CSV - the legacy "Export normalised scores (all categories)" button.</summary>
+    /// <summary>Downloads the normalised scores of every category as an Excel file - the legacy "Export normalised scores (all categories)" button.</summary>
     /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The CSV file, or the page with an error when it could not be built.</returns>
+    /// <returns>The Excel file, or the page with an error when it could not be built.</returns>
     public async Task<IActionResult> OnGetExportNormalisedScoresAsync(CancellationToken cancellationToken)
     {
         try
         {
             var export = await prioritisationVariablesApiService.ExportNormalisedScoresAsync(cancellationToken);
 
-            return File(export.Content, CsvContentType, export.FileName);
+            return File(export.Content, ExcelContentType, export.FileName);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {

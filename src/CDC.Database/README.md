@@ -97,6 +97,9 @@ is not null. Until it has run the External users list is empty. The Global users
 users with `[SsoUserIdInt]` set. An external user the legacy site registered (legacy `[SsoUserId]` set) is not flagged until they first sign in
 through CIDM.
 
+CDC.Api no longer calls `spgaInternalUser`: Maintain global users lists the users holding a global role (`spgaGlobalUser`), as
+legacy did, so an added user is listed straight away and a user whose role is revoked drops off the list.
+
 If this grows to the point where manually tracking applied scripts becomes error-prone, introduce
 a proper migration tool (e.g. DbUp) pointed at this same `Scripts` folder rather than changing how
 scripts are authored.

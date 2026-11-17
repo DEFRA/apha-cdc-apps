@@ -196,6 +196,13 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
  
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore solution
         run: dotnet restore CDC.slnx
  
@@ -275,6 +282,13 @@ jobs:
           New-Item -Path "${{ runner.temp }}\scanner" -ItemType Directory -Force | Out-Null
           dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}\scanner"
  
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore solution
         run: dotnet restore CDC.slnx
  
@@ -338,10 +352,18 @@ jobs:
  
   container-validation:
     name: Validate ${{ matrix.component }} container
-    needs: [changes, quality]
-    if: needs.changes.outputs.components != '[]'
+    # Deliberately not gated on `quality`: the Docker build restores and publishes on its own and uses
+    # nothing from it, so it runs in parallel. The `gate` job still requires `quality` to succeed, so a
+    # failing build/test run can never be merged or published.
+    #
+    # Runs on pull requests (and on branch dispatches). Production runs on main build, verify and scan the
+    # image inside the `publish` job instead, so the image is never saved, uploaded and re-loaded between jobs.
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.components != '[]' &&
+      (github.event_name == 'pull_request' || github.ref != 'refs/heads/main')
     runs-on: windows-2022
-    # The web image's full Windows Server base is much larger than Server Core, so pulling, saving and uploading it takes longer.
+    # The web image's full Windows Server base is much larger than Server Core, so pulling it takes longer.
     timeout-minutes: 35
     permissions:
       contents: read
@@ -380,7 +402,13 @@ jobs:
  
       - name: Start Docker service
         uses: ./.github/actions/start-docker
- 
+
+      - name: Pre-pull final-stage base image in the background
+        continue-on-error: true
+        uses: ./.github/actions/prepull-final-base-image
+        with:
+          dockerfile: ${{ env.DOCKERFILE }}
+
       - name: Build container without publishing
         shell: pwsh
         run: |
@@ -418,22 +446,6 @@ jobs:
           image: cdc-${{ matrix.component }}:${{ github.sha }}
           name: ${{ matrix.component }}
 
-      - name: Save validated image for publishing
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        shell: pwsh
-        run: |
-          docker save "cdc-${{ matrix.component }}:$env:GITHUB_SHA" `
-            -o "${{ runner.temp }}/cdc-${{ matrix.component }}.tar"
- 
-      - name: Upload validated image artifact
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
-        with:
-          name: cdc-image-${{ matrix.component }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/cdc-${{ matrix.component }}.tar
-          retention-days: 1
-          overwrite: true
- 
   release-version:
     name: Calculate component release versions
     needs: [changes]
@@ -475,7 +487,6 @@ jobs:
       - quality
       - sonarcloud
       - security-scans
-      - container-validation
       - release-version
     if: >-
       always() &&
@@ -485,12 +496,12 @@ jobs:
       needs.quality.result == 'success' &&
       (vars.SONAR_ENABLED != 'true' || needs.sonarcloud.result == 'success') &&
       needs.security-scans.result == 'success' &&
-      needs.container-validation.result == 'success' &&
       needs.release-version.result == 'success' &&
       needs.changes.outputs.components != '[]'
     runs-on: windows-2022
     environment: ecr-production
-    timeout-minutes: 25
+    # Includes the image build, verification and scan that used to run in container-validation.
+    timeout-minutes: 45
     permissions:
       contents: read
       id-token: write
@@ -499,6 +510,7 @@ jobs:
       matrix:
         component: ${{ fromJSON(needs.changes.outputs.components) }}
     env:
+      DOCKERFILE: ${{ fromJSON(needs.changes.outputs.dockerfiles)[matrix.component] }}
       AWS_REGION: ${{ secrets.AWS_ENV_REGION }}
       AWS_ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ENV_ACCOUNT }}:role/${{ secrets.AWS_ENV_OIDC_ROLE }}
       EXPECTED_AWS_ACCOUNT_ID: ${{ vars.EXPECTED_AWS_ACCOUNT_ID }}
@@ -518,20 +530,74 @@ jobs:
         env:
           COMPONENT: ${{ matrix.component }}
         run: bash .github/scripts/publish/resolve-publish-config.sh
- 
-      - name: Download validated image artifact
-        uses: actions/download-artifact@v8
+
+      - name: Validate resolved Dockerfile path
+        if: env.DOCKERFILE == ''
+        shell: bash
+        run: |
+          echo "::error::No Dockerfile is mapped for component '${{ matrix.component }}'."
+          exit 1
+
+      # Same build, verification and scan steps as container-validation. They run here, before any AWS
+      # credentials are requested, so the image that is pushed is exactly the one that was scanned.
+      - name: Install FortiGate TLS-inspection CA certificates
+        id: fortigate-ca
+        uses: ./.github/actions/install-fortigate-ca
         with:
-          name: cdc-image-${{ matrix.component }}-${{ github.run_id }}
-          path: ${{ runner.temp }}
- 
+          root-ca-cert-base64: ${{ secrets.FORTIGATE_ROOT_CA_CERT_BASE64 }}
+          ca-cert-base64: ${{ secrets.FORTIGATE_CA_CERT_BASE64 }}
+
+      - name: Remove unsupported NuGet cache mounts
+        uses: ./.github/actions/strip-nuget-cache-mount
+        with:
+          dockerfile: ${{ env.DOCKERFILE }}
+
       - name: Start Docker service
         uses: ./.github/actions/start-docker
- 
-      - name: Load validated image
+
+      - name: Pre-pull final-stage base image in the background
+        continue-on-error: true
+        uses: ./.github/actions/prepull-final-base-image
+        with:
+          dockerfile: ${{ env.DOCKERFILE }}
+
+      - name: Build container
         shell: pwsh
-        run: docker load -i "${{ runner.temp }}/cdc-${{ matrix.component }}.tar"
- 
+        run: |
+          # --pull forces fresh base images: the floating dotnet 10.0 tags and any image cached on
+          # the runner would otherwise keep shipping an older, vulnerable runtime.
+          $dockerArgs = @(
+            "build"
+            "--pull"
+            "--file"
+            "${{ env.DOCKERFILE }}"
+            "--tag"
+            "cdc-${{ matrix.component }}:$env:GITHUB_SHA"
+            "--label"
+            "org.opencontainers.image.revision=$env:GITHUB_SHA"
+            "--label"
+            "org.opencontainers.image.source=https://github.com/$env:GITHUB_REPOSITORY"
+            "."
+          )
+
+          docker @dockerArgs
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Verify FortiGate CA chain is trusted in image
+        uses: ./.github/actions/verify-fortigate-ca-in-image
+        with:
+          image: cdc-${{ matrix.component }}:${{ github.sha }}
+          root-thumbprint: ${{ steps.fortigate-ca.outputs.root_thumbprint }}
+          subca-thumbprint: ${{ steps.fortigate-ca.outputs.thumbprint }}
+
+      - name: Scan image for vulnerabilities
+        uses: ./.github/actions/trivy-image-scan
+        with:
+          image: cdc-${{ matrix.component }}:${{ github.sha }}
+          name: ${{ matrix.component }}
+
       - name: Display OIDC claims for troubleshooting
         continue-on-error: true
         shell: bash
@@ -651,9 +717,13 @@ jobs:
             exit 1
           }
  
-          if [[ "${COMPONENTS}" != "[]" && "${CONTAINER_RESULT}" != "success" ]]; then
-            echo "::error::Container validation result: ${CONTAINER_RESULT}"
-            exit 1
+          if [[ "${COMPONENTS}" != "[]" ]] && ! { [[ "${EVENT_NAME}" =~ ^(push|workflow_dispatch)$ ]] && [[ "${GIT_REF}" == "refs/heads/main" ]]; }; then
+            # Pull requests and branch dispatches validate the image in container-validation. On main the
+            # image is built, verified and scanned inside the publish job, which is enforced below.
+            [[ "${CONTAINER_RESULT}" == "success" ]] || {
+              echo "::error::Container validation result: ${CONTAINER_RESULT}"
+              exit 1
+            }
           fi
  
           if [[ "${EVENT_NAME}" =~ ^(push|workflow_dispatch)$ && \

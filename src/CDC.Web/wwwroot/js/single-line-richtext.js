@@ -122,18 +122,17 @@
         toolbar.setAttribute('aria-label', label + ' formatting');
         toolbar.history = history;
 
+        var groups = {};
+
         [
-            { command: 'undo', text: '\u21B6', name: 'Undo', extra: '' },
-            { command: 'redo', text: '\u21B7', name: 'Redo', extra: '' },
-            { divider: true },
-            { command: 'italic', text: 'I', name: 'Italic', extra: ' app-richtext-toolbar__button--italic' }
+            { command: 'undo', text: '\u21B6', name: 'Undo', group: 'history', extra: '' },
+            { command: 'redo', text: '\u21B7', name: 'Redo', group: 'history', extra: '' },
+            { command: 'italic', text: 'I', name: 'Italic', group: 'format', extra: ' app-richtext-toolbar__button--italic' }
         ].forEach(function (item) {
-            if (item.divider) {
-                var divider = document.createElement('span');
-                divider.className = 'app-richtext-toolbar__divider';
-                divider.setAttribute('aria-hidden', 'true');
-                toolbar.appendChild(divider);
-                return;
+            if (!groups[item.group]) {
+                groups[item.group] = document.createElement('span');
+                groups[item.group].className = 'app-richtext-toolbar__group';
+                toolbar.appendChild(groups[item.group]);
             }
 
             var button = document.createElement('button');
@@ -160,7 +159,7 @@
                 }
                 updateState(toolbar);
             });
-            toolbar.appendChild(button);
+            groups[item.group].appendChild(button);
         });
 
         return toolbar;

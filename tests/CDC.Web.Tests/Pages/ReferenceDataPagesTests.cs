@@ -501,26 +501,25 @@ public class ReferenceDataPagesTests
     }
 
     [Fact]
-    public async Task ReferenceDataAuditDetails_OnGetAsync_ShowsTheEntry()
+    public async Task ReferenceDataAudit_OnGetAsync_SelectsTheEntry_ForAuditId()
     {
         var service = CreateService();
         var value = (await service.GetValuesAsync(ControlMechanismId))[0];
         var result = await service.UpdateValueAsync(new ReferenceDataUpdate(ControlMechanismId, value.Id, "Changed", "Because", "Profile Editor"));
 
-        var pageModel = new ReferenceDataAuditDetailsModel(service) { TableId = ControlMechanismId, AuditId = result.AuditEntry!.Id };
+        var pageModel = new ReferenceDataAuditModel(service, NullAuditLogger) { TableId = ControlMechanismId, AuditId = result.AuditEntry!.Id };
+        await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.IsType<PageResult>(await pageModel.OnGetAsync(CancellationToken.None));
-        Assert.Equal("Because", pageModel.Entry!.Reason);
+        Assert.Equal("Because", pageModel.SelectedEntry!.Reason);
     }
 
     [Fact]
-    public async Task ReferenceDataAuditDetails_OnGetAsync_ReturnsNotFound_ForUnknownEntry()
+    public async Task ReferenceDataAudit_OnGetAsync_SelectsNothing_ForUnknownAuditId()
     {
-        var pageModel = new ReferenceDataAuditDetailsModel(CreateService()) { TableId = ControlMechanismId, AuditId = Guid.NewGuid() };
+        var pageModel = new ReferenceDataAuditModel(CreateService(), NullAuditLogger) { TableId = ControlMechanismId, AuditId = Guid.NewGuid() };
+        await pageModel.OnGetAsync(CancellationToken.None);
 
-        var result = await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.IsType<NotFoundResult>(result);
+        Assert.Null(pageModel.SelectedEntry);
     }
 
     [Fact]

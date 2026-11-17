@@ -22,7 +22,7 @@ namespace CDC.Api.Features.GlobalUsers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class GlobalUsersController(ISender mediator) : ControllerBase
 {
-    /// <summary>Gets one page of global users: the users linked to an Entra ID identity, including those with no global role yet.</summary>
+    /// <summary>Gets one page of global users: the users holding a global role.</summary>
     /// <param name="pageNumber">The 1-based page to return.</param>
     /// <param name="pageSize">Items per page, or 0 for every user on a single page.</param>
     /// <param name="sortColumn">The column to sort by. Defaults to full name, as legacy did.</param>
