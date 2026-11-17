@@ -10,9 +10,9 @@
    table is used to change them; only the inputs of a field the user may change are named, and so posted. The row also lists itself in the
    question's list of rows, whose order is the order the rows are kept in. *@
 <tr class="govuk-table__row" data-row="@row.RowId">
-    @foreach (var field in question.Fields.Where(field => field.IncludeInSummary))
+    @foreach (var fieldId in question.Fields.Where(field => field.IncludeInSummary).Select(field => field.FieldId))
     {
-        <td class="govuk-table__cell" data-row-summary="@field.FieldId">@row.AnswerTo(field.FieldId)?.SummaryText</td>
+        <td class="govuk-table__cell" data-row-summary="@fieldId">@row.AnswerTo(fieldId)?.SummaryText</td>
     }
     <td class="govuk-table__cell govuk-table__cell--numeric app-row-table__action">
         <button type="button" class="govuk-link app-link-button" aria-controls="@panelId" aria-expanded="false" data-row-edit>@actionText<span class="govuk-visually-hidden"> answer <span data-row-number>@Model.Position</span> to question @question.Number</span></button>

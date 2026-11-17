@@ -4,6 +4,7 @@
     var rows = Model.SpeciesRows ?? [];
     var prefix = $"species-{Model.Id}";
     var summaryFields = Model.Fields.Where(field => field.IncludeInSummary).ToList();
+    var summaryFieldIds = summaryFields.Select(field => field.FieldId).ToList();
     var actionText = Model.CanEditSpecies ? "Edit" : "View";
     var relevantRows = rows.Where(row => row.IsRelevant).ToList();
 }
@@ -35,9 +36,9 @@ else
 
                     <tr class="govuk-table__row" data-species-row="@row.SpeciesId" data-species-name="@speciesName" hidden="@(row.IsRelevant ? null : "hidden")">
                         <th scope="row" class="govuk-table__header">@ProfileTitleHtmlFormatter.Format(row.Name)</th>
-                        @foreach (var field in summaryFields)
+                        @foreach (var fieldId in summaryFieldIds)
                         {
-                            <td class="govuk-table__cell" data-species-summary="@field.FieldId">@row.AnswerTo(field.FieldId)?.SummaryText</td>
+                            <td class="govuk-table__cell" data-species-summary="@fieldId">@row.AnswerTo(fieldId)?.SummaryText</td>
                         }
                         <td class="govuk-table__cell govuk-table__cell--numeric app-species-table__action">
                             <button type="button" class="govuk-link app-link-button" aria-controls="@(prefix)-panel" aria-expanded="false" data-species-edit="@row.SpeciesId">@actionText<span class="govuk-visually-hidden"> @speciesName answer to question @Model.Number</span></button>

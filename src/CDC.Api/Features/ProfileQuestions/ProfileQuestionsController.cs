@@ -122,7 +122,7 @@ public sealed class ProfileQuestionsController(ISender mediator) : ControllerBas
     /// another user has saved in the meantime the request is rejected with 409.
     /// </remarks>
     /// <param name="profileQuestionId">The question to update.</param>
-    /// <param name="command">The changes to apply.</param>
+    /// <param name="request">The changes to apply.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The updated question.</returns>
     /// <response code="200">The question was updated.</response>
@@ -138,11 +138,36 @@ public sealed class ProfileQuestionsController(ISender mediator) : ControllerBas
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProfileQuestionDto>> UpdateProfileQuestion(
         Guid profileQuestionId,
-        [FromBody] UpdateProfileQuestionCommand command,
+        [FromBody] UpdateProfileQuestionRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await mediator.Send(command with { Id = profileQuestionId }, cancellationToken);
+        var command = new UpdateProfileQuestionCommand
+        {
+            Id = profileQuestionId,
+            Name = request.Name,
+            NonTechnicalName = request.NonTechnicalName,
+            UserGuidance = request.UserGuidance,
+            LastUpdated = request.LastUpdated
+        };
+
+        var result = await mediator.Send(command, cancellationToken);
 
         return result.ToActionResult(this);
     }
+}
+
+/// <summary>Request body for <see cref="ProfileQuestionsController.UpdateProfileQuestion"/>. The question is the one in the route, so the body does not carry its id.</summary>
+public sealed record UpdateProfileQuestionRequest
+{
+    /// <summary>Gets the question's new full display name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Gets the question's new plain-language name.</summary>
+    public string NonTechnicalName { get; init; } = string.Empty;
+
+    /// <summary>Gets the question's new guidance text.</summary>
+    public string UserGuidance { get; init; } = string.Empty;
+
+    /// <summary>Gets the row version read alongside the question, so a concurrent edit can be detected.</summary>
+    public byte[] LastUpdated { get; init; } = [];
 }
