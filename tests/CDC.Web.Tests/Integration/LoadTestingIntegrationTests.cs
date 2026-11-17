@@ -6,6 +6,7 @@ using CDC.Web.Infrastructure;
 using CDC.Web.Models;
 using CDC.Web.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -422,6 +423,24 @@ public class LoadTestingIntegrationTests : IClassFixture<CdcWebTestFactory>
         Assert.Equal(HttpStatusCode.NotFound, loginPage.StatusCode);
     }
 
+    // A task definition with no value for the flag (as in TEST) passes it blank; the app has to start with it off.
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task WhenTheTaskDefinitionPassesABlankValue_TheAppStartsWithItOff(string blank)
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder => builder.UseSetting("LoadTesting:Enabled", blank));
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Landing/Internal");
+        var landing = await client.GetStringAsync("/");
+        var loginPage = await client.GetAsync("/Account/LoadTestLogin?kind=internal");
+
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, response.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(Banner, landing, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NotFound, loginPage.StatusCode);
+    }
+
     [Fact]
     public void InProduction_TheAppRefusesToStart()
     {
@@ -430,6 +449,29 @@ public class LoadTestingIntegrationTests : IClassFixture<CdcWebTestFactory>
         var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
 
         Assert.Contains("'PROD'", failure.ToString(), StringComparison.Ordinal);
+    }
+
+    // An ECS task runs as Production and may carry no Deployment:Environment: the app starts and offers the Load test login, with or without an expiry.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task InAProductionRunWithNoDeploymentLabel_TheAppStartsAndOffersTheLoadTestLogin(bool withExpiry)
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("LoadTesting:Enabled", "true");
+
+            if (withExpiry)
+            {
+                builder.UseSetting("LoadTesting:ExpiresAtUtc", DateTimeOffset.UtcNow.AddHours(1).ToString("o", CultureInfo.InvariantCulture));
+            }
+        });
+
+        var login = await Client(factory).GetAsync("/Account/LoginInternal");
+
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        Assert.Equal("/Account/LoadTestLogin?kind=internal", login.Headers.Location!.OriginalString);
     }
 
     [Fact]
