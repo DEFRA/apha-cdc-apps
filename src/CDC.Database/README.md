@@ -78,6 +78,9 @@ saves the review email subscription by `[Id]`). The legacy `spgaGlobalUser` (use
 user is listed only once the column is filled in, that is after their first Entra ID or CIDM sign-in, so an external user pre-registered
 on Maintain external users, or a global user added on Maintain global users, is not listed until they have signed in.
 
+CDC.Api no longer calls `spgaInternalUser`: Maintain global users lists the users holding a global role (`spgaGlobalUser`), as
+legacy did, so an added user is listed straight away and a user whose role is revoked drops off the list.
+
 If this grows to the point where manually tracking applied scripts becomes error-prone, introduce
 a proper migration tool (e.g. DbUp) pointed at this same `Scripts` folder rather than changing how
 scripts are authored.

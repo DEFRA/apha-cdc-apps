@@ -91,8 +91,11 @@ public sealed partial class GlobalUsersService(
             return Result.ValidationFailed<Unit>("SSO users cannot be given global access rights.");
         }
 
-        // An existing user's username is never changed from here.
-        var userName = existing?.UserName ?? command.UserName?.Trim() ?? string.Empty;
+        // An existing user's username is never changed from here, except that adding one keeps the letter case the administrator typed.
+        var typedUserName = command.UserName?.Trim() ?? string.Empty;
+        var userName = existing is null || (command.IsNew && string.Equals(typedUserName, existing.UserName, StringComparison.OrdinalIgnoreCase))
+            ? typedUserName
+            : existing.UserName;
         var validationError = Validate(command, userName, checkUserName: existing is null);
 
         if (validationError is not null)
@@ -181,7 +184,8 @@ public sealed partial class GlobalUsersService(
                     {
                         Outcome = GlobalUserLookupOutcome.ExistingUser,
                         Id = user.Id,
-                        UserName = user.UserName,
+                        // The database matches usernames regardless of case; show what was typed.
+                        UserName = userName,
                         FullName = user.FullName,
                         Organisation = user.Organisation,
                         Role = user.Role,
