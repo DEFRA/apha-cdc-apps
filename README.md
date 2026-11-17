@@ -105,8 +105,8 @@ Scheduler-triggered ECS Scheduled Task. Code lives in `src/CDC.Api/Features/Revi
 
 Users are selected by the database views `vwReviewEmailUsers`, `vwReviewEmailProfiles` and
 `vwReviewEmailProfileSections`, which apply the two-week reminder window and the subscription, Draft-state
-and not-Complete filters. Each user's profile roles are then mapped to a reviewer group
-(`Policy`, `AuthorTechnical`, `VeterinaryAdvisor`) via `ReviewNotifications:ReviewerGroups`.
+and not-Complete filters. As in the legacy service, every selected user is emailed, and the email lists
+all three review types (technical, policy, author) for their sections; no role check is applied.
 
 ### Configuration
 
@@ -119,7 +119,6 @@ environment variables); never commit them.
 | `Notification:ApiKey`                         | Notify API key (`{name}-{service id}-{secret}`). Use a **team-only or test key** locally |
 | `Notification:BaseUrl`                        | Defaults to `https://api.notifications.service.gov.uk`                                    |
 | `Notification:TemplateId`                     | Review reminder template; `appsettings.json` sets it, with `((name))`, `((subject))` and `((body))` personalisation |
-| `ReviewNotifications:ReviewerGroups`    | Profile role names per reviewer group; a group with none configured is not emailed       |
 | `App:BaseUrl`                           | Address D2R2 is opened at, linked from the emails; reminders omit the link when empty    |
 | `ReviewNotifications:SupportMailbox`    | Contact address shown in the email                                                       |
 | `ReviewNotifications:TestRecipient`     | Testing only. When set, every reminder goes to this address instead of the user's own    |

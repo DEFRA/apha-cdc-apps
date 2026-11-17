@@ -52,21 +52,8 @@ public sealed class ReviewNotificationsJob(
         }
         var sent = 0;
 
-        foreach (var group in ReviewerGroups.Unconfigured(options.Value))
+        foreach (var user in users)
         {
-            failed++;
-            logger.ReviewerGroupNotConfigured(group);
-        }
-
-        foreach (var due in users)
-        {
-            var user = ReviewerGroups.FilterToGroups(due, today, options.Value);
-
-            if (user is null)
-            {
-                continue;
-            }
-
             try
             {
                 var message = ReviewEmailComposer.Compose(user, today, appOptions.Value.BaseUrl);
