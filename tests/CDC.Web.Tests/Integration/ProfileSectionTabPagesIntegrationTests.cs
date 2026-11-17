@@ -22,6 +22,10 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
     private static readonly Guid CompleteStatusId = Guid.NewGuid();
     private static readonly Guid FurtherInformationNoteId = Guid.NewGuid();
     private static readonly Guid MasterListNoteId = Guid.NewGuid();
+    private static readonly Guid ScientificNoteId = Guid.NewGuid();
+    private static readonly Guid ScientificMasterNoteId = Guid.NewGuid();
+    private static readonly Guid LegislativeNoteId = Guid.NewGuid();
+    private static readonly Guid LegislativeMasterNoteId = Guid.NewGuid();
     private static readonly byte[] NoteRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
     private readonly CdcWebTestFactory _factory;
@@ -89,8 +93,25 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
 
     private async Task<HttpResponseMessage> SendAsync(string page, ManageProfileViewModel profile, string query = "", IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null)
     {
-        var noteTypeId = Guid.NewGuid();
+        var scientificTypeId = Guid.NewGuid();
+        var legislativeTypeId = Guid.NewGuid();
         var furtherInformationTypeId = Guid.NewGuid();
+
+        // The section's note of each kind is linked to the Summary section's question; the master list also holds one that is not linked yet.
+        ProfileNoteDto ScientificNote() => new()
+        {
+            Id = ScientificNoteId,
+            NoteText = "A relevant paper.",
+            LastUpdated = NoteRowVersion,
+            QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
+        };
+        ProfileNoteDto LegislativeNote() => new()
+        {
+            Id = LegislativeNoteId,
+            NoteText = "Animal Health Act 1981.",
+            LastUpdated = NoteRowVersion,
+            QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
+        };
 
         // The section's source is linked to the Summary section's question; the master list also holds one that is not linked yet.
         IReadOnlyList<ProfileNoteDto> sectionSources = furtherInformationNotes ??
@@ -119,16 +140,20 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
                     metadata: Metadata(),
                     noteTypes:
                     [
-                        new ProfileNoteTypeDto { Id = noteTypeId, Name = "Scientific paper reference", PluralName = "Scientific paper references" },
+                        new ProfileNoteTypeDto { Id = scientificTypeId, Name = "Scientific paper reference", PluralName = "Scientific paper references" },
+                        new ProfileNoteTypeDto { Id = legislativeTypeId, Name = "Legislative reference", PluralName = "Legislative references" },
                         new ProfileNoteTypeDto { Id = furtherInformationTypeId, Name = "Source of further information", PluralName = "Sources of further information" }
                     ],
                     notesByNoteType: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
                     {
-                        [noteTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "A relevant paper." }],
+                        [scientificTypeId] = [ScientificNote()],
+                        [legislativeTypeId] = [LegislativeNote()],
                         [furtherInformationTypeId] = sectionSources
                     },
                     notesByVersionAndNoteType: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
                     {
+                        [scientificTypeId] = [ScientificNote(), new ProfileNoteDto { Id = ScientificMasterNoteId, NoteText = "<p>Another paper.</p>", LastUpdated = NoteRowVersion }],
+                        [legislativeTypeId] = [LegislativeNote(), new ProfileNoteDto { Id = LegislativeMasterNoteId, NoteText = "<p>Environmental Protection Act 1990.</p>", LastUpdated = NoteRowVersion }],
                         [furtherInformationTypeId] = masterList
                     },
                     questionInfos: [new ProfileQuestionInfoDto { Id = QuestionId, Name = "Is it endemic?", QuestionNumber = 1 }],
@@ -214,17 +239,179 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
     }
 
     [Fact]
-    public async Task EditProfileReferences_RendersTheReferences_WithLinkTabsAndPaginationOnTheSameTab()
+    public async Task EditProfileReferences_RendersBothKindsOfReference_WithLinkTabsAndPaginationOnTheSameTab()
     {
         var body = await GetAsync("EditProfileReferences", Profile());
 
         Assert.Contains("A relevant paper.", body);
+        Assert.Contains("Animal Health Act 1981.", body);
         Assert.DoesNotContain("OIE Terrestrial Manual.", body);
         Assert.Contains($"href=\"/SurveillanceProfiles/EditProfileFurtherInformation/{ProfileId}?section={SummarySectionId}\"", body);
         Assert.Contains($"href=\"/SurveillanceProfiles/EditProfileAllRevisionDates/{ProfileId}?section={SummarySectionId}\"", body);
         Assert.Contains("aria-current=\"page\"", body);
         Assert.Contains($"href=\"/SurveillanceProfiles/EditProfileReferences/{ProfileId}?section={EpidemiologySectionId}\"", body);
         Assert.Contains($"href=\"/SurveillanceProfiles/EditProfileQuestions/{ProfileId}?section={EpidemiologySectionId}\"", body);
+    }
+
+    // The pagination links reload this column in place, so it has to hold both tables, the forms that page them and their pagination.
+    [Fact]
+    public async Task EditProfileReferences_MarksTheColumnBesideTheLeftNavigationAsAPagedRegion()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile());
+
+        PagedRegionAssert.IsMarked(body, "profile-references-panel");
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsAnAddAndASelectButtonForEachKind_AboveItsTable()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile());
+
+        Assert.Contains("Add a new scientific paper reference:", body);
+        Assert.Contains("Add<span class=\"govuk-visually-hidden\"> a new scientific paper reference</span></a>", body);
+        Assert.Contains("Select a scientific paper reference from the master list:", body);
+        Assert.Contains("Select<span class=\"govuk-visually-hidden\"> a scientific paper reference from the master list</span></a>", body);
+        Assert.Contains("Add a new legislative reference:", body);
+        Assert.Contains("Add<span class=\"govuk-visually-hidden\"> a new legislative reference</span></a>", body);
+        Assert.Contains("Select a legislative reference from the master list:", body);
+        Assert.Contains("Select<span class=\"govuk-visually-hidden\"> a legislative reference from the master list</span></a>", body);
+        Assert.Contains("mode=add&amp;type=scientific", body);
+        Assert.Contains("mode=add&amp;type=legislative", body);
+        Assert.Contains("mode=select&amp;type=scientific", body);
+        Assert.Contains("mode=select&amp;type=legislative", body);
+        Assert.True(
+            body.IndexOf("Add a new scientific paper reference:", StringComparison.Ordinal) < body.IndexOf("A relevant paper.", StringComparison.Ordinal),
+            "The buttons should come above the table they add to.");
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsEachKindUnderItsOwnHeading_WithItsOwnSortableTableAndRowActions()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile());
+
+        Assert.Contains("<h2 class=\"govuk-heading-m\">Scientific paper references</h2>", body);
+        Assert.Contains("<h2 class=\"govuk-heading-m\">Legislative references</h2>", body);
+        Assert.Contains(">Scientific paper reference</a>", body);
+        Assert.Contains(">Legislative reference</a>", body);
+        Assert.Equal(2, CountOf(body, "aria-sort=\"ascending\""));
+        Assert.Contains($"data-confirm-target=\"#delete-note-{ScientificNoteId}\"", body);
+        Assert.Contains($"data-confirm-target=\"#delete-note-{LegislativeNoteId}\"", body);
+        Assert.Contains("Are you sure you want to delete the association to this scientific paper reference?", body);
+        Assert.Contains("Are you sure you want to delete the association to this legislative reference?", body);
+        Assert.Contains("<input type=\"hidden\" name=\"type\" value=\"scientific\" />", body);
+        Assert.Contains("<input type=\"hidden\" name=\"type\" value=\"legislative\" />", body);
+        Assert.Equal(2, CountOf(body, "Items per page:"));
+        Assert.Contains("id=\"scientific-PageSize\" name=\"scientific.pageSize\"", body);
+        Assert.Contains("id=\"legislative-PageSize\" name=\"legislative.pageSize\"", body);
+        Assert.Contains("name=\"scientific.pageNumber\" value=\"1\"", body);
+        Assert.Contains("name=\"legislative.pageNumber\" value=\"1\"", body);
+        Assert.DoesNotContain("Another paper.", body);
+        Assert.DoesNotContain("Environmental Protection Act 1990.", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_HidesEveryEditingControl_WhenTheUserCannotEdit()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(canEdit: false), "?mode=add&type=scientific");
+
+        Assert.Contains("A relevant paper.", body);
+        Assert.Contains("Animal Health Act 1981.", body);
+        Assert.DoesNotContain("Add a new scientific paper reference:", body);
+        Assert.DoesNotContain("Add a new legislative reference:", body);
+        Assert.DoesNotContain("from the master list:", body);
+        Assert.DoesNotContain("handler=Delete", body);
+        Assert.DoesNotContain("noteId=", body);
+        Assert.DoesNotContain("name=\"Input.NoteText\"", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsTheAddPanelOfTheKindNamed_WithTheRichTextEditorAndTheSectionsQuestions()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), "?mode=add&type=scientific");
+
+        Assert.Equal(1, CountOf(body, "id=\"note-panel-heading\""));
+        Assert.Contains("Add a scientific paper reference</h2>", body);
+        Assert.DoesNotContain("Add a legislative reference", body);
+        Assert.Contains("name=\"Input.NoteText\"", body);
+        Assert.Contains("data-richtext-command=\"link\"", body);
+        Assert.Contains("data-spellcheck-target=\"Input_NoteText\"", body);
+        Assert.Contains("id=\"spell-check-dialog\"", body);
+        Assert.Contains("/js/spell-check.js", body);
+        Assert.Contains("Question references</legend>", body);
+        Assert.Contains("id=\"Input_QuestionIds_0\" name=\"Input.QuestionIds\"", body);
+        Assert.Contains("1.1: Is it endemic?", body);
+        Assert.Contains("name=\"Input.Mode\" value=\"add\"", body);
+        Assert.Contains("handler=Save", body);
+        Assert.Contains("handler=TickAll", body);
+        Assert.Contains("handler=UntickAll", body);
+        Assert.Contains(">Tick all</button>", body);
+        Assert.Contains(">Untick all</button>", body);
+        Assert.Contains(">OK</button>", body);
+        Assert.Contains(">Cancel</a>", body);
+        Assert.DoesNotContain("checked=", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_CarriesWhichKindAPanelIsFor_InEveryFormItPosts()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), "?mode=add&type=legislative");
+        var panel = body[body.IndexOf("id=\"note-panel-heading\"", StringComparison.Ordinal)..];
+
+        Assert.Contains("Add a legislative reference</h2>", panel);
+        Assert.Contains("<input type=\"hidden\" name=\"type\" value=\"legislative\" />", panel);
+        Assert.DoesNotContain("value=\"scientific\"", panel);
+        Assert.Contains($"name=\"section\" value=\"{SummarySectionId}\"", panel);
+        Assert.Contains("name=\"scientific.sortColumn\" value=\"Reference\"", panel);
+        Assert.Contains("name=\"legislative.sortDirection\" value=\"Ascending\"", panel);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsTheSelectPanelOfTheKindNamed_ListingOnlyThatKindsMasterListNotesNotYetLinked()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), "?mode=select&type=legislative");
+
+        Assert.Contains("Select a legislative reference</h2>", body);
+        Assert.Contains("Please select...", body);
+        Assert.Contains($"<option value=\"{LegislativeMasterNoteId}\">Environmental Protection Act 1990.</option>", body);
+        Assert.DoesNotContain($"<option value=\"{LegislativeNoteId}\"", body);
+        Assert.DoesNotContain($"<option value=\"{ScientificMasterNoteId}\"", body);
+        Assert.DoesNotContain("app-note-readonly", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsTheChosenNoteInTheSelectPanel()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), $"?mode=select&type=scientific&noteId={ScientificMasterNoteId}");
+
+        Assert.Contains($"<option value=\"{ScientificMasterNoteId}\" selected=\"selected\">Another paper.</option>", body);
+        Assert.Contains("<div class=\"app-note-readonly\">Another paper.</div>", body);
+        Assert.Contains($"name=\"Input.NoteId\" value=\"{ScientificMasterNoteId}\"", body);
+        Assert.Contains("name=\"Input.Mode\" value=\"select\"", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsTheViewPanelOfTheKindNamed_WithTheLinkedQuestionTicked()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), $"?type=legislative&noteId={LegislativeNoteId}");
+
+        Assert.Contains("View a legislative reference</h2>", body);
+        Assert.Contains("<div class=\"app-note-readonly\">Animal Health Act 1981.</div>", body);
+        Assert.Contains("name=\"Input.Mode\" value=\"view\"", body);
+        Assert.Matches("id=\"Input_QuestionIds_0\" name=\"Input.QuestionIds\" type=\"checkbox\" value=\"[^\"]+\" checked=\"checked\"", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_BindsEachTablesPageSizeFromItsOwnQuerystringValues()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), "?legislative.pageSize=50&legislative.sortColumn=QuestionReference&legislative.sortDirection=Descending");
+
+        var scientific = body[body.IndexOf("id=\"scientific-PageSize\"", StringComparison.Ordinal)..body.IndexOf("id=\"legislative-PageSize\"", StringComparison.Ordinal)];
+        var legislative = body[body.IndexOf("id=\"legislative-PageSize\"", StringComparison.Ordinal)..];
+
+        Assert.Contains("<option value=\"10\" selected=\"selected\">10</option>", scientific);
+        Assert.Contains("aria-sort=\"ascending\"", scientific);
+        Assert.Contains("<option value=\"50\" selected=\"selected\">50</option>", legislative);
+        Assert.Contains("aria-sort=\"descending\"", legislative);
     }
 
     // The pagination links reload this column in place, so it has to hold the reference type form, the table and the pagination.

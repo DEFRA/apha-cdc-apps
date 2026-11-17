@@ -157,10 +157,10 @@ public abstract class ProfileSectionTabPageModel(
     public virtual string? PaginationFootnote => null;
 
     /// <summary>Gets the typed client for the profile sections endpoints.</summary>
-    protected IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
+    protected internal IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
 
     /// <summary>Gets the logger.</summary>
-    protected ILogger Logger => logger;
+    protected internal ILogger Logger => logger;
 
     /// <summary>Gets one section's validation status for the left-nav tick/cross icon, or <see langword="null"/>
     /// when it is not known (for example, after a load failure).</summary>

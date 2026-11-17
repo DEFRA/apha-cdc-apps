@@ -1973,6 +1973,11 @@ body {
   max-width: 100%;
 }
 
+/* The References tab shows an editor for each kind of reference, one beneath the other. */
+.app-note-editor + .app-note-editor {
+  margin-top: 2rem;
+}
+
 /* Add / Edit name/parent: label and field pairs in a four-column grid, matching the legacy
    MaintainSpeciesData page (old name | new name, then old parent | new parent, then a
    full-width reason for change and the buttons). */

@@ -53,10 +53,10 @@ internal static partial class ProfileSectionTabLog
     [LoggerMessage(EventId = 2315, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' section '{ProfileSectionId}' questions from CDC.Api")]
     public static partial void ProfileSectionQuestionsLoadFailed(this ILogger logger, Exception exception, Guid profileId, Guid profileSectionId);
 
-    [LoggerMessage(EventId = 2316, Level = LogLevel.Error, Message = "Failed to change a source of further information on profile '{ProfileId}' via CDC.Api")]
+    [LoggerMessage(EventId = 2316, Level = LogLevel.Error, Message = "Failed to change a reference or source of further information on profile '{ProfileId}' via CDC.Api")]
     public static partial void ProfileNoteChangeFailed(this ILogger logger, Exception exception, Guid profileId);
 
-    [LoggerMessage(EventId = 2317, Level = LogLevel.Warning, Message = "A source of further information change on profile '{ProfileId}' was refused by CDC.Api with outcome {Outcome}")]
+    [LoggerMessage(EventId = 2317, Level = LogLevel.Warning, Message = "A reference or source of further information change on profile '{ProfileId}' was refused by CDC.Api with outcome {Outcome}")]
     public static partial void ProfileNoteChangeRefused(this ILogger logger, Guid profileId, ProfileNoteChangeOutcome outcome);
 
     [LoggerMessage(EventId = 2318, Level = LogLevel.Warning, Message = "A {Action} of profile '{ProfileId}' section '{ProfileSectionId}' was refused by CDC.Api with outcome {Outcome}")]
