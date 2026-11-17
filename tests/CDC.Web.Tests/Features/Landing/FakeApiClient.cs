@@ -32,7 +32,8 @@ internal sealed class FakeApiClient( // NOSONAR
     Action? onSearchProfiles = null,
     bool setProfileVersionPublicAccessResult = true,
     bool canFilterToMyProfiles = false,
-    Exception? throwOnCanFilterToMyProfiles = null) : IApiClient
+    Exception? throwOnCanFilterToMyProfiles = null,
+    Exception? throwOnPublishProfile = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -223,7 +224,9 @@ internal sealed class FakeApiClient( // NOSONAR
         PublishedProfileId = profileId;
         PublishedAsPublic = isPublic;
 
-        return Task.FromResult(_publishProfileResult);
+        return throwOnPublishProfile is not null
+            ? Task.FromException<PublishProfileResult>(throwOnPublishProfile)
+            : Task.FromResult(_publishProfileResult);
     }
 
     /// <summary>Gets the profile the last publish request named, or <see langword="null"/> when none was made.</summary>

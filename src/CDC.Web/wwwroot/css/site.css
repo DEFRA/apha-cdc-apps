@@ -143,6 +143,12 @@ html {
   min-width: 12rem;
 }
 
+/* The "Items per page" control above a table sits on the right, where the legacy PageSizeList control floated it. */
+.app-items-per-page {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Label to the left of the select, as in the legacy app. */
 .app-label-select-inline {
   display: flex;
@@ -1764,6 +1770,14 @@ body {
 /* Status text under a right-aligned action, as the legacy maintenance screens showed it. */
 .app-text-align-right {
   text-align: right;
+}
+
+/* The "Publish" links under a profile tab's box sit on the right, as the legacy page's right-aligned links did. */
+.app-publish-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 /* A wrapper that exists only so script can replace its children; they lay out as if it weren't there. */

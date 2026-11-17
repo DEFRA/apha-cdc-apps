@@ -21,8 +21,8 @@ public abstract class ProfileSectionTabPageModel(
     IProfileSectionsApiService profileSectionsApiService,
     ILogger logger) : PageModel
 {
-    /// <summary>The date format used by the Contributions and Review comments tables.</summary>
-    protected const string DateDisplayFormat = "dd/MM/yyyy";
+    /// <summary>The date and time format used by the Contributions and Review comments tables, as the legacy grids showed them.</summary>
+    protected const string DateTimeDisplayFormat = "dd/MM/yy HH:mm:ss";
 
     /// <summary>The error type the Application error page shows when CDC.Api refuses the user the profile data: the legacy site's exception.</summary>
     public const string AccessRefusedErrorType = "System.Security.SecurityException";
@@ -103,6 +103,12 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets a value indicating whether the "All Revision dates" tab is shown (legacy <c>CanGetRevisionInformation()</c>).</summary>
     public bool CanViewAllRevisionDates { get; private set; }
 
+    /// <summary>Gets a value indicating whether the "Publish (public)" link is offered on the All Revision dates tab (legacy <c>Profile.CanPublishPublic()</c>).</summary>
+    public bool CanPublishPublic { get; private set; }
+
+    /// <summary>Gets a value indicating whether the "Publish (Defranet only)" link is offered on the All Revision dates tab (legacy <c>Profile.CanPublish()</c>).</summary>
+    public bool CanPublishDefranetOnly { get; private set; }
+
     /// <summary>Gets the profile's current version id, posted back by forms. <see cref="Guid.Empty"/> when the
     /// profile has no current version.</summary>
     public Guid CurrentProfileVersionId { get; private set; }
@@ -155,6 +161,9 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets the paragraph shown under the previous and next section links, or <see langword="null"/> for none. A page whose
     /// legacy tab had one overrides this.</summary>
     public virtual string? PaginationFootnote => null;
+
+    /// <summary>Gets the typed client for the profile management endpoints.</summary>
+    protected internal IApiClient ApiClient => apiClient;
 
     /// <summary>Gets the typed client for the profile sections endpoints.</summary>
     protected internal IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
@@ -331,6 +340,8 @@ public abstract class ProfileSectionTabPageModel(
         CanViewReviewComments = profile.CanViewReviewComments;
         CanViewContributions = profile.CanViewContributions;
         CanViewAllRevisionDates = profile.CanViewAllRevisionDates;
+        CanPublishPublic = profile.LinkVisibility.CanPublishPublic;
+        CanPublishDefranetOnly = profile.LinkVisibility.CanPublishDefranetOnly;
     }
 
     /// <summary>Whether the user may edit one section. A profile editor may edit every section; an author only the sections

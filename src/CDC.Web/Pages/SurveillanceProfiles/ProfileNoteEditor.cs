@@ -146,10 +146,6 @@ public sealed class ProfileNoteEditor(ProfileNoteTabPageModel host, ProfileNoteE
     /// <summary>Gets a value indicating whether the user may add, select, view and delete notes (legacy <c>NoteList.CanEditNoteList()</c>).</summary>
     public bool CanEdit => host.CanEditProfileSection && notesLoaded && noteType is not null;
 
-    /// <summary>Gets a value indicating whether the "Select" button is shown: the user may edit and the master list holds a
-    /// note that is not yet linked to this section.</summary>
-    public bool CanSelect => CanEdit && availableNotes.Count > 0;
-
     /// <summary>Gets which panel is open beneath the table.</summary>
     public ProfileNotePanel Panel { get; private set; }
 
@@ -307,11 +303,10 @@ public sealed class ProfileNoteEditor(ProfileNoteTabPageModel host, ProfileNoteE
         }
         else if (string.Equals(mode, SelectMode, StringComparison.OrdinalIgnoreCase))
         {
-            if (CanSelect)
-            {
-                Input.NoteId = noteId;
-                await ShowPanelAsync(ProfileNotePanel.Select, cancellationToken);
-            }
+            // Offered to anyone who may edit, even when the master list has nothing left to select: the legacy page showed the
+            // button again after Add was cancelled whatever the list held, and the drop-down then simply had no notes.
+            Input.NoteId = noteId;
+            await ShowPanelAsync(ProfileNotePanel.Select, cancellationToken);
         }
         else if (sectionNotes.FirstOrDefault(note => note.Id == noteId) is { } viewed)
         {

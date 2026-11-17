@@ -239,19 +239,18 @@ public class EditProfileFurtherInformationModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_OffersEditing_ButNotSelect_WhenEverySourceIsAlreadyLinkedToTheSection()
+    public async Task OnGetAsync_OffersEditing_WithNothingToSelect_WhenEverySourceIsAlreadyLinkedToTheSection()
     {
         var (pageModel, _, _) = CreatePage(DraftProfile(), [Linked("Source", QuestionId)]);
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.True(pageModel.Editor.CanEdit);
-        Assert.False(pageModel.Editor.CanSelect);
         Assert.Empty(pageModel.Editor.AvailableNoteChoices);
     }
 
     [Fact]
-    public async Task OnGetAsync_OffersSelect_ForTheMasterListSourcesNotYetLinkedToTheSection()
+    public async Task OnGetAsync_ListsTheMasterListSourcesNotYetLinkedToTheSection_ForSelecting()
     {
         var inSection = Linked("In the section", QuestionId);
         var available = Unlinked("<p>" + new string('x', 60) + "</p>");
@@ -259,7 +258,6 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.True(pageModel.Editor.CanSelect);
         var choice = Assert.Single(pageModel.Editor.AvailableNoteChoices);
         Assert.Equal(available.Id, choice.Id);
         Assert.Equal(new string('x', 47) + "...", choice.Text);
@@ -276,7 +274,7 @@ public class EditProfileFurtherInformationModelTests
 
         Assert.Single(pageModel.Editor.Rows);
         Assert.False(pageModel.Editor.CanEdit);
-        Assert.False(pageModel.Editor.CanSelect);
+        Assert.Empty(pageModel.Editor.AvailableNoteChoices);
         Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
         Assert.Null(api.RequestedQuestionInfoSectionId);
     }
@@ -440,10 +438,27 @@ public class EditProfileFurtherInformationModelTests
         Assert.DoesNotContain(pageModel.Editor.QuestionChoices, choice => choice.IsTicked);
     }
 
+    // The legacy page showed the Select button again once Add was cancelled, whatever the master list held, so the panel opens with an
+    // empty drop-down rather than not at all.
     [Fact]
-    public async Task OnGetAsync_DoesNotOpenTheSelectPanel_WhenTheMasterListHoldsNothingToSelect()
+    public async Task OnGetAsync_OpensTheSelectPanel_WithAnEmptyDropDown_WhenTheMasterListHoldsNothingToSelect()
     {
         var (pageModel, _, _) = CreatePage(DraftProfile(), [Linked("Source", QuestionId)]);
+        pageModel.Mode = "select";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ProfileNotePanel.Select, pageModel.Editor.Panel);
+        Assert.Equal("Select a source of further information", pageModel.Editor.PanelHeading);
+        Assert.Empty(pageModel.Editor.AvailableNoteChoices);
+        Assert.Null(pageModel.Editor.PanelNoteHtml);
+        Assert.Equal(["1.1", "1.2", "1.3"], pageModel.Editor.QuestionChoices.Select(choice => choice.Number));
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotOpenTheSelectPanel_WhenTheUserCannotEdit()
+    {
+        var (pageModel, _, _) = CreatePage(ReadOnlyProfile(), [Linked("Source", QuestionId)], masterList: [Unlinked("Other")]);
         pageModel.Mode = "select";
 
         await pageModel.OnGetAsync(CancellationToken.None);

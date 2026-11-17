@@ -82,16 +82,28 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         ]
     };
 
-    private async Task<string> GetAsync(string page, ManageProfileViewModel profile, string query = "", IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null)
+    private async Task<string> GetAsync(
+        string page,
+        ManageProfileViewModel profile,
+        string query = "",
+        IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null,
+        bool masterListsHoldUnlinkedNotes = true,
+        IReadOnlyList<ProfileSectionContributionDto>? contributions = null)
     {
-        var response = await SendAsync(page, profile, query, furtherInformationNotes);
+        var response = await SendAsync(page, profile, query, furtherInformationNotes, masterListsHoldUnlinkedNotes, contributions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         return await response.Content.ReadAsStringAsync();
     }
 
-    private async Task<HttpResponseMessage> SendAsync(string page, ManageProfileViewModel profile, string query = "", IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null)
+    private async Task<HttpResponseMessage> SendAsync(
+        string page,
+        ManageProfileViewModel profile,
+        string query = "",
+        IReadOnlyList<ProfileNoteDto>? furtherInformationNotes = null,
+        bool masterListsHoldUnlinkedNotes = true,
+        IReadOnlyList<ProfileSectionContributionDto>? contributions = null)
     {
         var scientificTypeId = Guid.NewGuid();
         var legislativeTypeId = Guid.NewGuid();
@@ -124,11 +136,15 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
                 QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
             }
         ];
-        IReadOnlyList<ProfileNoteDto> masterList =
-        [
-            .. sectionSources,
-            new ProfileNoteDto { Id = MasterListNoteId, NoteText = "<p>WAHIS database.</p>", LastUpdated = NoteRowVersion }
-        ];
+        IReadOnlyList<ProfileNoteDto> masterList = masterListsHoldUnlinkedNotes
+            ? [.. sectionSources, new ProfileNoteDto { Id = MasterListNoteId, NoteText = "<p>WAHIS database.</p>", LastUpdated = NoteRowVersion }]
+            : sectionSources;
+        IReadOnlyList<ProfileNoteDto> scientificMasterList = masterListsHoldUnlinkedNotes
+            ? [ScientificNote(), new ProfileNoteDto { Id = ScientificMasterNoteId, NoteText = "<p>Another paper.</p>", LastUpdated = NoteRowVersion }]
+            : [ScientificNote()];
+        IReadOnlyList<ProfileNoteDto> legislativeMasterList = masterListsHoldUnlinkedNotes
+            ? [LegislativeNote(), new ProfileNoteDto { Id = LegislativeMasterNoteId, NoteText = "<p>Environmental Protection Act 1990.</p>", LastUpdated = NoteRowVersion }]
+            : [LegislativeNote()];
 
         using var factory = _factory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
@@ -152,13 +168,13 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
                     },
                     notesByVersionAndNoteType: new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
                     {
-                        [scientificTypeId] = [ScientificNote(), new ProfileNoteDto { Id = ScientificMasterNoteId, NoteText = "<p>Another paper.</p>", LastUpdated = NoteRowVersion }],
-                        [legislativeTypeId] = [LegislativeNote(), new ProfileNoteDto { Id = LegislativeMasterNoteId, NoteText = "<p>Environmental Protection Act 1990.</p>", LastUpdated = NoteRowVersion }],
+                        [scientificTypeId] = scientificMasterList,
+                        [legislativeTypeId] = legislativeMasterList,
                         [furtherInformationTypeId] = masterList
                     },
                     questionInfos: [new ProfileQuestionInfoDto { Id = QuestionId, Name = "Is it endemic?", QuestionNumber = 1 }],
                     reviewComments: [new ProfileReviewCommentDto { Id = ReviewCommentId, CommentSubject = "Check the <dates>", CommentReference = "Ref 7", CommentText = "<p>Please <a href=\"https://example.com\">review</a></p><script>alert(1)</script>", UserFullName = "Jane Doe", Level = 1, CanEdit = true, CanDelete = true, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8], CommentDate = new DateTime(2026, 9, 11, 13, 14, 15) }],
-                    contributions: [new ProfileSectionContributionDto { FullName = "John Smith", UserName = "jsmith", OrganisationName = "APHA" }],
+                    contributions: contributions ?? [new ProfileSectionContributionDto { FullName = "John Smith", UserName = "jsmith", OrganisationName = "APHA", LastContributionDate = new DateTime(2026, 9, 11, 13, 14, 15) }],
                     allRevisionDates: new ProfileVersionAllRevisionDatesDto
                     {
                         Sections =
@@ -282,6 +298,45 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.True(
             body.IndexOf("Add a new scientific paper reference:", StringComparison.Ordinal) < body.IndexOf("A relevant paper.", StringComparison.Ordinal),
             "The buttons should come above the table they add to.");
+    }
+
+    // The legacy page showed the Select button again after Add was cancelled, whatever the master list held, so it is never left out.
+    [Fact]
+    public async Task EditProfileReferences_ShowsASelectButtonForEachKind_WhateverTheirMasterListsHold()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), masterListsHoldUnlinkedNotes: false);
+
+        Assert.Contains("Select a scientific paper reference from the master list:", body);
+        Assert.Contains("Select<span class=\"govuk-visually-hidden\"> a scientific paper reference from the master list</span></a>", body);
+        Assert.Contains("Select a legislative reference from the master list:", body);
+        Assert.Contains("Select<span class=\"govuk-visually-hidden\"> a legislative reference from the master list</span></a>", body);
+        Assert.Contains("mode=select&amp;type=scientific", body);
+        Assert.Contains("mode=select&amp;type=legislative", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_ShowsTheSelectPanelWithAnEmptyDropDown_WhenTheKindsMasterListHoldsNothingToSelect()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile(), "?mode=select&type=scientific", masterListsHoldUnlinkedNotes: false);
+        var dropDown = body[body.IndexOf("id=\"NoteId\"", StringComparison.Ordinal)..];
+        dropDown = dropDown[..dropDown.IndexOf("</select>", StringComparison.Ordinal)];
+
+        Assert.Contains("Select a scientific paper reference</h2>", body);
+        Assert.Equal(1, CountOf(dropDown, "<option"));
+        Assert.Contains("Please select...", dropDown);
+        Assert.Contains("Question references</legend>", body);
+        Assert.Contains(">Tick all</button>", body);
+        Assert.Contains(">Untick all</button>", body);
+        Assert.Contains(">OK</button>", body);
+        Assert.Contains(">Cancel</a>", body);
+    }
+
+    [Fact]
+    public async Task EditProfileReferences_PutsEachTablesItemsPerPageOnTheRight()
+    {
+        var body = await GetAsync("EditProfileReferences", Profile());
+
+        Assert.Equal(2, CountOf(body, "<form method=\"get\" class=\"govuk-!-margin-top-3 app-items-per-page\">"));
     }
 
     [Fact]
@@ -444,6 +499,49 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("Select a source of further information from the master list:", body);
         Assert.Contains("mode=select", body);
         Assert.Contains("Items per page:", body);
+    }
+
+    // The legacy page showed the Select button again after Add was cancelled, whatever the master list held, so it is never left out.
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheSelectButton_WhateverTheMasterListHolds()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), masterListsHoldUnlinkedNotes: false);
+
+        Assert.Contains("Select a source of further information from the master list:", body);
+        Assert.Contains("Select<span class=\"govuk-visually-hidden\"> a source of further information from the master list</span></a>", body);
+        Assert.Contains("mode=select", body);
+    }
+
+    [Fact]
+    public async Task EditProfileFurtherInformation_ShowsTheSelectPanelWithAnEmptyDropDown_WhenTheMasterListHoldsNothingToSelect()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile(), "?mode=select", masterListsHoldUnlinkedNotes: false);
+        var dropDown = body[body.IndexOf("id=\"NoteId\"", StringComparison.Ordinal)..];
+        dropDown = dropDown[..dropDown.IndexOf("</select>", StringComparison.Ordinal)];
+
+        Assert.Contains("Select a source of further information</h2>", body);
+        Assert.Equal(1, CountOf(dropDown, "<option"));
+        Assert.Contains("Please select...", dropDown);
+        Assert.Contains("Question references</legend>", body);
+        Assert.Contains("1.1: Is it endemic?", body);
+        Assert.Contains(">Tick all</button>", body);
+        Assert.Contains(">Untick all</button>", body);
+        Assert.Contains(">OK</button>", body);
+        Assert.Contains(">Cancel</a>", body);
+    }
+
+    // Legacy PageSizeList floated "Items per page:" to the right, above the grid.
+    [Fact]
+    public async Task EditProfileFurtherInformation_PutsItemsPerPageOnTheRight_AboveTheTable()
+    {
+        var body = await GetAsync("EditProfileFurtherInformation", Profile());
+
+        var form = body.IndexOf("<form method=\"get\" class=\"govuk-!-margin-top-3 app-items-per-page\">", StringComparison.Ordinal);
+        var table = body.IndexOf("app-profile-note-table", StringComparison.Ordinal);
+
+        Assert.True(form >= 0, "The Items per page form should be marked to sit on the right.");
+        Assert.True(form < table, "Items per page should come above the table.");
+        Assert.Contains("Items per page:", body[form..table]);
     }
 
     [Fact]
@@ -633,13 +731,112 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         Assert.Contains("name=\"Input.LastUpdated\" value=\"AQIDBAUGBwg=\"", body);
     }
 
+    // Legacy PageSizeList floated "Items per page:" to the right, above the grid.
     [Fact]
-    public async Task EditProfileContributions_RendersTheContributions()
+    public async Task EditProfileReviewComments_PutsItemsPerPageOnTheRight_AboveTheTable()
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile());
+
+        var form = body.IndexOf("<form method=\"get\" class=\"govuk-!-margin-top-3 app-items-per-page\">", StringComparison.Ordinal);
+        var table = body.IndexOf("<table", form, StringComparison.Ordinal);
+
+        Assert.True(form >= 0, "The Items per page form should be marked to sit on the right.");
+        Assert.Contains("Items per page:", body[form..table]);
+    }
+
+    // Legacy: the Add/Edit panel's OK and Cancel sat in a right-aligned div.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EditProfileReviewComments_PutsTheAddAndEditPanelsOkAndCancelOnTheRight(bool editing)
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile(), editing ? $"?mode=edit&commentId={ReviewCommentId}" : "?mode=add");
+
+        Assert.Matches(
+            "<div class=\"govuk-button-group app-button-group--right\">\\s*<button type=\"submit\" class=\"govuk-button\" data-module=\"govuk-button\">OK</button>\\s*<a class=\"govuk-button govuk-button--secondary\" href=\"[^\"]*\">Cancel</a>\\s*</div>",
+            body);
+    }
+
+    // Legacy: the View panel's Reply, Edit, Delete and Close floated right.
+    [Fact]
+    public async Task EditProfileReviewComments_PutsTheViewPanelsButtonsOnTheRight()
+    {
+        var body = await GetAsync("EditProfileReviewComments", Profile(), $"?commentId={ReviewCommentId}");
+
+        var buttons = body[body.IndexOf("<form method=\"post\" class=\"govuk-button-group app-button-group--right\"", StringComparison.Ordinal)..];
+        buttons = buttons[..buttons.IndexOf("</form>", StringComparison.Ordinal)];
+
+        Assert.Contains(">Reply</a>", buttons);
+        Assert.Contains(">Edit</a>", buttons);
+        Assert.Contains(">Delete</button>", buttons);
+        Assert.Contains(">Close</a>", buttons);
+    }
+
+    [Fact]
+    public async Task EditProfileContributions_RendersTheContributions_UnderTheLegacyHeadings_InTheLegacyOrder()
     {
         var body = await GetAsync("EditProfileContributions", Profile());
 
         Assert.Contains("John Smith", body);
         Assert.Contains("jsmith", body);
+        Assert.Contains("11/09/26 13:14:15", body);
+
+        var username = body.IndexOf(">Username</a>", StringComparison.Ordinal);
+        var fullName = body.IndexOf(">Full name</a>", StringComparison.Ordinal);
+        var organisation = body.IndexOf(">Organisation</a>", StringComparison.Ordinal);
+        var dateAndTime = body.IndexOf(">Contribution date and time</a>", StringComparison.Ordinal);
+
+        Assert.True(username >= 0 && username < fullName && fullName < organisation && organisation < dateAndTime, "The headings should be Username, Full name, Organisation, then Contribution date and time.");
+        Assert.DoesNotContain("Last contribution date", body);
+        Assert.DoesNotContain(">Name</th>", body);
+        Assert.True(body.IndexOf("jsmith", dateAndTime, StringComparison.Ordinal) < body.IndexOf("John Smith", dateAndTime, StringComparison.Ordinal), "A row should read Username, Full name, ...");
+    }
+
+    // Legacy PaginatorPageSize: "Items per page:" floated right above the grid, which sorts newest first and pages.
+    [Fact]
+    public async Task EditProfileContributions_PutsItemsPerPageOnTheRight_AboveTheSortableTable()
+    {
+        var body = await GetAsync("EditProfileContributions", Profile());
+
+        var form = body.IndexOf("<form method=\"get\" class=\"govuk-!-margin-top-3 app-items-per-page\">", StringComparison.Ordinal);
+        var table = body.IndexOf("<table", form, StringComparison.Ordinal);
+
+        Assert.True(form >= 0, "The Items per page form should be marked to sit on the right.");
+        Assert.Contains("Items per page:", body[form..table]);
+        Assert.Contains("id=\"PageSize\" name=\"pageSize\"", body);
+        Assert.Contains("<option value=\"10\" selected=\"selected\">10</option>", body);
+        Assert.Contains("name=\"sortColumn\" value=\"LastContributionDate\"", body);
+        Assert.Contains("name=\"sortDirection\" value=\"Descending\"", body);
+        Assert.Contains("aria-sort=\"descending\"", body);
+        Assert.Contains("sortColumn=UserName&amp;sortDirection=Ascending", body);
+        PagedRegionAssert.IsMarked(body, "profile-contributions-panel");
+    }
+
+    [Fact]
+    public async Task EditProfileContributions_ShowsTheLegacyEmptyMessage_AndItemsPerPage_WhenThereAreNoContributions()
+    {
+        var body = await GetAsync("EditProfileContributions", Profile(), contributions: []);
+
+        Assert.Contains("There are no contributions to display.", body);
+        Assert.Contains("Items per page:", body);
+        Assert.DoesNotContain("<table", body);
+    }
+
+    [Fact]
+    public async Task EditProfileContributions_PagesTheTable_KeepingTheSortAndThePageSize()
+    {
+        var contributions = Enumerable.Range(1, 12)
+            .Select(index => new ProfileSectionContributionDto { UserName = $"user{index:00}", FullName = $"User {index:00}", OrganisationName = "APHA", LastContributionDate = new DateTime(2026, 9, index) })
+            .ToList();
+
+        var body = await GetAsync("EditProfileContributions", Profile(), "?pageNumber=2&sortColumn=UserName&sortDirection=Ascending", contributions: contributions);
+
+        Assert.Contains("user11", body);
+        Assert.Contains("user12", body);
+        Assert.DoesNotContain("user10", body);
+        Assert.Contains("aria-sort=\"ascending\"", body);
+        Assert.Contains("aria-label=\"Contribution pages\"", body);
+        Assert.Contains("pageNumber=1&amp;pageSize=10&amp;sortColumn=UserName&amp;sortDirection=Ascending", body);
     }
 
     [Theory]

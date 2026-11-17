@@ -39,18 +39,15 @@
             <a href="@Model.BuildAddUrl()" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Add<span class="govuk-visually-hidden"> a new @lowerName</span></a>
         </div>
 
-        @if (Model.CanSelect)
-        {
-            <div class="app-note-action">
-                <span class="govuk-body govuk-!-margin-bottom-0">@Model.SelectLabel</span>
-                <a href="@Model.BuildSelectUrl()" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Select<span class="govuk-visually-hidden"> a @lowerName from the master list</span></a>
-            </div>
-        }
+        <div class="app-note-action">
+            <span class="govuk-body govuk-!-margin-bottom-0">@Model.SelectLabel</span>
+            <a href="@Model.BuildSelectUrl()" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0">Select<span class="govuk-visually-hidden"> a @lowerName from the master list</span></a>
+        </div>
     }
 
     @if (Model.TotalRecords > 0)
     {
-        <form method="get" class="govuk-!-margin-top-3">
+        <form method="get" class="govuk-!-margin-top-3 app-items-per-page">
             @{ StateFields(exceptOwnPaging: true); }
             <input type="hidden" id="@(Model.IdPrefix)PageNumber" name="@Model.FieldName("pageNumber")" value="1" />
             <div class="govuk-form-group govuk-!-margin-bottom-3 app-label-select-inline">

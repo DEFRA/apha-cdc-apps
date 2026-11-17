@@ -1,9 +1,12 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.EditProfileAllRevisionDatesModel
+@using CDC.Web.Models
+@using CDC.Web.Pages.SurveillanceProfiles
 @{
     Layout = "_ProfileSectionTabLayout";
 }
-@* Mirrors legacy EditProfileAllRevisionDates.aspx: Save at the top and bottom, then the tabs, the result messages, "Set For All Sections:" and one block per section. *@
+@* Mirrors legacy EditProfileAllRevisionDates.aspx: Save above the tabs, then the box with the result messages, "Set For All Sections:",
+   one block per section and a second Save at its foot, and under the box the right-aligned Publish links. *@
 @if (Model.CurrentSection is not null)
 {
     var tabsModel = Model.BuildTabs();
@@ -40,7 +43,7 @@
                         </div>
                     }
 
-                    if (Model.RevisionDatesErrors.Count > 0 || Model.RevisionDatesSaveError is not null)
+                    if (Model.RevisionDatesErrors.Count > 0 || Model.RevisionDatesSaveError is not null || Model.PublishErrorMessage is not null)
                     {
                         <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="revision-dates-error-summary-title">
                             <div role="alert">
@@ -55,9 +58,30 @@
                                         {
                                             <li>@Model.RevisionDatesSaveError</li>
                                         }
+                                        @if (Model.PublishErrorMessage is not null)
+                                        {
+                                            <li>@Model.PublishErrorMessage</li>
+                                        }
                                         @foreach (var error in Model.RevisionDatesErrors)
                                         {
                                             <li>@error</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    if (Model.InvalidReasons.Count > 0)
+                    {
+                        <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="revision-dates-validation-error-title">
+                            <div role="alert">
+                                <h2 class="govuk-error-summary__title" id="revision-dates-validation-error-title">@(Model.InvalidReasons.Count == 1 ? "There is 1 validation error" : $"There are {Model.InvalidReasons.Count} validation errors")</h2>
+                                <div class="govuk-error-summary__body">
+                                    <ul class="govuk-list govuk-error-summary__list">
+                                        @foreach (var reason in Model.InvalidReasons)
+                                        {
+                                            <li>@EditProfileQuestionsModel.BuildValidationReasonText(reason)</li>
                                         }
                                     </ul>
                                 </div>
@@ -74,16 +98,50 @@
                         <partial name="_ProfileRevisionDates" model="Model.RevisionDatesTab" />
                     }
                 }
+
+                @if (showSave)
+                {
+                    <div class="govuk-button-group app-button-group--right">
+                        <button type="submit" asp-page-handler="SaveRevisionDates" class="govuk-button" data-module="govuk-button">Save</button>
+                    </div>
+                }
             </div>
         </div>
-
-        @if (showSave)
-        {
-            <div class="govuk-button-group app-button-group--right">
-                <button type="submit" asp-page-handler="SaveRevisionDates" class="govuk-button" data-module="govuk-button">Save</button>
-            </div>
-        }
     </form>
+
+    @* Outside the form, as each confirmation dialog has a form of its own. *@
+    @if (Model.CanPublishPublic || Model.CanPublishDefranetOnly)
+    {
+        <div class="app-publish-links govuk-body">
+            @if (Model.CanPublishPublic)
+            {
+                <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmPublishPublicModal">Publish (public)</button>
+            }
+            @if (Model.CanPublishDefranetOnly)
+            {
+                <button type="button" class="govuk-link app-link-button" data-confirm-target="#confirmPublishDefranetOnlyModal">Publish (Defranet only)</button>
+            }
+        </div>
+
+        @if (Model.CanPublishPublic)
+        {
+            <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                "confirmPublishPublicModal",
+                "Are you sure you want to publish this profile and make it public (this cannot be undone)?",
+                "PublishPublic",
+                Model.ProfileId,
+                Model.CurrentSection.Id))" />
+        }
+        @if (Model.CanPublishDefranetOnly)
+        {
+            <partial name="_ConfirmActionModal" model="@(new ConfirmActionModalViewModel(
+                "confirmPublishDefranetOnlyModal",
+                "Are you sure you want to publish this profile but not make it public?",
+                "PublishDefranetOnly",
+                Model.ProfileId,
+                Model.CurrentSection.Id))" />
+        }
+    }
 }
 
 @section Scripts {

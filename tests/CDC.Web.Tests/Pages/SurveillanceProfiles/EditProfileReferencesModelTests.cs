@@ -281,7 +281,7 @@ public class EditProfileReferencesModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_OffersSelect_OnlyForTheKindWhoseMasterListHoldsANoteNotYetLinkedToTheSection()
+    public async Task OnGetAsync_ListsForSelecting_OnlyTheMasterListNotesNotYetLinkedToTheSection_OfEachKind()
     {
         var inSection = Linked("In the section", QuestionId);
         var notes = new Notes(
@@ -292,10 +292,10 @@ public class EditProfileReferencesModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.True(pageModel.ScientificPaperReferences.CanSelect);
+        Assert.True(pageModel.ScientificPaperReferences.CanEdit);
         Assert.Equal(["Linked elsewhere"], pageModel.ScientificPaperReferences.AvailableNoteChoices.Select(choice => choice.Text));
         Assert.True(pageModel.LegislativeReferences.CanEdit);
-        Assert.False(pageModel.LegislativeReferences.CanSelect);
+        Assert.Empty(pageModel.LegislativeReferences.AvailableNoteChoices);
     }
 
     // A note deleted from a section is only unlinked from it, so it is still in the master list for the section to select again.
@@ -309,7 +309,7 @@ public class EditProfileReferencesModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.True(pageModel.LegislativeReferences.CanSelect);
+        Assert.True(pageModel.LegislativeReferences.CanEdit);
         Assert.Equal(unlinkedNow.Id, Assert.Single(pageModel.LegislativeReferences.AvailableNoteChoices).Id);
     }
 
@@ -334,7 +334,7 @@ public class EditProfileReferencesModelTests
 
         Assert.Single(pageModel.ScientificPaperReferences.Rows);
         Assert.All(pageModel.Editors, editor => Assert.False(editor.CanEdit));
-        Assert.All(pageModel.Editors, editor => Assert.False(editor.CanSelect));
+        Assert.All(pageModel.Editors, editor => Assert.Empty(editor.AvailableNoteChoices));
         Assert.All(pageModel.Editors, editor => Assert.Equal(ProfileNotePanel.None, editor.Panel));
         Assert.False(masterListRead);
         Assert.Null(api.RequestedQuestionInfoSectionId);
@@ -397,6 +397,22 @@ public class EditProfileReferencesModelTests
         Assert.Equal("Legislative only", pageModel.LegislativeReferences.PanelNoteHtml);
         Assert.Equal(legislative.Id, Assert.Single(pageModel.LegislativeReferences.AvailableNoteChoices, choice => choice.IsSelected).Id);
         Assert.Equal(["Scientific only"], pageModel.ScientificPaperReferences.AvailableNoteChoices.Select(choice => choice.Text));
+    }
+
+    // Select is offered whatever the master list holds, as the legacy page did once Add was cancelled, so its panel opens with an empty drop-down.
+    [Fact]
+    public async Task OnGetAsync_OpensTheSelectPanelOfTheNamedKind_WithAnEmptyDropDown_WhenItsMasterListHoldsNothingToSelect()
+    {
+        var (pageModel, _, _) = CreatePage(DraftProfile(), new Notes(Legislative: [Linked("Act", QuestionId)]));
+        pageModel.Mode = "select";
+        pageModel.NoteTypeKey = "legislative";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ProfileNotePanel.Select, pageModel.LegislativeReferences.Panel);
+        Assert.Empty(pageModel.LegislativeReferences.AvailableNoteChoices);
+        Assert.Null(pageModel.LegislativeReferences.PanelNoteHtml);
+        Assert.Equal(ProfileNotePanel.None, pageModel.ScientificPaperReferences.Panel);
     }
 
     [Fact]
