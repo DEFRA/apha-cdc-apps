@@ -105,6 +105,85 @@ public class UsersControllerTests
         objectResult.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 
+    private static LookUpUserByEmailCommand LookUp(UserLookupKind kind = default) => new()
+    {
+        EmailAddress = "user@example.com",
+        Kind = kind
+    };
+
+    private static UserLookupDto LookedUpUser() => new()
+    {
+        Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        FullName = "Jane Internal",
+        IsProfileEditor = false,
+        IsPolicyProfileUser = true,
+        IsInternalProfileEditor = false
+    };
+
+    [Fact]
+    public async Task LookUpInternalUser_AsksForAnInternalSignInWhateverTheBodyHolds_AndReturnsOk()
+    {
+        var dto = LookedUpUser();
+        mediator
+            .Setup(sender => sender.Send(LookUp(UserLookupKind.Internal), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        // The kind is route-driven: a body that somehow carried External is overridden.
+        var response = await CreateController().LookUpInternalUser(LookUp(UserLookupKind.External), CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Subject.Value.Should().BeSameAs(dto);
+    }
+
+    [Fact]
+    public async Task LookUpExternalUser_AsksForAnExternalSignInWhateverTheBodyHolds_AndReturnsOk()
+    {
+        var dto = LookedUpUser();
+        mediator
+            .Setup(sender => sender.Send(LookUp(UserLookupKind.External), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(dto));
+
+        var response = await CreateController().LookUpExternalUser(LookUp(UserLookupKind.Internal), CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Subject.Value.Should().BeSameAs(dto);
+    }
+
+    [Theory]
+    [InlineData(ResultStatus.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(ResultStatus.Conflict, StatusCodes.Status409Conflict)]
+    [InlineData(ResultStatus.Forbidden, StatusCodes.Status403Forbidden)]
+    public async Task LookUpInternalUser_ReturnsTheMatchingProblemStatus_WhenTheLookupFails(ResultStatus status, int expectedStatusCode)
+    {
+        mediator
+            .Setup(sender => sender.Send(LookUp(UserLookupKind.Internal), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Failure(status));
+
+        var response = await CreateController().LookUpInternalUser(LookUp(), CancellationToken.None);
+
+        response.Result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(expectedStatusCode);
+    }
+
+    [Theory]
+    [InlineData(ResultStatus.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(ResultStatus.Conflict, StatusCodes.Status409Conflict)]
+    [InlineData(ResultStatus.Forbidden, StatusCodes.Status403Forbidden)]
+    public async Task LookUpExternalUser_ReturnsTheMatchingProblemStatus_WhenTheLookupFails(ResultStatus status, int expectedStatusCode)
+    {
+        mediator
+            .Setup(sender => sender.Send(LookUp(UserLookupKind.External), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Failure(status));
+
+        var response = await CreateController().LookUpExternalUser(LookUp(), CancellationToken.None);
+
+        response.Result.Should().BeOfType<ObjectResult>().Subject.StatusCode.Should().Be(expectedStatusCode);
+    }
+
+    private static Result<UserLookupDto> Failure(ResultStatus status) => status switch
+    {
+        ResultStatus.NotFound => Result.NotFound<UserLookupDto>("none"),
+        ResultStatus.Conflict => Result.Conflict<UserLookupDto>("several"),
+        _ => Result.Forbidden<UserLookupDto>("not permitted")
+    };
+
     private sealed class TestProblemDetailsFactory : ProblemDetailsFactory
     {
         public override ProblemDetails CreateProblemDetails(
