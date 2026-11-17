@@ -54,6 +54,33 @@ describe('richtext-toolbar', () => {
     expect(editor.textContent).toBe('<img src=x onerror=alert(1)>');
   });
 
+  it('shows a stored character reference as its character, not as code', async () => {
+    const { editor, textarea } = await setup('<p>Farmer&rsquo;s &ldquo;pigs&rdquo; &ndash; &pound;5 &#8217; &#x2019; caf&eacute;</p>');
+    expect(editor.textContent).toBe('Farmer\u2019s \u201Cpigs\u201D \u2013 \u00A35 \u2019 \u2019 caf\u00E9');
+    // The characters themselves are posted; the server writes anything outside ASCII back as a numeric reference.
+    expect(textarea.value).toBe('<p>Farmer\u2019s \u201Cpigs\u201D \u2013 \u00A35 \u2019 \u2019 caf\u00E9</p>');
+  });
+
+  it('keeps a reference to markup as text, and leaves an unknown or unfinished reference as it is', async () => {
+    const { editor, textarea } = await setup('<p>&lt;b&gt; &amp; &unknown; AT&amp;T R&D &copy</p>');
+    expect(editor.querySelector('b')).toBeNull();
+    expect(editor.textContent).toBe('<b> & &unknown; AT&T R&D &copy');
+    expect(textarea.value).toBe('<p>&lt;b&gt; &amp; &amp;unknown; AT&amp;T R&amp;D &amp;copy</p>');
+  });
+
+  it('reads a self-closing line break as a line break, not as text', async () => {
+    const { editor, textarea } = await setup('Line one<br/>Line two<br />Line three<br>End');
+    expect(editor.querySelectorAll('br')).toHaveLength(3);
+    expect(editor.textContent).toBe('Line oneLine twoLine threeEnd');
+    expect(textarea.value).toBe('Line one<br>Line two<br>Line three<br>End');
+  });
+
+  it('adds no line break for the line feeds that lay out the list tags', async () => {
+    const { editor } = await setup('Intro<br/>\n<ul>\n<li>One</li>\n<li>Two</li>\n</ul>');
+    expect(editor.querySelectorAll('br')).toHaveLength(1);
+    expect(editor.querySelectorAll('li')).toHaveLength(2);
+  });
+
   it('stores an empty value when the editor has no content', async () => {
     const { textarea } = await setup('');
     expect(textarea.value).toBe('');

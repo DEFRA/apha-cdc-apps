@@ -15,8 +15,8 @@ namespace CDC.Api.Features.ProfileQuestions.Commands;
 /// </remarks>
 public sealed record UpdateProfileQuestionCommand : IRequest<Result<ProfileQuestionDto>>
 {
-    /// <summary>Gets the question being updated.</summary>
-    public required Guid Id { get; init; }
+    /// <summary>Gets the question being updated. The controller takes it from the route, so a request body does not carry it.</summary>
+    public Guid Id { get; init; }
 
     /// <summary>Gets the question's new full display name.</summary>
     public string Name { get; init; } = string.Empty;

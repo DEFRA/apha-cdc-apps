@@ -10,19 +10,20 @@
     var SAFE_HREF = /^(https?:|mailto:)/i;
 
     var KEPT_ATTRIBUTES = ['href', 'target', 'title'];
-    var TAG_PATTERN = /<(\/?)([a-z][a-z0-9]*)((?:\s[^>]*)?)>/iy;
+    // A tag's attributes, if it has any, follow its name after white space, or after the slash of a self-closing tag such as <br/>.
+    var TAG_PATTERN = /<(\/?)([a-z][a-z0-9]*)((?:[\s/][^>]*)?)>/iy;
     var ATTRIBUTE_PATTERN = /([a-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
-    var ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+    var CHARACTER_REFERENCE_PATTERN = /&(?:#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi;
+    var referenceDecoder = document.createElement('textarea');
 
+    // Replaces each character reference with its character as a browser would (&rsquo; &ldquo; &pound; &#8217; ...),
+    // which the legacy editor stored for anything outside ASCII. The decoder is a detached textarea, which holds what it
+    // is given as text, and a reference holds no markup, so nothing is run or turned into elements. A reference the
+    // browser does not know is left as it is.
     function decodeEntities(text) {
-        return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, function (match, name) {
-            if (name.charAt(0) === '#') {
-                var isHex = name.charAt(1).toLowerCase() === 'x';
-                var code = parseInt(name.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-                return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
-            }
-            var decoded = ENTITIES[name.toLowerCase()];
-            return decoded === undefined ? match : decoded;
+        return text.replace(CHARACTER_REFERENCE_PATTERN, function (reference) {
+            referenceDecoder.innerHTML = reference;
+            return referenceDecoder.textContent;
         });
     }
 

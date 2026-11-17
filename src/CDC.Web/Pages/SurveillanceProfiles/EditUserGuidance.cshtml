@@ -91,8 +91,8 @@ else if (success is not null)
 
 <h2 class="govuk-heading-m">Questions</h2>
 <p class="govuk-body">
-    Use this function to change the user guidance that appears for each question in the profile, or to change the question itself.
-    You can use italics, bulleted lists and links. Bold and underline cannot be used.
+    Use this function to modify the user-guidance text that appears for each of the questions within the profile and/or to modify the question itself.
+    N.B. Rich formatting, such as bold, underline or italics cannot be used.
 </p>
 
 <form method="get" action="@Url.Page("EditUserGuidance")">
@@ -207,10 +207,12 @@ else if (success is not null)
                         <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="Input_UserGuidance" aria-label="Insert link" title="Insert link">&#128279;</button>
                     </div>
                     <textarea class="govuk-textarea app-richtext-editor @(guidanceError is null ? null : "govuk-textarea--error")" id="Input_UserGuidance" name="Input.UserGuidance" rows="12" spellcheck="true" aria-describedby="@(guidanceError is null ? null : "Input_UserGuidance-error")">@Model.Input.UserGuidance</textarea>
-                    <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-top-2" data-spellcheck-target="Input_UserGuidance-editor" data-module="govuk-button">Spell check user guidance</button>
+                    @* As the legacy spellCheckButton was, this is a primary (green) button. *@
+                    <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="Input_UserGuidance-editor" data-module="govuk-button">Spell check user guidance</button>
                 </div>
 
-                <div class="govuk-button-group">
+                @* As the legacy page's right-aligned btnOK and btnCancel were, the buttons sit at the right. *@
+                <div class="govuk-button-group app-button-group--right">
                     <button type="submit" class="govuk-button" data-module="govuk-button">OK</button>
                     <a class="govuk-button govuk-button--secondary" asp-page="EditUserGuidance" asp-route-section="@Model.Section">Cancel</a>
                 </div>
