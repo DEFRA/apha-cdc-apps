@@ -117,15 +117,7 @@ public sealed partial class InternalUserResolver(
         var resolution = result switch
         {
             { Outcome: ResolveInternalUserOutcome.Success, User: not null } => EntraInternalUserResolution.Allow(
-                new Dictionary<string, string>
-                {
-                    [ExternalUserClaimTypes.InternalUserId] = result.User.Id.ToString(),
-                    [ExternalUserClaimTypes.FullName] = result.User.FullName,
-                    [ExternalUserClaimTypes.AuthenticationProvider] = EntraAuthenticationDefaults.AuthenticationScheme,
-                    // InternalRoleClaimsTransformation turns these two flags into role claims on every request.
-                    [ExternalUserClaimTypes.IsProfileEditor] = result.User.IsProfileEditor.ToString(),
-                    [ExternalUserClaimTypes.IsPolicyProfileUser] = result.User.IsPolicyProfileUser.ToString()
-                }),
+                ResolvedUserClaims.ForInternalUser(result.User.Id, result.User.FullName, result.User.IsProfileEditor, result.User.IsPolicyProfileUser)),
             { Outcome: ResolveInternalUserOutcome.NotPermitted } => EntraInternalUserResolution.Deny("/Account/NotPermitted"),
             _ => EntraInternalUserResolution.Deny("/Landing/Error")
         };

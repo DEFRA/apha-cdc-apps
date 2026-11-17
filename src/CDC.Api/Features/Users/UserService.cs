@@ -147,4 +147,41 @@ public sealed class UserService(IUserRepository userRepository, ILogger<UserServ
 
         return created;
     }
+
+    /// <inheritdoc />
+    public async Task<Result<ExternalUser>> LookUpByEmailAsync(LookUpUserByEmailCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var matches = await userRepository.FindByEmailAddressAsync(command.EmailAddress.Trim(), cancellationToken);
+        if (matches.Count == 0)
+        {
+            return Result.NotFound<ExternalUser>("No user holds that email address.");
+        }
+
+        // The email address is not unique in the database, and nothing says which of several users was meant.
+        if (matches.Count > 1)
+        {
+            logger.EmailAddressHeldByManyUsers(matches.Count);
+            return Result.Conflict<ExternalUser>("More than one user holds that email address.");
+        }
+
+        var user = matches[0];
+        if (!CanSignInAs(user, command.Kind))
+        {
+            logger.UserCannotSignInAsKind(user.Id, command.Kind);
+            return Result.Forbidden<ExternalUser>($"That user cannot be used for an {command.Kind} sign-in.");
+        }
+
+        logger.LookedUpUserByEmailAddress(user.Id, command.Kind);
+        return Result.Success(user);
+    }
+
+    // The same split the real sign-ins make: an external row carries the legacy SsoUserId, so any other row is an internal user, and an
+    // internal profile editor is the one internal user who also signs in through CIDM (see LinkOrDenyAsync).
+    private static bool CanSignInAs(ExternalUser user, UserLookupKind kind) => kind switch
+    {
+        UserLookupKind.Internal => !user.SsoUserId.HasValue,
+        _ => user.SsoUserId.HasValue || (user.SsoUserIdInt.HasValue && user.IsProfileEditor)
+    };
 }
