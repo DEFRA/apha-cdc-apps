@@ -11,17 +11,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.2" />
     <PackageReference Include="Dapper" Version="2.1.89" />
     <!-- Overrides the vulnerable 9.0.4 version pulled in transitively by Microsoft.Data.SqlClient. -->
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
     <!-- MediatR 12.x is the last Apache-2.0 release; 13+ requires a commercial licence. -->
-    <PackageReference Include="MediatR" Version="14.3.0" />
+    <PackageReference Include="MediatR" Version="15.0.0" />
     <!-- Renders the comparison report PDF attached to review reminders. -->
     <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
     <PackageReference Include="FluentValidation" Version="12.2.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="11.0.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
