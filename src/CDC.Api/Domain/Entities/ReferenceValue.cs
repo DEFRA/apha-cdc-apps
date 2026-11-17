@@ -12,4 +12,7 @@ public sealed record ReferenceValue
 
     /// <summary>Gets the display text.</summary>
     public required string Value { get; init; }
+
+    /// <summary>Gets a value indicating whether the value is still in force.</summary>
+    public bool IsActive { get; init; } = true;
 }

@@ -30,7 +30,7 @@
                 @if (Model.CanClearProfileSection)
                 {
                     @* As the legacy btnClearSection did, asks before clearing; the confirmation dialog is outside this form, which it cannot nest in. *@
-                    <button type="button" class="govuk-button govuk-button--warning" data-module="govuk-button" data-confirm-target="#clear-section-dialog">Clear</button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-confirm-target="#clear-section-dialog">Clear</button>
                 }
                 @if (Model.CanPrintProfileSection)
                 {
@@ -137,7 +137,7 @@
                     if (Model.CanEditProfileSection)
                     {
                         @* As the legacy btnSave2 and btnValidateSection2 did, repeats the Save and Validate buttons below the questions. *@
-                        <div class="govuk-button-group govuk-!-margin-top-6">
+                        <div class="govuk-button-group app-button-group--right govuk-!-margin-top-6">
                             <button type="submit" asp-page-handler="SaveSection" class="govuk-button" data-module="govuk-button">Save</button>
                             <button type="submit" asp-page-handler="ValidateSection" class="govuk-button" data-module="govuk-button">Validate</button>
                         </div>
@@ -167,4 +167,5 @@
     <partial name="_SpellCheckDialog" />
     <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
     <script src="~/js/spell-check.js" asp-append-version="true"></script>
+    <script src="~/js/relevance-confirm.js" asp-append-version="true"></script>
 }

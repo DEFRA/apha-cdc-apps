@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Models;
@@ -38,6 +39,9 @@ public class EditProfileQuestionsModel(
     public const string ClearFailedMessage = "Clear section failed: ";
 
     private const string RequestFailedReason = "We could not complete the request. Try again later.";
+
+    // Reference values can carry pasted editor markup such as <!--StartFragment-->, which the legacy page stripped.
+    private static readonly Regex MarkupPattern = new("<.*?>", RegexOptions.Singleline, TimeSpan.FromSeconds(1));
 
     // The start of the message shown when the answers were cleared but a later step could not be; what failed and the reason follow it.
     private const string ClearFailedWhileClearingMessage = "Clear section failed while trying to clear the ";
@@ -465,11 +469,30 @@ public class EditProfileQuestionsModel(
                                 field,
                                 isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario),
                                 questionValues.Where(value => value.FieldNumber == field.FieldNumber).ToList(),
-                                referenceValuesByTable))
+                                referenceValuesByTable,
+                                AffectedQuestionNumbers(section, field)))
                     ]
                 };
             })
         ];
+    }
+
+    /// <summary>Lists the numbers of the section's questions whose relevance depends on <paramref name="field"/>'s answer, or
+    /// <see langword="null"/> when there are none.</summary>
+    private static string? AffectedQuestionNumbers(ProfileSectionMetadataDto section, ProfileFieldMetadataDto field)
+    {
+        if (!field.AffectsRelevance)
+        {
+            return null;
+        }
+
+        var numbers = section.Questions
+            .Where(question => question.IrrelevanceFieldId == field.Id)
+            .OrderBy(question => question.QuestionNumber)
+            .Select(question => $"{section.SectionNumber}.{question.QuestionNumber}")
+            .ToList();
+
+        return numbers.Count == 0 ? null : string.Join(", ", numbers);
     }
 
     /// <summary>Builds one field's view: a real editable control matching its data type when
@@ -480,7 +503,8 @@ public class EditProfileQuestionsModel(
         ProfileFieldMetadataDto field,
         bool isEditable,
         List<ProfileFieldValueDto> recordedValues,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable,
+        string? affectsRelevanceOf)
     {
         var isListType =
             string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase) ||
@@ -500,7 +524,13 @@ public class EditProfileQuestionsModel(
                 DataTypeName = field.DataTypeName,
                 IsMandatory = field.IsMandatory,
                 IsEditable = isEditable,
-                Options = [.. options.Select(option => new ProfileFieldOptionEditView(option.Id, option.Value, selectedValues.Contains(option.Id)))]
+                AffectsRelevanceOf = affectsRelevanceOf,
+                Options =
+                [
+                    .. options
+                        .Where(option => option.IsActive || selectedValues.Contains(option.Id))
+                        .Select(option => new ProfileFieldOptionEditView(option.Id, MarkupPattern.Replace(option.Value, string.Empty).Trim(), selectedValues.Contains(option.Id)))
+                ]
             };
         }
 
@@ -516,6 +546,7 @@ public class EditProfileQuestionsModel(
             IsEditable = isEditable,
             ValueDisplay = FormatFieldValues(recordedValues),
             IsHtml = isHtml,
+            AffectsRelevanceOf = affectsRelevanceOf,
             BooleanValue = recordedValue?.BooleanValue,
             DecimalValue = recordedValue?.DecimalValue,
             DateValue = recordedValue?.DateValue,

@@ -1,7 +1,6 @@
 @model CDC.Web.Models.ProfileFieldEditView
 @{
     var inputName = $"field_{Model.FieldId}";
-    var hint = !Model.IsMandatory ? "(optional)" : null;
 }
 @if (!Model.IsEditable)
 {
@@ -50,51 +49,30 @@ else
     {
         case "Boolean":
             <div class="govuk-form-group">
-                <fieldset class="govuk-fieldset">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
-                    @if (hint is not null)
-                    {
-                        <div class="govuk-hint">@hint</div>
-                    }
-                    <div class="govuk-radios govuk-radios--inline govuk-radios--small" data-module="govuk-radios">
-                        <div class="govuk-radios__item">
-                            <input class="govuk-radios__input" id="@(inputName)-yes" name="@inputName" type="radio" value="true" checked="@(Model.BooleanValue == true ? "checked" : null)" />
-                            <label class="govuk-label govuk-radios__label" for="@(inputName)-yes">Yes</label>
-                        </div>
-                        <div class="govuk-radios__item">
-                            <input class="govuk-radios__input" id="@(inputName)-no" name="@inputName" type="radio" value="false" checked="@(Model.BooleanValue == false ? "checked" : null)" />
-                            <label class="govuk-label govuk-radios__label" for="@(inputName)-no">No</label>
-                        </div>
-                    </div>
-                </fieldset>
+                <label class="govuk-label govuk-label--s" for="@inputName">@Model.Label</label>
+                <select class="govuk-select" id="@inputName" name="@inputName" data-affects-relevance-of="@Model.AffectsRelevanceOf">
+                    <option value="">Please select...</option>
+                    <option value="true" selected="@(Model.BooleanValue == true ? "selected" : null)">Yes</option>
+                    <option value="false" selected="@(Model.BooleanValue == false ? "selected" : null)">No</option>
+                </select>
             </div>
             break;
         case "List":
             <div class="govuk-form-group">
-                <fieldset class="govuk-fieldset">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
-                    @if (hint is not null)
+                <label class="govuk-label govuk-label--s" for="@inputName">@Model.Label</label>
+                <select class="govuk-select" id="@inputName" name="@inputName" data-affects-relevance-of="@Model.AffectsRelevanceOf">
+                    <option value="">Please select...</option>
+                    @foreach (var option in Model.Options)
                     {
-                        <div class="govuk-hint">@hint</div>
+                        <option value="@option.Id" selected="@(option.IsChecked ? "selected" : null)">@option.Text</option>
                     }
-                    <div class="govuk-radios govuk-radios--small" data-module="govuk-radios">
-                        @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
-                        {
-                            var option = Model.Options[optionIndex];
-                            var optionId = $"{inputName}-{optionIndex}";
-                            <div class="govuk-radios__item">
-                                <input class="govuk-radios__input" id="@optionId" name="@inputName" type="radio" value="@option.Id" checked="@(option.IsChecked ? "checked" : null)" />
-                                <label class="govuk-label govuk-radios__label" for="@optionId">@option.Text</label>
-                            </div>
-                        }
-                    </div>
-                </fieldset>
+                </select>
             </div>
             break;
         case "MultiValueList":
             <div class="govuk-form-group">
                 <fieldset class="govuk-fieldset">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label (select all that apply)</legend>
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@(string.IsNullOrEmpty(Model.Label) ? "Please select all that apply" : $"{Model.Label} (please select all that apply)")</legend>
                     <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
                         @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
                         {
@@ -112,10 +90,6 @@ else
         case "Decimal":
             <div class="govuk-form-group">
                 <label class="govuk-label" for="@inputName">@Model.Label</label>
-                @if (hint is not null)
-                {
-                    <div class="govuk-hint">@hint</div>
-                }
                 <input class="govuk-input govuk-input--width-10" id="@inputName" name="@inputName" type="text" inputmode="decimal" value="@Model.DecimalValue?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" />
             </div>
             break;
@@ -123,10 +97,6 @@ else
             <div class="govuk-form-group">
                 <fieldset class="govuk-fieldset" role="group">
                     <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
-                    @if (hint is not null)
-                    {
-                        <div class="govuk-hint">@hint</div>
-                    }
                     <div class="govuk-date-input" id="@inputName" data-module="app-date-picker" data-date-picker-label="Choose date for @Model.Label">
                         <div class="govuk-date-input__item">
                             <div class="govuk-form-group">
@@ -153,10 +123,6 @@ else
         case "Long Text":
             <div class="govuk-form-group">
                 <label class="govuk-label" for="@inputName">@Model.Label</label>
-                @if (hint is not null)
-                {
-                    <div class="govuk-hint">@hint</div>
-                }
                 <div class="app-richtext-toolbar" role="toolbar" aria-label="@Model.Label formatting">
                     <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="@inputName" aria-label="Undo" title="Undo">&#8630;</button>
                     <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="@inputName" aria-label="Redo" title="Redo">&#8631;</button>
@@ -173,10 +139,6 @@ else
         default:
             <div class="govuk-form-group">
                 <label class="govuk-label" for="@inputName">@Model.Label</label>
-                @if (hint is not null)
-                {
-                    <div class="govuk-hint">@hint</div>
-                }
                 <input class="govuk-input" id="@inputName" name="@inputName" type="text" maxlength="255" value="@Model.TextValue" spellcheck="true" />
                 <button type="button" class="govuk-button govuk-!-margin-top-2" data-spellcheck-target="@inputName">Spell check</button>
             </div>

@@ -39,6 +39,7 @@ public static class ProfileSectionMappings
         QuestionNumber = question.QuestionNumber,
         IsPerSpecies = question.IsPerSpecies,
         IsRepeating = question.IsRepeating,
+        IrrelevanceFieldId = question.IrrelevanceFieldId,
         Fields = [.. question.Fields.Select(ToDto)]
     };
 
@@ -58,7 +59,8 @@ public static class ProfileSectionMappings
         ReferenceTableId = field.ReferenceTableId,
         ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
         IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
-        IsReadOnlyScenario = field.IsReadOnlyScenario
+        IsReadOnlyScenario = field.IsReadOnlyScenario,
+        AffectsRelevance = field.AffectsRelevance
     };
 
     /// <summary>Projects one profile version section's recorded answers.</summary>
