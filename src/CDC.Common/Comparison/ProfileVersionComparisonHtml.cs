@@ -15,7 +15,11 @@ public static class ProfileVersionComparisonHtml
         ".question td,.group td{background:#e8e8e8;font-weight:bold;white-space:normal}" +
         ".group td{background:#f3f2f1;font-weight:normal;font-style:italic}" +
         ".removed{color:#d4351c;text-decoration:line-through}.added{color:#005a30;font-weight:bold;text-decoration:underline}" +
-        ".key{margin:0 0 8px}.identical,.none{text-align:center;font-style:italic}.identical{margin:4px 0 10px}.report+.report{page-break-before:always}";
+        ".key{margin:0 0 8px}.identical,.none{text-align:center;font-style:italic}.identical{margin:4px 0 10px}.report+.report{page-break-before:always}" +
+        ".options{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;margin:0;padding:0;list-style:none;white-space:normal}" +
+        ".options li{display:flex;align-items:center}" +
+        ".checkbox{position:relative;display:inline-block;flex:none;width:11px;height:11px;margin-right:4px;border:1px solid #0b0c0c}" +
+        ".checkbox--selected::after{content:'';position:absolute;left:3px;top:-1px;width:3px;height:8px;border:solid #0b0c0c;border-width:0 2px 2px 0;transform:rotate(45deg)}";
 
     /// <summary>Renders each report in turn, starting every report after the first on a new page.</summary>
     /// <param name="reports">The reports to render.</param>
@@ -84,12 +88,32 @@ public static class ProfileVersionComparisonHtml
             foreach (var field in group.Fields)
             {
                 html.Append("<tr><td>").Append(Encode(field.Label)).Append("</td><td>");
-                AppendSegments(html, field.Left);
+                AppendAnswer(html, field.LeftOptions, field.Left);
                 html.Append("</td><td>");
-                AppendSegments(html, field.Right);
+                AppendAnswer(html, field.RightOptions, field.Right);
                 html.Append("</td></tr>");
             }
         }
+    }
+
+    private static void AppendAnswer(StringBuilder html, IReadOnlyList<ComparisonOption>? options, IReadOnlyList<ComparisonSegment> segments)
+    {
+        if (options is null)
+        {
+            AppendSegments(html, segments);
+            return;
+        }
+
+        html.Append("<ul class=\"options\">");
+
+        foreach (var option in options)
+        {
+            html.Append(option.Selected ? "<li><span class=\"checkbox checkbox--selected\"></span><span>" : "<li><span class=\"checkbox\"></span><span>")
+                .Append(Encode(option.Text))
+                .Append("</span></li>");
+        }
+
+        html.Append("</ul>");
     }
 
     private static void AppendSegments(StringBuilder html, IReadOnlyList<ComparisonSegment> segments)

@@ -29,7 +29,10 @@ internal sealed class FakeApiClient( // NOSONAR
     Exception? throwOnStaticReportOperation = null,
     PublishProfileResult? publishProfileResult = null,
     Exception? throwOnGetManageProfileForAVersion = null,
-    Action? onSearchProfiles = null) : IApiClient
+    Action? onSearchProfiles = null,
+    bool setProfileVersionPublicAccessResult = true,
+    bool canFilterToMyProfiles = false,
+    Exception? throwOnCanFilterToMyProfiles = null) : IApiClient
 {
     private readonly ApiHealthResponse? _response = response ?? new ApiHealthResponse("Healthy", 1, DateTime.UtcNow);
     private readonly IReadOnlyList<ProfileSearchResultDto> _searchResults = searchResults ?? [];
@@ -56,19 +59,36 @@ internal sealed class FakeApiClient( // NOSONAR
             ? Task.FromException<ApiHealthResponse?>(throwOnGetHealth)
             : Task.FromResult(_response);
 
+    /// <summary>Gets whether the most recent search asked for only the user's own profiles, or <see langword="null"/> before any search.</summary>
+    public bool? LastSearchDisplayMyProfiles { get; private set; }
+
+    /// <summary>Gets how many times it was asked whether the user may filter to their own profiles.</summary>
+    public int CanFilterToMyProfilesCalls { get; private set; }
+
     public Task<IReadOnlyList<ProfileSearchResultDto>> SearchProfilesAsync(
         string? searchText,
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        bool displayMyProfiles,
         SearchForType searchForType,
         CancellationToken cancellationToken = default)
     {
+        LastSearchDisplayMyProfiles = displayMyProfiles;
         onSearchProfiles?.Invoke();
 
         return throwOnSearchProfiles is not null
             ? Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(throwOnSearchProfiles)
             : Task.FromResult(_searchResults);
+    }
+
+    public Task<bool> CanFilterToMyProfilesAsync(CancellationToken cancellationToken = default)
+    {
+        CanFilterToMyProfilesCalls++;
+
+        return throwOnCanFilterToMyProfiles is not null
+            ? Task.FromException<bool>(throwOnCanFilterToMyProfiles)
+            : Task.FromResult(canFilterToMyProfiles);
     }
 
     public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
@@ -214,4 +234,14 @@ internal sealed class FakeApiClient( // NOSONAR
 
     public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_deleteProfileVersionResult);
+
+    /// <summary>Gets the version the last make-public request named, or <see langword="null"/> when none was made.</summary>
+    public Guid? PublicAccessProfileVersionId { get; private set; }
+
+    public Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default)
+    {
+        PublicAccessProfileVersionId = profileVersionId;
+
+        return Task.FromResult(setProfileVersionPublicAccessResult);
+    }
 }

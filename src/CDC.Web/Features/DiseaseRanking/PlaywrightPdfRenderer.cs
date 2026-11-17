@@ -1,4 +1,6 @@
 using System.Net;
+using CDC.Web.Infrastructure;
+using CDC.Web.Infrastructure.Reports;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
 
@@ -23,7 +25,7 @@ public sealed class PdfRendererOptions
 /// page with JavaScript disabled, since the report HTML is static.
 /// </summary>
 /// <param name="options">Renderer configuration.</param>
-public sealed class PlaywrightPdfRenderer(IOptions<PdfRendererOptions> options) : IPdfRenderer, IAsyncDisposable
+public sealed class PlaywrightPdfRenderer(IOptions<PdfRendererOptions> options, IConfiguration configuration) : IPdfRenderer, IAsyncDisposable
 {
     private readonly SemaphoreSlim startLock = new(1, 1);
     private IPlaywright? playwright;
@@ -46,10 +48,20 @@ public sealed class PlaywrightPdfRenderer(IOptions<PdfRendererOptions> options) 
             Tagged = true,
             DisplayHeaderFooter = true,
             HeaderTemplate = "<span></span>",
-            FooterTemplate =
-                "<div style=\"width:100%;font-size:8px;font-family:Arial,sans-serif;text-align:center\">" +
-                $"{WebUtility.HtmlEncode(footerText)} Page <span class=\"pageNumber\"></span> of <span class=\"totalPages\"></span></div>"
+            FooterTemplate = BuildFooter(footerText)
         });
+    }
+
+    private string BuildFooter(string footerText)
+    {
+        var internalReportsUrl = configuration["ProfileReports:InternalHomePageUrl"];
+        var internalReports = string.IsNullOrWhiteSpace(internalReportsUrl)
+            ? string.Empty
+            : $"{ProfileReportLayout.InternalReportsLinkText}<span style=\"color:#0000ff;text-decoration:underline\">{WebUtility.HtmlEncode(internalReportsUrl)}</span>. ";
+
+        return "<div style=\"width:100%;font-size:8px;font-family:Arial,sans-serif;text-align:center\">" +
+            $"<div>{internalReports}{WebUtility.HtmlEncode(ContributionsReportLayout.QualityStatementText)}</div>" +
+            $"<div>{WebUtility.HtmlEncode(footerText)} Page <span class=\"pageNumber\"></span> of <span class=\"totalPages\"></span></div></div>";
     }
 
     /// <inheritdoc />

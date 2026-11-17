@@ -459,9 +459,13 @@ public class InternalUserResolverTests
             bool displayPublished,
             bool displayDraft,
             bool displayScenarios,
+            bool displayMyProfiles,
             SearchForType searchForType,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ProfileSearchResultDto>>([]);
+
+        public Task<bool> CanFilterToMyProfilesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
 
         public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
             Task.FromResult<ProfileAttributesDto?>(null);
@@ -549,5 +553,8 @@ public class InternalUserResolverTests
 
         public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Error, false, "Not implemented in this fake."));
+
+        public Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
     }
 }

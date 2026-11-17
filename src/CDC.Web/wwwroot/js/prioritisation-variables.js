@@ -49,16 +49,6 @@
         });
     });
 
-    // A long-running submit shows its progress dialog until the response replaces the page; it can't be dismissed.
-    document.addEventListener('submit', function (event) {
-        var submitter = event.submitter;
-        var dialog = submitter && submitter.dataset.progressDialog && document.querySelector(submitter.dataset.progressDialog);
-        if (dialog && !event.defaultPrevented && typeof dialog.showModal === 'function') {
-            dialog.addEventListener('cancel', function (cancelEvent) { cancelEvent.preventDefault(); });
-            dialog.showModal();
-        }
-    });
-
     var panel = document.getElementById('criterion-panel');
     if (!panel) {
         return;

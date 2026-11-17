@@ -392,6 +392,21 @@ public class BespokeReportRenderingTests : IClassFixture<CdcWebTestFactory>
         Assert.DoesNotContain("<table class=\"rpt-guidance\">", html);
     }
 
+    [Fact]
+    public async Task Renders_TheFrontPageAndTheClosingNote_WithNoSection_WhenNothingIsTicked()
+    {
+        var question = ReportContent.Answered(1, "Is it here?", "An answer");
+        var section = ReportContent.Section(1, "Description", "A note", question);
+        var selection = new BespokeReportSelection(new HashSet<Guid>(), new HashSet<Guid>(), new HashSet<Guid>());
+
+        var html = await RenderAsync(ProfileBespokeReportDocuments.Build(ReportContent.Create([section]), selection, new Dictionary<Guid, string>(), null));
+
+        Assert.Contains("Bespoke Profile Report for: Anthrax", html);
+        Assert.Contains("<h2 class=\"rpt-section-heading\">Please Note</h2>", html);
+        Assert.DoesNotContain("1. Description", html);
+        Assert.DoesNotContain("Is it here?", html);
+    }
+
     private async Task<string> RenderAsync(ProfileReportDocumentViewModel document)
     {
         using var scope = factory.Services.CreateScope();

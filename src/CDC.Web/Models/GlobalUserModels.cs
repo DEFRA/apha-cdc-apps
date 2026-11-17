@@ -28,6 +28,12 @@ public sealed record SaveGlobalUserRequest
 
     /// <summary>Gets the row version last read for this user.</summary>
     public byte[] LastUpdated { get; init; } = [];
+
+    /// <summary>Gets the email address read from the directory. Only used when the user does not yet exist.</summary>
+    public string? EmailAddress { get; init; }
+
+    /// <summary>Gets the directory (Entra ID) object id. Only used when the user does not yet exist.</summary>
+    public Guid? SsoUserIdInt { get; init; }
 }
 
 /// <summary>Outcome of a save or delete call, distinguishing the failure kinds the page reacts to differently.</summary>

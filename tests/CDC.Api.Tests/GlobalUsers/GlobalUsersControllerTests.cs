@@ -49,6 +49,18 @@ public class GlobalUsersControllerTests
     }
 
     [Fact]
+    public async Task GetUsersWithGlobalRole_ReturnsOk()
+    {
+        IReadOnlyList<GlobalUserDto> users = [];
+        mediator.Setup(sender => sender.Send(It.IsAny<GetUsersWithGlobalRoleQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(users));
+
+        var response = await CreateController().GetUsersWithGlobalRole(CancellationToken.None);
+
+        response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(users);
+    }
+
+    [Fact]
     public async Task Lookup_ReturnsOk()
     {
         var lookup = new GlobalUserLookupResult { Outcome = GlobalUserLookupOutcome.NewUser };
@@ -66,6 +78,21 @@ public class GlobalUsersControllerTests
         var request = Request();
         mediator.Setup(sender => sender.Send(
                 It.Is<SaveGlobalUserCommand>(command => command.IsNew && command.Id == request.Id && command.Role == request.Role),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(Unit.Value));
+
+        var response = await CreateController().AddGlobalUser(request, CancellationToken.None);
+
+        response.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task AddGlobalUser_PassesTheDirectoryEmailAndObjectIdToTheCommand()
+    {
+        var objectId = Guid.NewGuid();
+        var request = Request() with { EmailAddress = "jo.smith@example.test", SsoUserIdInt = objectId };
+        mediator.Setup(sender => sender.Send(
+                It.Is<SaveGlobalUserCommand>(command => command.EmailAddress == "jo.smith@example.test" && command.SsoUserIdInt == objectId),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Unit.Value));
 
@@ -104,14 +131,17 @@ public class GlobalUsersControllerTests
     {
         var service = new Mock<IGlobalUsersService>(MockBehavior.Strict);
         var page = new PagedResult<GlobalUserDto> { Items = [], PageNumber = 1, PageSize = 10, TotalRecords = 0 };
+        IReadOnlyList<GlobalUserDto> roleHolders = [];
         var lookup = new GlobalUserLookupResult();
         var id = Guid.NewGuid();
         service.Setup(s => s.GetGlobalUsersAsync(1, 10, GlobalUserSortColumn.FullName, false, It.IsAny<CancellationToken>())).ReturnsAsync(page);
+        service.Setup(s => s.GetUsersWithGlobalRoleAsync(It.IsAny<CancellationToken>())).ReturnsAsync(roleHolders);
         service.Setup(s => s.LookupAsync("u", It.IsAny<CancellationToken>())).ReturnsAsync(lookup);
         service.Setup(s => s.SaveAsync(It.IsAny<SaveGlobalUserCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));
         service.Setup(s => s.DeleteAsync(It.IsAny<DeleteGlobalUserCommand>(), It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success(Unit.Value));
 
         (await new GetGlobalUsersQueryHandler(service.Object).Handle(new GetGlobalUsersQuery(1, 10), CancellationToken.None)).Value.Should().BeSameAs(page);
+        (await new GetUsersWithGlobalRoleQueryHandler(service.Object).Handle(new GetUsersWithGlobalRoleQuery(), CancellationToken.None)).Value.Should().BeSameAs(roleHolders);
         (await new LookupGlobalUserQueryHandler(service.Object).Handle(new LookupGlobalUserQuery("u"), CancellationToken.None)).Value.Should().BeSameAs(lookup);
         (await new SaveGlobalUserCommandHandler(service.Object).Handle(new SaveGlobalUserCommand(id, true, "u", "f", "o", GlobalUserRole.ProfileEditor, false, []), CancellationToken.None)).IsSuccess.Should().BeTrue();
         (await new DeleteGlobalUserCommandHandler(service.Object).Handle(new DeleteGlobalUserCommand(id, []), CancellationToken.None)).IsSuccess.Should().BeTrue();

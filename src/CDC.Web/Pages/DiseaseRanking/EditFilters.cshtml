@@ -65,7 +65,9 @@ else
         </div>
     }
 
-    <form method="post">
+    <form method="post" asp-page-handler="SelectFilter">
+        <p class="govuk-body">Please press the button to create the disease filter report.</p>
+
         <div class="govuk-button-group">
             <button type="submit" asp-page-handler="CreateNew" formnovalidate class="govuk-button" data-module="govuk-button">
                 Create new filter
@@ -74,7 +76,7 @@ else
 
         <div class="govuk-form-group">
             <label class="govuk-label" asp-for="SelectedFilterNumber">Select Filter</label>
-            <select class="govuk-select" asp-for="SelectedFilterNumber">
+            <select class="govuk-select" asp-for="SelectedFilterNumber" data-auto-submit>
                 <option value="">Select Filter</option>
                 @foreach (var filter in Model.Filters)
                 {
@@ -82,9 +84,11 @@ else
                 }
             </select>
         </div>
-        <button type="submit" asp-page-handler="SelectFilter" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">
-            View filter
-        </button>
+        <noscript>
+            <button type="submit" asp-page-handler="SelectFilter" formnovalidate class="govuk-button govuk-button--secondary" data-module="govuk-button">
+                View filter
+            </button>
+        </noscript>
 
         @if (Model.SelectionErrorMessage is not null)
         {
@@ -141,9 +145,9 @@ else
 
         <div class="govuk-form-group@(ViewData.ModelState["Input.Disease1"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
             <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Endemic or exotic diseases</legend>
+                <legend class="govuk-visually-hidden">Endemic or exotic diseases</legend>
                 <span class="govuk-error-message" asp-validation-for="Input.Disease1"></span>
-                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                <div class="govuk-radios govuk-radios--inline app-radios-aligned" data-module="govuk-radios">
                     @foreach (var value in new[] { "endemic diseases", "exotic diseases", "both" })
                     {
                         <div class="govuk-radios__item">
@@ -157,9 +161,9 @@ else
 
         <div class="govuk-form-group@(ViewData.ModelState["Input.Disease2"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
             <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Zoonotic diseases</legend>
+                <legend class="govuk-visually-hidden">Zoonotic diseases</legend>
                 <span class="govuk-error-message" asp-validation-for="Input.Disease2"></span>
-                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                <div class="govuk-radios govuk-radios--inline app-radios-aligned" data-module="govuk-radios">
                     @foreach (var value in new[] { "zoonotic", "non-zoonotic", "both" })
                     {
                         <div class="govuk-radios__item">
@@ -173,9 +177,9 @@ else
 
         <div class="govuk-form-group@(ViewData.ModelState["Input.Disease3"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
             <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Notifiable diseases</legend>
+                <legend class="govuk-visually-hidden">Notifiable diseases</legend>
                 <span class="govuk-error-message" asp-validation-for="Input.Disease3"></span>
-                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                <div class="govuk-radios govuk-radios--inline app-radios-aligned" data-module="govuk-radios">
                     @foreach (var value in new[] { "notifiable", "non-notifiable", "both" })
                     {
                         <div class="govuk-radios__item">
@@ -189,9 +193,9 @@ else
 
         <div class="govuk-form-group@(ViewData.ModelState["Input.Disease4"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
             <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Infectious diseases</legend>
+                <legend class="govuk-visually-hidden">Infectious diseases</legend>
                 <span class="govuk-error-message" asp-validation-for="Input.Disease4"></span>
-                <div class="govuk-radios govuk-radios--inline" data-module="govuk-radios">
+                <div class="govuk-radios govuk-radios--inline app-radios-aligned" data-module="govuk-radios">
                     @foreach (var value in new[] { "infectious", "non-infectious", "both" })
                     {
                         <div class="govuk-radios__item">
@@ -205,7 +209,7 @@ else
 
         <div class="govuk-form-group">
             <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Transmissible agent type</legend>
+                <legend class="govuk-visually-hidden">Transmissible agent type</legend>
                 <div class="govuk-checkboxes govuk-checkboxes--inline" data-module="govuk-checkboxes">
                     @foreach (var type in CDC.Web.Pages.DiseaseRanking.EditFiltersModel.AgentTypeChoices)
                     {
@@ -249,5 +253,6 @@ else
 }
 
 @section Scripts {
+    <script src="~/js/auto-submit-select.js" asp-append-version="true"></script>
     <script src="~/js/tree-view.js" asp-append-version="true"></script>
 }

@@ -4,21 +4,22 @@ using CDC.Web.Models;
 
 namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
 
-/// <summary>An <see cref="IGlobalUsersApiService"/> that lists the users it is given, or throws, for pages that only need the list.</summary>
+/// <summary>An <see cref="IGlobalUsersApiService"/> that lists the users who hold a global role (the authors) it is given, or throws, for pages that only need that list.</summary>
 /// <param name="users">The users to list.</param>
 /// <param name="throwOnList">The exception to throw instead of listing the users.</param>
 internal sealed class StubGlobalUsersApiService(IReadOnlyList<GlobalUserDto> users, Exception? throwOnList = null) : IGlobalUsersApiService
 {
-    /// <summary>Gets the page number and size most recently asked for.</summary>
-    public (int PageNumber, int PageSize)? RequestedPage { get; private set; }
+    /// <summary>Gets how many times the users who hold a global role were listed.</summary>
+    public int RoleHoldersRequests { get; private set; }
 
-    public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default)
+    public Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    public Task<IReadOnlyList<GlobalUserDto>> GetRoleHoldersAsync(CancellationToken cancellationToken = default)
     {
-        RequestedPage = (pageNumber, pageSize);
+        RoleHoldersRequests++;
 
-        return throwOnList is not null
-            ? throw throwOnList
-            : Task.FromResult(new PagedResult<GlobalUserDto> { Items = users, PageNumber = pageNumber, PageSize = pageSize, TotalRecords = users.Count });
+        return throwOnList is not null ? throw throwOnList : Task.FromResult(users);
     }
 
     public Task<GlobalUserLookupResult> LookupAsync(string userName, CancellationToken cancellationToken = default) => throw new NotSupportedException();

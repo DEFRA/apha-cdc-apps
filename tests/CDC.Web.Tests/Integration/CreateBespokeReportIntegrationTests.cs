@@ -172,6 +172,25 @@ public partial class CreateBespokeReportIntegrationTests
     }
 
     [Fact]
+    public async Task Generate_DownloadsThePdf_WithoutAskingForASelection_WhenNothingIsTicked()
+    {
+        var builder = new FakeBespokeReportPdfBuilder();
+        using var factory = CreateFactory(new FakeBespokeReportTemplatesApiService(), builder: builder);
+        var client = await factory.SignedInClientAsync();
+        var token = ExtractToken(await client.GetStringAsync(PageUrl));
+
+        var response = await client.PostAsync(
+            $"{PageUrl}?handler=Generate",
+            new FormUrlEncodedContent([new("__RequestVerificationToken", token)]));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.Empty(builder.Selection!.Sections);
+        Assert.Empty(builder.Selection.Questions);
+        Assert.Empty(builder.Selection.Guidance);
+    }
+
+    [Fact]
     public async Task SaveAs_PostsTheTitleAndTickedNodes_ThenShowsTheSavedTemplateWithASuccessMessage()
     {
         var saved = new BespokeReportTemplateDto { Id = Template.Id, Title = "My template", CheckedList = Template.CheckedList };

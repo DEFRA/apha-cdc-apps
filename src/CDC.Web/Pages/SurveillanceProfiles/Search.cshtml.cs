@@ -40,6 +40,11 @@ public class SurveillanceProfilesSearchModel : PageModel
             LogLevel.Information,
             new EventId(5, nameof(LogSearchCompletedMessage)),
             "Profile search completed with {ResultCount} results");
+    private static readonly Action<ILogger, Exception?> LogFailedToDetermineMyProfilesFilterAvailabilityMessage =
+        LoggerMessage.Define(
+            LogLevel.Warning,
+            new EventId(6, nameof(LogFailedToDetermineMyProfilesFilterAvailabilityMessage)),
+            "Failed to determine whether the user may filter the search to their own profiles");
 
     private const string PublishedLabel = "Published";
     private const string DraftLabel = "Draft";
@@ -76,6 +81,15 @@ public class SurveillanceProfilesSearchModel : PageModel
     /// <summary>Gets or sets whether to display scenario versions.</summary>
     [BindProperty(SupportsGet = true)]
     public bool DisplayScenarios { get; set; }
+
+    /// <summary>Gets or sets whether to list only the profiles the signed-in user is a contributor or a reviewer of, as the legacy
+    /// "Display my own profiles only" checkbox did. It has no effect for a user who is neither.</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool DisplayMyProfiles { get; set; }
+
+    /// <summary>Gets a value indicating whether to offer the "Display my own profiles only" checkbox: as in legacy, only to a user
+    /// who is a contributor or a reviewer of at least one profile.</summary>
+    public bool CanDisplayMyProfiles { get; private set; }
 
     /// <summary>Gets or sets the selected letter filter.</summary>
     [BindProperty(SupportsGet = true)]
@@ -166,12 +180,15 @@ public class SurveillanceProfilesSearchModel : PageModel
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         ApplyRememberedFilters();
-        await LoadSpeciesTreeAndSearchAsync(cancellationToken);
 
         // The search filters (Display checkboxes, sort, page size/number, species tree) are
         // resubmitted via a background fetch rather than a full page reload; that request sends
         // this header so only the results fragment is rendered back, not the whole page.
-        if (string.Equals(Request.Headers.XRequestedWith, "XMLHttpRequest", StringComparison.Ordinal))
+        var resultsOnly = string.Equals(Request.Headers.XRequestedWith, "XMLHttpRequest", StringComparison.Ordinal);
+
+        await LoadSpeciesTreeAndSearchAsync(resultsOnly, cancellationToken);
+
+        if (resultsOnly)
         {
             return Partial("_SearchResults", this);
         }
@@ -181,7 +198,7 @@ public class SurveillanceProfilesSearchModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        await LoadSpeciesTreeAndSearchAsync(cancellationToken);
+        await LoadSpeciesTreeAndSearchAsync(resultsOnly: false, cancellationToken);
         return Page();
     }
 
@@ -193,6 +210,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         DisplayPublished,
         DisplayDraft,
         DisplayScenarios,
+        DisplayMyProfiles,
         AppearsIn,
         SearchForExactPhrase,
         SearchForAllWords,
@@ -208,6 +226,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         DisplayPublished,
         DisplayDraft,
         DisplayScenarios,
+        DisplayMyProfiles,
         AppearsIn,
         SearchForExactPhrase,
         SearchForAllWords,
@@ -439,6 +458,7 @@ public class SurveillanceProfilesSearchModel : PageModel
         var chosenPublished = query.ContainsKey(nameof(DisplayPublished));
         var chosenDraft = query.ContainsKey(nameof(DisplayDraft));
         var chosenScenarios = query.ContainsKey(nameof(DisplayScenarios));
+        var chosenMyProfiles = query.ContainsKey(nameof(DisplayMyProfiles));
         var chosenLetter = query.ContainsKey(nameof(SelectedLetter));
         var session = HttpContext.Session;
 
@@ -447,12 +467,13 @@ public class SurveillanceProfilesSearchModel : PageModel
             DisplayPublished = chosenPublished ? DisplayPublished : remembered.DisplayPublished;
             DisplayDraft = chosenDraft ? DisplayDraft : remembered.DisplayDraft;
             DisplayScenarios = chosenScenarios ? DisplayScenarios : remembered.DisplayScenarios;
+            DisplayMyProfiles = chosenMyProfiles ? DisplayMyProfiles : remembered.DisplayMyProfiles;
             SelectedLetter = chosenLetter ? SelectedLetter : remembered.SelectedLetter;
         }
 
-        if (chosenPublished || chosenDraft || chosenScenarios || chosenLetter)
+        if (chosenPublished || chosenDraft || chosenScenarios || chosenMyProfiles || chosenLetter)
         {
-            new RememberedSearchFilters(DisplayPublished, DisplayDraft, DisplayScenarios, SelectedLetter).Write(session);
+            new RememberedSearchFilters(DisplayPublished, DisplayDraft, DisplayScenarios, DisplayMyProfiles, SelectedLetter).Write(session);
         }
     }
 
@@ -550,17 +571,36 @@ public class SurveillanceProfilesSearchModel : PageModel
         }
     }
 
-    /// <summary>Loads the species filter tree and searches the profiles. The two CDC.Api calls do not depend on each other, so the
-    /// search is started first and the tree is read while it runs; only the filtering that follows the search needs the tree.</summary>
-    private async Task LoadSpeciesTreeAndSearchAsync(CancellationToken cancellationToken)
+    /// <summary>Loads the species filter tree and searches the profiles. The CDC.Api calls do not depend on each other, so the search is
+    /// started first and the tree - and whether to offer the "Display my own profiles only" checkbox - is read while it runs; only the
+    /// filtering that follows the search needs the tree.</summary>
+    /// <param name="resultsOnly">Whether only the results are being refreshed, which has no use for the checkbox, so it is not asked about.</param>
+    private async Task LoadSpeciesTreeAndSearchAsync(bool resultsOnly, CancellationToken cancellationToken)
     {
         // As in legacy, displaying scenarios never makes a profile match on its own, so nothing is searched for without published or draft versions.
         var pendingSearch = DisplayPublished || DisplayDraft
-            ? apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, SearchForType, cancellationToken)
+            ? apiClient.SearchProfilesAsync(SearchText, DisplayPublished, DisplayDraft, DisplayScenarios, DisplayMyProfiles, SearchForType, cancellationToken)
             : null;
+        var pendingAvailability = resultsOnly ? Task.CompletedTask : LoadMyProfilesAvailabilityAsync(cancellationToken);
 
         await LoadSpeciesTreeAsync(cancellationToken);
         await PerformSearchAsync(pendingSearch);
+        await pendingAvailability;
+    }
+
+    /// <summary>Finds out whether to offer the "Display my own profiles only" checkbox. When that cannot be found out the checkbox is left
+    /// out, rather than the page failing for want of an option.</summary>
+    private async Task LoadMyProfilesAvailabilityAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            CanDisplayMyProfiles = await apiClient.CanFilterToMyProfilesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
+        {
+            LogFailedToDetermineMyProfilesFilterAvailabilityMessage(logger, exception);
+            CanDisplayMyProfiles = false;
+        }
     }
 
     /// <summary>Applies the letter filter, species filter, sort order and paging - none of which the API endpoint supports itself - to the

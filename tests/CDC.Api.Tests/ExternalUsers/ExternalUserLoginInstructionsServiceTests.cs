@@ -68,7 +68,7 @@ public class ExternalUserLoginInstructionsServiceTests
         sent!.ToAddress.Should().Be("jo@example.test");
         sent.TemplateId.Should().Be(ExternalUserLoginInstructionsComposer.TemplateId);
         sent.Personalisation.Should().BeEquivalentTo(
-            new Dictionary<string, string> { ["name"] = "Jo Smith", ["AppUrl"] = "https://d2r2.example.test/" });
+            new Dictionary<string, string> { ["name"] = "Jo Smith", ["AppUrl"] = "https://d2r2.example.test/Account/Login" });
         repository.Verify(repo => repo.MarkLoginInstructionsSentAsync(recipient.Id, "jo@example.test", Now.UtcDateTime, CancellationToken.None), Times.Once);
     }
 

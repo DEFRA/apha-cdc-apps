@@ -19,11 +19,11 @@ public sealed class ReviewNotificationsOptions
     public Dictionary<string, string[]> ReviewerGroups { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
-/// <summary>GOV.UK Notify settings, bound from the <c>Notify</c> section. <see cref="ApiKey"/> comes from Secrets Manager.</summary>
+/// <summary>GOV.UK Notify settings, bound from the <c>Notification</c> section. <see cref="ApiKey"/> comes from Secrets Manager.</summary>
 public sealed class NotifyOptions
 {
     /// <summary>Configuration section name.</summary>
-    public const string SectionName = "Notify";
+    public const string SectionName = "Notification";
 
     /// <summary>Whether sending is switched on.</summary>
     public bool Enabled { get; set; }

@@ -28,8 +28,7 @@ public class ExternalUsersServiceTests
         FullName = $"{userName} full name",
         EmailAddress = $"{userName}@example.test",
         Organisation = "Org",
-        SubscribedToReviewEmails = subscribed,
-        SsoUserId = Guid.NewGuid()
+        SubscribedToReviewEmails = subscribed
     };
 
     private void SetupAwaitingInstructions(params Guid[] userIds) =>

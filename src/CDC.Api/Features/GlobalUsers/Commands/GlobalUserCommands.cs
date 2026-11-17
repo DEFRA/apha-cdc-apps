@@ -16,6 +16,8 @@ namespace CDC.Api.Features.GlobalUsers.Commands;
 /// <param name="Role">The system role to assign.</param>
 /// <param name="SubscribedToReviewEmails">Whether the user receives review notification emails.</param>
 /// <param name="LastUpdated">The row version last read for this user.</param>
+/// <param name="EmailAddress">The directory email address; used only when a new user is created.</param>
+/// <param name="SsoUserIdInt">The directory (Entra ID) object id; used only when a new user is created.</param>
 public sealed record SaveGlobalUserCommand(
     Guid Id,
     bool IsNew,
@@ -24,7 +26,9 @@ public sealed record SaveGlobalUserCommand(
     string Organisation,
     GlobalUserRole Role,
     bool SubscribedToReviewEmails,
-    byte[] LastUpdated) : IRequest<Result<Unit>>;
+    byte[] LastUpdated,
+    string? EmailAddress = null,
+    Guid? SsoUserIdInt = null) : IRequest<Result<Unit>>;
 
 /// <summary>Handles <see cref="SaveGlobalUserCommand"/>.</summary>
 /// <param name="service">Global users application service.</param>

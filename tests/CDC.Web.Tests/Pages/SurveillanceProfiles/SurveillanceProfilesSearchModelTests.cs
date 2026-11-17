@@ -76,7 +76,8 @@ public class SurveillanceProfilesSearchModelTests
         ISession? session = null,
         string? query = null,
         Action? onSearchProfiles = null,
-        Func<CancellationToken, Task>? beforeGetAllSpecies = null)
+        Func<CancellationToken, Task>? beforeGetAllSpecies = null,
+        FakeApiClient? apiClient = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
         var httpContext = new DefaultHttpContext { Session = session ?? new FakeSession() };
@@ -87,7 +88,7 @@ public class SurveillanceProfilesSearchModelTests
         }
 
         var pageModel = new SurveillanceProfilesSearchModel(
-            new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles, onSearchProfiles: onSearchProfiles),
+            apiClient ?? new FakeApiClient(searchResults: searchResults, throwOnSearchProfiles: throwOnSearchProfiles, onSearchProfiles: onSearchProfiles),
             new FakeSpeciesApiService(species, throwOnGetAllSpecies, beforeGetAllSpecies: beforeGetAllSpecies),
             new AlwaysEnabledLogger<SurveillanceProfilesSearchModel>(),
             timeProvider)
@@ -195,6 +196,7 @@ public class SurveillanceProfilesSearchModelTests
         Assert.True(pageModel.DisplayPublished);
         Assert.False(pageModel.DisplayDraft);
         Assert.False(pageModel.DisplayScenarios);
+        Assert.False(pageModel.DisplayMyProfiles);
         Assert.Equal("All", pageModel.SelectedLetter);
         Assert.Empty(session.Keys);
     }
@@ -283,6 +285,145 @@ public class SurveillanceProfilesSearchModelTests
         Assert.False(returning.DisplayPublished);
         Assert.True(returning.DisplayDraft);
         Assert.Equal("C", returning.SelectedLetter);
+    }
+
+    // As in legacy, "Display my own profiles only" is offered only to a user who is a contributor or a reviewer of at least one profile.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OnGetAsync_OffersTheMyProfilesCheckbox_OnlyToAUserWhoMayFilterToTheirOwnProfiles(bool canFilter)
+    {
+        var pageModel = CreatePageModel(apiClient: new FakeApiClient(canFilterToMyProfiles: canFilter));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(canFilter, pageModel.CanDisplayMyProfiles);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OnPostAsync_OffersTheMyProfilesCheckbox_OnlyToAUserWhoMayFilterToTheirOwnProfiles(bool canFilter)
+    {
+        var pageModel = CreatePageModel(apiClient: new FakeApiClient(canFilterToMyProfiles: canFilter));
+
+        await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.Equal(canFilter, pageModel.CanDisplayMyProfiles);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotOfferTheMyProfilesCheckbox_ButStillShowsTheResults_WhenTheApiCannotBeReached()
+    {
+        var apiClient = new FakeApiClient(
+            searchResults: [Profile("Bovine tuberculosis")],
+            canFilterToMyProfiles: true,
+            throwOnCanFilterToMyProfiles: new HttpRequestException("connection refused"));
+        var pageModel = CreatePageModel(apiClient: apiClient);
+
+        var result = await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(pageModel.CanDisplayMyProfiles);
+        Assert.Null(pageModel.ErrorMessage);
+        Assert.Equal(1, pageModel.TotalResultCount);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotOfferTheMyProfilesCheckbox_WhenTheRequestForItTimesOut()
+    {
+        var apiClient = new FakeApiClient(canFilterToMyProfiles: true, throwOnCanFilterToMyProfiles: new TaskCanceledException());
+        var pageModel = CreatePageModel(apiClient: apiClient);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.CanDisplayMyProfiles);
+    }
+
+    // The checkbox is on the page, not in the results, so a background refresh of the results has no need to ask again.
+    [Fact]
+    public async Task OnGetAsync_DoesNotAskWhetherTheMyProfilesCheckboxIsOffered_WhenOnlyTheResultsAreRefreshed()
+    {
+        var apiClient = new FakeApiClient(canFilterToMyProfiles: true);
+        var pageModel = CreatePageModel(apiClient: apiClient);
+        pageModel.HttpContext.Request.Headers.XRequestedWith = "XMLHttpRequest";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(0, apiClient.CanFilterToMyProfilesCalls);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_AsksOnceWhetherTheMyProfilesCheckboxIsOffered_WhenThePageIsLoaded()
+    {
+        var apiClient = new FakeApiClient(canFilterToMyProfiles: true);
+        var pageModel = CreatePageModel(apiClient: apiClient);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(1, apiClient.CanFilterToMyProfilesCalls);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OnGetAsync_SendsTheMyProfilesChoiceWithTheSearch(bool displayMyProfiles)
+    {
+        var apiClient = new FakeApiClient(canFilterToMyProfiles: true);
+        var pageModel = CreatePageModel(apiClient: apiClient);
+        pageModel.DisplayMyProfiles = displayMyProfiles;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(displayMyProfiles, apiClient.LastSearchDisplayMyProfiles);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_BringsBackTheMyProfilesChoice_WhenTheAddressCarriesNone()
+    {
+        var session = new FakeSession();
+        var chosen = CreatePageModel(session: session, query: "?DisplayMyProfiles=true");
+        chosen.DisplayMyProfiles = true;
+        await chosen.OnGetAsync(CancellationToken.None);
+        var apiClient = new FakeApiClient(canFilterToMyProfiles: true);
+
+        var returning = CreatePageModel(session: session, apiClient: apiClient);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.True(returning.DisplayMyProfiles);
+        Assert.True(apiClient.LastSearchDisplayMyProfiles);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_PrefersTheMyProfilesChoiceInTheAddress_AndRemembersItInPlaceOfTheEarlierOne()
+    {
+        var session = new FakeSession();
+        var earlier = CreatePageModel(session: session, query: "?DisplayMyProfiles=true");
+        earlier.DisplayMyProfiles = true;
+        await earlier.OnGetAsync(CancellationToken.None);
+
+        var later = CreatePageModel(session: session, query: "?DisplayMyProfiles=false");
+        await later.OnGetAsync(CancellationToken.None);
+        var returning = CreatePageModel(session: session);
+        await returning.OnGetAsync(CancellationToken.None);
+
+        Assert.False(later.DisplayMyProfiles);
+        Assert.False(returning.DisplayMyProfiles);
+    }
+
+    // A session that was started before the option existed holds the other filters only.
+    [Fact]
+    public async Task OnGetAsync_ShowsTheMyProfilesChoiceOff_WhenTheRememberedFiltersPredateIt()
+    {
+        var session = new FakeSession();
+        session.SetString("SearchFilters", "{\"DisplayPublished\":false,\"DisplayDraft\":true,\"DisplayScenarios\":false,\"SelectedLetter\":\"C\"}");
+        var pageModel = CreatePageModel(session: session);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.DisplayMyProfiles);
+        Assert.True(pageModel.DisplayDraft);
+        Assert.Equal("C", pageModel.SelectedLetter);
     }
 
     // As in legacy, only the Display checkboxes and the letter are kept; the keyword, sort order and page size start afresh.
@@ -1084,6 +1225,19 @@ public class SurveillanceProfilesSearchModelTests
         Assert.Contains("SearchText=tb", url);
         Assert.Contains("SelectedSpecies=cattle", url);
         Assert.Contains("SelectedSpecies=sheep", url);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void BuildLetterUrl_And_BuildPageUrl_CarryTheMyProfilesChoice(bool displayMyProfiles)
+    {
+        var pageModel = CreatePageModel([]);
+        pageModel.DisplayMyProfiles = displayMyProfiles;
+        pageModel.Url = CreateUrlHelper();
+
+        Assert.Contains($"DisplayMyProfiles={displayMyProfiles}", pageModel.BuildLetterUrl("B"));
+        Assert.Contains($"DisplayMyProfiles={displayMyProfiles}", pageModel.BuildPageUrl(2));
     }
 
     [Fact]

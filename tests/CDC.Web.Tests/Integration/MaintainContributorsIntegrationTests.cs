@@ -433,6 +433,120 @@ public partial class MaintainContributorsIntegrationTests
         Assert.Contains("Your changes were successfully saved", postBody);
     }
 
+    // An external user created at first CIDM sign-in has an empty organisation. The edit form posts the read-only
+    // value back in a hidden field, and MVC binds an empty form value to null unless told otherwise; the API then
+    // rejects the null ("The Organisation field is required"), so saving permissions failed for every such user.
+    [Fact]
+    public async Task MaintainContributors_SendsAnEmptyOrganisationNotNull_WhenSavingAnSsoContributorWhoHasNoOrganisation()
+    {
+        var profileId = Guid.NewGuid();
+        var contributorId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var sectionId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "African Horse Sickness (AHS)" };
+        var contributorForEdit = new ContributorEditDto
+        {
+            Id = contributorId,
+            UserName = "external.user@example.test",
+            FullName = "External User",
+            Organisation = string.Empty,
+            RoleId = roleId,
+            IsSsoUser = true,
+            SectionPermissionIds = [sectionId],
+            LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8]
+        };
+        IReadOnlyList<ProfileUserRoleDto> roles = [new() { Id = roleId, Name = "Technical author", IsContributor = true }];
+        var metadata = new ProfileQuestionnaireMetadataDto
+        {
+            Sections = [new ProfileSectionMetadataDto { Id = sectionId, Name = "Epidemiology", ShortName = "Epi", SectionNumber = 1 }]
+        };
+        var contributorsApiService = new FakeProfileContributorsApiService(contributorForEdit: contributorForEdit, profileUserRoles: roles);
+
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: profile));
+                services.RemoveAll<IProfileContributorsApiService>();
+                services.AddSingleton<IProfileContributorsApiService>(contributorsApiService);
+                services.RemoveAll<IProfileSectionsApiService>();
+                services.AddSingleton<IProfileSectionsApiService>(new FakeProfileSectionsApiService(metadata));
+            }));
+        var client = await factory.SignedInClientAsync();
+
+        var getResponse = await client.GetAsync(
+            $"/SurveillanceProfiles/MaintainContributors/{profileId}?EditContributorId={contributorId}");
+        var token = await ExtractAntiforgeryTokenAsync(getResponse);
+
+        var postResponse = await client.PostAsync(
+            $"/SurveillanceProfiles/MaintainContributors/{profileId}?handler=SaveContributor",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["ContributorId"] = contributorId.ToString(),
+                ["PageNumber"] = "1",
+                ["PageSize"] = "10",
+                ["LastUpdated"] = Convert.ToBase64String(contributorForEdit.LastUpdated),
+                ["RoleId"] = roleId.ToString(),
+                ["FullName"] = "External User",
+                ["Organisation"] = string.Empty,
+                ["SelectedSectionIds"] = sectionId.ToString(),
+                ["__RequestVerificationToken"] = token
+            }));
+        var postBody = await postResponse.Content.ReadAsStringAsync();
+
+        Assert.True(postResponse.IsSuccessStatusCode);
+        Assert.Contains("Your changes were successfully saved", postBody);
+        var request = Assert.IsType<UpdateContributorRequest>(contributorsApiService.LastUpdateRequest);
+        Assert.Equal("External User", request.FullName);
+        Assert.Equal(string.Empty, request.Organisation);
+    }
+
+    // Same cause as above, on the "Add profile contributor" panel: an existing SSO user with no organisation is
+    // added through hidden read-only fields too.
+    [Fact]
+    public async Task MaintainContributors_SendsAnEmptyOrganisationNotNull_WhenAddingAnSsoUserWhoHasNoOrganisation()
+    {
+        var profileId = Guid.NewGuid();
+        var contributorId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var profile = new ManageProfileViewModel { ProfileId = profileId, ProfileTitle = "African Horse Sickness (AHS)" };
+        var contributorsApiService = new FakeProfileContributorsApiService();
+
+        using var factory = new CdcWebTestFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IApiClient>();
+                services.AddSingleton<IApiClient>(new CDC.Web.Tests.Features.Landing.FakeApiClient(manageProfile: profile));
+                services.RemoveAll<IProfileContributorsApiService>();
+                services.AddSingleton<IProfileContributorsApiService>(contributorsApiService);
+            }));
+        var client = await factory.SignedInClientAsync();
+
+        var getResponse = await client.GetAsync($"/SurveillanceProfiles/MaintainContributors/{profileId}?AddContributor=true");
+        var token = await ExtractAntiforgeryTokenAsync(getResponse);
+
+        var postResponse = await client.PostAsync(
+            $"/SurveillanceProfiles/MaintainContributors/{profileId}?handler=AddContributor",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["ContributorId"] = contributorId.ToString(),
+                ["LookupUserName"] = "external.user@example.test",
+                ["IsSsoUser"] = "true",
+                ["IsNewUser"] = "false",
+                ["PageNumber"] = "1",
+                ["PageSize"] = "10",
+                ["RoleId"] = roleId.ToString(),
+                ["FullName"] = "External User",
+                ["Organisation"] = string.Empty,
+                ["__RequestVerificationToken"] = token
+            }));
+
+        Assert.True(postResponse.IsSuccessStatusCode);
+        var request = Assert.IsType<AddContributorRequest>(contributorsApiService.LastAddRequest);
+        Assert.Equal("External User", request.FullName);
+        Assert.Equal(string.Empty, request.Organisation);
+    }
+
     [Fact]
     public async Task MaintainContributors_RendersTheAddLookupStep_WhenAddContributorIsSet()
     {

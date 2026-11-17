@@ -833,7 +833,7 @@ public class ExternalUsersModelTests
         Assert.Equal("Jane Doe", api.PreRegistered!.FullName);
         Assert.Equal("jane@example.test", api.PreRegistered.EmailAddress);
         Assert.Equal("Org", api.PreRegistered.Organisation);
-        Assert.Equal("External user added. They can now sign in to D2R2, but cannot see any profiles until you give them access", model.SuccessMessage);
+        Assert.Equal("User added successfully", model.SuccessMessage);
         Assert.Null(model.PreRegisterError);
     }
 

@@ -8,10 +8,21 @@ namespace CDC.Api.Features.GlobalUsers.Interfaces;
 /// </summary>
 public interface IGlobalUsersRepository
 {
-    /// <summary>Reads every user holding a global role via <c>spgaGlobalUser</c>, ordered by full name.</summary>
+    /// <summary>
+    /// Reads every user linked to an Entra ID identity (<c>SsoUserIdInt</c> set) via <c>spgaInternalUser</c>, ordered by full
+    /// name, including those who hold no global role yet.
+    /// </summary>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>Every global user; empty when there are none.</returns>
     Task<IReadOnlyList<GlobalUser>> GetGlobalUsersAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads every user holding a global role via <c>spgaGlobalUser</c>, ordered by full name, whether or not they have signed
+    /// in through Entra ID.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the database call.</param>
+    /// <returns>Every user with a global role; empty when there are none.</returns>
+    Task<IReadOnlyList<GlobalUser>> GetUsersWithGlobalRoleAsync(CancellationToken cancellationToken);
 
     /// <summary>Reads one user via <c>spgUser</c>.</summary>
     /// <param name="userId">The user to read.</param>

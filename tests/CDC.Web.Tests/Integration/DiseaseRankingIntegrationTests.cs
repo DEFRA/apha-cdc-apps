@@ -81,11 +81,11 @@ public class DiseaseRankingIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("<h1 class=\"govuk-heading-l\">Disease ranking report</h1>", body, StringComparison.Ordinal);
-        Assert.Contains("Scored RFI graphs", body, StringComparison.Ordinal);
-        Assert.Contains("Ranked RFI graphs", body, StringComparison.Ordinal);
+        Assert.Contains("Please select which disease ranking report and scored RFI graphs you would like to view.", body, StringComparison.Ordinal);
+        Assert.Contains("Please select which disease ranking report with ranked RFI graphs you would like to view.", body, StringComparison.Ordinal);
         Assert.Equal(2, Regex.Count(body, "Disease ranking report: Terrestrial diseases", RegexOptions.None, TimeSpan.FromSeconds(5)));
         Assert.Equal(2, Regex.Count(body, ">All viral diseases<", RegexOptions.None, TimeSpan.FromSeconds(5)));
-        Assert.Equal(2, Regex.Count(body, "href=\"/Reports/EditDiseaseRankingFilters\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.Equal(2, Regex.Count(body, "href=\"/DiseaseRanking/EditFilters\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
         Assert.Equal(2, Regex.Count(body, ">Select a report<", RegexOptions.None, TimeSpan.FromSeconds(5)));
         Assert.DoesNotContain("There is a problem", body, StringComparison.Ordinal);
     }
@@ -263,21 +263,7 @@ public class DiseaseRankingIntegrationTests
         var body = await client.GetStringAsync(PagePath);
 
         Assert.Contains("The report could not be loaded. Try again later", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("Scored RFI graphs", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ranked RFI graphs", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task EditFiltersPage_Loads()
-    {
-        using var factory = CreateFactory(new FakeApi());
-        var client = await factory.SignedInClientAsync();
-
-        var response = await client.GetAsync("/Reports/EditDiseaseRankingFilters");
-        var body = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Edit disease ranking filters", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Please select which disease ranking report", body, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -29,7 +29,7 @@ public class DiseaseReviewsModelTests
         Assert.Equal([Jane, Sam], model.Authors);
         Assert.Equal(Jane.Id, model.AuthorId);
         Assert.True(model.ModelState.IsValid);
-        Assert.Equal((1, 0), users.RequestedPage);
+        Assert.Equal(1, users.RoleHoldersRequests);
     }
 
     [Fact]

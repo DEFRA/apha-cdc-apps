@@ -4,6 +4,18 @@
 @{
     ViewData["Title"] = Model.Breadcrumb.PageName;
 
+    void ReportMessage()
+    {
+        if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <output class="govuk-body">@Model.SuccessMessage</output>
+        }
+        else if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <p class="govuk-body govuk-error-message" role="alert">@Model.ErrorMessage</p>
+        }
+    }
+
     void SortableHeader(StaticReportSortColumn column, string text)
     {
         <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(column)">
@@ -18,29 +30,6 @@
 <h1 class="govuk-heading-l">@Model.Breadcrumb.PageName</h1>
 
 <div id="static-reports-region" data-app-paged-region>
-@if (!string.IsNullOrEmpty(Model.SuccessMessage))
-{
-    <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="app-static-reports-success-title" data-module="govuk-notification-banner">
-        <div class="govuk-notification-banner__header">
-            <h2 class="govuk-notification-banner__title" id="app-static-reports-success-title">Success</h2>
-        </div>
-        <div class="govuk-notification-banner__content">
-            <p class="govuk-notification-banner__heading">@Model.SuccessMessage</p>
-        </div>
-    </div>
-}
-else if (!string.IsNullOrEmpty(Model.ErrorMessage))
-{
-    <div class="govuk-notification-banner" role="alert" aria-labelledby="app-static-reports-error-title" data-module="govuk-notification-banner">
-        <div class="govuk-notification-banner__header">
-            <h2 class="govuk-notification-banner__title" id="app-static-reports-error-title">Important</h2>
-        </div>
-        <div class="govuk-notification-banner__content">
-            <p class="govuk-notification-banner__heading">@Model.ErrorMessage</p>
-        </div>
-    </div>
-}
-
 @if (Model.IsHistoryMode)
 {
     <p class="govuk-body">
@@ -76,6 +65,7 @@ else
 @if (Model.Reports.Count == 0)
 {
     <p class="govuk-body">@(Model.IsUserManual ? "There are no user manuals to display." : "There are no reports to display.")</p>
+    ReportMessage();
 }
 else
 {
@@ -176,21 +166,25 @@ else
         PageUrl = Model.BuildPageUrl,
         LandmarkLabel = "Static reports pages"
     };
+    ReportMessage();
     <partial name="_Pagination" model="pagination" />
 }
 </div>
 
 @if (!Model.IsHistoryMode && Model.CanUpload)
 {
+    <a class="govuk-button" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="@Model.UserManual" asp-route-ShowUploadPanel="true">Add</a>
+
     @if (Model.ShowUploadPanel)
     {
         <div class="govuk-form-group">
             <h2 class="govuk-heading-m">Upload a @(Model.IsUserManual ? "user manual" : "static report")</h2>
-            <form method="post" asp-page-handler="Upload" enctype="multipart/form-data">
+            <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" data-upload-form>
                 <input type="hidden" name="UserManual" value="@Model.UserManual" />
-                <div class="govuk-form-group">
+                <div class="govuk-form-group app-label-select-inline">
                     <label class="govuk-label" for="UploadedFile">@(Model.IsUserManual ? "User manual:" : "Report file:")</label>
-                    <input class="govuk-file-upload" id="UploadedFile" name="UploadedFile" type="file" accept="application/pdf" required />
+                    <input class="govuk-file-upload" id="UploadedFile" name="UploadedFile" type="file" accept="application/pdf" />
+                    <span class="govuk-error-message" title="Please choose a file to upload" style="display: inline;" data-file-required hidden>&nbsp;*</span>
                 </div>
                 @if (!Model.IsUserManual)
                 {
@@ -201,14 +195,16 @@ else
                         </div>
                     </div>
                 }
-                <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">Ok</button>
-                <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="@Model.UserManual">Cancel</a>
+                <div class="govuk-button-group app-button-group--right">
+                    <button type="submit" class="govuk-button govuk-!-margin-bottom-0">Ok</button>
+                    <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="@Model.UserManual">Cancel</a>
+                </div>
             </form>
         </div>
     }
-    else
-    {
-        <a class="govuk-button" asp-page="/HelpSupport/StaticReports" asp-route-UserManual="@Model.UserManual" asp-route-ShowUploadPanel="true">Add</a>
-    }
+}
+
+@section Scripts {
+    <script src="~/js/static-report-upload.js" asp-append-version="true"></script>
 }
 

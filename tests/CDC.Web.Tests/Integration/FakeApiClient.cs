@@ -10,11 +10,15 @@ internal sealed class FakeApiClient(
     ProfileAttributesDto? profileAttributes = null,
     Exception? searchFailure = null,
     Exception? attributesFailure = null,
-    int searchesBeforeFailure = 0) : IApiClient
+    int searchesBeforeFailure = 0,
+    bool canFilterToMyProfiles = false) : IApiClient
 {
     private int searchCalls;
 
     private readonly IReadOnlyList<ProfileSearchResultDto> results = searchResults ?? [];
+
+    /// <summary>Gets whether the most recent search asked for only the user's own profiles, or <see langword="null"/> before any search.</summary>
+    public bool? LastSearchDisplayMyProfiles { get; private set; }
 
     public Task<ApiHealthResponse?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<ApiHealthResponse?>(null);
@@ -24,9 +28,17 @@ internal sealed class FakeApiClient(
         bool displayPublished,
         bool displayDraft,
         bool displayScenarios,
+        bool displayMyProfiles,
         SearchForType searchForType,
-        CancellationToken cancellationToken = default) =>
-        searchFailure is null || searchCalls++ < searchesBeforeFailure ? Task.FromResult(results) : Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(searchFailure);
+        CancellationToken cancellationToken = default)
+    {
+        LastSearchDisplayMyProfiles = displayMyProfiles;
+
+        return searchFailure is null || searchCalls++ < searchesBeforeFailure ? Task.FromResult(results) : Task.FromException<IReadOnlyList<ProfileSearchResultDto>>(searchFailure);
+    }
+
+    public Task<bool> CanFilterToMyProfilesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(canFilterToMyProfiles);
 
     public Task<ProfileAttributesDto?> GetProfileAttributesAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         attributesFailure is null
@@ -121,4 +133,7 @@ internal sealed class FakeApiClient(
 
     public Task<DeleteProfileVersionResult> DeleteProfileVersionAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
         Task.FromResult(new DeleteProfileVersionResult(DeleteProfileVersionOutcome.Error, false, "Not implemented in this fake."));
+
+    public Task<bool> SetProfileVersionPublicAccessAsync(Guid profileVersionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(false);
 }

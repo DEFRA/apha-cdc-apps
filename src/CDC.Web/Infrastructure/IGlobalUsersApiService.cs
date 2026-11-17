@@ -16,6 +16,11 @@ public interface IGlobalUsersApiService
     Task<PagedResult<GlobalUserDto>> GetGlobalUsersAsync(
         int pageNumber, int pageSize, GlobalUserSortColumn sortColumn, bool sortDescending, CancellationToken cancellationToken = default);
 
+    /// <summary>Calls <c>GET /api/global-users/role-holders</c>.</summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Every user who holds a global role, by full name, whether or not they have signed in through Entra ID.</returns>
+    Task<IReadOnlyList<GlobalUserDto>> GetRoleHoldersAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Calls <c>GET /api/global-users/lookup</c>.</summary>
     /// <param name="userName">The username to look up.</param>
     /// <param name="cancellationToken">Cancels the request.</param>

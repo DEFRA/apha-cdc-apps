@@ -37,6 +37,8 @@ public sealed class SpellCheckServiceTests
 
         public bool HoldsAnyProfileRole => holdsAnyProfileRole;
 
+        public IReadOnlySet<Guid> AssignedProfileIds { get; } = new HashSet<Guid>();
+
         public ProfileRoleAssignment? GetProfileRole(Guid profileId) => null;
 
         public bool IsAssignedToSection(Guid profileId, Guid profileSectionId) => false;

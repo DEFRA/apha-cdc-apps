@@ -57,12 +57,9 @@
 {
     <form method="post" asp-page-handler="Scored" novalidate>
         <div class="govuk-form-group @(scoredError is null ? null : "govuk-form-group--error")">
-            <h2 class="govuk-label-wrapper">
-                <label class="govuk-label govuk-label--m" for="scored-report">Scored RFI graphs</label>
-            </h2>
-            <div id="scored-report-hint" class="govuk-hint">
-                Select the disease ranking report to view as scored reason for intervention (RFI) graphs. The report downloads as a PDF.
-            </div>
+            <label class="govuk-label" for="scored-report" id="scored-report-hint">
+                Please select which disease ranking report and scored RFI graphs you would like to view.
+            </label>
             @if (scoredError is not null)
             {
                 <p id="scored-report-error" class="govuk-error-message">
@@ -79,20 +76,17 @@
                     }
                 </select>
                 <noscript><button type="submit" class="govuk-button govuk-!-margin-bottom-0">Download PDF</button></noscript>
-                <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
-                   asp-page="/Reports/EditDiseaseRankingFilters">Edit filters<span class="govuk-visually-hidden"> for scored RFI graphs</span></a>
+                <a class="govuk-button govuk-!-margin-bottom-0"
+                   asp-page="/DiseaseRanking/EditFilters">Edit Filters<span class="govuk-visually-hidden"> for scored RFI graphs</span></a>
             </div>
         </div>
     </form>
 
     <form method="post" asp-page-handler="Ranked" novalidate>
         <div class="govuk-form-group @(rankedError is null ? null : "govuk-form-group--error")">
-            <h2 class="govuk-label-wrapper">
-                <label class="govuk-label govuk-label--m" for="ranked-report">Ranked RFI graphs</label>
-            </h2>
-            <div id="ranked-report-hint" class="govuk-hint">
-                Select the disease ranking report to view as ranked reason for intervention (RFI) graphs. The report downloads as a PDF.
-            </div>
+            <label class="govuk-label" for="ranked-report" id="ranked-report-hint">
+                Please select which disease ranking report with ranked RFI graphs you would like to view.
+            </label>
             @if (rankedError is not null)
             {
                 <p id="ranked-report-error" class="govuk-error-message">
@@ -109,8 +103,8 @@
                     }
                 </select>
                 <noscript><button type="submit" class="govuk-button govuk-!-margin-bottom-0">Download PDF</button></noscript>
-                <a class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
-                   asp-page="/Reports/EditDiseaseRankingFilters">Edit filters<span class="govuk-visually-hidden"> for ranked RFI graphs</span></a>
+                <a class="govuk-button govuk-!-margin-bottom-0"
+                   asp-page="/DiseaseRanking/EditFilters">Edit Filters<span class="govuk-visually-hidden"> for ranked RFI graphs</span></a>
             </div>
         </div>
     </form>

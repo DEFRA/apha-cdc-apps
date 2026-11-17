@@ -200,9 +200,23 @@ html {
   margin-bottom: 0;
 }
 
+.app-inline-fields--auto-label .govuk-form-group > .govuk-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .app-inline-fields__control {
   flex: 1 1 0;
   min-width: 0;
+}
+
+/* Legacy validator " *" beside an invalid control; decorative, as the inline error message carries the meaning. */
+.app-validator-marker {
+  margin-left: 5px;
+  color: #d4351c;
+  font-family: "GDS Transport", arial, sans-serif;
+  font-size: 1.1875rem;
+  font-weight: 700;
 }
 
 .app-inline-fields .govuk-form-group.app-inline-fields__full {
@@ -518,7 +532,7 @@ html {
 }
 
 body {
-  margin-bottom: 60px;
+  margin-bottom: 0;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -744,6 +758,8 @@ body {
 }
 
 .app-tree__panel {
+  /* Containing block for the toggles' visually hidden labels, so off-screen rows can't stretch the page. */
+  position: relative;
   max-height: 480px;
   padding: 10px 15px 10px 5px;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
@@ -1214,15 +1230,16 @@ body {
   overflow-y: auto;
 }
 
+/* The "Selected: ..." line is always shown, as in legacy; only the species named in it are bold (a <strong> in the markup). */
 .app-species-selector__status {
   display: block;
   margin-top: 10px;
   margin-bottom: 0;
-  font-weight: bold;
 }
 
-.app-species-selector__status[hidden] {
-  display: none;
+/* The warning about removing profiled species is red, as legacy's ErrorLabel was; the GOV.UK warning text, and its icon, are black. */
+.app-warning-text--error {
+  --govuk-text-colour: #d4351c;
 }
 
 /* Species filter toggle: same button-as-link reset as .app-filters__toggle, plus a circular
@@ -1675,6 +1692,23 @@ body {
 
 .app-select-with-actions .govuk-select {
   max-width: 100%;
+}
+
+/* Radio rows share fixed-width columns so each choice lines up across rows, with space between the rows. */
+.app-radios-aligned {
+  display: grid;
+  grid-template-columns: repeat(3, 14rem);
+  column-gap: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #b1b4b6;
+  margin-bottom: 15px;
+}
+
+/* govuk-frontend has no inline checkboxes; lay the items out in a wrapping row. */
+.govuk-checkboxes--inline {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 20px;
 }
 
 /* All Revision dates tab */

@@ -71,6 +71,21 @@ public class ManageProfileModel : PageModel
             LogLevel.Information,
             new EventId(11, nameof(LogProfileNotPublishedMessage)),
             "Profile '{ProfileId}' was not published (public: {IsPublic}): it has {ValidationErrorCount} validation errors");
+    private static readonly Action<ILogger, Guid, Guid, Exception?> LogMadeProfileVersionPublicMessage =
+        LoggerMessage.Define<Guid, Guid>(
+            LogLevel.Information,
+            new EventId(12, nameof(LogMadeProfileVersionPublicMessage)),
+            "Made version '{ProfileVersionId}' of profile '{ProfileId}' public");
+    private static readonly Action<ILogger, Guid, Guid, Exception?> LogFailedToMakeProfileVersionPublicMessage =
+        LoggerMessage.Define<Guid, Guid>(
+            LogLevel.Error,
+            new EventId(13, nameof(LogFailedToMakeProfileVersionPublicMessage)),
+            "Failed to make version '{ProfileVersionId}' of profile '{ProfileId}' public");
+    private static readonly Action<ILogger, Guid, Exception?> LogCannotMakeProfileVersionPublicMessage =
+        LoggerMessage.Define<Guid>(
+            LogLevel.Warning,
+            new EventId(14, nameof(LogCannotMakeProfileVersionPublicMessage)),
+            "Profile '{ProfileId}' was not made public: its current published version cannot be made public");
 
     private readonly IApiClient apiClient;
     private readonly ILogger<ManageProfileModel> logger;
@@ -263,6 +278,48 @@ public class ManageProfileModel : PageModel
     /// <summary>Publishes the profile for DefraNet only (not public) - see <see cref="PublishAsync"/>.</summary>
     public Task<IActionResult> OnPostPublishDefranetOnlyAsync(CancellationToken cancellationToken) =>
         PublishAsync(isPublic: false, "Successfully published this profile but did not make it public.", cancellationToken);
+
+    /// <summary>
+    /// Makes the profile's current published version public, matching the legacy <c>lnkChangePublicAccess_Command</c> handler
+    /// (<c>SetProfileVersionPublicAccessCommand.SetProfileVersionPublic(CurrentProfile.CurrentPublishedVersion.Id)</c>, then the profile is
+    /// reloaded and the page redisplayed): the browser stays on Manage profile, which then shows the version as public and no longer offers
+    /// "Allow public access". Like the legacy link, which was only shown when the change was allowed, nothing is changed unless the freshly
+    /// loaded profile still allows it.
+    /// </summary>
+    public async Task<IActionResult> OnPostAllowPublicAccessAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await LoadProfileAsync(cancellationToken);
+
+        if (!loaded)
+        {
+            return HasError ? Page() : NotFound();
+        }
+
+        if (!Profile!.LinkVisibility.CanAllowPublicAccess)
+        {
+            LogCannotMakeProfileVersionPublicMessage(logger, ProfileId, null);
+            StatusErrorMessage = "This profile version cannot be made public.";
+
+            return Page();
+        }
+
+        var profileVersionId = Profile.CurrentPublishedVersionId;
+
+        if (await apiClient.SetProfileVersionPublicAccessAsync(profileVersionId, cancellationToken))
+        {
+            LogMadeProfileVersionPublicMessage(logger, profileVersionId, ProfileId, null);
+            StatusMessage = "Successfully made the latest published version public.";
+        }
+        else
+        {
+            LogFailedToMakeProfileVersionPublicMessage(logger, profileVersionId, ProfileId, null);
+            StatusErrorMessage = "This profile version could not be made public. Please try again.";
+        }
+
+        loaded = await LoadProfileAsync(cancellationToken);
+
+        return loaded || HasError ? Page() : NotFound();
+    }
 
     private async Task<bool> LoadProfileAsync(CancellationToken cancellationToken)
     {
