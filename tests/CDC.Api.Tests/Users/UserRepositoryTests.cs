@@ -152,6 +152,63 @@ public class UserRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task FindByEmailAddressAsync_MapsEveryRow_WhenSeveralMatch()
+    {
+        var otherUserId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        connection.Script(UserStoredProcedures.GetByEmailAddress, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(UserColumns,
+                [
+                    [UserId, "user@example.com", "Jane External", "ACME Ltd", "user@example.com", null, SsoUserId, false, false],
+                    [otherUserId, "DEFRA\\jdoe", "Jo Internal", "APHA", "user@example.com", null, null, true, false]
+                ])
+            ]
+        });
+
+        var users = await CreateRepository().FindByEmailAddressAsync("user@example.com", CancellationToken.None);
+
+        users.Should().HaveCount(2);
+        users[0].Id.Should().Be(UserId);
+        users[0].SsoUserId.Should().Be(SsoUserId);
+        users[1].Id.Should().Be(otherUserId);
+        users[1].SsoUserId.Should().BeNull();
+        users[1].IsProfileEditor.Should().BeTrue();
+
+        var executed = connection.Executed.Should().ContainSingle().Subject;
+        executed.CommandText.Should().Be(UserStoredProcedures.GetByEmailAddress);
+        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.Parameters.Should().ContainKey("EmailAddress").WhoseValue.Should().Be("user@example.com");
+    }
+
+    [Fact]
+    public async Task FindByEmailAddressAsync_ReturnsNothing_WhenNoRowMatches()
+    {
+        connection.Script(UserStoredProcedures.GetByEmailAddress, new FakeCommandScript
+        {
+            ResultSets = [FakeResultSet.Empty(UserColumns)]
+        });
+
+        var users = await CreateRepository().FindByEmailAddressAsync("nobody@example.com", CancellationToken.None);
+
+        users.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindByEmailAddressAsync_LogsAndRethrows_WhenTheProcedureFails()
+    {
+        connection.Script(UserStoredProcedures.GetByEmailAddress, new FakeCommandScript
+        {
+            Throws = new FakeDbException("boom")
+        });
+
+        var act = async () => await CreateRepository().FindByEmailAddressAsync("user@example.com", CancellationToken.None);
+
+        await act.Should().ThrowAsync<FakeDbException>();
+    }
+
+    [Fact]
     public async Task UpdateSsoUserIdExtAsync_ExecutesWithExpectedParameters()
     {
         connection.Script(UserStoredProcedures.UpdateSsoUserIdExt, new FakeCommandScript());
