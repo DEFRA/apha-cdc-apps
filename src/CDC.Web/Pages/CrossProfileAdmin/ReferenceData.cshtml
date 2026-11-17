@@ -72,7 +72,7 @@
 
         <h1 class="govuk-heading-l">Maintain reference data</h1>
 
-        <p class="govuk-body">Use this page to maintain reference data used by the application.</p>
+        <p class="govuk-body">Use this function to maintain specific reference data that is utilised by the application.</p>
     </div>
 </div>
 
@@ -81,8 +81,8 @@
 <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
         <form method="get" novalidate data-app-region-form>
-            <div class="govuk-form-group">
-                <label class="govuk-label" for="tableId">Choose a reference table</label>
+            <div class="govuk-form-group app-label-select-inline">
+                <label class="govuk-label" for="tableId">Choose reference table:</label>
                 <select class="govuk-select" id="tableId" name="tableId" onchange="this.form.requestSubmit()">
                     <option value="">Please select</option>
                     @foreach (var table in Model.Tables)
@@ -108,8 +108,6 @@
 
     <div class="govuk-grid-row">
         <div class="govuk-grid-column-full">
-            <h2 class="govuk-heading-m">@Model.SelectedTable.Name</h2>
-
             @if (Model.Values.Count == 0)
             {
                 <p class="govuk-body">This reference table has no values.</p>
@@ -157,7 +155,7 @@
                                     }
                                     else
                                     {
-                                        <text>@ProfileTitleHtmlFormatter.Format(value.LookupValue) (Inactive)</text>
+                                        <a class="govuk-link govuk-link--no-visited-state" role="link" aria-disabled="true">@ProfileTitleHtmlFormatter.Format(value.LookupValue)</a>
                                     }
                                 </td>
                                 <td class="govuk-table__cell">@value.EffectiveDates</td>
@@ -183,7 +181,7 @@
                 <a class="govuk-button" draggable="false" data-module="govuk-button"
                    href="@Model.BuildChangeUrl(ReferenceDataChangeAction.Add)"
                    data-app-region-link data-app-region-focus="@ReferenceDataModel.PanelHeadingId">Add reference value</a>
-                <a class="govuk-button govuk-button--secondary" draggable="false" data-module="govuk-button"
+                <a class="govuk-button" draggable="false" data-module="govuk-button"
                    asp-page="/CrossProfileAdmin/ReferenceDataAudit"
                    asp-route-tableId="@Model.SelectedTable.Id">View audit trail</a>
             </div>

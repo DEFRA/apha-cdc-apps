@@ -20,6 +20,13 @@ public class ReferenceDataAuditModel(IReferenceDataApiService referenceDataServi
     [BindProperty(Name = "tableId", SupportsGet = true)]
     public Guid? TableId { get; set; }
 
+    /// <summary>Gets or sets the audit entry whose details are shown below the list, if any.</summary>
+    [BindProperty(Name = "auditId", SupportsGet = true)]
+    public Guid? AuditId { get; set; }
+
+    /// <summary>Gets the audit entry selected by <see cref="AuditId"/>.</summary>
+    public ReferenceDataAuditEntry? SelectedEntry { get; private set; }
+
     /// <summary>Gets the table the trail is filtered to, if one was supplied.</summary>
     public ReferenceTableSummary? Table { get; private set; }
 
@@ -63,6 +70,8 @@ public class ReferenceDataAuditModel(IReferenceDataApiService referenceDataServi
             logger.ReferenceDataApiFailed(exception);
             LoadErrorMessage = "We could not load the audit trail. Try again later.";
         }
+
+        SelectedEntry = AuditId is { } auditId ? Entries.FirstOrDefault(e => e.Id == auditId) : null;
 
         (PagedEntries, PageNumber, TotalPages) = ReferenceDataPaging.GetPage(Entries, PageNumber, PageSize);
     }

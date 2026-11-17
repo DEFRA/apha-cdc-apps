@@ -1,3 +1,5 @@
+using CDC.Api.Features.Users.Commands;
+
 namespace CDC.Api.Features.Users;
 
 /// <summary>
@@ -39,5 +41,14 @@ internal static partial class UserLog
 
     [LoggerMessage(EventId = 8008, Level = LogLevel.Information, Message = "No existing user matched the Entra SSO id or user name claim; creating internal user {UserId}")]
     public static partial void CreatedNewInternalUser(this ILogger logger, Guid userId);
+
+    [LoggerMessage(EventId = 8012, Level = LogLevel.Information, Message = "Looked up user {UserId} by email address for an {Kind} sign-in")]
+    public static partial void LookedUpUserByEmailAddress(this ILogger logger, Guid userId, UserLookupKind kind);
+
+    [LoggerMessage(EventId = 8013, Level = LogLevel.Warning, Message = "User {UserId}, found by email address, cannot be used for an {Kind} sign-in")]
+    public static partial void UserCannotSignInAsKind(this ILogger logger, Guid userId, UserLookupKind kind);
+
+    [LoggerMessage(EventId = 8014, Level = LogLevel.Warning, Message = "An email address looked up for a sign-in is held by {Count} users, so none was chosen")]
+    public static partial void EmailAddressHeldByManyUsers(this ILogger logger, int count);
 }
 
