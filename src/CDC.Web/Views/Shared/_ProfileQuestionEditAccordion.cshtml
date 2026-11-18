@@ -53,7 +53,17 @@ else
                     {
                         @foreach (var field in question.Fields)
                         {
-                            <partial name="_ProfileFieldEdit" model="field" />
+                            @if (field.VisibleWhen is { } rule)
+                            {
+                                @* Shown only while the answer it depends on is the one it names, as the legacy page did; its inputs stay on the page, so the form still posts them. *@
+                                <div data-visible-when-field="@rule.ControlId" data-visible-when-value="@rule.ValueId" hidden="@(rule.IsShown ? null : "hidden")">
+                                    <partial name="_ProfileFieldEdit" model="field" />
+                                </div>
+                            }
+                            else
+                            {
+                                <partial name="_ProfileFieldEdit" model="field" />
+                            }
                         }
                     }
                 </div>

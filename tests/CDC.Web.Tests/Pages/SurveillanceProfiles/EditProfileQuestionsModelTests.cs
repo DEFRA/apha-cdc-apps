@@ -539,6 +539,137 @@ public class EditProfileQuestionsModelTests
         Assert.Empty(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
     }
 
+    // As the legacy page did, a field is shown only while a list answer is the one it names: the fields that ask how a disease varies across
+    // Scotland, Wales and Northern Ireland are shown only for "Yes - varies across UK".
+    private static readonly Guid PresentFieldId = Guid.NewGuid();
+    private static readonly Guid VariesAnswerId = Guid.NewGuid();
+    private static readonly Guid ConsistentAnswerId = Guid.NewGuid();
+    private static readonly Guid NoAnswerId = Guid.NewGuid();
+
+    private static ProfileQuestionnaireMetadataDto VisibilityMetadata(bool perSpecies = false) => new()
+    {
+        Sections =
+        [
+            new ProfileSectionMetadataDto
+            {
+                Id = SummarySectionId,
+                Name = "Geographic distribution",
+                SectionNumber = 2,
+                Questions =
+                [
+                    new ProfileQuestionMetadataDto
+                    {
+                        Id = QuestionId,
+                        SectionId = SummarySectionId,
+                        ShortName = "Presence",
+                        QuestionNumber = 1,
+                        IsPerSpecies = perSpecies,
+                        Fields =
+                        [
+                            new ProfileFieldMetadataDto { Id = PresentFieldId, QuestionId = QuestionId, FieldNumber = 1, DataTypeName = "List", ReferenceTableId = ReferenceTableId, AffectsRelevanceOf = ["2.2", "2.3"] },
+                            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Supporting comments", FieldNumber = 2, DataTypeName = "Long Text" },
+                            new ProfileFieldMetadataDto
+                            {
+                                Id = Guid.NewGuid(),
+                                QuestionId = QuestionId,
+                                Name = "How does it vary across Scotland?",
+                                FieldNumber = 3,
+                                DataTypeName = "Long Text",
+                                RelevanceFieldId = PresentFieldId,
+                                RelevanceValueId = VariesAnswerId
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    private static ProfileSectionAnswersDto VisibilityAnswers(params Guid[] presentAnswers) => new()
+    {
+        ProfileVersionId = ProfileVersionId,
+        ProfileSectionId = SummarySectionId,
+        FieldValues = [.. presentAnswers.Select(answer => new ProfileFieldValueDto { Id = Guid.NewGuid(), QuestionId = QuestionId, FieldNumber = 1, ListValue = answer })]
+    };
+
+    private static Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> VisibilityReferenceValues() => new()
+    {
+        [ReferenceTableId] =
+        [
+            new ReferenceValueDto { Id = NoAnswerId, Value = "No" },
+            new ReferenceValueDto { Id = VariesAnswerId, Value = "Yes - varies across UK" },
+            new ReferenceValueDto { Id = ConsistentAnswerId, Value = "Yes - consistent across UK" }
+        ]
+    };
+
+    private static async Task<IReadOnlyList<ProfileFieldEditView>> VisibilityFieldsAsync(ProfileSectionAnswersDto answers, bool perSpecies = false)
+    {
+        var pageModel = CreatePageModel(Profile(), metadata: VisibilityMetadata(perSpecies), answers: answers, referenceValuesByTable: VisibilityReferenceValues());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        return Assert.Single(pageModel.Questions).Fields;
+    }
+
+    [Fact]
+    public async Task OnGetAsync_FieldThatDependsOnAListAnswer_IsShownWhileTheAnswerIsTheOneItNames()
+    {
+        var fields = await VisibilityFieldsAsync(VisibilityAnswers(VariesAnswerId));
+
+        var rule = fields[2].VisibleWhen;
+        Assert.NotNull(rule);
+        Assert.Equal(PresentFieldId, rule.FieldId);
+        Assert.Equal(VariesAnswerId, rule.ValueId);
+        Assert.Equal($"field_{PresentFieldId}", rule.ControlId);
+        Assert.True(rule.IsShown);
+    }
+
+    [Theory]
+    [InlineData("no")]
+    [InlineData("consistent")]
+    [InlineData("none")]
+    public async Task OnGetAsync_FieldThatDependsOnAListAnswer_IsHiddenWhileTheListHoldsAnotherAnswerOrNone(string answer)
+    {
+        var answers = answer switch
+        {
+            "no" => VisibilityAnswers(NoAnswerId),
+            "consistent" => VisibilityAnswers(ConsistentAnswerId),
+            _ => VisibilityAnswers()
+        };
+
+        var fields = await VisibilityFieldsAsync(answers);
+
+        var rule = fields[2].VisibleWhen;
+        Assert.NotNull(rule);
+        Assert.False(rule.IsShown);
+        Assert.Equal(VariesAnswerId, rule.ValueId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_FieldThatDependsOnAListAnswer_FollowsTheLastAnswerRecordedForTheList()
+    {
+        var fields = await VisibilityFieldsAsync(VisibilityAnswers(NoAnswerId, VariesAnswerId));
+
+        Assert.True(fields[2].VisibleWhen?.IsShown);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_FieldsThatDoNotDependOnAnAnswer_AreAlwaysShown()
+    {
+        var fields = await VisibilityFieldsAsync(VisibilityAnswers(NoAnswerId));
+
+        Assert.Null(fields[0].VisibleWhen);
+        Assert.Null(fields[1].VisibleWhen);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_FieldOfAPerSpeciesQuestion_HasNoVisibilityRule_ForThePanelShowsEveryField()
+    {
+        var fields = await VisibilityFieldsAsync(VisibilityAnswers(NoAnswerId), perSpecies: true);
+
+        Assert.All(fields, field => Assert.Null(field.VisibleWhen));
+    }
+
     private static ProfileQuestionnaireMetadataDto SingleFieldMetadata(ProfileFieldMetadataDto field) => new()
     {
         Sections =

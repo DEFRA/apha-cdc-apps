@@ -45,6 +45,14 @@ public sealed record ProfileFieldMetadataDto : QuestionnaireFieldMetadataContrac
     /// order; empty when the field controls no question. A page warns before an answer to such a field is changed.</summary>
     public IReadOnlyList<string> AffectsRelevanceOf { get; init; } = [];
 
+    /// <summary>Gets the list field of the same section whose answer decides whether this field is shown (the legacy <c>RelevanceFieldId</c>),
+    /// or <see cref="Guid.Empty"/> when the field is always shown.</summary>
+    public Guid RelevanceFieldId { get; init; }
+
+    /// <summary>Gets the answer of <see cref="RelevanceFieldId"/> that shows this field (the legacy <c>RelevanceValueId</c>). The field is
+    /// hidden while that field holds any other answer, or none.</summary>
+    public Guid RelevanceValueId { get; init; }
+
     /// <summary>Tells whether the field is read-only for one kind of profile: it is neither editable, saved nor cleared.</summary>
     /// <param name="isWhatIfScenario">Whether the profile is a "what-if" scenario rather than the current situation.</param>
     /// <returns><see langword="true"/> when the field cannot be changed.</returns>

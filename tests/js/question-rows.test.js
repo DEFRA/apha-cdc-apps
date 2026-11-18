@@ -438,6 +438,28 @@ describe('question-rows', () => {
 
       expect(stored('r1', PROJECT)).toBe('Clinical project');
     });
+
+    it('shows a list as boxes that cannot be changed, with the one holding the answer of the row ticked', async () => {
+      page({ canEdit: false });
+      get('mechanism-select').closest('[data-answer-field]').innerHTML = `
+        <fieldset>
+          <legend>Surveillance mechanism</legend>
+          <input type="checkbox" id="mechanism-clinical" value="clinical" disabled data-answer-choice><label for="mechanism-clinical">Clinical</label>
+          <input type="checkbox" id="mechanism-abattoir" value="abattoir" disabled data-answer-choice><label for="mechanism-abattoir">Abattoir</label>
+        </fieldset>`;
+      await load();
+
+      edit('r1').click();
+
+      expect(get('mechanism-clinical').checked).toBe(true);
+      expect(get('mechanism-abattoir').checked).toBe(false);
+
+      edit('r2').click();
+
+      expect(get('mechanism-clinical').checked).toBe(false);
+      expect(get('mechanism-abattoir').checked).toBe(true);
+      expect(stored('r1', MECHANISM)).toBe('clinical');
+    });
   });
 
   describe('an answer the user may not change', () => {

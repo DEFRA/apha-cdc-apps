@@ -17,6 +17,23 @@ const multi = () => wrapper('MultiValueList', `
 
 const text = (type) => wrapper(type, '<textarea id="text" data-answer-editor></textarea>');
 
+// A list the user may not change is shown as boxes, which cannot be changed, of which the one holding the answer is ticked.
+const choices = () => wrapper('List', `
+  <fieldset>
+    <legend>Choice</legend>
+    <input type="checkbox" id="c-a" value="a" disabled data-answer-choice><label for="c-a">Alpha</label>
+    <input type="checkbox" id="c-b" value="b" disabled data-answer-choice><label for="c-b">Beta</label>
+  </fieldset>`, 'false');
+
+const yesNo = () => wrapper('Boolean', `
+  <fieldset>
+    <legend>Commercial trade?</legend>
+    <input type="checkbox" id="y-yes" value="true" disabled data-answer-choice><label for="y-yes">Yes</label>
+    <input type="checkbox" id="y-no" value="false" disabled data-answer-choice><label for="y-no">No</label>
+  </fieldset>`, 'false');
+
+const ticked = () => [...document.querySelectorAll('input')].map((box) => box.checked);
+
 describe('answer-fields', () => {
   let fields;
 
@@ -60,6 +77,13 @@ describe('answer-fields', () => {
 
     it('is the text of the chosen option for a list, and nothing for one the list does not offer', () => {
       const field = list();
+
+      expect(fields.summaryText(field, 'b')).toBe('Beta');
+      expect(fields.summaryText(field, 'retired')).toBe('');
+    });
+
+    it('is the label of the choice holding the answer for a list the user may not change', () => {
+      const field = choices();
 
       expect(fields.summaryText(field, 'b')).toBe('Beta');
       expect(fields.summaryText(field, 'retired')).toBe('');
@@ -181,6 +205,17 @@ describe('answer-fields', () => {
     it('is empty for a field with no control', () => {
       expect(fields.read(wrapper('Text', '<span data-answer-text-view></span>'))).toBe('');
     });
+
+    it('is the value of the choice that is ticked, or empty when none is, for an answer the user may not change', () => {
+      const field = choices();
+
+      expect(fields.read(field)).toBe('');
+
+      document.getElementById('c-b').checked = true;
+
+      expect(fields.read(field)).toBe('b');
+      expect(fields.read(yesNo())).toBe('');
+    });
   });
 
   describe('write', () => {
@@ -189,6 +224,44 @@ describe('answer-fields', () => {
       fields.write(field, 'b');
 
       expect(document.getElementById('choice').value).toBe('b');
+    });
+
+    it('ticks only the choice holding the answer, for a list the user may not change', () => {
+      const field = choices();
+      fields.write(field, 'b');
+
+      expect(ticked()).toEqual([false, true]);
+
+      fields.write(field, 'a');
+
+      expect(ticked()).toEqual([true, false]);
+    });
+
+    it('ticks no choice when the answer is empty or is not one the list offers', () => {
+      const field = choices();
+      fields.write(field, 'b');
+      fields.write(field, '');
+
+      expect(ticked()).toEqual([false, false]);
+
+      fields.write(field, 'retired');
+
+      expect(ticked()).toEqual([false, false]);
+    });
+
+    it('ticks the Yes or the No box for a Boolean the user may not change', () => {
+      const field = yesNo();
+      fields.write(field, 'true');
+
+      expect(ticked()).toEqual([true, false]);
+
+      fields.write(field, 'false');
+
+      expect(ticked()).toEqual([false, true]);
+
+      fields.write(field, '');
+
+      expect(ticked()).toEqual([false, false]);
     });
 
     it('checks the checkboxes for the values given, and unchecks the others, for a list of choices', () => {

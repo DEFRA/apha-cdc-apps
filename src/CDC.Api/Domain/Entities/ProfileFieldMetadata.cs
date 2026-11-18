@@ -52,4 +52,10 @@ public sealed record ProfileFieldMetadata : BaseEntity
 
     /// <summary>Gets the numbers of the questions (for example <c>5.2</c>) that the answer to the field can make irrelevant, in question order.</summary>
     public IReadOnlyList<string> AffectsRelevanceOf { get; init; } = [];
+
+    /// <summary>Gets the list field whose answer decides whether this field is shown, or <see cref="Guid.Empty"/> when it is always shown.</summary>
+    public Guid RelevanceFieldId { get; init; }
+
+    /// <summary>Gets the answer of <see cref="RelevanceFieldId"/> that shows this field.</summary>
+    public Guid RelevanceValueId { get; init; }
 }

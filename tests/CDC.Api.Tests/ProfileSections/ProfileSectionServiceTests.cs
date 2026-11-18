@@ -61,6 +61,8 @@ public class ProfileSectionServiceTests
     [Fact]
     public async Task GetProfileQuestionnaireMetadataAsync_MapsSectionsQuestionsAndFields()
     {
+        var decidingFieldId = Guid.NewGuid();
+        var showingAnswerId = Guid.NewGuid();
         var metadata = new ProfileQuestionnaireMetadata
         {
             Sections =
@@ -96,7 +98,9 @@ public class ProfileSectionServiceTests
                                     ReferenceTableId = ProfileSectionTestData.ReferenceTableId,
                                     ReferenceTableIsMaintainable = false,
                                     IncludeInSummary = true,
-                                    AffectsRelevanceOf = ["3.2", "3.3"]
+                                    AffectsRelevanceOf = ["3.2", "3.3"],
+                                    RelevanceFieldId = decidingFieldId,
+                                    RelevanceValueId = showingAnswerId
                                 }
                             ]
                         }
@@ -120,6 +124,8 @@ public class ProfileSectionServiceTests
         field.DataTypeName.Should().Be("List");
         field.IncludeInSummary.Should().BeTrue();
         field.AffectsRelevanceOf.Should().Equal("3.2", "3.3");
+        field.RelevanceFieldId.Should().Be(decidingFieldId);
+        field.RelevanceValueId.Should().Be(showingAnswerId);
     }
 
     [Fact]
