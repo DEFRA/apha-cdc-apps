@@ -22,8 +22,9 @@
 
         @if (Model.CanEditProfileSection && !Model.HasNoVersion)
         {
-            @* Pressed by relevance-confirm.js once the user has confirmed an answer that decides whether other questions apply: it saves the
-               section so that the questions the answers make irrelevant are hidden, as the legacy page's hidden Save button (btnHiddenRefresh) did. *@
+            @* Pressed by relevance-confirm.js once the user has confirmed an answer that decides whether other questions apply, and by
+               field-visibility.js when an answer that shows or hides a field changes: it saves the section so that the questions the answers
+               make irrelevant are hidden, as the legacy page's hidden Save button (btnHiddenRefresh) did. *@
             <button type="submit" asp-page-handler="RefreshQuestions" hidden data-relevance-refresh>Refresh the questions</button>
         }
 

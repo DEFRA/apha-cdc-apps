@@ -94,13 +94,13 @@ beforeAll(async () => {
         <input type="hidden" name="Input.QuestionId" value="" data-reference-question />
         <input type="hidden" name="Input.LastUpdated" value="" data-reference-last-updated />
         <div data-reference-field-group>
-          <label for="reference-mode">Choose an action</label>
+          <label for="reference-mode">Please choose an action:</label>
           <select id="reference-mode" class="govuk-select" name="Input.Mode" data-reference-mode>
             <option value="">Please select...</option><option value="add">Add a reference</option><option value="select">Select a reference</option>
           </select>
         </div>
         <div data-reference-field-group data-reference-type-group hidden>
-          <label for="reference-type">Choose a reference type</label>
+          <label for="reference-type">Please choose a reference type:</label>
           <select id="reference-type" class="govuk-select" name="Input.NoteTypeId" data-reference-type>
             <option value="">Please select...</option><option value="${typeId}">Scientific paper reference</option>
           </select>

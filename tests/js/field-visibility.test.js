@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const varies = '22222222-2222-2222-2222-222222222222';
 const consistent = '33333333-3333-3333-3333-333333333333';
@@ -10,9 +10,15 @@ async function load(markup) {
   await import('../../src/CDC.Web/wwwroot/js/field-visibility.js');
 }
 
-function dropDown(id, value = '') {
+// The script waits before it shows the page again, so a test that must pass that wait fakes the clock once the script has loaded.
+async function loadWithClock(markup) {
+  await load(markup);
+  vi.useFakeTimers();
+}
+
+function dropDown(id, value = '', attributes = '') {
   return `
-    <select id="${id}">
+    <select id="${id}"${attributes}>
       <option value="">Please select...</option>
       <option value="${varies}"${value === varies ? ' selected' : ''}>Yes - varies across UK</option>
       <option value="${consistent}"${value === consistent ? ' selected' : ''}>Yes - consistent across UK</option>
@@ -32,9 +38,36 @@ function choose(id, value) {
 
 const isHidden = (id) => document.getElementById(id).hidden;
 
+const refreshButton = '<button type="submit" data-relevance-refresh hidden>Refresh the questions</button>';
+
+// The refresh button would submit the form, which jsdom cannot, so a press is stopped once it has been counted.
+function watchRefresh() {
+  const refresh = vi.fn((event) => event.preventDefault());
+
+  document.querySelector('[data-relevance-refresh]').addEventListener('click', refresh);
+
+  return refresh;
+}
+
+let listeners;
+
 describe('field-visibility', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    listeners = [];
+
+    const addListener = document.addEventListener.bind(document);
+    vi.spyOn(document, 'addEventListener').mockImplementation((type, handler, options) => {
+      listeners.push([type, handler, options]);
+      addListener(type, handler, options);
+    });
+  });
+
+  // Each test runs the script afresh, so the script of an earlier test must not hear the page of the next.
+  afterEach(() => {
+    listeners.forEach(([type, handler, options]) => document.removeEventListener(type, handler, options));
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('shows a field when the drop-down holds the answer that shows it, and hides it when the drop-down holds another', async () => {
@@ -121,5 +154,87 @@ describe('field-visibility', () => {
     await load(dropDown('decides'));
 
     expect(() => choose('decides', varies)).not.toThrow();
+  });
+
+  describe('when the answer a field depends on changes', () => {
+    const page = (attributes = '') => `${refreshButton}${dropDown('decides', '', attributes)}${dependent('scotland', 'decides')}${dropDown('other')}`;
+
+    it('saves the section and shows the page again, as the legacy page did', async () => {
+      await loadWithClock(page());
+      const refresh = watchRefresh();
+
+      choose('decides', consistent);
+
+      expect(refresh).not.toHaveBeenCalled();
+
+      vi.runAllTimers();
+
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits until the user has stopped stepping through the options', async () => {
+      await loadWithClock(page());
+      const refresh = watchRefresh();
+
+      choose('decides', varies);
+      vi.advanceTimersByTime(300);
+      choose('decides', consistent);
+      vi.advanceTimersByTime(300);
+
+      expect(refresh).not.toHaveBeenCalled();
+
+      vi.runAllTimers();
+
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the saving to the confirmation when the answer also decides whether other questions apply', async () => {
+      await loadWithClock(page(' data-relevance-affects="2.2, 2.3"'));
+      const refresh = watchRefresh();
+
+      choose('decides', varies);
+      vi.runAllTimers();
+
+      expect(refresh).not.toHaveBeenCalled();
+      expect(isHidden('scotland')).toBe(false);
+    });
+
+    it('takes an answer that names no questions it affects for one that needs no confirmation', async () => {
+      await loadWithClock(page(' data-relevance-affects=""'));
+      const refresh = watchRefresh();
+
+      choose('decides', varies);
+      vi.runAllTimers();
+
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves a drop-down that no field depends on alone', async () => {
+      await loadWithClock(page());
+      const refresh = watchRefresh();
+
+      choose('other', varies);
+      vi.runAllTimers();
+
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('does not save the section for a change that the user does not confirm', async () => {
+      await loadWithClock(page(' data-relevance-affects="2.2"'));
+      const refresh = watchRefresh();
+
+      document.getElementById('decides').dispatchEvent(new CustomEvent('app:relevance-cancelled', { bubbles: true }));
+      vi.runAllTimers();
+
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('does nothing where the page has no refresh button', async () => {
+      await loadWithClock(`${dropDown('decides')}${dependent('scotland', 'decides')}`);
+
+      choose('decides', varies);
+
+      expect(() => vi.runAllTimers()).not.toThrow();
+    });
   });
 });

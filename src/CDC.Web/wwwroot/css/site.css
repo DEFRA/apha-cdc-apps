@@ -1597,6 +1597,40 @@ body {
   outline-offset: 0;
 }
 
+/* The picker of the other species, where there is one, and the buttons share a row, the buttons at the right, as the legacy panel's table had them. */
+.app-answer-panel__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 15px;
+}
+
+.app-answer-panel__footer > .govuk-details {
+  margin-bottom: 15px;
+}
+
+.app-answer-panel__footer > .govuk-button-group {
+  margin-left: auto;
+}
+
+/* A collapsible list headed by its text with a circle and chevron after it, as the legacy picker drew it, not the Design System's triangle before it. */
+.app-picker > .govuk-details__summary {
+  padding-left: 0;
+}
+
+.app-picker > .govuk-details__summary::before {
+  content: none;
+}
+
+.app-picker .govuk-accordion-nav__chevron {
+  margin-left: 0.5rem;
+}
+
+.app-picker[open] > .govuk-details__summary .govuk-accordion-nav__chevron--down {
+  transform: none;
+}
+
 /* A species left out of the list of those to apply an answer to: the Design System's checkbox item sets a display of its own, which
    the hidden attribute alone would not beat. */
 .app-species-picker .govuk-checkboxes__item[hidden] {

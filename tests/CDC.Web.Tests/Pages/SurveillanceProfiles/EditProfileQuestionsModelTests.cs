@@ -568,21 +568,25 @@ public class EditProfileQuestionsModelTests
                         [
                             new ProfileFieldMetadataDto { Id = PresentFieldId, QuestionId = QuestionId, FieldNumber = 1, DataTypeName = "List", ReferenceTableId = ReferenceTableId, AffectsRelevanceOf = ["2.2", "2.3"] },
                             new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Supporting comments", FieldNumber = 2, DataTypeName = "Long Text" },
-                            new ProfileFieldMetadataDto
-                            {
-                                Id = Guid.NewGuid(),
-                                QuestionId = QuestionId,
-                                Name = "How does it vary across Scotland?",
-                                FieldNumber = 3,
-                                DataTypeName = "Long Text",
-                                RelevanceFieldId = PresentFieldId,
-                                RelevanceValueId = VariesAnswerId
-                            }
+                            VariesAcross("Scotland", 3),
+                            VariesAcross("Wales", 4),
+                            VariesAcross("Northern Ireland", 5)
                         ]
                     }
                 ]
             }
         ]
+    };
+
+    private static ProfileFieldMetadataDto VariesAcross(string nation, int fieldNumber) => new()
+    {
+        Id = Guid.NewGuid(),
+        QuestionId = QuestionId,
+        Name = $"How does it vary across {nation}?",
+        FieldNumber = fieldNumber,
+        DataTypeName = "Long Text",
+        RelevanceFieldId = PresentFieldId,
+        RelevanceValueId = VariesAnswerId
     };
 
     private static ProfileSectionAnswersDto VisibilityAnswers(params Guid[] presentAnswers) => new()
@@ -612,23 +616,26 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_FieldThatDependsOnAListAnswer_IsShownWhileTheAnswerIsTheOneItNames()
+    public async Task OnGetAsync_FieldsThatDependOnAListAnswer_AreShownWhileTheAnswerIsTheOneTheyName()
     {
         var fields = await VisibilityFieldsAsync(VisibilityAnswers(VariesAnswerId));
 
-        var rule = fields[2].VisibleWhen;
-        Assert.NotNull(rule);
-        Assert.Equal(PresentFieldId, rule.FieldId);
-        Assert.Equal(VariesAnswerId, rule.ValueId);
-        Assert.Equal($"field_{PresentFieldId}", rule.ControlId);
-        Assert.True(rule.IsShown);
+        Assert.All(fields.Skip(2), field =>
+        {
+            var rule = field.VisibleWhen;
+            Assert.NotNull(rule);
+            Assert.Equal(PresentFieldId, rule.FieldId);
+            Assert.Equal(VariesAnswerId, rule.ValueId);
+            Assert.Equal($"field_{PresentFieldId}", rule.ControlId);
+            Assert.True(rule.IsShown);
+        });
     }
 
     [Theory]
     [InlineData("no")]
     [InlineData("consistent")]
     [InlineData("none")]
-    public async Task OnGetAsync_FieldThatDependsOnAListAnswer_IsHiddenWhileTheListHoldsAnotherAnswerOrNone(string answer)
+    public async Task OnGetAsync_FieldsThatDependOnAListAnswer_AreHiddenWhileTheListHoldsAnotherAnswerOrNone(string answer)
     {
         var answers = answer switch
         {
@@ -639,18 +646,21 @@ public class EditProfileQuestionsModelTests
 
         var fields = await VisibilityFieldsAsync(answers);
 
-        var rule = fields[2].VisibleWhen;
-        Assert.NotNull(rule);
-        Assert.False(rule.IsShown);
-        Assert.Equal(VariesAnswerId, rule.ValueId);
+        Assert.All(fields.Skip(2), field =>
+        {
+            var rule = field.VisibleWhen;
+            Assert.NotNull(rule);
+            Assert.False(rule.IsShown);
+            Assert.Equal(VariesAnswerId, rule.ValueId);
+        });
     }
 
     [Fact]
-    public async Task OnGetAsync_FieldThatDependsOnAListAnswer_FollowsTheLastAnswerRecordedForTheList()
+    public async Task OnGetAsync_FieldsThatDependOnAListAnswer_FollowTheLastAnswerRecordedForTheList()
     {
         var fields = await VisibilityFieldsAsync(VisibilityAnswers(NoAnswerId, VariesAnswerId));
 
-        Assert.True(fields[2].VisibleWhen?.IsShown);
+        Assert.All(fields.Skip(2), field => Assert.True(field.VisibleWhen?.IsShown));
     }
 
     [Fact]

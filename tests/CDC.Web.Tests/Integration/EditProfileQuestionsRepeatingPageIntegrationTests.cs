@@ -215,6 +215,7 @@ public partial class EditProfileQuestionsRepeatingPageIntegrationTests : IClassF
         Assert.Contains("data-row-can-edit=\"false\"", question);
         Assert.Contains("<h3 class=\"govuk-fieldset__heading\">View answer</h3>", question);
         Assert.Contains("data-row-ok>Close</button>", question);
+        Assert.Matches("<div class=\"govuk-button-group app-button-group--right\">\\s*<button[^>]* data-row-ok>Close</button>", question);
         Assert.DoesNotContain("data-row-cancel", question);
     }
 
@@ -238,6 +239,7 @@ public partial class EditProfileQuestionsRepeatingPageIntegrationTests : IClassF
         Assert.Matches($"id=\"{panelId}{ReviewDateFieldId}\" type=\"text\"[^>]* disabled=\"disabled\"", panel);
         Assert.Contains("data-row-ok>OK</button>", panel);
         Assert.Contains("data-row-cancel>Cancel</button>", panel);
+        Assert.Matches("<div class=\"govuk-button-group app-button-group--right\">\\s*<button[^>]* data-row-ok>OK</button>\\s*<button[^>]* data-row-cancel>Cancel</button>", panel);
         Assert.False(NamedControlRegex().IsMatch(panel), "No control of the panel should have a name, for none is posted.");
     }
 

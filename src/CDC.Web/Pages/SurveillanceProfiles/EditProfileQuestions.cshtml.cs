@@ -299,9 +299,9 @@ public class EditProfileQuestionsModel(
 
     /// <summary>
     /// Handles the page's hidden refresh button as the legacy <c>btnHiddenRefresh_Click</c> did. The page presses it when the user has
-    /// changed an answer that decides whether other questions apply and confirmed the change: it saves the section as Save does, so
-    /// that the questions the answers made irrelevant are cleared and hidden, and then says nothing of the save, which the user did not
-    /// ask for.
+    /// changed an answer that decides whether other questions apply and confirmed the change, or one that shows or hides a field: it saves
+    /// the section as Save does, so that the questions the answers made irrelevant are cleared and hidden, and then says nothing of the
+    /// save, which the user did not ask for.
     /// </summary>
     /// <param name="profileVersionId">The profile version being answered, posted from a hidden field.</param>
     /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
