@@ -556,7 +556,7 @@ public class SpeciesRepositoryTests : IDisposable
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
         executed.CommandText.Should().Be(SpeciesStoredProcedures.ChangeSpeciesPosition);
-        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.CommandType.Should().Be(CommandType.Text);
         executed.Parameters.Should().ContainKey("SpeciesId").WhoseValue.Should().Be(SpeciesTestData.SpeciesId);
         executed.Parameters.Should().ContainKey("IsMovingUp").WhoseValue.Should().Be(true);
         executed.Parameters.Should().ContainKey("UserId").WhoseValue.Should().Be(SpeciesTestData.AuditUserId);
