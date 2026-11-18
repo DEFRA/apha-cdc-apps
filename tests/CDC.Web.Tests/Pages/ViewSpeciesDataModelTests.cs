@@ -51,6 +51,26 @@ public class ViewSpeciesDataModelTests
         Assert.True(dairy.Expanded);
     }
 
+    // The legacy page listed the species in SequenceNumber order (Mammals, Birds ...), not A to Z.
+    [Fact]
+    public async Task OnGetAsync_ListsTheSpeciesInTheOrderTheApiReturnsThem()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Mammals", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = Guid.Empty, Description = "Birds", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = Guid.Empty, Description = "Amphibians", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = DairyId, ParentId = CattleId, Description = "Sheep", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = CattleId, Description = "Cattle", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(species));
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(["Mammals", "Birds", "Amphibians"], pageModel.SpeciesTree.Nodes.Select(node => node.Label));
+        Assert.Equal(["Sheep", "Cattle"], pageModel.SpeciesTree.Nodes[0].Children.Select(node => node.Label));
+    }
+
     [Fact]
     public async Task OnGetAsync_SetsError_WhenApiCallFails()
     {

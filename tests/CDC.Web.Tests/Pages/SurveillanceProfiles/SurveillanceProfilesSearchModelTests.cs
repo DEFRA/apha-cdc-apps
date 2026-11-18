@@ -781,6 +781,23 @@ public class SurveillanceProfilesSearchModelTests
         Assert.True(cattle.Expanded);
     }
 
+    // The legacy species selector listed the species in SequenceNumber order (Mammals, Birds ...), not A to Z.
+    [Fact]
+    public async Task LoadSpeciesTreeAsync_ListsTheSpeciesInTheOrderTheApiReturnsThem()
+    {
+        IReadOnlyList<SpeciesDto> species =
+        [
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = Guid.Empty, Description = "Mammals", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = Guid.Empty, Description = "Birds", IsActive = true, IsInUse = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = Guid.Empty, Description = "Amphibians", IsActive = true, IsInUse = true }
+        ];
+        var pageModel = CreatePageModel([], species: species);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(["Mammals", "Birds", "Amphibians"], pageModel.SpeciesTree.Nodes.Select(node => node.Label));
+    }
+
     [Fact]
     public async Task LoadSpeciesTreeAsync_DefaultsLabel_WhenNoSpeciesSelected()
     {

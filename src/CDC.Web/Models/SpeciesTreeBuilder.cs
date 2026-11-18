@@ -2,7 +2,8 @@ namespace CDC.Web.Models;
 
 /// <summary>
 /// Builds a <see cref="TreeNodeViewModel"/> hierarchy from the flat species list returned by
-/// <c>GET /api/species</c>, using <c>ParentId</c> to link each node to its parent.
+/// <c>GET /api/species</c>, using <c>ParentId</c> to link each node to its parent. Siblings keep the order
+/// the API lists them in, which is their <c>SequenceNumber</c> order, as every legacy species tree showed them.
 /// </summary>
 public static class SpeciesTreeBuilder
 {
@@ -21,12 +22,6 @@ public static class SpeciesTreeBuilder
     /// their existing hierarchy position too - rendered with <see cref="TreeNodeViewModel.IsInactive"/>
     /// set - so "Maintain species data" retains their original relationships after inactivation.
     /// </param>
-    /// <param name="preserveApiOrder">
-    /// When <see langword="false"/> (the default), siblings are sorted alphabetically, matching
-    /// every existing tree picker. When <see langword="true"/>, siblings keep the order the API
-    /// returned them in - already <c>SequenceNumber</c> order - so "Maintain species data" shows
-    /// a "Reorder list" move take visible effect instead of being masked by an alphabetical sort.
-    /// </param>
     /// <param name="expandAll">
     /// When <see langword="true"/>, every branch starts expanded rather than just the roots, so every
     /// species is visible without interaction - as the legacy affected species selector showed them.
@@ -35,7 +30,6 @@ public static class SpeciesTreeBuilder
     public static IReadOnlyList<TreeNodeViewModel> Build(
         IReadOnlyList<SpeciesDto> species,
         bool includeInactive = false,
-        bool preserveApiOrder = false,
         bool expandAll = false)
     {
         ArgumentNullException.ThrowIfNull(species);
@@ -52,20 +46,15 @@ public static class SpeciesTreeBuilder
 
         return
         [
-            .. Order(roots, preserveApiOrder)
-                .Select(item => BuildNode(item, childrenByParentId, expanded: true, expandAll, preserveApiOrder, ancestorIds: []))
+            .. roots.Select(item => BuildNode(item, childrenByParentId, expanded: true, expandAll, ancestorIds: []))
         ];
     }
-
-    private static IEnumerable<SpeciesDto> Order(IEnumerable<SpeciesDto> siblings, bool preserveApiOrder) =>
-        preserveApiOrder ? siblings : siblings.OrderBy(item => CDC.Web.Infrastructure.SpeciesNameHtml.ToPlainText(item.Description), StringComparer.OrdinalIgnoreCase);
 
     private static TreeNodeViewModel BuildNode(
         SpeciesDto species,
         ILookup<Guid, SpeciesDto> childrenByParentId,
         bool expanded,
         bool expandAll,
-        bool preserveApiOrder,
         HashSet<Guid> ancestorIds)
     {
         // Guards against a malformed/cyclic ParentId chain causing unbounded recursion.
@@ -76,8 +65,8 @@ public static class SpeciesTreeBuilder
 
         HashSet<Guid> ownAncestorIds = [.. ancestorIds, species.Id];
 
-        var children = Order(childrenByParentId[species.Id], preserveApiOrder)
-            .Select(child => BuildNode(child, childrenByParentId, expanded: expandAll, expandAll, preserveApiOrder, ownAncestorIds))
+        var children = childrenByParentId[species.Id]
+            .Select(child => BuildNode(child, childrenByParentId, expanded: expandAll, expandAll, ownAncestorIds))
             .ToList();
 
         return new TreeNodeViewModel

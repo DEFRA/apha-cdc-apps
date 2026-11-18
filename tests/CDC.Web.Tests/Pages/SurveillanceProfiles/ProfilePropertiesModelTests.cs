@@ -251,7 +251,7 @@ public class ProfilePropertiesModelTests
 
         var animals = Assert.Single(pageModel.ProfiledSpeciesTree.Nodes);
         Assert.True(animals.Expanded);
-        Assert.Equal(["Cattle", "Goats", "Sheep"], animals.Children.Select(child => child.Label));
+        Assert.Equal(["Cattle", "Sheep", "Goats"], animals.Children.Select(child => child.Label));
         Assert.True(animals.Children.Single(child => child.Label == "Goats").IsInactive);
         Assert.Equal(pageModel.ProfiledSpeciesTree.Nodes, pageModel.OtherSpeciesTree.Nodes);
         Assert.All(animals.Children.Where(child => child.Children.Count > 0), child => Assert.True(child.Expanded));

@@ -84,36 +84,26 @@ public class SpeciesTreeBuilderTests
         Assert.True(expanded.Children.Single().Children.Single().Expanded);
     }
 
-    [Fact]
-    public void Build_SortsSiblingsAlphabetically_ByDefault()
+    // The API lists species in SequenceNumber order, which is how every legacy species tree showed them (Mammals, Birds ... rather
+    // than A to Z) and what makes a "Reorder list" move on Maintain species data visible.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_KeepsSiblingsInTheOrderTheApiReturnsThem_AtEveryLevel(bool includeInactive)
     {
         IReadOnlyList<SpeciesDto> species =
         [
-            new SpeciesDto { Id = JerseyId, ParentId = Guid.Empty, Description = "Tench", IsActive = true },
-            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Cattle", IsActive = true },
-            new SpeciesDto { Id = DairyId, ParentId = Guid.Empty, Description = "Fish - other", IsActive = true }
+            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Mammals", IsActive = true },
+            new SpeciesDto { Id = DairyId, ParentId = Guid.Empty, Description = "Birds", IsActive = true },
+            new SpeciesDto { Id = JerseyId, ParentId = Guid.Empty, Description = "Amphibians", IsActive = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = CattleId, Description = "Sheep", IsActive = true },
+            new SpeciesDto { Id = Guid.NewGuid(), ParentId = CattleId, Description = "Cattle", IsActive = true }
         ];
 
-        var tree = SpeciesTreeBuilder.Build(species);
+        var tree = SpeciesTreeBuilder.Build(species, includeInactive);
 
-        Assert.Equal(["Cattle", "Fish - other", "Tench"], tree.Select(node => node.Label));
-    }
-
-    [Fact]
-    public void Build_PreservesApiOrder_SoAMaintainSpeciesDataReorderIsVisible()
-    {
-        // The API already returns species in SequenceNumber order; preserving it here (rather
-        // than re-sorting alphabetically) is what makes a "Reorder list" move actually show up.
-        IReadOnlyList<SpeciesDto> species =
-        [
-            new SpeciesDto { Id = JerseyId, ParentId = Guid.Empty, Description = "Tench", IsActive = true },
-            new SpeciesDto { Id = CattleId, ParentId = Guid.Empty, Description = "Fish - other", IsActive = true },
-            new SpeciesDto { Id = DairyId, ParentId = Guid.Empty, Description = "Mullet", IsActive = true }
-        ];
-
-        var tree = SpeciesTreeBuilder.Build(species, preserveApiOrder: true);
-
-        Assert.Equal(["Tench", "Fish - other", "Mullet"], tree.Select(node => node.Label));
+        Assert.Equal(["Mammals", "Birds", "Amphibians"], tree.Select(node => node.Label));
+        Assert.Equal(["Sheep", "Cattle"], tree[0].Children.Select(node => node.Label));
     }
 
     [Fact]
