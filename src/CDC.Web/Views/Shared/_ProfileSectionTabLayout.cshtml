@@ -15,17 +15,17 @@
         [.. Model.Sections
             .Select(navSection => new SectionNavItem(
                 navSection.SectionNumber,
-                navSection.Name,
+                ProfileSectionTabs.FormatShortName(navSection.ShortName),
                 Model.BuildSectionUrl(navSection.Id),
                 Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id,
                 Model.GetSectionValidationStatus(navSection.Id)))]);
 
     var previousNavItem = Model.PreviousSection is null
         ? null
-        : new SectionNavItem(Model.PreviousSection.SectionNumber, Model.PreviousSection.Name, Model.BuildPaginationUrl(Model.PreviousSection.Id));
+        : new SectionNavItem(Model.PreviousSection.SectionNumber, ProfileSectionTabs.FormatShortName(Model.PreviousSection.ShortName), Model.BuildPaginationUrl(Model.PreviousSection.Id));
     var nextNavItem = Model.NextSection is null
         ? null
-        : new SectionNavItem(Model.NextSection.SectionNumber, Model.NextSection.Name, Model.BuildPaginationUrl(Model.NextSection.Id));
+        : new SectionNavItem(Model.NextSection.SectionNumber, ProfileSectionTabs.FormatShortName(Model.NextSection.ShortName), Model.BuildPaginationUrl(Model.NextSection.Id));
     var paginationModel = new SectionPaginationViewModel(previousNavItem, nextNavItem);
 }
 @section Breadcrumbs {
@@ -76,7 +76,15 @@ else
             {
                 @body
 
-                <partial name="_SectionPagination" model="paginationModel" />
+                <div class="app-section-pagination">
+                    <partial name="_SectionPagination" model="paginationModel" />
+                </div>
+
+                @if (Model is CDC.Web.Pages.SurveillanceProfiles.EditProfileQuestionsModel)
+                {
+                    @* The legacy EditProfileQuestions page's lblStatement, shown under the section pagination. *@
+                    <p class="govuk-body govuk-!-margin-top-6">The content in a number of questions constitutes static information, or is no longer deemed critical, and, to minimise the resource requirements of D2R2, is not scheduled to be updated. Please see the D2R2 quality statement for a list of these questions.</p>
+                }
             }
         </div>
     </div>

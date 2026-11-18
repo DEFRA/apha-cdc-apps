@@ -53,6 +53,10 @@ public sealed record ProfileFieldEditView
     /// <summary>Gets the reference data options for a "List"/"MultiValueList" field, with their
     /// recorded checked state.</summary>
     public IReadOnlyList<ProfileFieldOptionEditView> Options { get; init; } = [];
+
+    /// <summary>Gets the numbers of the questions (for example "4.2, 4.3") whose relevance depends on this field's answer,
+    /// or <see langword="null"/> when it affects none; changing the answer asks for confirmation first.</summary>
+    public string? AffectsRelevanceOf { get; init; }
 }
 
 /// <summary>One real question (e.g. "2.1 ...") with its editable/read-only fields.</summary>

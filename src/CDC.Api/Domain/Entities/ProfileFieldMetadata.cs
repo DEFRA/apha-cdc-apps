@@ -43,4 +43,7 @@ public sealed record ProfileFieldMetadata : BaseEntity
 
     /// <summary>Gets a value indicating whether the field is read-only for a "what-if" scenario.</summary>
     public bool IsReadOnlyScenario { get; init; }
+
+    /// <summary>Gets a value indicating whether the field's answer decides whether other questions are relevant.</summary>
+    public bool AffectsRelevance { get; init; }
 }
