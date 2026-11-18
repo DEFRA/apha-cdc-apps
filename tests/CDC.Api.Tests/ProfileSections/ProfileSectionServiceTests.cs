@@ -94,7 +94,9 @@ public class ProfileSectionServiceTests
                                     DataTypeName = "List",
                                     IsMandatory = true,
                                     ReferenceTableId = ProfileSectionTestData.ReferenceTableId,
-                                    ReferenceTableIsMaintainable = false
+                                    ReferenceTableIsMaintainable = false,
+                                    IncludeInSummary = true,
+                                    AffectsRelevanceOf = ["3.2", "3.3"]
                                 }
                             ]
                         }
@@ -116,15 +118,19 @@ public class ProfileSectionServiceTests
         var field = question.Fields.Should().ContainSingle().Subject;
         field.Name.Should().Be("Affected species");
         field.DataTypeName.Should().Be("List");
+        field.IncludeInSummary.Should().BeTrue();
+        field.AffectsRelevanceOf.Should().Equal("3.2", "3.3");
     }
 
     [Fact]
     public async Task GetProfileSectionAnswersAsync_MapsQuestionNamesAndFieldValues()
     {
+        var cattleId = Guid.NewGuid();
         var answers = new ProfileSectionAnswers
         {
             ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
             ProfileSectionId = ProfileSectionTestData.SectionId,
+            ProfiledSpecies = [new ReportSpecies(cattleId, "Cattle", IsActive: false)],
             QuestionNames =
             [
                 new ProfileQuestionName
@@ -152,6 +158,9 @@ public class ProfileSectionServiceTests
                 ProfileSectionTestData.SectionId,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(answers);
+        contentRepository
+            .Setup(repo => repo.GetVersionContextAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportVersionContext { ProfiledSpeciesText = "Cattle (inactive), Sheep", OtherAffectedSpeciesText = "Goats" });
 
         var result = await CreateService().GetProfileSectionAnswersAsync(
             ProfileSectionTestData.ProfileVersionId,
@@ -162,6 +171,14 @@ public class ProfileSectionServiceTests
         result.ProfileSectionId.Should().Be(ProfileSectionTestData.SectionId);
         result.QuestionNames.Should().ContainSingle().Which.Name.Should().Be("Is it endemic?");
         result.FieldValues.Should().ContainSingle().Which.BooleanValue.Should().BeTrue();
+        var species = result.ProfiledSpecies.Should().ContainSingle().Subject;
+        species.Id.Should().Be(cattleId);
+        species.Name.Should().Be("Cattle");
+        species.IsActive.Should().BeFalse();
+
+        // The species fields of the Summary section hold no answer; they show the version's own species.
+        result.ProfiledSpeciesText.Should().Be("Cattle (inactive), Sheep");
+        result.OtherAffectedSpeciesText.Should().Be("Goats");
     }
 
     [Fact]
@@ -487,7 +504,7 @@ public class ProfileSectionServiceTests
         };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(1);
         applied.Should().NotBeNull();
@@ -509,7 +526,7 @@ public class ProfileSectionServiceTests
         };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(0);
         repository.Verify(
@@ -530,7 +547,7 @@ public class ProfileSectionServiceTests
             .ReturnsAsync(new ReportSectionAnswers());
 
         await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         contentRepository.Verify(
             repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, otherSectionId, It.IsAny<CancellationToken>()), Times.Once);
@@ -548,7 +565,7 @@ public class ProfileSectionServiceTests
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true } };
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConcurrencyException>();
     }
@@ -566,7 +583,7 @@ public class ProfileSectionServiceTests
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId } };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], null, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(0);
     }
@@ -603,6 +620,53 @@ public class ProfileSectionServiceTests
         var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
 
         result.Sections.Should().ContainSingle().Which.IrrelevantQuestionIds.Should().Equal(followUpQuestionId);
+    }
+
+    [Fact]
+    public async Task GetProfileVersionValidationStatusAsync_ListsTheSpeciesAPerSpeciesQuestionIsIrrelevantFor_ButNotTheQuestionWhileASpeciesIsRelevant()
+    {
+        var cattleId = Guid.NewGuid();
+        var sheepId = Guid.NewGuid();
+        var perSpeciesQuestionId = Guid.NewGuid();
+        var perSpeciesFieldId = Guid.NewGuid();
+        var section = QuestionnaireWithOneMandatoryField().Sections[0];
+
+        // The Boolean field is answered per species: Yes for cattle makes the question relevant for them, none for sheep does not.
+        var questionnaire = new ReportQuestionnaire
+        {
+            Sections =
+            [
+                section with
+                {
+                    Questions =
+                    [
+                        section.Questions[0] with { IsPerSpecies = true },
+                        new ReportQuestion
+                        {
+                            Id = perSpeciesQuestionId,
+                            QuestionNumber = 2,
+                            ShortName = "Q2",
+                            IsPerSpecies = true,
+                            IrrelevanceFieldId = ProfileSectionTestData.FieldId,
+                            IrrelevanceFlag = false,
+                            Fields = [new ReportField { Id = perSpeciesFieldId, Name = "Impact", ShortName = "Impact", DataTypeName = "Text" }]
+                        }
+                    ]
+                }
+            ]
+        };
+        SetupValidation(
+            CompleteRevision(),
+            answerTheMandatoryField: false,
+            questionnaire: questionnaire,
+            values: [new ReportFieldValue { QuestionId = ProfileSectionTestData.QuestionId, FieldId = ProfileSectionTestData.FieldId, SpeciesId = cattleId, BooleanValue = true }],
+            species: [new ReportSpecies(cattleId, "Cattle"), new ReportSpecies(sheepId, "Sheep")]);
+
+        var result = await CreateService().GetProfileVersionValidationStatusAsync(ProfileSectionTestData.ProfileVersionId, CancellationToken.None);
+
+        var status = result.Sections.Should().ContainSingle().Subject;
+        status.IrrelevantSpecies.Should().ContainSingle().Which.Should().BeEquivalentTo(new ProfileQuestionSpeciesDto { QuestionId = perSpeciesQuestionId, SpeciesId = sheepId });
+        status.IrrelevantQuestionIds.Should().BeEmpty();
     }
 
     [Fact]
@@ -850,7 +914,7 @@ public class ProfileSectionServiceTests
         userContext.SetupGet(context => context.UserId).Returns((Guid?)null);
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
@@ -878,7 +942,7 @@ public class ProfileSectionServiceTests
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true } };
 
         var result = await CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, RowVersion, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, answers, [], RowVersion, CancellationToken.None);
 
         result.FieldsSavedCount.Should().Be(1);
     }
@@ -889,7 +953,7 @@ public class ProfileSectionServiceTests
         GivenAnExternalUser("Policy author", isContributor: true, Guid.NewGuid());
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         contentRepository.VerifyNoOtherCalls();
@@ -902,7 +966,7 @@ public class ProfileSectionServiceTests
         GivenAnExternalUser("VA reviewer", isContributor: false, ProfileSectionTestData.SectionId);
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         repository.VerifyNoOtherCalls();
@@ -914,7 +978,7 @@ public class ProfileSectionServiceTests
         userContext.SetupGet(context => context.IsProfileEditor).Returns(false);
 
         var act = () => CreateService().SaveProfileVersionSectionAsync(
-            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], null, CancellationToken.None);
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, [], [], null, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         repository.VerifyNoOtherCalls();
@@ -932,7 +996,7 @@ public class ProfileSectionServiceTests
 
         Func<Task>[] changes =
         [
-            () => service.SaveProfileVersionSectionAsync(versionId, sectionId, [], null, CancellationToken.None),
+            () => service.SaveProfileVersionSectionAsync(versionId, sectionId, [], [], null, CancellationToken.None),
             () => service.ClearProfileVersionSectionAsync(versionId, sectionId, null, CancellationToken.None),
             () => service.SaveProfileVersionRevisionDatesAsync(versionId, [Input(sectionId)], CancellationToken.None)
         ];
@@ -1088,7 +1152,8 @@ public class ProfileSectionServiceTests
         ReportSectionRevision? revision,
         bool answerTheMandatoryField,
         ReportQuestionnaire? questionnaire = null,
-        IReadOnlyList<ReportFieldValue>? values = null)
+        IReadOnlyList<ReportFieldValue>? values = null,
+        IReadOnlyList<ReportSpecies>? species = null)
     {
         contentRepository
             .Setup(repo => repo.GetQuestionnaireAsync(It.IsAny<CancellationToken>()))
@@ -1097,6 +1162,7 @@ public class ProfileSectionServiceTests
             .Setup(repo => repo.GetSectionAnswersAsync(ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ReportSectionAnswers
             {
+                ProfiledSpecies = species ?? [],
                 Revision = revision,
                 QuestionNames = [new ProfileQuestionName { Id = ProfileSectionTestData.QuestionId, Name = "Is it endemic?", NonTechnicalName = "Is it endemic?" }],
                 Values = values ?? (answerTheMandatoryField

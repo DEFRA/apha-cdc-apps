@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Ganss.Xss;
 
@@ -6,6 +8,8 @@ namespace CDC.Web.Infrastructure;
 /// <summary>
 /// Cleans the text of a profile question before it is saved. Question titles are single-line italic text; the
 /// guidance is entered through a rich text editor (italics, lists and links), so both are untrusted input.
+/// The text is stored in varchar columns, so a character outside ASCII is saved as a numeric character
+/// reference, as the legacy editor saved it as an entity, rather than risk the database replacing it with a question mark.
 /// </summary>
 public static partial class ProfileQuestionHtml
 {
@@ -19,7 +23,7 @@ public static partial class ProfileQuestionHtml
     /// <summary>Keeps only italics and drops paragraph and line-break markup, as the legacy page did before saving a title.</summary>
     /// <param name="title">The submitted title.</param>
     /// <returns>The title to save.</returns>
-    public static string CleanTitle(string? title) => SpeciesNameHtml.Clean(title);
+    public static string CleanTitle(string? title) => EncodeNonAscii(SpeciesNameHtml.Clean(title));
 
     /// <summary>Counts the characters a reader sees in a title, ignoring markup.</summary>
     /// <param name="title">The title, which may hold italic markup.</param>
@@ -57,7 +61,7 @@ public static partial class ProfileQuestionHtml
             sanitizer.AllowedSchemes.Add(scheme);
         }
 
-        return sanitizer.Sanitize(ActiveContentPattern().Replace(guidance, string.Empty)).Trim();
+        return EncodeNonAscii(sanitizer.Sanitize(ActiveContentPattern().Replace(guidance, string.Empty)).Trim());
     }
 
     /// <summary>
@@ -71,15 +75,38 @@ public static partial class ProfileQuestionHtml
         && (ProfileTitleHtmlFormatter.ToPlainText(guidance).Length > 0 || guidance.Contains("<li", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Prepares stored guidance for the editor. Older guidance holds raw line breaks, which an HTML editor would
-    /// collapse, so they become <c>&lt;br/&gt;</c> as the legacy page did.
+    /// Prepares stored guidance for the editor. Older guidance holds CRLF line breaks, which an HTML editor would
+    /// collapse, so they become <c>&lt;br/&gt;</c> as the legacy page did. A line feed on its own is only the layout
+    /// of the list markup around it, which the editor must not show as extra blank lines, so it is left as it is.
     /// </summary>
     /// <param name="guidance">The stored guidance.</param>
     /// <returns>The guidance to show in the editor.</returns>
-    public static string ToEditorHtml(string? guidance) => LineBreakPattern().Replace(guidance ?? string.Empty, "<br/>");
+    public static string ToEditorHtml(string? guidance) => (guidance ?? string.Empty).Replace("\r\n", "<br/>", StringComparison.Ordinal);
 
-    [GeneratedRegex(@"\r\n|\r|\n")]
-    private static partial Regex LineBreakPattern();
+    private static string EncodeNonAscii(string html)
+    {
+        if (Ascii.IsValid(html))
+        {
+            return html;
+        }
+
+        var encoded = new StringBuilder(html.Length + 16);
+
+        // Enumerating runes keeps a surrogate pair together, so a character outside the basic plane is one reference.
+        foreach (var rune in html.EnumerateRunes())
+        {
+            if (rune.IsAscii)
+            {
+                encoded.Append((char)rune.Value);
+            }
+            else
+            {
+                encoded.Append(CultureInfo.InvariantCulture, $"&#{rune.Value};");
+            }
+        }
+
+        return encoded.ToString();
+    }
 
     // The sanitiser keeps the text of a tag it removes, which suits a stray bold tag but not a script's body.
     // Each element is spelled out because the source generator cannot emit a case-insensitive backreference.

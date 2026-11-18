@@ -53,10 +53,10 @@ internal static partial class ProfileSectionTabLog
     [LoggerMessage(EventId = 2315, Level = LogLevel.Error, Message = "Failed to load profile '{ProfileId}' section '{ProfileSectionId}' questions from CDC.Api")]
     public static partial void ProfileSectionQuestionsLoadFailed(this ILogger logger, Exception exception, Guid profileId, Guid profileSectionId);
 
-    [LoggerMessage(EventId = 2316, Level = LogLevel.Error, Message = "Failed to change a source of further information on profile '{ProfileId}' via CDC.Api")]
+    [LoggerMessage(EventId = 2316, Level = LogLevel.Error, Message = "Failed to change a reference or source of further information on profile '{ProfileId}' via CDC.Api")]
     public static partial void ProfileNoteChangeFailed(this ILogger logger, Exception exception, Guid profileId);
 
-    [LoggerMessage(EventId = 2317, Level = LogLevel.Warning, Message = "A source of further information change on profile '{ProfileId}' was refused by CDC.Api with outcome {Outcome}")]
+    [LoggerMessage(EventId = 2317, Level = LogLevel.Warning, Message = "A reference or source of further information change on profile '{ProfileId}' was refused by CDC.Api with outcome {Outcome}")]
     public static partial void ProfileNoteChangeRefused(this ILogger logger, Guid profileId, ProfileNoteChangeOutcome outcome);
 
     [LoggerMessage(EventId = 2318, Level = LogLevel.Warning, Message = "A {Action} of profile '{ProfileId}' section '{ProfileSectionId}' was refused by CDC.Api with outcome {Outcome}")]
@@ -64,4 +64,16 @@ internal static partial class ProfileSectionTabLog
 
     [LoggerMessage(EventId = 2319, Level = LogLevel.Warning, Message = "CDC.Api refused to show profile '{ProfileId}' to the signed-in user, who was sent to the Application error page")]
     public static partial void ProfileAccessRefused(this ILogger logger, Guid profileId);
+
+    [LoggerMessage(EventId = 2320, Level = LogLevel.Information, Message = "Published profile '{ProfileId}' as a new version from its All Revision dates tab (public: {IsPublic})")]
+    public static partial void ProfilePublished(this ILogger logger, Guid profileId, bool isPublic);
+
+    [LoggerMessage(EventId = 2321, Level = LogLevel.Information, Message = "Profile '{ProfileId}' was not published from its All Revision dates tab (public: {IsPublic}): it has {ValidationErrorCount} validation errors")]
+    public static partial void ProfileNotPublishedBecauseInvalid(this ILogger logger, Guid profileId, bool isPublic, int validationErrorCount);
+
+    [LoggerMessage(EventId = 2322, Level = LogLevel.Warning, Message = "Publishing profile '{ProfileId}' from its All Revision dates tab (public: {IsPublic}) was refused by CDC.Api with outcome {Outcome}")]
+    public static partial void ProfilePublishRefused(this ILogger logger, Guid profileId, bool isPublic, PublishProfileOutcome outcome);
+
+    [LoggerMessage(EventId = 2323, Level = LogLevel.Error, Message = "Failed to publish profile '{ProfileId}' via CDC.Api")]
+    public static partial void ProfilePublishFailed(this ILogger logger, Exception exception, Guid profileId);
 }

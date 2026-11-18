@@ -8,8 +8,9 @@ using Dapper;
 namespace CDC.Api.Infrastructure.Repositories;
 
 /// <summary>
-/// Dapper implementation of <see cref="IExternalUsersRepository"/>. External users are the users linked to a CIDM identity
-/// (<c>SsoUserIdExt</c> is set); the legacy <c>SsoUserMaintenance</c> procedures list the legacy <c>SsoUserId</c> users instead.
+/// Dapper implementation of <see cref="IExternalUsersRepository"/>. External users are the users flagged <c>IsExternal</c>: those added on
+/// Maintain external users and those that have signed in through CIDM; the legacy <c>SsoUserMaintenance</c> procedures list the legacy
+/// <c>SsoUserId</c> users instead.
 /// </summary>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
 /// <param name="logger">Structured logger.</param>

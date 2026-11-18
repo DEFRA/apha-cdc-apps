@@ -8,7 +8,8 @@
     var accordionModel = new QuestionEditAccordionViewModel(
         EditProfileQuestionsModel.AccordionIdPrefix,
         "No questions are available for this section.",
-        Model.Questions);
+        Model.Questions,
+        Model.CollapseQuestionsOnOpen);
 }
 @if (Model.CurrentSection is not null)
 {
@@ -18,6 +19,13 @@
         <input type="hidden" name="profileVersionId" value="@Model.CurrentProfileVersionId" />
         <input type="hidden" name="Section" value="@Model.CurrentSection.Id" />
         <input type="hidden" name="lastUpdated" value="@Model.SectionLastUpdated" />
+
+        @if (Model.CanEditProfileSection && !Model.HasNoVersion)
+        {
+            @* Pressed by relevance-confirm.js once the user has confirmed an answer that decides whether other questions apply: it saves the
+               section so that the questions the answers make irrelevant are hidden, as the legacy page's hidden Save button (btnHiddenRefresh) did. *@
+            <button type="submit" asp-page-handler="RefreshQuestions" hidden data-relevance-refresh>Refresh the questions</button>
+        }
 
         @if (Model.CanEditProfileSection || Model.CanClearProfileSection || Model.CanPrintProfileSection)
         {
@@ -123,6 +131,19 @@
             </div>
         }
 
+        @if (Model.CanEditProfileSection && !Model.HasNoVersion)
+        {
+            @* Shown by question-references.js when the references dialog has saved a reference, as the legacy page showed it in lblErrorDesc. *@
+            <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="reference-saved-title" tabindex="-1" id="reference-saved-banner" hidden>
+                <div class="govuk-notification-banner__header">
+                    <h2 class="govuk-notification-banner__title" id="reference-saved-title">Success</h2>
+                </div>
+                <div class="govuk-notification-banner__content">
+                    <p class="govuk-notification-banner__heading" data-reference-saved-message></p>
+                </div>
+            </div>
+        }
+
         <div class="govuk-tabs app-tab-carousel">
             <partial name="_ProfileSectionTabs" model="tabsModel" />
             <div class="govuk-tabs__panel" id="profile-questions-panel">
@@ -136,8 +157,8 @@
 
                     if (Model.CanEditProfileSection)
                     {
-                        @* As the legacy btnSave2 and btnValidateSection2 did, repeats the Save and Validate buttons below the questions. *@
-                        <div class="govuk-button-group app-button-group--right govuk-!-margin-top-6">
+                        @* As the legacy btnSave2 and btnValidateSection2 did, repeats the Save and Validate buttons below the questions, at the right as the ones above are. *@
+                        <div class="govuk-button-group govuk-!-margin-top-6 app-button-group--right">
                             <button type="submit" asp-page-handler="SaveSection" class="govuk-button" data-module="govuk-button">Save</button>
                             <button type="submit" asp-page-handler="ValidateSection" class="govuk-button" data-module="govuk-button">Validate</button>
                         </div>
@@ -146,6 +167,36 @@
             </div>
         </div>
     </form>
+
+    @* The help icon of each question opens its guidance here, as the legacy ProfileQuestionHelp.aspx pop-up window did; question-help.js fills it in. *@
+    <dialog class="app-modal app-modal--sectioned" id="user-guidance-dialog" aria-labelledby="user-guidance-dialog-title" data-help-url="@Url.Page("/SurveillanceProfiles/ProfileQuestionHelp")">
+        <div class="app-modal__header">
+            <h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="user-guidance-dialog-title">User guidance</h2>
+        </div>
+        <div class="app-modal__body">
+            <div data-user-guidance-content></div>
+            <p class="govuk-body govuk-!-margin-bottom-0" data-user-guidance-error hidden>We could not load the user guidance. Try again later.</p>
+        </div>
+        <div class="app-modal__footer">
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Close</button>
+        </div>
+    </dialog>
+
+    @if (Model.CanEditProfileSection && !Model.HasNoVersion)
+    {
+        <partial name="_QuestionReferenceDialog" model="new QuestionReferenceDialogViewModel(Model.ProfileId, Model.CurrentSection.Id, Model.ReferenceNoteTypes, [.. Model.Questions.Select(question => new QuestionReferenceChoice(question.Id, question.Number, question.Text, false))])" />
+
+        @* Asks the user to confirm a change to an answer that decides whether other questions apply, as the legacy page did; relevance-confirm.js
+           fills in the questions that may be affected. It is outside the form, as the other dialogs are. *@
+        <dialog class="app-modal" id="relevance-confirm-dialog" aria-labelledby="relevance-confirm-dialog-title">
+            <h2 class="govuk-heading-m" id="relevance-confirm-dialog-title">Confirm</h2>
+            <p class="govuk-body">Changing the answer to this question may affect the relevancy of other parts of this section, any questions that become irrelevant will be cleared and hidden. Questions that may be affected are:</p>
+            <p class="govuk-body"><strong data-relevance-questions></strong>.</p>
+            <p class="govuk-body">Do you want to continue?</p>
+            <button type="button" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2" data-module="govuk-button" data-relevance-ok>OK</button>
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" data-confirm-close>Cancel</button>
+        </dialog>
+    }
 
     @if (Model.CanClearProfileSection)
     {
@@ -165,7 +216,13 @@
 
 @section Scripts {
     <partial name="_SpellCheckDialog" />
+    <script src="~/js/question-accordion.js" asp-append-version="true"></script>
+    <script src="~/js/question-help.js" asp-append-version="true"></script>
+    <script src="~/js/question-references.js" asp-append-version="true"></script>
     <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
     <script src="~/js/spell-check.js" asp-append-version="true"></script>
+    <script src="~/js/answer-fields.js" asp-append-version="true"></script>
+    <script src="~/js/question-species.js" asp-append-version="true"></script>
+    <script src="~/js/question-rows.js" asp-append-version="true"></script>
     <script src="~/js/relevance-confirm.js" asp-append-version="true"></script>
 }

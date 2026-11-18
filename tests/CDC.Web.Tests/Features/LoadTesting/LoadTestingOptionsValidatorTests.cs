@@ -15,27 +15,27 @@ public class LoadTestingOptionsValidatorTests
         ExpiresAtUtc = expiresAtUtc
     };
 
-    private static ValidateOptionsResult Validate(LoadTestingOptions options, string environment, string? deployment = null)
+    private static ValidateOptionsResult Validate(LoadTestingOptions options, string? deployment = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(deployment is null ? [] : new Dictionary<string, string?> { [LoadTestingOptionsValidator.DeploymentKey] = deployment })
             .Build();
 
-        return new LoadTestingOptionsValidator(configuration, new FakeHostEnvironment(environment), new ControllableClock(Now)).Validate(null, options);
+        return new LoadTestingOptionsValidator(configuration, new ControllableClock(Now)).Validate(null, options);
     }
 
     [Fact]
     public void WhenOff_NothingIsChecked()
     {
-        var result = Validate(new LoadTestingOptions(), "Production", "PROD");
+        var result = Validate(new LoadTestingOptions(), "PROD");
 
         Assert.True(result.Succeeded);
     }
 
     [Fact]
-    public void OnALocalDevelopmentRun_NeitherADeploymentNorAnExpiryIsNeeded()
+    public void WithNoDeploymentConfigured_NeitherADeploymentNorAnExpiryIsNeeded()
     {
-        var result = Validate(On(), "Development");
+        var result = Validate(On());
 
         Assert.True(result.Succeeded);
     }
@@ -47,17 +47,15 @@ public class LoadTestingOptionsValidatorTests
     [InlineData(" TEST ")]
     public void InAnAllowedDeployment_WithinTheWindow_IsAccepted(string deployment)
     {
-        var result = Validate(On(Now.AddDays(1)), "Production", deployment);
+        var result = Validate(On(Now.AddDays(1)), deployment);
 
         Assert.True(result.Succeeded);
     }
 
-    [Theory]
-    [InlineData("Development")]
-    [InlineData("Production")]
-    public void InProduction_IsRefusedWhateverTheHostingEnvironment(string environment)
+    [Fact]
+    public void InProduction_IsRefused()
     {
-        var result = Validate(On(Now.AddDays(1)), environment, "PROD");
+        var result = Validate(On(Now.AddDays(1)), "PROD");
 
         Assert.True(result.Failed);
         Assert.Contains(result.Failures, failure => failure.Contains("'PROD'", StringComparison.Ordinal));
@@ -66,25 +64,16 @@ public class LoadTestingOptionsValidatorTests
     [Fact]
     public void InAnUnknownDeployment_IsRefused()
     {
-        var result = Validate(On(Now.AddDays(1)), "Production", "UAT");
+        var result = Validate(On(Now.AddDays(1)), "UAT");
 
         Assert.True(result.Failed);
         Assert.Contains(result.Failures, failure => failure.Contains("'UAT'", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void WithNoDeploymentOutsideALocalRun_IsRefused()
-    {
-        var result = Validate(On(Now.AddDays(1)), "Production");
-
-        Assert.True(result.Failed);
-        Assert.Contains(result.Failures, failure => failure.Contains(LoadTestingOptionsValidator.DeploymentKey, StringComparison.Ordinal));
-    }
-
-    [Fact]
     public void AWhitespaceDeployment_IsTreatedAsNone()
     {
-        var result = Validate(On(), "Development", "  ");
+        var result = Validate(On(), "  ");
 
         Assert.True(result.Succeeded);
     }
@@ -92,18 +81,18 @@ public class LoadTestingOptionsValidatorTests
     [Fact]
     public void InADeployedEnvironment_AnExpiryIsRequired()
     {
-        var result = Validate(On(), "Production", "TEST");
+        var result = Validate(On(), "TEST");
 
         Assert.True(result.Failed);
         Assert.Contains(result.Failures, failure => failure.Contains("ExpiresAtUtc is required", StringComparison.Ordinal));
     }
 
     [Theory]
-    [InlineData("Production", "TEST")]
-    [InlineData("Development", null)]
-    public void AnExpiryMoreThanAWeekAway_IsRefused(string environment, string? deployment)
+    [InlineData("TEST")]
+    [InlineData(null)]
+    public void AnExpiryMoreThanAWeekAway_IsRefused(string? deployment)
     {
-        var result = Validate(On(Now.AddDays(7).AddMinutes(1)), environment, deployment);
+        var result = Validate(On(Now.AddDays(7).AddMinutes(1)), deployment);
 
         Assert.True(result.Failed);
         Assert.Contains(result.Failures, failure => failure.Contains("7 days", StringComparison.Ordinal));
@@ -112,7 +101,7 @@ public class LoadTestingOptionsValidatorTests
     [Fact]
     public void AnExpiryExactlyAWeekAway_IsAccepted()
     {
-        var result = Validate(On(Now.AddDays(7)), "Production", "TEST");
+        var result = Validate(On(Now.AddDays(7)), "TEST");
 
         Assert.True(result.Succeeded);
     }
@@ -120,7 +109,7 @@ public class LoadTestingOptionsValidatorTests
     [Fact]
     public void AnExpiryThatHasPassed_IsAcceptedAndSimplyLeavesTheBypassOff()
     {
-        var result = Validate(On(Now.AddHours(-1)), "Production", "TEST");
+        var result = Validate(On(Now.AddHours(-1)), "TEST");
 
         Assert.True(result.Succeeded);
     }
@@ -128,7 +117,7 @@ public class LoadTestingOptionsValidatorTests
     [Fact]
     public void NoUserToSignInAsIsConfigured_BecauseTheUserIsChosenOnTheLoginPage()
     {
-        var result = Validate(new LoadTestingOptions { Enabled = true }, "Development");
+        var result = Validate(new LoadTestingOptions { Enabled = true });
 
         Assert.True(result.Succeeded);
     }

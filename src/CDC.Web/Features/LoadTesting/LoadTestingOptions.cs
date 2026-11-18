@@ -18,7 +18,12 @@ public sealed class LoadTestingOptions
 
     /// <summary>Reads only the <see cref="Enabled"/> switch, for the startup code that runs before the options are bound.</summary>
     /// <param name="configuration">The application configuration.</param>
-    /// <returns><see langword="true"/> when the bypass is switched on.</returns>
-    public static bool IsEnabledIn(IConfiguration configuration) =>
-        configuration.GetValue<bool>($"{SectionName}:{nameof(Enabled)}");
+    /// <returns><see langword="true"/> only when the configuration gives the switch a value of true; it is off when the value is missing or blank.</returns>
+    public static bool IsEnabledIn(IConfiguration configuration)
+    {
+        var key = $"{SectionName}:{nameof(Enabled)}";
+
+        // An environment whose task definition has no value for the flag leaves it out or passes it blank, and that must not stop the app starting.
+        return !string.IsNullOrWhiteSpace(configuration[key]) && configuration.GetValue<bool>(key);
+    }
 }

@@ -177,8 +177,8 @@ dotnet test tests/CDC.Api.Tests --filter "FullyQualifiedName~ReviewNotifications
 
 ## External user login instructions (CDC.Api)
 
-On *Maintain external users*, which lists the users linked to a CIDM identity (`SsoUserIdExt` set, so a user added there is
-listed only once they have signed in; script `0083`), an external user shows **Send instructions** until the email is sent, then
+On *Maintain external users*, which lists the users flagged `IsExternal` (set when a user is added there and when an external user
+signs in through CIDM, so a user added there is listed straight away; scripts `0084` to `0086`), an external user shows **Send instructions** until the email is sent, then
 **Sent**. The email goes through the same GOV.UK Notify sender as the review reminders, to the address saved on the
 user. It uses the Notify template `8c79693e-ad6e-4bc1-9b86-0b656b55b7de` (fixed in code, the same in every
 environment), which holds the subject and all the text and takes two placeholders: `((name))`, the user's full name, and
@@ -230,22 +230,23 @@ locally) and never commit it - a test fails if a committed `appsettings.json`, D
 
 | Config key                     | Default | Purpose                                                                                                                                                         |
 | ------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LoadTesting:Enabled`          | `false` | Switches the bypass on                                                                                                                                          |
-| `LoadTesting:ExpiresAtUtc`     | none    | When it switches itself off, ISO 8601 (`2026-11-12T18:00:00Z`). Required in a deployed environment, at most 7 days ahead. After it, sign-in goes to the identity providers again and sessions it created end on their next request |
-| `Deployment:Environment`       | none    | `DEV`, `TEST`, `PRE-PROD` or `PROD`; set on every ECS task definition (the tasks all run as `Production`, so only this tells the environments apart)           |
+| `LoadTesting:Enabled`          | `false` | Switches the bypass on. A task definition that leaves it out, or passes it blank, runs with it off, so only an environment that needs it (DEV) sets it            |
+| `LoadTesting:ExpiresAtUtc`     | none    | When it switches itself off, ISO 8601 (`2026-11-12T18:00:00Z`). At most 7 days ahead; required when `Deployment:Environment` is set. After it, sign-in goes to the identity providers again and sessions it created end on their next request |
+| `Deployment:Environment`       | none    | Optional: `DEV`, `TEST`, `PRE-PROD` or `PROD`. When a task definition sets it, startup fails if LoadTesting is on in `PROD` or any other deployment; the tasks all run as `Production`, so only this label can tell the environments apart |
 
 The user is chosen on the login page, so no user is configured. The earlier one-click version's `LoadTesting:InternalUserName`,
 `InternalSsoUserId`, `ExternalUserEmail` and `ExternalSsoUserId` are no longer read, and can be removed.
 
-Startup fails if it is on in `PROD`, in a deployment other than `DEV`, `TEST` and `PRE-PROD`, or outside a local `Development` run
-without `Deployment:Environment`; a local run needs neither a deployment nor an expiry. While it is on, the app logs warning
+Startup fails if it is on while `Deployment:Environment` names `PROD` or a deployment other than `DEV`, `TEST` and `PRE-PROD`, or
+with `Deployment:Environment` set and no expiry. `Deployment:Environment` itself is optional, so a task definition that leaves it out
+is not checked against any deployment and needs no expiry. While it is on, the app logs warning
 `9500` at startup, tags every log event `LoadTesting=true`, logs each sign-in (`9501`) by opaque user id (never the email address),
 and shows a banner on every page.
 
 Around the app (not in this repo): limit the environment's ingress (WAF or security group) to the load generator and named
 testers, because while it is on every visitor can sign in as any user whose email address they know and nobody has to sign in as
 themselves; alarm on log event `9500` and page if it appears in `PROD`; make the pipeline reject `LoadTesting__*` in the `PROD` task
-definition; and use masked or synthetic data. A load script signs in with a GET of `/Account/LoadTestLogin?kind=internal` (or
+definition (the app can refuse `PROD` only where `Deployment__Environment` says so); and use masked or synthetic data. A load script signs in with a GET of `/Account/LoadTestLogin?kind=internal` (or
 `kind=external`), which sets the antiforgery cookie and carries the token in the form, then a POST to `/Account/LoadTestLogin` of
 `__RequestVerificationToken`, `Kind`, `EmailAddress` and optionally `ReturnUrl`, with the cookies kept; a `302` is a sign-in. Everything
 it writes is recorded against the users it signs in as.

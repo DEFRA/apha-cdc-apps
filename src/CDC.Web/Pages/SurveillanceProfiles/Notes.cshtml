@@ -9,7 +9,7 @@
         [.. Model.Sections
             .Select(navSection => new SectionNavItem(
                 navSection.SectionNumber,
-                navSection.Name,
+                ProfileSectionTabs.FormatShortName(navSection.ShortName),
                 Model.BuildEditProfileQuestionsUrl(Model.ProfileId, navSection.Id),
                 false))]);
 }

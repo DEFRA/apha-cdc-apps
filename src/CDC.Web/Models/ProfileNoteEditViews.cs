@@ -1,22 +1,22 @@
 namespace CDC.Web.Models;
 
-/// <summary>Which panel is open beneath the sources table on the Further information tab.</summary>
+/// <summary>Which panel is open beneath a notes table on the References and Further information tabs.</summary>
 public enum ProfileNotePanel
 {
     /// <summary>No panel is open.</summary>
     None,
 
-    /// <summary>The "Add a source" panel, for entering a new note.</summary>
+    /// <summary>The "Add a note" panel, for entering a new note.</summary>
     Add,
 
-    /// <summary>The "Select a source" panel, for picking an existing note from the master list.</summary>
+    /// <summary>The "Select a note" panel, for picking an existing note from the master list.</summary>
     Select,
 
-    /// <summary>The "View a source" panel, for changing which questions an existing note is linked to.</summary>
+    /// <summary>The "View a note" panel, for changing which questions an existing note is linked to.</summary>
     View
 }
 
-/// <summary>One row of the sources table.</summary>
+/// <summary>One row of a notes table.</summary>
 /// <param name="Id">The note.</param>
 /// <param name="TextHtml">The note's rich-text content, rendered unescaped so authored links and formatting display correctly.</param>
 /// <param name="PlainText">The note's content with tags stripped, used to sort the first column.</param>

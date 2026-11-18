@@ -9,7 +9,7 @@ namespace CDC.Api.Features.GlobalUsers.Commands;
 /// Adds or edits a global user. Mirrors the legacy <c>btnSave_Click</c> handler.
 /// </summary>
 /// <param name="Id">The user's identifier.</param>
-/// <param name="IsNew">Whether this is the "Add" flow; for an edit the stored username is kept.</param>
+/// <param name="IsNew">Whether this is the "Add" flow, which records the user as internal; for an edit the stored username is kept and the flag is left as it is.</param>
 /// <param name="UserName">The username. Ignored when the user already exists.</param>
 /// <param name="FullName">The user's full name.</param>
 /// <param name="Organisation">The user's organisation.</param>

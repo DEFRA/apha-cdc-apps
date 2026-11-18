@@ -40,7 +40,6 @@ public class EditProfileReviewCommentsModel(
     /// <summary>The <c>mode</c> querystring value that opens the "Edit review comment" panel.</summary>
     public const string EditMode = "edit";
 
-    private const string DateTimeFormat = "dd/MM/yy HH:mm:ss";
     private const string SavedNotice = "saved";
     private const string DeletedNotice = "deleted";
     private const int MaximumDisplaySubjectLength = 50;
@@ -274,7 +273,7 @@ public class EditProfileReviewCommentsModel(
                     TruncateSubject(comment.CommentSubject),
                     comment.CommentReference,
                     comment.UserFullName,
-                    comment.CommentDate.ToString(DateTimeFormat, CultureInfo.InvariantCulture),
+                    comment.CommentDate.ToString(DateTimeDisplayFormat, CultureInfo.InvariantCulture),
                     comment.CommentDate > now.AddHours(-24)))
         ];
     }

@@ -74,6 +74,62 @@ public class ProfileRevisionDatesFormTests
         Assert.Equal("Every year", options[1].Text);
     }
 
+    // Word for word what legacy EditProfileAllRevisionDates.aspx printed above each section's block, whatever longer name CDC.Api holds.
+    [Theory]
+    [InlineData(1, "Summary", "1. Summary")]
+    [InlineData(2, "Geographic distribution and levels of disease", "2. Geographic distribution & levels of disease")]
+    [InlineData(3, "Epidemiology of animal infection", "3. Epidemiology")]
+    [InlineData(4, "Characteristics of the agent", "4. Characteristics of the agent")]
+    [InlineData(5, "Animal welfare", "5. Animal Welfare")]
+    [InlineData(6, "Human health implications", "6. Human Health")]
+    [InlineData(7, "Impact on wider society and stakeholder groups", "7. WiderSociety")]
+    [InlineData(8, "Legislation and other mandates", "8. Legislation & Mandates")]
+    [InlineData(9, "Approach to control of this issue in animals in the UK", "9. Approach to Control")]
+    [InlineData(10, "Risk assessment", "10. Risk Assessment")]
+    [InlineData(11, "Laboratories", "11. Laboratories")]
+    [InlineData(12, "Current surveillance activities in the UK", "12. Surveillance")]
+    [InlineData(13, "International trade", "13. International Trade")]
+    [InlineData(14, "Opportunity to add value", "14. Opportunity to add value")]
+    [InlineData(15, "Public and stakeholder perception", "15. Public and Stakeholder Perception")]
+    [InlineData(16, "Areas of uncertainty", "16. Areas of Uncertainty")]
+    public void BuildRows_HeadsEachSectionWithItsLegacyTitle(int sectionNumber, string sectionName, string expectedHeading)
+    {
+        var source = Source() with
+        {
+            Sections = [Source().Sections[0] with { SectionNumber = sectionNumber, SectionName = sectionName }]
+        };
+
+        var row = Assert.Single(ProfileRevisionDatesForm.BuildRows(source));
+
+        Assert.Equal(expectedHeading, row.SectionDisplay);
+    }
+
+    [Fact]
+    public void BuildRows_KeepsTheNameCdcApiGives_ForASectionTheLegacyPageDidNotKnow()
+    {
+        var source = Source() with
+        {
+            Sections = [Source().Sections[0] with { SectionNumber = 17, SectionName = "A new section" }]
+        };
+
+        var row = Assert.Single(ProfileRevisionDatesForm.BuildRows(source));
+
+        Assert.Equal("17. A new section", row.SectionDisplay);
+    }
+
+    [Fact]
+    public void Parse_NamesTheSectionByItsLegacyTitle_InTheMessagesAboutIt()
+    {
+        var source = Source() with
+        {
+            Sections = [Source().Sections[0] with { SectionNumber = 7, SectionName = "Impact on wider society and stakeholder groups" }]
+        };
+
+        var result = ProfileRevisionDatesForm.Parse(Form((ProfileRevisionDatesForm.FieldNextAuthor, "not a date")), source);
+
+        Assert.Equal("7. WiderSociety: Next author review date must be a valid date", Assert.Single(result.Errors));
+    }
+
     [Fact]
     public void Parse_ReadsEveryValue_WhenTheFormIsValid()
     {
@@ -247,7 +303,7 @@ public class ProfileRevisionDatesFormTests
             Sections =
             [
                 .. Source().Sections,
-                new ProfileSectionRevisionDatesDto { ProfileSectionId = secondSectionId, SectionName = "Epidemiology", SectionNumber = 2, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8] }
+                new ProfileSectionRevisionDatesDto { ProfileSectionId = secondSectionId, SectionName = "Epidemiology of animal infection", SectionNumber = 3, LastUpdated = [1, 2, 3, 4, 5, 6, 7, 8] }
             ]
         };
         var form = new FormCollection(new Dictionary<string, StringValues>
@@ -263,7 +319,7 @@ public class ProfileRevisionDatesFormTests
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal(2, result.Errors.Count);
         Assert.StartsWith("1. Summary:", result.Errors[0], StringComparison.Ordinal);
-        Assert.StartsWith("2. Epidemiology:", result.Errors[1], StringComparison.Ordinal);
+        Assert.StartsWith("3. Epidemiology:", result.Errors[1], StringComparison.Ordinal);
         Assert.Single(result.Rows[0].Errors);
         Assert.Single(result.Rows[1].Errors);
     }

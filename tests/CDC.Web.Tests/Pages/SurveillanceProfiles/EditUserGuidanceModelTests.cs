@@ -119,6 +119,28 @@ public class EditUserGuidanceModelTests
     }
 
     [Fact]
+    public async Task OnGetAsync_OpensTheQuestion_LeavingTheLayoutOfListMarkupAsItIs()
+    {
+        var question = new ProfileQuestionEditDto
+        {
+            Id = FirstQuestionId,
+            Name = "Name",
+            NonTechnicalName = "Plain",
+            QuestionNumber = 1,
+            UserGuidance = "Intro:\r\n<ul>\n<li>One</li>\n<li>Two</li>\n</ul>",
+            LastUpdated = RowVersion
+        };
+        var model = CreatePage(questions: new FakeProfileQuestionsApiService(question));
+        model.Section = SecondSectionId;
+        model.QuestionId = FirstQuestionId;
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        // Only the CRLF is a line break. The line feeds between the list tags are layout, and would show as blank lines if they became breaks.
+        Assert.Equal("Intro:<br/><ul>\n<li>One</li>\n<li>Two</li>\n</ul>", model.Input.UserGuidance);
+    }
+
+    [Fact]
     public async Task OnGetAsync_ShowsAnError_WhenTheQuestionIsNotInTheSelectedSection()
     {
         var model = CreatePage(questions: new FakeProfileQuestionsApiService(new ProfileQuestionEditDto { Id = Guid.NewGuid() }));
@@ -232,6 +254,29 @@ public class EditUserGuidanceModelTests
         Assert.DoesNotContain("javascript", request.UserGuidance, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<b>", request.UserGuidance, StringComparison.Ordinal);
         Assert.Contains("href=\"https://example.test\"", request.UserGuidance, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OnPostAsync_SavesCharactersOutsideAscii_AsNumericReferences()
+    {
+        var questions = new FakeProfileQuestionsApiService();
+        var model = CreatePage(questions: questions);
+        model.Section = SecondSectionId;
+        model.QuestionId = SecondQuestionId;
+        model.Input = new EditUserGuidanceInput
+        {
+            Name = "Farmer\u2019s <i>pig</i>",
+            NonTechnicalName = "Caf\u00e9 \U0001F600",
+            UserGuidance = "<p>It\u2019s \u201Cfine\u201D \u2013 \u00A35 &amp; more</p>",
+            RowVersion = Convert.ToBase64String(RowVersion)
+        };
+
+        await model.OnPostAsync(CancellationToken.None);
+
+        var request = questions.UpdateRequest!;
+        Assert.Equal("Farmer&#8217;s <i>pig</i>", request.Name);
+        Assert.Equal("Caf&#233; &#128512;", request.NonTechnicalName);
+        Assert.Equal("<p>It&#8217;s &#8220;fine&#8221; &#8211; &#163;5 &amp; more</p>", request.UserGuidance);
     }
 
     [Theory]

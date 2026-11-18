@@ -1,15 +1,35 @@
 @page "{profileId:guid}"
 @model CDC.Web.Pages.SurveillanceProfiles.EditProfileContributionsModel
+@using CDC.Web.Models
+@using CDC.Web.Pages.SurveillanceProfiles
 @{
     Layout = "_ProfileSectionTabLayout";
 }
+@* Mirrors legacy EditProfileContributions.aspx: "Items per page" on the right, then a sortable, paged grid of Username, Full name,
+   Organisation and Contribution date and time, newest contribution first. *@
 @if (Model.CurrentSection is not null)
 {
     var tabsModel = Model.BuildTabs();
 
     <div class="govuk-tabs app-tab-carousel">
         <partial name="_ProfileSectionTabs" model="tabsModel" />
-        <div class="govuk-tabs__panel" id="profile-contributions-panel">
+        <div class="govuk-tabs__panel" id="profile-contributions-panel" data-app-paged-region>
+            <form method="get" class="govuk-!-margin-top-3 app-items-per-page">
+                <input type="hidden" name="section" value="@Model.CurrentSection.Id" />
+                <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+                <input type="hidden" id="PageNumber" name="pageNumber" value="1" />
+                <div class="govuk-form-group govuk-!-margin-bottom-3 app-label-select-inline">
+                    <label class="govuk-label" for="PageSize">Items per page:</label>
+                    <select class="govuk-select" id="PageSize" name="pageSize" onchange="document.getElementById('PageNumber').value = '1'; this.form.requestSubmit()">
+                        @foreach (var option in NotesModel.PageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                </div>
+            </form>
+
             @if (Model.Contributions.Count == 0)
             {
                 <p class="govuk-body">There are no contributions to display.</p>
@@ -17,26 +37,44 @@
             else
             {
                 <table class="govuk-table">
+                    <caption class="govuk-visually-hidden">Contributions</caption>
                     <thead class="govuk-table__head">
                         <tr class="govuk-table__row">
-                            <th scope="col" class="govuk-table__header">Name</th>
-                            <th scope="col" class="govuk-table__header">Username</th>
-                            <th scope="col" class="govuk-table__header">Organisation</th>
-                            <th scope="col" class="govuk-table__header">Last contribution date</th>
+                            <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(EditProfileContributionsModel.UserNameSortColumn)">
+                                <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl(EditProfileContributionsModel.UserNameSortColumn)">Username</a>
+                            </th>
+                            <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(EditProfileContributionsModel.FullNameSortColumn)">
+                                <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl(EditProfileContributionsModel.FullNameSortColumn)">Full name</a>
+                            </th>
+                            <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(EditProfileContributionsModel.OrganisationSortColumn)">
+                                <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl(EditProfileContributionsModel.OrganisationSortColumn)">Organisation</a>
+                            </th>
+                            <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAriaSort(EditProfileContributionsModel.ContributionDateSortColumn)">
+                                <a class="govuk-link govuk-link--no-visited-state" href="@Model.BuildSortUrl(EditProfileContributionsModel.ContributionDateSortColumn)">Contribution date and time</a>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="govuk-table__body">
                         @foreach (var contribution in Model.Contributions)
                         {
                             <tr class="govuk-table__row">
-                                <td class="govuk-table__cell">@contribution.FullName</td>
                                 <td class="govuk-table__cell">@contribution.UserName</td>
+                                <td class="govuk-table__cell">@contribution.FullName</td>
                                 <td class="govuk-table__cell">@contribution.OrganisationName</td>
                                 <td class="govuk-table__cell">@contribution.LastContributionDate</td>
                             </tr>
                         }
                     </tbody>
                 </table>
+
+                var pagination = new PaginationViewModel
+                {
+                    CurrentPage = Model.PageNumber,
+                    TotalPages = Model.TotalPages,
+                    PageUrl = page => Model.BuildListUrl(page),
+                    LandmarkLabel = "Contribution pages"
+                };
+                <partial name="_Pagination" model="pagination" />
             }
         </div>
     </div>

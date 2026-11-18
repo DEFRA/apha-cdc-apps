@@ -143,6 +143,12 @@ html {
   min-width: 12rem;
 }
 
+/* The "Items per page" control above a table sits on the right, where the legacy PageSizeList control floated it. */
+.app-items-per-page {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Label to the left of the select, as in the legacy app. */
 .app-label-select-inline {
   display: flex;
@@ -1455,23 +1461,172 @@ body {
   padding: 1rem;
 }
 
-/* Previous and Next sit at the left and right of the panel, as in the legacy pages, not stacked. */
-.app-species-pagination .govuk-pagination--block,
+/* Previous and Next sit at the left and right of the section, as in the legacy pages, not stacked. */
 .app-section-pagination .govuk-pagination--block {
   display: flex;
   flex-flow: row wrap;
   align-items: flex-start;
 }
 
-.app-species-pagination .govuk-pagination__next,
 .app-section-pagination .govuk-pagination__next {
   margin-left: auto;
 }
 
 /* The divider only separates stacked links. */
-.app-species-pagination .govuk-pagination--block .govuk-pagination__prev + .govuk-pagination__next,
 .app-section-pagination .govuk-pagination--block .govuk-pagination__prev + .govuk-pagination__next {
   border-top: 0;
+}
+
+/* A profile question's heading and its icons (edit references, validity, help), at the right of the heading as in the legacy panel
+   header. The icons sit beside the accordion's header, not in it, because the header is what opens and closes the question. */
+.app-question-section-header {
+  display: flex;
+  align-items: flex-start;
+  border-top: 1px solid var(--govuk-border-colour, #cecece);
+}
+
+.app-question-section-header .govuk-accordion__section-header {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The row carries the divider between questions, so the icons' side of it is not left open. */
+.app-question-section-header .govuk-accordion__section-button {
+  border-top: 0;
+  padding-top: 11px;
+}
+
+.app-question-status-icons {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding-top: 14px;
+  padding-left: 10px;
+}
+
+.app-question-status-icon {
+  display: block;
+  width: 25px;
+  height: 25px;
+}
+
+.app-question-icon-button {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.app-question-icon-button:focus {
+  outline: 3px solid transparent;
+  background-color: var(--govuk-focus-colour, #ffdd00);
+  box-shadow: 0 -2px var(--govuk-focus-colour, #ffdd00), 0 4px var(--govuk-focus-text-colour, #0b0c0c);
+}
+
+/* The table of a per-species question, and the one panel below it that edits a species' answers (the legacy PerSpeciesListPanel;
+   _ProfileSpeciesQuestion.cshtml, question-species.js). */
+.app-species-table .govuk-table__header,
+.app-species-table .govuk-table__cell {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+/* The Edit or View link takes the width it needs, and is not broken to fit a narrower column. */
+.app-species-table .app-species-table__action {
+  width: 1%;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* The table of a repeating question, and the panel below it (the legacy ProfileRowListPanel; _ProfileRepeatingQuestion.cshtml,
+   question-rows.js), which is the one the per-species questions use. Its Edit or View link and its Delete link are not broken either. */
+.app-row-table .govuk-table__header,
+.app-row-table .govuk-table__cell {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.app-row-table .app-row-table__action {
+  width: 1%;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.app-answer-panel {
+  margin-bottom: 20px;
+  padding: 0 20px 15px;
+  border: 0;
+  border-left: 5px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #f3f2f1;
+}
+
+/* A fieldset's padding starts below its legend, so the heading takes the space above it. */
+.app-answer-panel > .govuk-fieldset__legend {
+  padding-top: 15px;
+}
+
+/* A hidden panel stays out of the page whatever display the fieldset is given. */
+.app-answer-panel[hidden] {
+  display: none;
+}
+
+.app-answer-panel:focus {
+  outline: 3px solid var(--govuk-focus-colour, #ffdd00);
+  outline-offset: 0;
+}
+
+/* A species left out of the list of those to apply an answer to: the Design System's checkbox item sets a display of its own, which
+   the hidden attribute alone would not beat. */
+.app-species-picker .govuk-checkboxes__item[hidden] {
+  display: none;
+}
+
+/* A read-only answer shown as it is formatted, in place of a text area. */
+.app-answer-readonly-text {
+  max-height: 20rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+/* A property of the profile version (the species it profiles) shown read-only in a bordered white box, which keeps its height when it is
+   empty, as the legacy page showed it. */
+.app-version-data-box {
+  box-sizing: border-box;
+  width: 95%;
+  min-height: 2.5rem;
+  margin-bottom: 0;
+  padding: 5px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #fff;
+}
+
+/* The "Add/Select a reference to question" dialog of the Questions tab (_QuestionReferenceDialog.cshtml, question-references.js). */
+.app-reference-dialog {
+  max-width: 760px;
+}
+
+/* A question hidden from the other questions' list: the Design System's checkbox item sets a display of its own, which the hidden
+   attribute alone would not beat. */
+.app-reference-dialog .govuk-checkboxes__item[hidden] {
+  display: none;
+}
+
+/* The reference selected, shown read-only in a bordered white box, as the legacy dialog showed it. */
+.app-reference-current-note {
+  padding: 5px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #ffffff;
+}
+
+/* The other questions of the section: a list that scrolls, rather than a dialog taller than the screen. */
+.app-reference-questions {
+  max-height: 12rem;
+  overflow-y: auto;
 }
 
 /* A read-only long answer (species supporting comments): a fixed-height box that always shows its scrollbar, as the legacy page did. */
@@ -1642,6 +1797,14 @@ body {
   padding-bottom: 5px;
   margin-top: 20px;
   width: 100%;
+}
+
+/* The "Publish" links under a profile tab's box sit on the right, as the legacy page's right-aligned links did. */
+.app-publish-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 /* A wrapper that exists only so script can replace its children; they lay out as if it weren't there. */
@@ -1841,6 +2004,11 @@ body {
 
 .app-note-select-form .govuk-select {
   max-width: 100%;
+}
+
+/* The References tab shows an editor for each kind of reference, one beneath the other. */
+.app-note-editor + .app-note-editor {
+  margin-top: 2rem;
 }
 
 /* Add / Edit name/parent: label and field pairs in a four-column grid, matching the legacy
@@ -2253,29 +2421,4 @@ body {
   .app-date-picker__calendar {
     display: none;
   }
-}
-
-/* Edit references, validation and help icons sit at the right-hand end of a question's accordion header. */
-.app-question-section-header {
-    position: relative;
-}
-
-.app-question-section-header .govuk-accordion__section-button {
-    padding-right: 120px;
-}
-
-.app-question-status-icons {
-    position: absolute;
-    top: 50%;
-    right: 15px;
-    transform: translateY(-50%);
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    z-index: 1;
-}
-
-.app-question-status-icon {
-    width: 24px;
-    height: 24px;
 }

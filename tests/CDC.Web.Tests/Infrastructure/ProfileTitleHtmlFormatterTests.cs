@@ -48,6 +48,45 @@ public class ProfileTitleHtmlFormatterTests
     }
 
     [Theory]
+    [InlineData("Farmer&rsquo;s pigs", "Farmer&rsquo;s pigs")]
+    [InlineData("&ldquo;Quoted&rdquo; &ndash; &pound;5", "&ldquo;Quoted&rdquo; &ndash; &pound;5")]
+    [InlineData("Caf&eacute; &iuml;", "Caf&eacute; &iuml;")]
+    [InlineData("Fish &amp; chips", "Fish &amp; chips")]
+    [InlineData("Quote&#8217;s and &#x2019;s", "Quote&#8217;s and &#x2019;s")]
+    [InlineData("AT&T and R&D; more", "AT&amp;T and R&amp;D; more")]
+    [InlineData("a & b", "a &amp; b")]
+    [InlineData("&; &#; &#x; &1a;", "&amp;; &amp;#; &amp;#x; &amp;1a;")]
+    public void Format_ShowsAWellFormedCharacterReferenceAsTheCharacter_AndEscapesEveryOtherAmpersand(string title, string expected) =>
+        Assert.Equal(expected, ProfileTitleHtmlFormatter.Format(title).ToString());
+
+    [Fact]
+    public void Format_DoesNotTurnReferencesToMarkupIntoMarkup()
+    {
+        var rendered = ProfileTitleHtmlFormatter.Format("&lt;script&gt;alert(1)&lt;/script&gt; &#60;b&#62;").ToString();
+
+        Assert.DoesNotContain("<script>", rendered);
+        Assert.DoesNotContain("<b>", rendered);
+        Assert.Equal("&lt;script&gt;alert(1)&lt;/script&gt; &#60;b&#62;", rendered);
+    }
+
+    [Fact]
+    public void Format_RemovesCommentsLeftByPastingFromAnotherPage()
+    {
+        var result = ProfileTitleHtmlFormatter.Format(
+            "<!--StartFragment--><!-- x-tinymce/html -->How well do you <em>know</em>?<!--EndFragment-->");
+
+        Assert.Equal("How well do you <em>know</em>?", result.ToString());
+    }
+
+    [Fact]
+    public void Format_ReturnsEmpty_WhenTheTitleIsOnlyAComment()
+    {
+        var result = ProfileTitleHtmlFormatter.Format("<!--StartFragment-->");
+
+        Assert.Equal(string.Empty, result.ToString());
+    }
+
+    [Theory]
     [InlineData("<strong>Anthrax</strong>", "<strong>Anthrax</strong>")]
     [InlineData("<i>Anthrax</i>", "<i>Anthrax</i>")]
     [InlineData("<b>Anthrax</b>", "<b>Anthrax</b>")]

@@ -1,0 +1,82 @@
+@model CDC.Web.Models.ProfileQuestionEditView
+@using CDC.Web.Models
+@{
+    var rows = Model.Rows ?? [];
+    var prefix = $"rows-{Model.Id}";
+    var summaryFields = Model.Fields.Where(field => field.IncludeInSummary).ToList();
+
+    // The blank row the page copies when the user adds one. It names its inputs for the empty identifier, which question-rows.js swaps for a new one.
+    var blankRow = new ProfileQuestionRowView { RowId = Guid.Empty, Answers = [.. Model.Fields.Select(field => new ProfileAnswerView(field.FieldId, string.Empty, string.Empty))] };
+}
+@* The rows of the question are in a table, as the legacy panel listed them, with the one panel below it that adds and edits a row. The answers are held in
+   hidden inputs of each row, which question-rows.js keeps up to date; the panel's own controls are never posted. The empty value is the question's own:
+   it is posted whenever the user may change the question, so that a question whose rows were all deleted is told from one the page did not offer. *@
+<div class="app-row-question" id="@prefix" data-row-question data-row-can-edit="@(Model.CanEditRows ? "true" : "false")">
+    @if (Model.CanEditRows)
+    {
+        <input type="hidden" name="@ProfileQuestionRowView.RowsInputName(Model.Id)" value="" />
+    }
+    <p class="govuk-body" data-row-empty hidden="@(rows.Count > 0 ? "hidden" : null)">There are no answers to display.</p>
+    <table class="govuk-table app-row-table" data-row-table hidden="@(rows.Count == 0 ? "hidden" : null)">
+        <caption class="govuk-table__caption govuk-visually-hidden">Answers to question @Model.Number</caption>
+        <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+                @foreach (var field in summaryFields)
+                {
+                    <th scope="col" class="govuk-table__header">@field.Label</th>
+                }
+                <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">@(Model.CanEditRows ? "Edit" : "View")</span></th>
+                @if (Model.CanEditRows)
+                {
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Delete</span></th>
+                }
+            </tr>
+        </thead>
+        <tbody class="govuk-table__body" data-row-body>
+            @foreach (var (index, row) in rows.Index())
+            {
+                <partial name="_ProfileRepeatingRow" model="new ProfileRepeatingRowModel(Model, row, index + 1)" />
+            }
+        </tbody>
+    </table>
+
+    @if (Model.CanEditRows)
+    {
+        <p class="govuk-body">
+            <button type="button" class="govuk-button" data-module="govuk-button" aria-controls="@(prefix)-panel" aria-expanded="false" data-row-add>Add</button>
+        </p>
+    }
+
+    @* Tells a screen reader what a row's Add or Delete did, for the row appears or disappears without the page changing. *@
+    <output class="govuk-visually-hidden" data-row-status></output>
+
+    <fieldset class="govuk-fieldset app-answer-panel" id="@(prefix)-panel" data-row-panel hidden tabindex="-1">
+        <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+            <h3 class="govuk-fieldset__heading">@(Model.CanEditRows ? "Edit answer" : "View answer")</h3>
+        </legend>
+
+        @foreach (var field in Model.Fields)
+        {
+            <partial name="_ProfileAnswerFieldEdit" model="new ProfileAnswerFieldEditModel(prefix, field)" />
+        }
+
+        <div class="govuk-button-group">
+            @if (Model.CanEditRows)
+            {
+                <button type="button" class="govuk-button" data-module="govuk-button" data-row-ok>OK</button>
+                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-row-cancel>Cancel</button>
+            }
+            else
+            {
+                <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-row-ok>Close</button>
+            }
+        </div>
+    </fieldset>
+
+    @if (Model.CanEditRows)
+    {
+        <template data-row-template>
+            <partial name="_ProfileRepeatingRow" model="new ProfileRepeatingRowModel(Model, blankRow, 0)" />
+        </template>
+    }
+</div>

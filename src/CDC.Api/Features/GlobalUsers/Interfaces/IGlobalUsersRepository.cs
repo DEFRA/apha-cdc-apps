@@ -36,7 +36,10 @@ public interface IGlobalUsersRepository
     /// <returns>The matching user, or <see langword="null"/> when no such username exists.</returns>
     Task<UserVerification?> FindUserByUsernameAsync(string userName, CancellationToken cancellationToken);
 
-    /// <summary>Inserts or updates a user's global role and details via <c>spiGlobalUser</c>.</summary>
+    /// <summary>
+    /// Inserts or updates a user's global role and details via <c>spiGlobalUser</c>, recording the user as internal when
+    /// <see cref="GlobalUser.IsInternal"/> is set.
+    /// </summary>
     /// <param name="user">The user to save. <see cref="GlobalUser.LastUpdated"/> is the row version read earlier.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <exception cref="Domain.Exceptions.ConcurrencyException">Thrown when the row version no longer matches.</exception>

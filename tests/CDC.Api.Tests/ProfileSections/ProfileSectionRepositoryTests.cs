@@ -127,6 +127,67 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_ReadsWhetherAFieldIsInTheSummary_AndWhichQuestionsItsAnswerCanMakeIrrelevant()
+    {
+        var summaryFieldId = ProfileSectionTestData.FieldId;
+        var plainFieldId = Guid.NewGuid();
+
+        connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "ShortName", "SectionNumber"], [[ProfileSectionTestData.SectionId, "Animal welfare", "Welfare", 5]]),
+                new FakeResultSet(
+                    ["ProfileSectionId", "Id", "ShortName", "QuestionNumber", "IsPerSpecies", "IsRepeating"],
+                    [[ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, "Q1", 1, true, false]]),
+                new FakeResultSet(
+                    FieldColumns,
+                    [FieldRow(summaryFieldId, "Compromised welfare?", includeInSummary: true), FieldRow(plainFieldId, "Notes", includeInSummary: false)]),
+
+                // The field-group children, which this procedure returns between the fields and the relevance rules.
+                FakeResultSet.Empty("ProfileSectionId", "ProfileQuestionId", "Id"),
+
+                // The controlling field, then the number of each question its answer can make irrelevant.
+                new FakeResultSet(
+                    ["Id", "QuestionNumber"],
+                    [[summaryFieldId, "5.2"], [summaryFieldId, "5.3"], [Guid.NewGuid(), "9.1"]])
+            ]
+        });
+
+        var metadata = await CreateRepository().GetProfileQuestionnaireMetadataAsync(CancellationToken.None);
+
+        var fields = metadata.Sections.Single().Questions.Single().Fields;
+        var summary = fields.Single(field => field.Id == summaryFieldId);
+        summary.IncludeInSummary.Should().BeTrue();
+        summary.AffectsRelevanceOf.Should().Equal("5.2", "5.3");
+        var plain = fields.Single(field => field.Id == plainFieldId);
+        plain.IncludeInSummary.Should().BeFalse();
+        plain.AffectsRelevanceOf.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_ReportsNoRelevanceRules_WhenTheProcedureReturnsNone()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "ShortName", "SectionNumber"], [[ProfileSectionTestData.SectionId, "Epidemiology", "Epi", 3]]),
+                new FakeResultSet(
+                    ["ProfileSectionId", "Id", "ShortName", "QuestionNumber", "IsPerSpecies", "IsRepeating"],
+                    [[ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, "Q1", 1, false, false]]),
+                new FakeResultSet(FieldColumns, [FieldRow(ProfileSectionTestData.FieldId, "Is it endemic?", includeInSummary: false)]),
+                FakeResultSet.Empty("ProfileSectionId", "ProfileQuestionId", "Id"),
+                FakeResultSet.Empty("Id", "QuestionNumber")
+            ]
+        });
+
+        var metadata = await CreateRepository().GetProfileQuestionnaireMetadataAsync(CancellationToken.None);
+
+        metadata.Sections.Single().Questions.Single().Fields.Single().AffectsRelevanceOf.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetProfileQuestionnaireMetadataAsync_ReturnsEmptySections_WhenNoneExist()
     {
         connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
@@ -219,6 +280,55 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
             .WhoseValue.Should().Be(ProfileSectionTestData.ProfileVersionId);
     }
 
+    // The migrated data stores the Boolean of question 1.5 twice for nearly every version. The legacy page took the last row the database
+    // returned, which is also the row a save changes, so that is the answer; the rows of a list are each an item and all stay.
+    [Fact]
+    public async Task GetProfileSectionAnswersAsync_TakesTheLastRowOfASingleValueFieldStoredTwice_AndKeepsEveryItemOfAList()
+    {
+        var firstRowId = Guid.NewGuid();
+        var lastRowId = Guid.NewGuid();
+        var listFieldId = Guid.NewGuid();
+        var firstItem = Guid.NewGuid();
+        var secondItem = Guid.NewGuid();
+        var speciesId = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                FakeResultSet.Empty("Id", "Name", "IsActive"),
+                FakeResultSet.Empty(
+                    "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "NextTechnicalReview",
+                    "NextPolicyReview", "LastUpdated", "ParentId", "PolicyReviewStatusId", "TechnicalReviewStatusId"),
+                FakeResultSet.Empty("Id", "Name", "NonTechnicalName"),
+                FakeResultSet.Empty("Id", "ProfileQuestionId", "SequenceNumber"),
+                new FakeResultSet(
+                    [
+                        "Id", "SpeciesId", "ProfileVersionQuestionRowId", "BooleanValue", "ListValue", "DecimalValue",
+                        "DateValue", "TextValue", "ProfileFieldId", "ProfileFieldGroupId", "QuestionNumber",
+                        "QuestionId", "FieldNumber"
+                    ],
+                    [
+                        [firstRowId, null, null, false, null, null, null, null, ProfileSectionTestData.FieldId, null, 5, ProfileSectionTestData.QuestionId, 2],
+                        [lastRowId, null, null, true, null, null, null, null, ProfileSectionTestData.FieldId, null, 5, ProfileSectionTestData.QuestionId, 2],
+                        [Guid.NewGuid(), speciesId, null, false, null, null, null, null, ProfileSectionTestData.FieldId, null, 5, ProfileSectionTestData.QuestionId, 2],
+                        [Guid.NewGuid(), null, null, null, firstItem, null, null, null, listFieldId, null, 5, ProfileSectionTestData.QuestionId, 3],
+                        [Guid.NewGuid(), null, null, null, secondItem, null, null, null, listFieldId, null, 5, ProfileSectionTestData.QuestionId, 3]
+                    ])
+            ]
+        });
+
+        var answers = await CreateRepository().GetProfileSectionAnswersAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            CancellationToken.None);
+
+        var answered = answers.FieldValues.Where(value => value.FieldNumber == 2 && value.SpeciesId is null).Should().ContainSingle().Subject;
+        answered.Id.Should().Be(lastRowId);
+        answered.BooleanValue.Should().BeTrue();
+        answers.FieldValues.Should().ContainSingle(value => value.SpeciesId == speciesId);
+        answers.FieldValues.Where(value => value.FieldNumber == 3).Select(value => value.ListValue).Should().Equal(firstItem, secondItem);
+    }
+
     [Fact]
     public async Task GetProfileSectionAnswersAsync_ReturnsEmpty_WhenSectionHasNoAnswers()
     {
@@ -280,6 +390,35 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProfileSectionAnswersAsync_ReadsTheSpeciesTheVersionProfiles_InTheOrderTheDatabaseReturnsThem()
+    {
+        var cattle = Guid.NewGuid();
+        var deer = Guid.NewGuid();
+
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "IsActive"], [[cattle, "Cattle", true], [deer, "Deer - wild", false]]),
+                FakeResultSet.Empty(RevisionColumns),
+                FakeResultSet.Empty("Id", "Name", "NonTechnicalName"),
+                FakeResultSet.Empty("Id", "ProfileQuestionId", "SequenceNumber"),
+                FakeResultSet.Empty(
+                    "Id", "SpeciesId", "ProfileVersionQuestionRowId", "BooleanValue", "ListValue", "DecimalValue",
+                    "DateValue", "TextValue", "ProfileFieldId", "ProfileFieldGroupId", "QuestionNumber",
+                    "QuestionId", "FieldNumber")
+            ]
+        });
+
+        var answers = await CreateRepository().GetProfileSectionAnswersAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            CancellationToken.None);
+
+        answers.ProfiledSpecies.Should().Equal(new ReportSpecies(cattle, "Cattle", true), new ReportSpecies(deer, "Deer - wild", false));
+    }
+
+    [Fact]
     public async Task GetProfileSectionAnswersAsync_RethrowsAndLogs_OnDbException()
     {
         connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
@@ -336,6 +475,128 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.DeleteProfileVersionQuestionRow)
             .Parameters["Id"].Should().Be(rowId);
         connection.Transactions.Should().ContainSingle().Which.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_WritesAPerSpeciesAnswerAgainstItsSpecies_WhetherSingleOrMultiValued()
+    {
+        ScriptSectionRow();
+        var cattle = Guid.NewGuid();
+        var multiValueFieldId = Guid.NewGuid();
+
+        var change = new ProfileSectionChange
+        {
+            Saves =
+            [
+                new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, SpeciesId = cattle, BooleanValue = true, IsMultiValueList = false },
+                new ProfileFieldSaveInstruction { ProfileFieldId = multiValueFieldId, SpeciesId = cattle, MultiListValues = [Guid.NewGuid()], IsMultiValueList = true }
+            ]
+        };
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue)
+            .Parameters["SpeciesId"].Should().Be(cattle);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue)
+            .Parameters["SpeciesId"].Should().Be(cattle);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue)
+            .Parameters["SpeciesId"].Should().Be(cattle);
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_WritesAStandardAnswerWithNoSpecies()
+    {
+        ScriptSectionRow();
+
+        var change = new ProfileSectionChange
+        {
+            Saves = [new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true, IsMultiValueList = false }]
+        };
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue)
+            .Parameters["SpeciesId"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_DeletesThenAddsThenMovesRows_BeforeWritingTheAnswersRecordedAgainstThem()
+    {
+        ScriptSectionRow();
+        var questionId = Guid.NewGuid();
+        var deletedRow = Guid.NewGuid();
+        var newRow = Guid.NewGuid();
+        var movedRow = Guid.NewGuid();
+        var multiValueFieldId = Guid.NewGuid();
+
+        var change = new ProfileSectionChange
+        {
+            QuestionRowIdsToDelete = [deletedRow],
+            QuestionRowsToInsert = [new ProfileQuestionRowInstruction(newRow, questionId, 1)],
+            QuestionRowsToUpdate = [new ProfileQuestionRowInstruction(movedRow, questionId, 0)],
+            Saves =
+            [
+                new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, ProfileVersionQuestionRowId = newRow, TextValue = "A row", IsMultiValueList = false },
+                new ProfileFieldSaveInstruction { ProfileFieldId = multiValueFieldId, ProfileVersionQuestionRowId = newRow, MultiListValues = [Guid.NewGuid()], IsMultiValueList = true }
+            ]
+        };
+
+        var changed = await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
+
+        changed.Should().Be(5);
+        connection.Executed.Select(command => command.CommandText).Should().Equal(
+            ProfileSectionStoredProcedures.GetProfileVersionSection,
+            ProfileSectionStoredProcedures.UpdateProfileVersionSection,
+            ProfileSectionStoredProcedures.DeleteProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.InsertProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.UpdateProfileVersionQuestionRow,
+            ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue,
+            ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue,
+            ProfileSectionStoredProcedures.LogProfileVersionSectionContribution);
+
+        var inserted = connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionQuestionRow).Parameters;
+        inserted["Id"].Should().Be(newRow);
+        inserted["ProfileVersionId"].Should().Be(ProfileSectionTestData.ProfileVersionId);
+        inserted["ProfileQuestionId"].Should().Be(questionId);
+        inserted["SequenceNumber"].Should().Be(1);
+
+        var moved = connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpdateProfileVersionQuestionRow).Parameters;
+        moved["Id"].Should().Be(movedRow);
+        moved["SequenceNumber"].Should().Be(0);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().Be(newRow);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().Be(newRow);
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().Be(newRow);
+    }
+
+    [Fact]
+    public async Task ApplyProfileVersionSectionChangeAsync_WritesAnAnswerOutsideARowWithNoRow()
+    {
+        ScriptSectionRow();
+
+        var change = new ProfileSectionChange
+        {
+            Saves =
+            [
+                new ProfileFieldSaveInstruction { ProfileFieldId = ProfileSectionTestData.FieldId, BooleanValue = true, IsMultiValueList = false },
+                new ProfileFieldSaveInstruction { ProfileFieldId = Guid.NewGuid(), MultiListValues = [Guid.NewGuid()], IsMultiValueList = true }
+            ]
+        };
+
+        await CreateRepository().ApplyProfileVersionSectionChangeAsync(
+            ProfileSectionTestData.ProfileVersionId, ProfileSectionTestData.SectionId, change, Guid.Empty, CancellationToken.None);
+
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.UpsertProfileVersionFieldValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().BeNull();
+        connection.Executed.Single(command => command.CommandText == ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue)
+            .Parameters["ProfileVersionQuestionRowId"].Should().BeNull();
     }
 
     [Fact]
@@ -613,6 +874,23 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "AuthorReviewFrequency",
         "NextTechnicalReview", "NextPolicyReview", "NextAuthorReview", "LastUpdated", "ParentId",
         "PolicyReviewStatusId", "TechnicalReviewStatusId", "AuthorReviewStatusId"
+    ];
+
+    // Columns 0 and 1 duplicate the section and question, as in the procedure; the repository reads them positionally.
+    private static readonly string[] FieldColumns =
+    [
+        "ProfileSectionId", "QuestionId", "Id", "ShortName", "FieldNumber", "DataFieldTypeId",
+        "DataTypeName", "IsMandatory", "ReferenceTableId", "ReferenceTableIsMaintainable",
+        "AffectsRelevancy", "Name", "IsReadOnlyCurrentSituation", "IsReadOnlyScenario",
+        "IsPerSpecies", "IsRepeating", "IncludeInSummary"
+    ];
+
+    private static object?[] FieldRow(Guid fieldId, string name, bool includeInSummary) =>
+    [
+        ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, fieldId,
+        "F", 1, ProfileSectionTestData.DataFieldTypeId, "Text", false,
+        Guid.Empty, false, false, name,
+        false, false, true, false, includeInSummary
     ];
 
     [Fact]

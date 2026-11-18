@@ -34,4 +34,18 @@ public sealed record ProfileSectionValidationStatusDto
     /// legacy <c>HideAndClearIrrelevantQuestion</c>). A per-species question is listed when it is irrelevant for every
     /// profiled species.</summary>
     public IReadOnlyList<Guid> IrrelevantQuestionIds { get; init; } = [];
+
+    /// <summary>Gets the species for which a per-species question of the section is irrelevant, which the questions page leaves out
+    /// of that question's table (the legacy <c>QuestionSpecies.IsRelevant</c>). Only questions with a relevance rule are listed.</summary>
+    public IReadOnlyList<ProfileQuestionSpeciesDto> IrrelevantSpecies { get; init; } = [];
+}
+
+/// <summary>One species for which a per-species question does not apply.</summary>
+public sealed record ProfileQuestionSpeciesDto
+{
+    /// <summary>Gets the per-species question.</summary>
+    public Guid QuestionId { get; init; }
+
+    /// <summary>Gets the species the question does not apply to.</summary>
+    public Guid SpeciesId { get; init; }
 }

@@ -10,8 +10,8 @@ namespace CDC.Web.Features.LoadTesting;
 public static class LoadTestingExtensions
 {
     /// <summary>
-    /// Binds and validates the <c>LoadTesting</c> section. Only while it is switched on does this register the sign-in bypass; with it
-    /// off, the app is exactly as it is without LoadTesting.
+    /// Reads and validates the <c>LoadTesting</c> section; a missing or blank <c>Enabled</c> means off. Only while it is switched on does
+    /// this register the sign-in bypass; with it off, the app is exactly as it is without LoadTesting.
     /// </summary>
     /// <param name="services">The service collection; the identity providers' cookie schemes must be registered on it.</param>
     /// <param name="configuration">The configuration holding the <c>LoadTesting</c> section.</param>
@@ -21,7 +21,11 @@ public static class LoadTestingExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddOptions<LoadTestingOptions>()
-            .Bind(configuration.GetSection(LoadTestingOptions.SectionName))
+            .Configure(options =>
+            {
+                options.Enabled = LoadTestingOptions.IsEnabledIn(configuration);
+                options.ExpiresAtUtc = configuration.GetValue<DateTimeOffset?>($"{LoadTestingOptions.SectionName}:{nameof(LoadTestingOptions.ExpiresAtUtc)}");
+            })
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<LoadTestingOptions>, LoadTestingOptionsValidator>();
         services.TryAddSingleton(TimeProvider.System);
@@ -58,8 +62,9 @@ public static class LoadTestingExtensions
         }
 
         var deployment = app.ApplicationServices.GetRequiredService<IConfiguration>()[LoadTestingOptionsValidator.DeploymentKey];
+        var hostEnvironment = app.ApplicationServices.GetRequiredService<IHostEnvironment>().EnvironmentName;
         app.ApplicationServices.GetRequiredService<ILogger<LoadTestingSessionMiddleware>>()
-            .Enabled(string.IsNullOrEmpty(deployment) ? "local" : deployment, status.ExpiresAtUtc);
+            .Enabled(string.IsNullOrEmpty(deployment) ? hostEnvironment : deployment, status.ExpiresAtUtc);
 
         return app.UseMiddleware<LoadTestingSessionMiddleware>();
     }

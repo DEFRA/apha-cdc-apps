@@ -1,56 +1,128 @@
+// Asks the user to confirm a change to an answer that decides whether other questions apply, as the legacy page did: such an answer is
+// marked with the numbers of the questions it may affect (data-relevance-affects), and changing it opens the confirmation dialog.
+//
+// OK keeps the change. For an answer in the panel that edits a species' answers, question-species.js then saves the section when the
+// panel's OK is pressed; for any other answer the section is saved straight away, through the page's hidden refresh button, so that the
+// questions the change makes irrelevant are cleared and hidden. Cancel (or Escape) puts the answer back as it was.
 (function () {
-    "use strict";
+    'use strict';
 
-    // Asks for confirmation before a change to a field that decides whether other questions are relevant, as the legacy page did.
-    var selects = document.querySelectorAll("select[data-affects-relevance-of]");
+    var dialog = document.getElementById('relevance-confirm-dialog');
 
-    if (selects.length === 0 || typeof HTMLDialogElement === "undefined") {
+    if (!dialog || typeof dialog.showModal !== 'function') {
         return;
     }
 
-    var dialog = document.createElement("dialog");
-    dialog.className = "app-modal";
-    dialog.setAttribute("aria-labelledby", "relevance-confirm-title");
-    dialog.innerHTML =
-        '<h2 class="govuk-heading-m" id="relevance-confirm-title">Confirm</h2>' +
-        '<p class="govuk-body" data-relevance-message></p>' +
-        '<p class="govuk-body">Do you want to continue?</p>' +
-        '<button type="button" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2" data-relevance-ok>OK</button>' +
-        '<button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-relevance-cancel>Cancel</button>';
-    document.body.appendChild(dialog);
+    var questions = dialog.querySelector('[data-relevance-questions]');
+    var okButton = dialog.querySelector('[data-relevance-ok]');
 
-    var message = dialog.querySelector("[data-relevance-message]");
-    var current = null;
+    // A control that decides whether other questions apply names them; one that names none is left alone.
+    var AFFECTING = '[data-relevance-affects]:not([data-relevance-affects=""])';
 
-    dialog.querySelector("[data-relevance-ok]").addEventListener("click", function () {
-        current.select.dataset.lastValue = current.select.value;
-        current = null;
+    // The radio of each group that was checked when the page opened or when the last change was confirmed.
+    var heldByRadioGroup = {};
+
+    var pending = null;
+    var confirmed = false;
+
+    function isRadio(control) {
+        return control.type === 'radio';
+    }
+
+    // What a drop-down held when the page opened, or was last confirmed, which a change that is not confirmed puts back, as the legacy
+    // lastSelectedIndex did. It is kept in the drop-down's data-relevance-held attribute so that the panel that edits a species' answers,
+    // which fills its drop-downs with each species' answers in turn, can say what a drop-down now holds (question-species.js).
+    function holdAnswers() {
+        document.querySelectorAll('input[type="radio"]' + AFFECTING).forEach(function (radio) {
+            if (!(radio.name in heldByRadioGroup)) {
+                heldByRadioGroup[radio.name] = null;
+            }
+            if (radio.checked) {
+                heldByRadioGroup[radio.name] = radio;
+            }
+        });
+
+        document.querySelectorAll('select' + AFFECTING).forEach(function (select) {
+            select.dataset.relevanceHeld = select.value;
+        });
+    }
+
+    function hold(control) {
+        if (isRadio(control)) {
+            heldByRadioGroup[control.name] = control;
+        } else {
+            control.dataset.relevanceHeld = control.value;
+        }
+    }
+
+    function putBack(control) {
+        if (isRadio(control)) {
+            var held = heldByRadioGroup[control.name];
+
+            if (held) {
+                held.checked = true;
+            } else {
+                control.checked = false;
+            }
+        } else {
+            control.value = control.dataset.relevanceHeld || '';
+        }
+    }
+
+    function requestRefresh() {
+        var button = document.querySelector('[data-relevance-refresh]');
+
+        if (button) {
+            button.click();
+        }
+    }
+
+    document.addEventListener('change', function (event) {
+        var control = event.target;
+
+        if (pending || !control.matches?.(AFFECTING)) {
+            return;
+        }
+
+        pending = control;
+        confirmed = false;
+        questions.textContent = control.dataset.relevanceAffects;
+        dialog.showModal();
+    });
+
+    okButton.addEventListener('click', function () {
+        confirmed = true;
         dialog.close();
     });
 
-    var cancel = function () {
-        if (current) {
-            current.select.value = current.select.dataset.lastValue;
-            current = null;
+    // Whichever way the dialog closes, OK, Cancel or Escape, says what the user decided.
+    dialog.addEventListener('close', function () {
+        var control = pending;
+
+        pending = null;
+
+        if (!control) {
+            return;
         }
-        if (dialog.open) {
-            dialog.close();
+
+        if (confirmed) {
+            hold(control);
+            control.dispatchEvent(new CustomEvent('app:relevance-confirmed', { bubbles: true }));
+
+            if (!control.closest('[data-species-panel]')) {
+                requestRefresh();
+            }
+        } else {
+            putBack(control);
+            control.dispatchEvent(new CustomEvent('app:relevance-cancelled', { bubbles: true }));
         }
-    };
 
-    dialog.querySelector("[data-relevance-cancel]").addEventListener("click", cancel);
-    dialog.addEventListener("cancel", cancel);
-
-    selects.forEach(function (select) {
-        select.dataset.lastValue = select.value;
-
-        select.addEventListener("change", function () {
-            current = { select: select };
-            message.textContent =
-                "Changing the answer to this question may affect the relevancy of other parts of this section, " +
-                "any questions that become irrelevant will be cleared and hidden. Questions that may be affected are: " +
-                select.dataset.affectsRelevanceOf + ".";
-            dialog.showModal();
-        });
+        confirmed = false;
     });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', holdAnswers);
+    } else {
+        holdAnswers();
+    }
 })();

@@ -159,15 +159,16 @@ public partial class EditProfileFurtherInformationIntegrationTests : IClassFixtu
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Contains("<title>Error: Title: Bovine tuberculosis - D2R2</title>", body);
-            Assert.Contains("There is a problem", body);
+            Assert.Contains("The following errors have occurred:", body);
             Assert.True(
-                body.IndexOf("There is a problem", StringComparison.Ordinal) < body.IndexOf("Add a source of further information", StringComparison.Ordinal),
+                body.IndexOf("The following errors have occurred:", StringComparison.Ordinal) < body.IndexOf("Add a source of further information", StringComparison.Ordinal),
                 "The error summary should come before the panel it is about.");
-            Assert.Contains("<a href=\"#Input_NoteText\">Enter a source of further information</a>", body);
-            Assert.Contains("<a href=\"#Input_QuestionIds_0\">Select at least one question</a>", body);
+            Assert.Contains("<a href=\"#Input_NoteText\">Please enter a reference</a>", body);
+            Assert.Contains("<a href=\"#Input_QuestionIds_0\">At least one question must be selected</a>", body);
             Assert.Contains("govuk-form-group--error", body);
             Assert.Contains("id=\"Input_NoteText-error\" class=\"govuk-error-message\"", body);
             Assert.Contains("id=\"Input_QuestionIds-error\" class=\"govuk-error-message\"", body);
+            Assert.Contains("<span class=\"app-validator-marker\" title=\"Please enter a reference\" aria-hidden=\"true\">*</span>", body);
             Assert.Equal(0, api.UpdateProfileNotesCallCount);
         });
     }

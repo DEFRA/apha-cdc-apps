@@ -1,6 +1,16 @@
 @model CDC.Web.Models.ProfileFieldEditView
+@using CDC.Web.Infrastructure
 @{
     var inputName = $"field_{Model.FieldId}";
+
+    // Many fields have no label of their own, for the question's text is what they answer, so a control still needs a name for a screen reader.
+    var hasLabel = !string.IsNullOrWhiteSpace(Model.Label);
+    var labelText = hasLabel ? Model.Label : Model.LabelFallback;
+    var labelClass = hasLabel ? "govuk-label govuk-label--s" : "govuk-label govuk-visually-hidden";
+    var legendClass = hasLabel ? "govuk-fieldset__legend govuk-fieldset__legend--s" : "govuk-fieldset__legend govuk-visually-hidden";
+
+    // As the legacy page did, a list of choices says to select all that apply, and says it on its own when the field has no name.
+    var multiLegend = hasLabel ? $"{Model.Label} (please select all that apply)" : "Please select all that apply";
 }
 @if (!Model.IsEditable)
 {
@@ -8,7 +18,7 @@
     {
         <div class="govuk-form-group">
             <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
+                <legend class="@legendClass">@labelText</legend>
                 <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
                     @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
                     {
@@ -21,6 +31,43 @@
                     }
                 </div>
             </fieldset>
+        </div>
+    }
+    else if (string.Equals(Model.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
+    {
+        @* As the legacy page showed a Boolean the user may not change: a Yes and a No box, one ticked, neither of which can be changed. *@
+        <div class="govuk-form-group">
+            <fieldset class="govuk-fieldset">
+                <legend class="@legendClass">@labelText</legend>
+                <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                    <div class="govuk-checkboxes__item">
+                        <input class="govuk-checkboxes__input" id="@(inputName)-readonly-yes" type="checkbox" disabled checked="@(Model.BooleanValue == true ? "checked" : null)" />
+                        <label class="govuk-label govuk-checkboxes__label" for="@(inputName)-readonly-yes">Yes</label>
+                    </div>
+                    <div class="govuk-checkboxes__item">
+                        <input class="govuk-checkboxes__input" id="@(inputName)-readonly-no" type="checkbox" disabled checked="@(Model.BooleanValue == false ? "checked" : null)" />
+                        <label class="govuk-label govuk-checkboxes__label" for="@(inputName)-readonly-no">No</label>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+    }
+    else if (string.Equals(Model.DataTypeName, "Profile Version Data", StringComparison.OrdinalIgnoreCase))
+    {
+        @* As the legacy page showed such a field, which is a property of the version (the species it profiles) and so read-only: its text in a
+           bordered white box, which keeps its height when the text is empty. *@
+        <div class="govuk-form-group">
+            @if (hasLabel)
+            {
+                <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@Model.Label</h3>
+            }
+            <p class="govuk-body app-version-data-box">
+                @if (!hasLabel)
+                {
+                    <span class="govuk-visually-hidden">@(Model.LabelFallback): </span>
+                }
+                @ProfileTitleHtmlFormatter.Format(Model.ValueDisplay)
+            </p>
         </div>
     }
     else if (Model.IsHtml)
@@ -49,8 +96,8 @@ else
     {
         case "Boolean":
             <div class="govuk-form-group">
-                <label class="govuk-label govuk-label--s" for="@inputName">@Model.Label</label>
-                <select class="govuk-select" id="@inputName" name="@inputName" data-affects-relevance-of="@Model.AffectsRelevanceOf">
+                <label class="@labelClass" for="@inputName">@labelText</label>
+                <select class="govuk-select" id="@inputName" name="@inputName" @Model.RelevanceAttribute>
                     <option value="">Please select...</option>
                     <option value="true" selected="@(Model.BooleanValue == true ? "selected" : null)">Yes</option>
                     <option value="false" selected="@(Model.BooleanValue == false ? "selected" : null)">No</option>
@@ -59,8 +106,8 @@ else
             break;
         case "List":
             <div class="govuk-form-group">
-                <label class="govuk-label govuk-label--s" for="@inputName">@Model.Label</label>
-                <select class="govuk-select" id="@inputName" name="@inputName" data-affects-relevance-of="@Model.AffectsRelevanceOf">
+                <label class="@labelClass" for="@inputName">@labelText</label>
+                <select class="govuk-select" id="@inputName" name="@inputName" @Model.RelevanceAttribute>
                     <option value="">Please select...</option>
                     @foreach (var option in Model.Options)
                     {
@@ -72,7 +119,13 @@ else
         case "MultiValueList":
             <div class="govuk-form-group">
                 <fieldset class="govuk-fieldset">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@(string.IsNullOrEmpty(Model.Label) ? "Please select all that apply" : $"{Model.Label} (please select all that apply)")</legend>
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+                        @if (!hasLabel)
+                        {
+                            <span class="govuk-visually-hidden">@(Model.LabelFallback):</span>
+                        }
+                        @multiLegend
+                    </legend>
                     <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
                         @for (var optionIndex = 0; optionIndex < Model.Options.Count; optionIndex++)
                         {

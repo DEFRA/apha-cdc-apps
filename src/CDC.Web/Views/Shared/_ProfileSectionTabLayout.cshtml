@@ -76,14 +76,14 @@ else
             {
                 @body
 
+                @* As the legacy SectionPagination did, Previous sits at the left corner of the section and Next at the right. *@
                 <div class="app-section-pagination">
                     <partial name="_SectionPagination" model="paginationModel" />
                 </div>
 
-                @if (Model is CDC.Web.Pages.SurveillanceProfiles.EditProfileQuestionsModel)
+                @if (Model.PaginationFootnote is { } footnote)
                 {
-                    @* The legacy EditProfileQuestions page's lblStatement, shown under the section pagination. *@
-                    <p class="govuk-body govuk-!-margin-top-6">The content in a number of questions constitutes static information, or is no longer deemed critical, and, to minimise the resource requirements of D2R2, is not scheduled to be updated. Please see the D2R2 quality statement for a list of these questions.</p>
+                    <p class="govuk-body govuk-!-margin-top-6">@footnote</p>
                 }
             }
         </div>

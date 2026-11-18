@@ -116,7 +116,8 @@ public interface IProfileSectionsApiService
     /// <summary>Calls <c>POST /api/profile-sections/save</c>.</summary>
     /// <param name="profileVersionId">The profile version being answered.</param>
     /// <param name="profileSectionId">The section being answered.</param>
-    /// <param name="answers">The submitted field answers.</param>
+    /// <param name="answers">The submitted field answers of the standard and per-species questions.</param>
+    /// <param name="repeatingQuestions">The submitted rows of the repeating questions, each question's list standing for all its rows.</param>
     /// <param name="lastUpdated">The section's row version as last read, so a concurrent save is detected, or
     /// <see langword="null"/> to save over whatever the section holds now.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
@@ -125,6 +126,7 @@ public interface IProfileSectionsApiService
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> repeatingQuestions,
         byte[]? lastUpdated,
         CancellationToken cancellationToken = default);
 

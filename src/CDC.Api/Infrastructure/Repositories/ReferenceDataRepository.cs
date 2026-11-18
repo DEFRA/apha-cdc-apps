@@ -23,9 +23,9 @@ public sealed class ReferenceDataRepository(IDbConnectionFactory connectionFacto
         try
         {
             var rows = await connection.QueryAsync<ReferenceValueRow>(new CommandDefinition(
-                ReferenceDataStoredProcedures.GetLookupValuesByTable,
+                ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable,
                 new { ReferenceTableId = referenceTableId },
-                commandType: CommandType.StoredProcedure,
+                commandType: CommandType.Text,
                 cancellationToken: cancellationToken));
 
             return [.. rows.Select(row => new ReferenceValue
@@ -37,7 +37,7 @@ public sealed class ReferenceDataRepository(IDbConnectionFactory connectionFacto
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, ReferenceDataStoredProcedures.GetLookupValuesByTable);
+            logger.StoredProcedureFailed(exception, ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable);
             throw;
         }
     }

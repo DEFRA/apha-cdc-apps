@@ -217,6 +217,18 @@ public class GlobalUsersRepositoryTests : IDisposable
         recorded.Parameters["SubscribedToReviewEmails"].Should().Be(true);
         recorded.Parameters["EmailAddress"].Should().BeNull();
         recorded.Parameters["SsoUserIdInt"].Should().BeNull();
+        recorded.Parameters["IsInternal"].Should().Be(false);
+    }
+
+    [Fact]
+    public async Task SaveGlobalUserAsync_PassesTheInternalFlag()
+    {
+        connection.Script("spiGlobalUser", new FakeCommandScript());
+        var user = User() with { IsInternal = true };
+
+        await CreateRepository().SaveGlobalUserAsync(user, CancellationToken.None);
+
+        connection.Executed.Should().ContainSingle().Which.Parameters["IsInternal"].Should().Be(true);
     }
 
     [Fact]

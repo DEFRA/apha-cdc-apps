@@ -119,16 +119,27 @@ public class ProfileQuestionsControllerTests
     [Fact]
     public async Task UpdateProfileQuestion_ReturnsOk()
     {
-        var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };
+        var request = new UpdateProfileQuestionRequest
+        {
+            Name = "Is it endemic?",
+            NonTechnicalName = "Is the disease already present?",
+            UserGuidance = "Consider current surveillance data.",
+            LastUpdated = ProfileQuestionTestData.RowVersion
+        };
         var dto = ProfileQuestionTestData.ProfileQuestionDto();
 
         mediator
             .Setup(sender => sender.Send(
-                It.Is<UpdateProfileQuestionCommand>(c => c.Id == ProfileQuestionTestData.QuestionId),
+                It.Is<UpdateProfileQuestionCommand>(c =>
+                    c.Id == ProfileQuestionTestData.QuestionId
+                    && c.Name == request.Name
+                    && c.NonTechnicalName == request.NonTechnicalName
+                    && c.UserGuidance == request.UserGuidance
+                    && c.LastUpdated == request.LastUpdated),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(dto));
 
-        var response = await CreateController().UpdateProfileQuestion(ProfileQuestionTestData.QuestionId, command, CancellationToken.None);
+        var response = await CreateController().UpdateProfileQuestion(ProfileQuestionTestData.QuestionId, request, CancellationToken.None);
 
         response.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeSameAs(dto);
     }
@@ -139,7 +150,7 @@ public class ProfileQuestionsControllerTests
         // 400 is produced by the FluentValidation pipeline before the handler runs (see
         // ProfileQuestionValidatorTests), so at the controller level this is exercised via a
         // NotFound-shaped Result standing in for any non-success mapping through ToActionResult.
-        var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };
+        var request = new UpdateProfileQuestionRequest { LastUpdated = ProfileQuestionTestData.RowVersion };
 
         mediator
             .Setup(sender => sender.Send(
@@ -147,7 +158,7 @@ public class ProfileQuestionsControllerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.NotFound<ProfileQuestionDto>("not found"));
 
-        var response = await CreateController().UpdateProfileQuestion(ProfileQuestionTestData.QuestionId, command, CancellationToken.None);
+        var response = await CreateController().UpdateProfileQuestion(ProfileQuestionTestData.QuestionId, request, CancellationToken.None);
 
         AssertProblem(response.Result!, StatusCodes.Status404NotFound);
     }
@@ -155,7 +166,7 @@ public class ProfileQuestionsControllerTests
     [Fact]
     public async Task UpdateProfileQuestion_ReturnsConflict()
     {
-        var command = new UpdateProfileQuestionCommand { Id = Guid.Empty, LastUpdated = ProfileQuestionTestData.RowVersion };
+        var request = new UpdateProfileQuestionRequest { LastUpdated = ProfileQuestionTestData.RowVersion };
 
         mediator
             .Setup(sender => sender.Send(
@@ -163,7 +174,7 @@ public class ProfileQuestionsControllerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Conflict<ProfileQuestionDto>("edited by another user"));
 
-        var response = await CreateController().UpdateProfileQuestion(ProfileQuestionTestData.QuestionId, command, CancellationToken.None);
+        var response = await CreateController().UpdateProfileQuestion(ProfileQuestionTestData.QuestionId, request, CancellationToken.None);
 
         AssertProblem(response.Result!, StatusCodes.Status409Conflict);
     }
