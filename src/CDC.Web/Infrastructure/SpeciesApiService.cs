@@ -182,6 +182,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             return new ChangeSpeciesPositionResult
             {
                 Outcome = SpeciesUpdateOutcome.ValidationFailed,
+                ApiStatusCode = (int)response.StatusCode,
                 ErrorMessage = await ReadProblemDetailAsync(response, cancellationToken, "This species cannot be moved in that direction.")
             };
         }
@@ -191,6 +192,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
             return new ChangeSpeciesPositionResult
             {
                 Outcome = SpeciesUpdateOutcome.Error,
+                ApiStatusCode = (int)response.StatusCode,
                 ErrorMessage = "You do not have permission to change the species order."
             };
         }
@@ -198,6 +200,7 @@ public sealed class SpeciesApiService(HttpClient httpClient) : ISpeciesApiServic
         return new ChangeSpeciesPositionResult
         {
             Outcome = SpeciesUpdateOutcome.Error,
+            ApiStatusCode = (int)response.StatusCode,
             ErrorMessage = "We could not move this species. Try again later."
         };
     }

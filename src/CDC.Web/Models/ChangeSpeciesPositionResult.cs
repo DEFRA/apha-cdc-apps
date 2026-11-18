@@ -8,4 +8,7 @@ public sealed record ChangeSpeciesPositionResult
 
     /// <summary>Gets a message to show the user when <see cref="Outcome"/> is not <see cref="SpeciesUpdateOutcome.Success"/>.</summary>
     public string? ErrorMessage { get; init; }
+
+    /// <summary>Gets the HTTP status code returned by the API, when a response was received.</summary>
+    public int? ApiStatusCode { get; init; }
 }
