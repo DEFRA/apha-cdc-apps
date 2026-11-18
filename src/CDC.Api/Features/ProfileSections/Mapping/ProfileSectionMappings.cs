@@ -39,6 +39,7 @@ public static class ProfileSectionMappings
         QuestionNumber = question.QuestionNumber,
         IsPerSpecies = question.IsPerSpecies,
         IsRepeating = question.IsRepeating,
+        IrrelevanceFieldId = question.IrrelevanceFieldId,
         Fields = [.. question.Fields.Select(ToDto)]
     };
 
@@ -59,6 +60,7 @@ public static class ProfileSectionMappings
         ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
         IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
         IsReadOnlyScenario = field.IsReadOnlyScenario,
+        AffectsRelevance = field.AffectsRelevance,
         IncludeInSummary = field.IncludeInSummary,
         AffectsRelevanceOf = field.AffectsRelevanceOf
     };

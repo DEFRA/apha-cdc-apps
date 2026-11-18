@@ -31,7 +31,8 @@ public sealed class ReferenceDataRepository(IDbConnectionFactory connectionFacto
             return [.. rows.Select(row => new ReferenceValue
             {
                 Id = row.Id,
-                Value = row.LookupValue ?? string.Empty
+                Value = row.LookupValue ?? string.Empty,
+                IsActive = row.IsActive
             })];
         }
         catch (DbException exception)
@@ -69,5 +70,6 @@ public sealed class ReferenceDataRepository(IDbConnectionFactory connectionFacto
     {
         public Guid Id { get; init; } // NOSONAR
         public string? LookupValue { get; init; } // NOSONAR
+        public bool IsActive { get; init; } = true; // NOSONAR
     }
 }

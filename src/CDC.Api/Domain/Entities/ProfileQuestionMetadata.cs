@@ -23,6 +23,9 @@ public sealed record ProfileQuestionMetadata : BaseEntity
     /// <summary>Gets a value indicating whether the question allows repeating rows of answers.</summary>
     public required bool IsRepeating { get; init; }
 
+    /// <summary>Gets the field whose answer decides whether the question is relevant, or <see cref="Guid.Empty"/> when it is always relevant.</summary>
+    public Guid IrrelevanceFieldId { get; init; }
+
     /// <summary>Gets the fields that make up the answer, ordered by field number.</summary>
     public required IReadOnlyList<ProfileFieldMetadata> Fields { get; init; }
 }

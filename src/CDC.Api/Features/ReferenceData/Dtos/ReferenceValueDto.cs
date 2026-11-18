@@ -8,4 +8,7 @@ public sealed record ReferenceValueDto
 
     /// <summary>Gets the display text.</summary>
     public string Value { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether the value is still in force.</summary>
+    public bool IsActive { get; init; } = true;
 }

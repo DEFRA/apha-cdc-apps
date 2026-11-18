@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using CDC.Common.Contracts;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Reports;
@@ -39,6 +40,9 @@ public class EditProfileQuestionsModel(
     public const string ClearFailedMessage = "Clear section failed: ";
 
     private const string RequestFailedReason = "We could not complete the request. Try again later.";
+
+    // Reference values can carry pasted editor markup such as <!--StartFragment-->, which the legacy page stripped.
+    private static readonly Regex MarkupPattern = new("<.*?>", RegexOptions.Singleline, TimeSpan.FromSeconds(1));
 
     // The data type of a field whose value is a property of the profile version, such as the species it profiles.
     private const string ProfileVersionDataType = "Profile Version Data";
@@ -565,100 +569,46 @@ public class EditProfileQuestionsModel(
                 VersionDataText(field)))
             .ToList();
 
-        return new ProfileQuestionEditView
-        {
-            Id = question.Id,
-            Number = number,
-            Text = text,
-            IsValid = GetQuestionValidationStatus(question.Id),
-            IsHidden = IsQuestionIrrelevant(question.Id),
-            CanEditReferences = CanEditProfileSection,
-            Fields = fieldViews,
-            SpeciesRows = isPerSpecies ? BuildSpeciesRows(question, fields, questionValues, referenceValuesByTable) : null,
-            CanEditSpecies = isPerSpecies && fieldViews.Any(field => field.IsEditable),
-            Rows = question.IsRepeating ? BuildRows(question, fields, questionValues, referenceValuesByTable) : null,
-            CanEditRows = question.IsRepeating && fieldViews.Any(field => field.IsEditable)
-        };
+                return new ProfileQuestionEditView
+                {
+                    Number = $"{section.SectionNumber}.{question.QuestionNumber}",
+                    Text = namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
+                    IsValid = GetQuestionValidationStatus(question.Id),
+                    IsHidden = IsQuestionIrrelevant(question.Id),
+                    CanEditReferences = CanEditProfileSection,
+                    Fields =
+                    [
+                        // "Field Group" entries are containers for a repeating question's nested
+                        // fields, not values themselves, so they have nothing to render on their own.
+                        .. question.Fields
+                            .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
+                            .Select(field => BuildFieldEditView(
+                                field,
+                                isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario),
+                                questionValues.Where(value => value.FieldNumber == field.FieldNumber).ToList(),
+                                referenceValuesByTable))
+                    ]
+                };
+            })
+        ];
     }
 
-    /// <summary>Builds the row of each profiled species, in the order CDC.Api lists them, as the legacy table did.</summary>
-    private List<ProfileSpeciesRowView> BuildSpeciesRows(
-        ProfileQuestionMetadataDto question,
-        List<ProfileFieldMetadataDto> fields,
-        List<ProfileFieldValueDto> questionValues,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable) =>
-    [
-        .. profiledSpecies.Select(species => new ProfileSpeciesRowView
-        {
-            SpeciesId = species.Id,
-            Name = species.Name,
-            IsRelevant = !IsSpeciesIrrelevant(question.Id, species.Id),
-            Answers = BuildAnswers(fields, [.. questionValues.Where(value => value.SpeciesId == species.Id)], referenceValuesByTable)
-        })
-    ];
-
-    /// <summary>Builds the row of each of a repeating question's recorded rows, in the order the question keeps them, as the legacy table did.</summary>
-    private List<ProfileQuestionRowView> BuildRows(
-        ProfileQuestionMetadataDto question,
-        List<ProfileFieldMetadataDto> fields,
-        List<ProfileFieldValueDto> questionValues,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable) =>
-    [
-        .. questionRows
-            .Where(row => row.QuestionId == question.Id)
-            .OrderBy(row => row.SequenceNumber)
-            .Select(row => new ProfileQuestionRowView
-            {
-                RowId = row.Id,
-                Answers = BuildAnswers(fields, [.. questionValues.Where(value => value.ProfileVersionQuestionRowId == row.Id)], referenceValuesByTable)
-            })
-    ];
-
-    private static List<ProfileAnswerView> BuildAnswers(
-        List<ProfileFieldMetadataDto> fields,
-        List<ProfileFieldValueDto> values,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable) =>
-    [
-        .. fields.Select(field =>
-        {
-            List<ProfileFieldValueDto> fieldValues = [.. values.Where(value => value.FieldNumber == field.FieldNumber)];
-            var options = referenceValuesByTable.TryGetValue(field.ReferenceTableId, out var items) ? items : [];
-
-            return new ProfileAnswerView(
-                field.Id,
-                ProfileAnswerFormatter.FormValue(field, fieldValues),
-                ProfileAnswerFormatter.SummaryText(field, fieldValues, options));
-        })
-    ];
-
-    /// <summary>A question answered once for each profiled species. A question that is also repeating is taken for a repeating one.</summary>
-    private static bool IsPerSpeciesQuestion(ProfileQuestionMetadataDto question) => question.IsPerSpecies && !question.IsRepeating;
-
-    /// <summary>The panel that edits one answer of a per-species or repeating question can edit these types. A date is not among them, for
-    /// no such question has one, so such a field is shown and left as it is.</summary>
-    private static bool CanEditInPanel(ProfileFieldMetadataDto field) =>
-        PanelEditableTypes.Contains(field.DataTypeName, StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>A field of the type whose value is a property of the profile version itself, which no answer is stored for.</summary>
-    private static bool IsVersionData(ProfileFieldMetadataDto field) =>
-        string.Equals(field.DataTypeName, ProfileVersionDataType, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>The value of a version data field. The legacy <c>ProfileVersionDataFieldValue</c> read the version's property named for the
-    /// field's short name without its spaces, which for the Summary section's fields is the species the version profiles or the others it affects.</summary>
-    /// <returns>The text to show, or <see langword="null"/> for a field that is not a version data field.</returns>
-    private string? VersionDataText(ProfileFieldMetadataDto field)
+    /// <summary>Lists the numbers of the section's questions whose relevance depends on <paramref name="field"/>'s answer, or
+    /// <see langword="null"/> when there are none.</summary>
+    private static string? AffectedQuestionNumbers(ProfileSectionMetadataDto section, ProfileFieldMetadataDto field)
     {
-        if (!IsVersionData(field))
+        if (!field.AffectsRelevance)
         {
             return null;
         }
 
-        return field.ShortName.Replace(" ", string.Empty, StringComparison.Ordinal) switch
-        {
-            "ProfiledSpecies" => profiledSpeciesText,
-            "OtherAffectedSpecies" => otherAffectedSpeciesText,
-            _ => string.Empty
-        };
+        var numbers = section.Questions
+            .Where(question => question.IrrelevanceFieldId == field.Id)
+            .OrderBy(question => question.QuestionNumber)
+            .Select(question => $"{section.SectionNumber}.{question.QuestionNumber}")
+            .ToList();
+
+        return numbers.Count == 0 ? null : string.Join(", ", numbers);
     }
 
     /// <summary>Builds one field's view: a real editable control matching its data type when
@@ -670,8 +620,7 @@ public class EditProfileQuestionsModel(
         string questionNumber,
         bool isEditable,
         List<ProfileFieldValueDto> recordedValues,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable,
-        string? versionDataText = null)
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
     {
         var isListType =
             string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase) ||
@@ -692,8 +641,6 @@ public class EditProfileQuestionsModel(
                 DataTypeName = field.DataTypeName,
                 IsMandatory = field.IsMandatory,
                 IsEditable = isEditable,
-                IncludeInSummary = field.IncludeInSummary,
-                AffectsRelevanceOf = field.AffectsRelevanceOf,
                 Options = [.. options.Select(option => new ProfileFieldOptionEditView(option.Id, option.Value, selectedValues.Contains(option.Id)))]
             };
         }
@@ -713,6 +660,7 @@ public class EditProfileQuestionsModel(
             AffectsRelevanceOf = field.AffectsRelevanceOf,
             ValueDisplay = versionDataText ?? FormatFieldValues(recordedValues),
             IsHtml = isHtml,
+            AffectsRelevanceOf = affectsRelevanceOf,
             BooleanValue = recordedValue?.BooleanValue,
             DecimalValue = recordedValue?.DecimalValue,
             DateValue = recordedValue?.DateValue,

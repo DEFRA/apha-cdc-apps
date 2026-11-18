@@ -38,7 +38,7 @@
                 @if (Model.CanClearProfileSection)
                 {
                     @* As the legacy btnClearSection did, asks before clearing; the confirmation dialog is outside this form, which it cannot nest in. *@
-                    <button type="button" class="govuk-button govuk-button--warning" data-module="govuk-button" data-confirm-target="#clear-section-dialog">Clear</button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-confirm-target="#clear-section-dialog">Clear</button>
                 }
                 @if (Model.CanPrintProfileSection)
                 {
@@ -221,8 +221,4 @@
     <script src="~/js/question-references.js" asp-append-version="true"></script>
     <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
     <script src="~/js/spell-check.js" asp-append-version="true"></script>
-    <script src="~/js/answer-fields.js" asp-append-version="true"></script>
-    <script src="~/js/question-species.js" asp-append-version="true"></script>
-    <script src="~/js/question-rows.js" asp-append-version="true"></script>
-    <script src="~/js/relevance-confirm.js" asp-append-version="true"></script>
 }

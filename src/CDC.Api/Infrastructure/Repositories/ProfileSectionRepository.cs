@@ -45,7 +45,9 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
 
             var questions = await MetadataResultSetReader.ReadNextResultSetAsync(
                 reader,
-                static r => new QuestionMetadataRow(r.GetGuid(0), r.GetGuid(1), r.ReadString(2), r.ReadInt32(3), r.ReadBoolean(4), r.ReadBoolean(5)),
+                static r => new QuestionMetadataRow(
+                    r.GetGuid(0), r.GetGuid(1), r.ReadString(2), r.ReadInt32(3), r.ReadBoolean(4), r.ReadBoolean(5),
+                    r.FieldCount > 6 ? r.ReadGuid(6) : Guid.Empty),
                 cancellationToken);
 
             var fields = await MetadataResultSetReader.ReadNextResultSetAsync(
@@ -860,6 +862,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                         QuestionNumber = question.QuestionNumber,
                         IsPerSpecies = question.IsPerSpecies,
                         IsRepeating = question.IsRepeating,
+                        IrrelevanceFieldId = question.IrrelevanceFieldId,
                         Fields = fieldsByQuestion.TryGetValue(question.Id, out var questionFields)
                             ? [.. questionFields.Select(field => new ProfileFieldMetadata
                             {
@@ -874,9 +877,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                                 ReferenceTableId = field.ReferenceTableId,
                                 ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
                                 IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
-                                IsReadOnlyScenario = field.IsReadOnlyScenario,
-                                IncludeInSummary = field.IncludeInSummary,
-                                AffectsRelevanceOf = affectedQuestionsByField.TryGetValue(field.Id, out var affectedQuestions) ? affectedQuestions : []
+                                IsReadOnlyScenario = field.IsReadOnlyScenario
                             })]
                             : []
                     })]
@@ -929,7 +930,8 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         string ShortName,
         int QuestionNumber,
         bool IsPerSpecies,
-        bool IsRepeating);
+        bool IsRepeating,
+        Guid IrrelevanceFieldId);
 
     private sealed record FieldMetadataRow(
         Guid QuestionId,
@@ -943,8 +945,5 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         bool ReferenceTableIsMaintainable,
         string Name,
         bool IsReadOnlyCurrentSituation,
-        bool IsReadOnlyScenario,
-        bool IncludeInSummary);
-
-    private sealed record RelevanceRuleRow(Guid FieldId, string QuestionNumber);
+        bool IsReadOnlyScenario);
 }

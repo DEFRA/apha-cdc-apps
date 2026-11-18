@@ -12,6 +12,7 @@ public static class ReferenceDataMappings
     public static ReferenceValueDto ToDto(this ReferenceValue referenceValue) => new()
     {
         Id = referenceValue.Id,
-        Value = referenceValue.Value
+        Value = referenceValue.Value,
+        IsActive = referenceValue.IsActive
     };
 }

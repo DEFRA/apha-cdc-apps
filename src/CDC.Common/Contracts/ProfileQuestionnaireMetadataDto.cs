@@ -20,6 +20,9 @@ public sealed record ProfileQuestionMetadataDto : QuestionnaireQuestionMetadataC
 
     /// <summary>Gets a value indicating whether the question allows repeating rows of answers.</summary>
     public bool IsRepeating { get; init; }
+
+    /// <summary>Gets the field whose answer decides whether the question is relevant, or <see cref="Guid.Empty"/> when it is always relevant.</summary>
+    public Guid IrrelevanceFieldId { get; init; }
 }
 
 /// <summary>A single answerable field within a profile question.</summary>
@@ -30,6 +33,9 @@ public sealed record ProfileFieldMetadataDto : QuestionnaireFieldMetadataContrac
 
     /// <summary>Gets a value indicating whether the field is read-only for a "what-if" scenario.</summary>
     public bool IsReadOnlyScenario { get; init; }
+
+    /// <summary>Gets a value indicating whether the field's answer decides whether other questions are relevant.</summary>
+    public bool AffectsRelevance { get; init; }
 
     /// <summary>Gets a value indicating whether the field is listed as a column of the table that summarises a per-species question
     /// (the legacy <c>IncludeInSummary</c>).</summary>

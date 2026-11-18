@@ -9,4 +9,6 @@ public sealed record ReferenceValueDto
     public Guid Id { get; init; }
 
     public string Value { get; init; } = string.Empty;
+
+    public bool IsActive { get; init; } = true;
 }
