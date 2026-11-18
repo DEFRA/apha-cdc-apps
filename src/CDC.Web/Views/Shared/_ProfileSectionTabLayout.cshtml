@@ -16,7 +16,6 @@
             .Select(navSection => new SectionNavItem(
                 navSection.SectionNumber,
                 ProfileSectionTabs.FormatShortName(navSection.ShortName),
-                ProfileSectionTabs.FormatShortName(navSection.ShortName),
                 Model.BuildSectionUrl(navSection.Id),
                 Model.CurrentSection is not null && navSection.Id == Model.CurrentSection.Id,
                 Model.GetSectionValidationStatus(navSection.Id)))]);
@@ -24,10 +23,8 @@
     var previousNavItem = Model.PreviousSection is null
         ? null
         : new SectionNavItem(Model.PreviousSection.SectionNumber, ProfileSectionTabs.FormatShortName(Model.PreviousSection.ShortName), Model.BuildPaginationUrl(Model.PreviousSection.Id));
-        : new SectionNavItem(Model.PreviousSection.SectionNumber, ProfileSectionTabs.FormatShortName(Model.PreviousSection.ShortName), Model.BuildPaginationUrl(Model.PreviousSection.Id));
     var nextNavItem = Model.NextSection is null
         ? null
-        : new SectionNavItem(Model.NextSection.SectionNumber, ProfileSectionTabs.FormatShortName(Model.NextSection.ShortName), Model.BuildPaginationUrl(Model.NextSection.Id));
         : new SectionNavItem(Model.NextSection.SectionNumber, ProfileSectionTabs.FormatShortName(Model.NextSection.ShortName), Model.BuildPaginationUrl(Model.NextSection.Id));
     var paginationModel = new SectionPaginationViewModel(previousNavItem, nextNavItem);
 }
@@ -79,7 +76,15 @@ else
             {
                 @body
 
-                <partial name="_SectionPagination" model="paginationModel" />
+                @* As the legacy SectionPagination did, Previous sits at the left corner of the section and Next at the right. *@
+                <div class="app-section-pagination">
+                    <partial name="_SectionPagination" model="paginationModel" />
+                </div>
+
+                @if (Model.PaginationFootnote is { } footnote)
+                {
+                    <p class="govuk-body govuk-!-margin-top-6">@footnote</p>
+                }
             }
         </div>
     </div>

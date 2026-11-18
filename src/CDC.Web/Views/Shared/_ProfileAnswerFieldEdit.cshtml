@@ -3,9 +3,7 @@
 @{
     var field = Model.Field;
     var controlId = Model.ControlId;
-    var hintId = $"{controlId}-hint";
     var disabled = field.IsEditable ? null : "disabled";
-    var describedBy = field.IsEditable && !field.IsMandatory ? hintId : null;
 
     // A change to the answer of a field that decides whether other questions apply is confirmed first, as the legacy page asked.
     IHtmlContent relevance = field.IsEditable ? field.RelevanceAttribute : HtmlString.Empty;
@@ -17,11 +15,7 @@
     {
         case "Boolean":
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
-            @if (describedBy is not null)
-            {
-                <div class="govuk-hint" id="@hintId">(optional)</div>
-            }
-            <select class="govuk-select" id="@controlId" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor @relevance>
+            <select class="govuk-select" id="@controlId" disabled="@disabled" data-answer-editor @relevance>
                 <option value="">Please select...</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
@@ -29,11 +23,7 @@
             break;
         case "List":
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
-            @if (describedBy is not null)
-            {
-                <div class="govuk-hint" id="@hintId">(optional)</div>
-            }
-            <select class="govuk-select" id="@controlId" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor @relevance>
+            <select class="govuk-select" id="@controlId" disabled="@disabled" data-answer-editor @relevance>
                 <option value="">Please select...</option>
                 @foreach (var option in field.Options)
                 {
@@ -43,12 +33,8 @@
             break;
         case "MultiValueList":
             <div class="govuk-form-group" data-answer-multi>
-                <fieldset class="govuk-fieldset" aria-describedby="@describedBy">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label (select all that apply)</legend>
-                    @if (describedBy is not null)
-                    {
-                        <div class="govuk-hint" id="@hintId">(optional)</div>
-                    }
+                <fieldset class="govuk-fieldset">
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@field.Label (please select all that apply)</legend>
                     <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
                         @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
                         {
@@ -65,18 +51,10 @@
             break;
         case "Decimal":
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
-            @if (describedBy is not null)
-            {
-                <div class="govuk-hint" id="@hintId">(optional)</div>
-            }
-            <input class="govuk-input govuk-input--width-10" id="@controlId" type="text" inputmode="decimal" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor />
+            <input class="govuk-input govuk-input--width-10" id="@controlId" type="text" inputmode="decimal" disabled="@disabled" data-answer-editor />
             break;
         case "Long Text" when field.IsEditable:
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
-            @if (describedBy is not null)
-            {
-                <div class="govuk-hint" id="@hintId">(optional)</div>
-            }
             <div class="app-richtext-toolbar" role="toolbar" aria-label="@field.Label formatting">
                 <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="@controlId" aria-label="Undo" title="Undo">&#8630;</button>
                 <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="@controlId" aria-label="Redo" title="Redo">&#8631;</button>
@@ -86,7 +64,7 @@
                 <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
                 <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="@controlId" aria-label="Insert link" title="Insert link">&#128279;</button>
             </div>
-            <textarea class="govuk-textarea app-richtext-editor" id="@controlId" rows="8" spellcheck="true" aria-describedby="@describedBy" data-answer-editor></textarea>
+            <textarea class="govuk-textarea app-richtext-editor" id="@controlId" rows="8" spellcheck="true" data-answer-editor></textarea>
             <button type="button" class="govuk-button govuk-!-margin-top-2" data-module="govuk-button" data-spellcheck-target="@controlId">Spell check</button>
             break;
         case "Long Text":
@@ -96,11 +74,7 @@
             break;
         default:
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
-            @if (describedBy is not null)
-            {
-                <div class="govuk-hint" id="@hintId">(optional)</div>
-            }
-            <input class="govuk-input" id="@controlId" type="text" maxlength="255" spellcheck="true" disabled="@disabled" aria-describedby="@describedBy" data-answer-editor />
+            <input class="govuk-input" id="@controlId" type="text" maxlength="255" spellcheck="true" disabled="@disabled" data-answer-editor />
             @if (field.IsEditable)
             {
                 <button type="button" class="govuk-button govuk-!-margin-top-2" data-module="govuk-button" data-spellcheck-target="@controlId">Spell check</button>

@@ -124,12 +124,13 @@ public class EditProfileQuestionsSpeciesTests
         ProfileQuestionnaireMetadataDto? metadata = null,
         ProfileSectionAnswersDto? answers = null,
         ProfileVersionValidationStatusDto? validationStatus = null,
-        ProfileSectionWriteResult? saveResult = null)
+        ProfileSectionWriteResult? saveResult = null,
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>>? referenceValues = null)
     {
         var service = new FakeProfileSectionsApiService(
             metadata: metadata ?? Metadata(),
             answers: answers ?? Answers(),
-            referenceValuesByTable: ReferenceValues(),
+            referenceValuesByTable: referenceValues ?? ReferenceValues(),
             validationStatus: validationStatus,
             saveResult: saveResult);
         var page = ProfileTabTestData.Configure(
@@ -339,6 +340,28 @@ public class EditProfileQuestionsSpeciesTests
 
         var impact = page.Questions[1].Fields.Single(field => field.FieldId == ImpactFieldId);
         Assert.Equal(["Mild", "Severe"], impact.Options.Select(option => option.Text));
+        Assert.DoesNotContain(impact.Options, option => option.IsChecked);
+    }
+
+    // The panel edits one answer at a time, so it cannot tell which value a species has selected; a value no longer in force that some
+    // species has recorded is still offered, or opening that species' answer and pressing OK would lose it.
+    [Fact]
+    public async Task OnGetAsync_OffersAnItemNoLongerInForceInThePanel_OnlyWhenASpeciesHasRecordedIt()
+    {
+        var recordedId = Guid.NewGuid();
+        var references = ReferenceValues();
+        references[ImpactTableId] =
+        [
+            .. references[ImpactTableId],
+            new ReferenceValueDto { Id = recordedId, Value = "Retired and recorded", IsActive = false },
+            new ReferenceValueDto { Id = Guid.NewGuid(), Value = "Retired and unused", IsActive = false }
+        ];
+        var (page, _) = CreatePage(answers: Answers(Value(ImpactQuestionId, 1, BadgerId, list: recordedId)), referenceValues: references);
+
+        await page.OnGetAsync(CancellationToken.None);
+
+        var impact = page.Questions[1].Fields.Single(field => field.FieldId == ImpactFieldId);
+        Assert.Equal(["Mild", "Severe", "Retired and recorded"], impact.Options.Select(option => option.Text));
         Assert.DoesNotContain(impact.Options, option => option.IsChecked);
     }
 

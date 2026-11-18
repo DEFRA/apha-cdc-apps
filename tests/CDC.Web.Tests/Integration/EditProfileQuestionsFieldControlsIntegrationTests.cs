@@ -144,26 +144,28 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
     }
 
     [Fact]
-    public async Task Boolean_WithNoRecordedAnswer_HasNothingSelected_AndIsDescribedByItsOptionalHint()
+    public async Task Boolean_WithNoRecordedAnswer_HasNothingSelected()
     {
         var body = await GetPageAsync(ProfileTabTestData.DraftProfile());
 
         var field = FieldMarkup(body, NotifiableFieldId);
 
         Assert.DoesNotContain("selected=", field);
-        Assert.Contains($"<div class=\"govuk-hint\" id=\"field_{NotifiableFieldId}-hint\">(optional)</div>", field);
-        Assert.Contains($"aria-describedby=\"field_{NotifiableFieldId}-hint\"", field);
     }
 
+    // The legacy page did not mark a field that may be left unanswered as optional, so no control says so.
     [Fact]
-    public async Task Boolean_ThatIsMandatory_HasNoOptionalHint()
+    public async Task Fields_AreNotMarkedAsOptional()
     {
         var body = await GetPageAsync(ProfileTabTestData.DraftProfile());
 
-        var field = FieldMarkup(body, RiskFieldId);
+        foreach (var fieldId in new[] { RiskFieldId, NotifiableFieldId, SeverityFieldId, UnnamedListFieldId })
+        {
+            var field = FieldMarkup(body, fieldId);
 
-        Assert.DoesNotContain("(optional)", field);
-        Assert.DoesNotContain("aria-describedby", field);
+            Assert.DoesNotContain("(optional)", field);
+            Assert.DoesNotContain("aria-describedby", field);
+        }
     }
 
     [Fact]
@@ -205,7 +207,7 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
 
         var field = FieldMarkup(body, RoutesFieldId);
 
-        Assert.Contains("Routes of infection (select all that apply)", field);
+        Assert.Contains("Routes of infection (please select all that apply)", field);
         Assert.Contains($"id=\"field_{RoutesFieldId}-0\" name=\"field_{RoutesFieldId}\" type=\"checkbox\" value=\"{FoodId}\" checked=\"checked\"", field);
         Assert.Contains($"id=\"field_{RoutesFieldId}-1\" name=\"field_{RoutesFieldId}\" type=\"checkbox\" value=\"{ContactId}\"", field);
         Assert.DoesNotContain($"value=\"{ContactId}\" checked", field);
@@ -219,8 +221,8 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
 
         var field = FieldMarkup(body, UnnamedRoutesFieldId);
 
-        Assert.Matches("<legend class=\"govuk-fieldset__legend govuk-fieldset__legend--s\">\\s*<span class=\"govuk-visually-hidden\">Answer to question 6.1:</span>\\s*Select all that apply\\s*</legend>", field);
-        Assert.DoesNotContain("(select all that apply)", field);
+        Assert.Matches("<legend class=\"govuk-fieldset__legend govuk-fieldset__legend--s\">\\s*<span class=\"govuk-visually-hidden\">Answer to question 6.1:</span>\\s*Please select all that apply\\s*</legend>", field);
+        Assert.DoesNotContain("(please select all that apply)", field);
     }
 
     [Fact]

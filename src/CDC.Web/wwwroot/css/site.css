@@ -1461,21 +1461,18 @@ body {
   padding: 1rem;
 }
 
-/* Previous and Next sit at the left and right of the panel, as in the legacy pages, not stacked. */
-.app-species-pagination .govuk-pagination--block,
+/* Previous and Next sit at the left and right of the section, as in the legacy pages, not stacked. */
 .app-section-pagination .govuk-pagination--block {
   display: flex;
   flex-flow: row wrap;
   align-items: flex-start;
 }
 
-.app-species-pagination .govuk-pagination__next,
 .app-section-pagination .govuk-pagination__next {
   margin-left: auto;
 }
 
 /* The divider only separates stacked links. */
-.app-species-pagination .govuk-pagination--block .govuk-pagination__prev + .govuk-pagination__next,
 .app-section-pagination .govuk-pagination--block .govuk-pagination__prev + .govuk-pagination__next {
   border-top: 0;
 }
@@ -2424,29 +2421,4 @@ body {
   .app-date-picker__calendar {
     display: none;
   }
-}
-
-/* Edit references, validation and help icons sit at the right-hand end of a question's accordion header. */
-.app-question-section-header {
-    position: relative;
-}
-
-.app-question-section-header .govuk-accordion__section-button {
-    padding-right: 120px;
-}
-
-.app-question-status-icons {
-    position: absolute;
-    top: 50%;
-    right: 15px;
-    transform: translateY(-50%);
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    z-index: 1;
-}
-
-.app-question-status-icon {
-    width: 24px;
-    height: 24px;
 }

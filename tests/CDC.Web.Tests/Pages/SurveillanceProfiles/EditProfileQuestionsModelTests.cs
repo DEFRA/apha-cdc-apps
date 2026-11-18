@@ -514,31 +514,17 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_FieldThatAffectsRelevance_ListsTheQuestionsItControls()
+    public async Task OnGetAsync_FieldThatAffectsRelevance_CarriesTheQuestionsItControls()
     {
-        var fieldId = Guid.NewGuid();
         var metadata = SingleFieldMetadata(
-            new ProfileFieldMetadataDto { Id = fieldId, QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean", AffectsRelevance = true },
-            dependentQuestionNumbers: [3, 2],
-            irrelevanceFieldId: fieldId);
+            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean", AffectsRelevanceOf = ["1.2", "1.3"] });
         var pageModel = CreatePageModel(Profile(), metadata: metadata);
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
         var field = Assert.Single(pageModel.Questions[0].Fields);
-        Assert.Equal("1.2, 1.3", field.AffectsRelevanceOf);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_FieldThatAffectsRelevanceButControlsNoQuestion_HasNoAffectedQuestions()
-    {
-        var metadata = SingleFieldMetadata(
-            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean", AffectsRelevance = true });
-        var pageModel = CreatePageModel(Profile(), metadata: metadata);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Null(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
+        Assert.Equal(["1.2", "1.3"], field.AffectsRelevanceOf);
+        Assert.Equal("1.2, 1.3", field.AffectsRelevanceText);
     }
 
     [Fact]
@@ -550,44 +536,32 @@ public class EditProfileQuestionsModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Null(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
+        Assert.Empty(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
     }
 
-    private static ProfileQuestionnaireMetadataDto SingleFieldMetadata(
-        ProfileFieldMetadataDto field,
-        int[]? dependentQuestionNumbers = null,
-        Guid irrelevanceFieldId = default) => new()
-        {
-            Sections =
-            [
-                new ProfileSectionMetadataDto
-                {
-                    Id = SummarySectionId,
-                    Name = "Summary",
-                    SectionNumber = 1,
-                    Questions =
-                    [
-                        new ProfileQuestionMetadataDto
-                        {
-                            Id = QuestionId,
-                            SectionId = SummarySectionId,
-                            ShortName = "Species",
-                            QuestionNumber = 1,
-                            Fields = [field]
-                        },
-                        .. (dependentQuestionNumbers ?? []).Select(number => new ProfileQuestionMetadataDto
-                        {
-                            Id = Guid.NewGuid(),
-                            SectionId = SummarySectionId,
-                            ShortName = $"Dependent {number}",
-                            QuestionNumber = number,
-                            IrrelevanceFieldId = irrelevanceFieldId,
-                            Fields = []
-                        })
-                    ]
-                }
-            ]
-        };
+    private static ProfileQuestionnaireMetadataDto SingleFieldMetadata(ProfileFieldMetadataDto field) => new()
+    {
+        Sections =
+        [
+            new ProfileSectionMetadataDto
+            {
+                Id = SummarySectionId,
+                Name = "Summary",
+                SectionNumber = 1,
+                Questions =
+                [
+                    new ProfileQuestionMetadataDto
+                    {
+                        Id = QuestionId,
+                        SectionId = SummarySectionId,
+                        ShortName = "Species",
+                        QuestionNumber = 1,
+                        Fields = [field]
+                    }
+                ]
+            }
+        ]
+    };
 
     [Fact]
     public async Task OnGetAsync_PopulatesCanEditProfileSectionAndCanClearProfileSection_FromTheProfile()

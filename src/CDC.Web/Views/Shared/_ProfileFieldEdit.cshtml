@@ -2,7 +2,6 @@
 @using CDC.Web.Infrastructure
 @{
     var inputName = $"field_{Model.FieldId}";
-    var hint = !Model.IsMandatory ? "(optional)" : null;
 
     // Many fields have no label of their own, for the question's text is what they answer, so a control still needs a name for a screen reader.
     var hasLabel = !string.IsNullOrWhiteSpace(Model.Label);
@@ -11,7 +10,7 @@
     var legendClass = hasLabel ? "govuk-fieldset__legend govuk-fieldset__legend--s" : "govuk-fieldset__legend govuk-visually-hidden";
 
     // As the legacy page did, a list of choices says to select all that apply, and says it on its own when the field has no name.
-    var multiLegend = hasLabel ? $"{Model.Label} (select all that apply)" : "Select all that apply";
+    var multiLegend = hasLabel ? $"{Model.Label} (please select all that apply)" : "Please select all that apply";
 }
 @if (!Model.IsEditable)
 {
@@ -98,11 +97,7 @@ else
         case "Boolean":
             <div class="govuk-form-group">
                 <label class="@labelClass" for="@inputName">@labelText</label>
-                @if (hint is not null)
-                {
-                    <div class="govuk-hint" id="@(inputName)-hint">@hint</div>
-                }
-                <select class="govuk-select" id="@inputName" name="@inputName" aria-describedby="@(hint is null ? null : $"{inputName}-hint")" @Model.RelevanceAttribute>
+                <select class="govuk-select" id="@inputName" name="@inputName" @Model.RelevanceAttribute>
                     <option value="">Please select...</option>
                     <option value="true" selected="@(Model.BooleanValue == true ? "selected" : null)">Yes</option>
                     <option value="false" selected="@(Model.BooleanValue == false ? "selected" : null)">No</option>
@@ -112,11 +107,7 @@ else
         case "List":
             <div class="govuk-form-group">
                 <label class="@labelClass" for="@inputName">@labelText</label>
-                @if (hint is not null)
-                {
-                    <div class="govuk-hint" id="@(inputName)-hint">@hint</div>
-                }
-                <select class="govuk-select" id="@inputName" name="@inputName" aria-describedby="@(hint is null ? null : $"{inputName}-hint")" @Model.RelevanceAttribute>
+                <select class="govuk-select" id="@inputName" name="@inputName" @Model.RelevanceAttribute>
                     <option value="">Please select...</option>
                     @foreach (var option in Model.Options)
                     {

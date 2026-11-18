@@ -60,8 +60,8 @@ public static class ProfileSectionMappings
         ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
         IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
         IsReadOnlyScenario = field.IsReadOnlyScenario,
-        AffectsRelevance = field.AffectsRelevance,
         IncludeInSummary = field.IncludeInSummary,
+        AffectsRelevance = field.AffectsRelevance,
         AffectsRelevanceOf = field.AffectsRelevanceOf
     };
 
