@@ -1,0 +1,87 @@
+@model CDC.Web.Models.ProfileQuestionEditView
+@if (Model.SpeciesRows.Count == 0)
+{
+    <p class="govuk-body">No species have been profiled.</p>
+}
+else
+{
+    var columnCount = Model.Fields.Count + 2;
+    var canEdit = Model.SpeciesRows.Any(row => row.Fields.Any(field => field.IsEditable));
+
+    <table class="govuk-table app-species-table" data-module="app-species-table">
+        <caption class="govuk-table__caption govuk-visually-hidden">@Model.Number @Model.Text</caption>
+        <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+                <th scope="col" class="govuk-table__header">Species/species group</th>
+                @foreach (var field in Model.Fields)
+                {
+                    <th scope="col" class="govuk-table__header">@field.Label</th>
+                }
+                <th scope="col" class="govuk-table__header">@if (canEdit) { <span class="govuk-visually-hidden">Actions</span> }</th>
+            </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+            @foreach (var row in Model.SpeciesRows)
+            {
+                var key = row.SpeciesId.ToString("N");
+
+                <tr class="govuk-table__row" data-species-row="@key">
+                    <th scope="row" class="govuk-table__header">@row.SpeciesName</th>
+                    @foreach (var field in row.Fields)
+                    {
+                        <td class="govuk-table__cell" data-species-cell="@field.InputName">@field.SummaryText</td>
+                    }
+                    <td class="govuk-table__cell">
+                        @if (row.Fields.Any(field => field.IsEditable))
+                        {
+                            <button type="button" class="govuk-link app-link-button" data-species-edit="@key" aria-expanded="false" aria-controls="species-editor-@(Model.Number.Replace('.', '-'))-@key">Edit<span class="govuk-visually-hidden"> @row.SpeciesName</span></button>
+                        }
+                    </td>
+                </tr>
+                @if (row.Fields.Any(field => field.IsEditable))
+                {
+                    <tr class="govuk-table__row" id="species-editor-@(Model.Number.Replace('.', '-'))-@key" data-species-editor="@key" hidden>
+                        <td class="govuk-table__cell" colspan="@columnCount">
+                            <h3 class="govuk-heading-s">@row.SpeciesName</h3>
+                            @foreach (var field in row.Fields)
+                            {
+                                <partial name="_ProfileFieldEdit" model="field" />
+                            }
+
+                            @if (Model.SpeciesRows.Count > 1)
+                            {
+                                <details class="govuk-details">
+                                    <summary class="govuk-details__summary">
+                                        <span class="govuk-details__summary-text">Apply this answer also to:</span>
+                                    </summary>
+                                    <div class="govuk-details__text">
+                                        <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                            <div class="govuk-checkboxes__item">
+                                                <input class="govuk-checkboxes__input" id="species-apply-all-@key" type="checkbox" data-species-apply-all />
+                                                <label class="govuk-label govuk-checkboxes__label" for="species-apply-all-@key">All</label>
+                                            </div>
+                                            @foreach (var other in Model.SpeciesRows.Where(candidate => candidate.SpeciesId != row.SpeciesId))
+                                            {
+                                                var otherKey = other.SpeciesId.ToString("N");
+
+                                                <div class="govuk-checkboxes__item">
+                                                    <input class="govuk-checkboxes__input" id="species-apply-@key-@otherKey" type="checkbox" data-species-apply="@otherKey" />
+                                                    <label class="govuk-label govuk-checkboxes__label" for="species-apply-@key-@otherKey">@other.SpeciesName</label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </details>
+                            }
+
+                            <div class="govuk-button-group">
+                                <button type="button" class="govuk-button govuk-!-margin-bottom-0" data-species-ok>OK</button>
+                                <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-species-cancel>Cancel</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}

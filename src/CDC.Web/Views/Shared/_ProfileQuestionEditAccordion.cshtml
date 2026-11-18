@@ -9,7 +9,10 @@ else
         @foreach (var question in Model.Questions)
         {
             var anchor = question.Number.Replace(".", "-");
-            <div class="govuk-accordion__section" hidden="@(question.IsHidden ? "hidden" : null)">
+            <div class="govuk-accordion__section" hidden="@(question.IsHidden ? "hidden" : null)"
+                 data-irrelevance-field="@(question.IrrelevanceFieldId == Guid.Empty ? null : $"field_{question.IrrelevanceFieldId}")"
+                 data-irrelevance-value="@(question.IrrelevanceValueId == Guid.Empty ? null : question.IrrelevanceValueId.ToString())"
+                 data-irrelevance-flag="@(question.IrrelevanceFlag ? "true" : "false")">
                 <div class="govuk-accordion__section-header app-question-section-header">
                     <h2 class="govuk-accordion__section-heading">
                         <span class="govuk-accordion__section-button" id="@QuestionEditAccordionViewModel.HeadingId(Model.IdPrefix, question.Number)">
@@ -33,9 +36,16 @@ else
                     </div>
                 </div>
                 <div id="@(Model.IdPrefix)-content-@anchor" class="govuk-accordion__section-content">
-                    @foreach (var field in question.Fields)
+                    @if (question.IsPerSpecies)
                     {
-                        <partial name="_ProfileFieldEdit" model="field" />
+                        <partial name="_ProfileSpeciesTable" model="question" />
+                    }
+                    else
+                    {
+                        @foreach (var field in question.Fields)
+                        {
+                            <partial name="_ProfileFieldEdit" model="field" />
+                        }
                     }
                 </div>
             </div>

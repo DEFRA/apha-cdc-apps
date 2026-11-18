@@ -1,7 +1,8 @@
 @model CDC.Web.Models.ProfileFieldEditView
 @{
-    var inputName = $"field_{Model.FieldId}";
+    var inputName = Model.InputName;
 }
+<div data-visible-when-control="@Model.VisibleWhenControl" data-visible-when-value="@(Model.VisibleWhenControl is null ? null : Model.VisibleWhenValue.ToString())">
 @if (!Model.IsEditable)
 {
     @if (Model.Options.Count > 0)
@@ -35,12 +36,10 @@
     }
     else
     {
-        <dl class="govuk-summary-list">
-            <div class="govuk-summary-list__row">
-                <dt class="govuk-summary-list__key">@Model.Label</dt>
-                <dd class="govuk-summary-list__value">@Model.ValueDisplay</dd>
-            </div>
-        </dl>
+        <div class="govuk-form-group">
+            <span class="govuk-label govuk-label--s" id="@(inputName)-label">@Model.Label</span>
+            <div class="app-readonly-box" role="textbox" aria-readonly="true" aria-labelledby="@(inputName)-label">@(string.IsNullOrEmpty(Model.ValueDisplay) ? "\u00a0" : Model.ValueDisplay)</div>
+        </div>
     }
 }
 else
@@ -95,29 +94,10 @@ else
             break;
         case "Date":
             <div class="govuk-form-group">
-                <fieldset class="govuk-fieldset" role="group">
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">@Model.Label</legend>
-                    <div class="govuk-date-input" id="@inputName" data-module="app-date-picker" data-date-picker-label="Choose date for @Model.Label">
-                        <div class="govuk-date-input__item">
-                            <div class="govuk-form-group">
-                                <label class="govuk-label govuk-date-input__label" for="@(inputName)_day">Day</label>
-                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_day" name="@(inputName)_day" type="text" inputmode="numeric" value="@Model.DateValue?.Day" data-date-picker-part="day" />
-                            </div>
-                        </div>
-                        <div class="govuk-date-input__item">
-                            <div class="govuk-form-group">
-                                <label class="govuk-label govuk-date-input__label" for="@(inputName)_month">Month</label>
-                                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="@(inputName)_month" name="@(inputName)_month" type="text" inputmode="numeric" value="@Model.DateValue?.Month" data-date-picker-part="month" />
-                            </div>
-                        </div>
-                        <div class="govuk-date-input__item">
-                            <div class="govuk-form-group">
-                                <label class="govuk-label govuk-date-input__label" for="@(inputName)_year">Year</label>
-                                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="@(inputName)_year" name="@(inputName)_year" type="text" inputmode="numeric" value="@Model.DateValue?.Year" data-date-picker-part="year" />
-                            </div>
-                        </div>
-                    </div>
-                </fieldset>
+                <label class="govuk-label govuk-visually-hidden" for="@inputName">@Model.Label</label>
+                <input class="govuk-input govuk-input--width-10" id="@inputName" name="@inputName" type="text" autocomplete="off"
+                       value="@Model.DateValue?.ToString(CDC.Web.Infrastructure.ProfileRevisionDatesForm.DateFormat, System.Globalization.CultureInfo.InvariantCulture)"
+                       data-module="app-date-picker" data-date-picker-label="Choose date for @Model.Label" />
             </div>
             break;
         case "Long Text":
@@ -145,3 +125,4 @@ else
             break;
     }
 }
+</div>

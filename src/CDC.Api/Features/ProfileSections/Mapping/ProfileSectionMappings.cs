@@ -40,6 +40,8 @@ public static class ProfileSectionMappings
         IsPerSpecies = question.IsPerSpecies,
         IsRepeating = question.IsRepeating,
         IrrelevanceFieldId = question.IrrelevanceFieldId,
+        IrrelevanceValueId = question.IrrelevanceValueId,
+        IrrelevanceFlag = question.IrrelevanceFlag,
         Fields = [.. question.Fields.Select(ToDto)]
     };
 
@@ -60,7 +62,9 @@ public static class ProfileSectionMappings
         ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
         IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
         IsReadOnlyScenario = field.IsReadOnlyScenario,
-        AffectsRelevance = field.AffectsRelevance
+        AffectsRelevance = field.AffectsRelevance,
+        RelevanceFieldId = field.RelevanceFieldId,
+        RelevanceValueId = field.RelevanceValueId
     };
 
     /// <summary>Projects one profile version section's recorded answers.</summary>
@@ -78,6 +82,7 @@ public static class ProfileSectionMappings
             QuestionId = row.QuestionId,
             SequenceNumber = row.SequenceNumber
         })],
+        ProfiledSpecies = [.. answers.ProfiledSpecies.Where(species => species.IsActive).Select(species => new ProfileSectionSpeciesDto(species.Id, species.Name))],
         LastUpdated = answers.LastUpdated
     };
 

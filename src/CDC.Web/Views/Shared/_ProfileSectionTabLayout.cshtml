@@ -5,7 +5,7 @@
    profile title and version, the left-nav section list, then the tab's own page and the previous/next section links. *@
 @{
     Layout = "_Layout";
-    var pageTitle = Model.ProfileTitle is null ? "Edit profile questions" : $"Title: {Model.ProfileTitle}";
+    var pageTitle = Model.ProfileTitle is null ? "Edit profile questions" : ProfileTitleHtmlFormatter.ToPlainText(Model.ProfileTitle);
     ViewData["Title"] = Model.HasFormErrors ? $"Error: {pageTitle}" : pageTitle;
 
     var body = RenderBody();

@@ -23,10 +23,18 @@ public sealed record ProfileSectionAnswersDto
     /// <summary>Gets the rows recorded for each repeating question, ordered by sequence.</summary>
     public IReadOnlyList<ProfileQuestionRowDto> QuestionRows { get; init; } = [];
 
+    /// <summary>Gets the profiled species a per-species question is answered for.</summary>
+    public IReadOnlyList<ProfileSectionSpeciesDto> ProfiledSpecies { get; init; } = [];
+
     /// <summary>Gets the row version of the profile version section when the answers were read. Send it back with a save so
     /// the save fails, rather than overwrites, when someone else has saved the section since. Empty when unknown.</summary>
     public byte[] LastUpdated { get; init; } = [];
 }
+
+/// <summary>A profiled species of a profile version.</summary>
+/// <param name="Id">The species identifier.</param>
+/// <param name="Name">The species name; may contain HTML.</param>
+public sealed record ProfileSectionSpeciesDto(Guid Id, string Name);
 
 /// <summary>One row of a repeating profile question.</summary>
 public sealed record ProfileQuestionRowDto

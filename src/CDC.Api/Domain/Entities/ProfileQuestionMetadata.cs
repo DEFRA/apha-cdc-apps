@@ -26,6 +26,13 @@ public sealed record ProfileQuestionMetadata : BaseEntity
     /// <summary>Gets the field whose answer decides whether the question is relevant, or <see cref="Guid.Empty"/> when it is always relevant.</summary>
     public Guid IrrelevanceFieldId { get; init; }
 
+    /// <summary>Gets the controlling field's list value the irrelevance test compares against, or <see cref="Guid.Empty"/> for a Yes/No field.</summary>
+    public Guid IrrelevanceValueId { get; init; }
+
+    /// <summary>Gets the flag the relevance test applies: with <see cref="IrrelevanceValueId"/>, the question is relevant when the
+    /// answer equals that value (flag set) or differs from it (flag clear); for a Yes/No field, relevant when the answer differs from the flag.</summary>
+    public bool IrrelevanceFlag { get; init; }
+
     /// <summary>Gets the fields that make up the answer, ordered by field number.</summary>
     public required IReadOnlyList<ProfileFieldMetadata> Fields { get; init; }
 }

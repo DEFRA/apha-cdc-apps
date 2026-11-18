@@ -16,6 +16,29 @@ public sealed record ProfileFieldEditView
     /// <summary>Gets the field identifier, used as the posted form control's name.</summary>
     public required Guid FieldId { get; init; }
 
+    /// <summary>Gets the species the answer is for, when the field belongs to a per-species question.</summary>
+    public Guid? SpeciesId { get; init; }
+
+    /// <summary>Gets the posted form control's name, which is also its element id.</summary>
+    public string InputName => SpeciesId is null ? $"field_{FieldId}" : $"field_{FieldId}_{SpeciesId:N}";
+
+    /// <summary>Gets the first 50 characters of <see cref="DisplayText"/> as plain text, as the legacy per-species grid showed.</summary>
+    public string SummaryText
+    {
+        get
+        {
+            var plain = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(
+                DisplayText, "<.*?>", string.Empty, System.Text.RegularExpressions.RegexOptions.Singleline, TimeSpan.FromSeconds(1))).Trim();
+
+            return plain.Length > 50 ? plain[..50] : plain;
+        }
+    }
+
+    /// <summary>Gets the field's recorded answer as text, for a table cell.</summary>
+    public string DisplayText => Options.Count > 0
+        ? (Options.Any(option => option.IsChecked) ? string.Join(", ", Options.Where(option => option.IsChecked).Select(option => option.Text)) : "Not answered")
+        : ValueDisplay ?? string.Empty;
+
     /// <summary>Gets the field label.</summary>
     public required string Label { get; init; }
 
@@ -57,7 +80,20 @@ public sealed record ProfileFieldEditView
     /// <summary>Gets the numbers of the questions (for example "4.2, 4.3") whose relevance depends on this field's answer,
     /// or <see langword="null"/> when it affects none; changing the answer asks for confirmation first.</summary>
     public string? AffectsRelevanceOf { get; init; }
+
+    /// <summary>Gets the name of the control of the same question whose answer decides whether this field is shown, or
+    /// <see langword="null"/> when it is always shown.</summary>
+    public string? VisibleWhenControl { get; init; }
+
+    /// <summary>Gets the answer of <see cref="VisibleWhenControl"/> that makes this field visible.</summary>
+    public Guid VisibleWhenValue { get; init; }
 }
+
+/// <summary>One profiled species' answers to a per-species question: a row of the question's table.</summary>
+/// <param name="SpeciesId">The species identifier.</param>
+/// <param name="SpeciesName">The species name.</param>
+/// <param name="Fields">The species' answer to each of the question's fields.</param>
+public sealed record ProfileSpeciesAnswerEditView(Guid SpeciesId, string SpeciesName, IReadOnlyList<ProfileFieldEditView> Fields);
 
 /// <summary>One real question (e.g. "2.1 ...") with its editable/read-only fields.</summary>
 public sealed record ProfileQuestionEditView
@@ -70,6 +106,24 @@ public sealed record ProfileQuestionEditView
 
     /// <summary>Gets the question's fields.</summary>
     public required IReadOnlyList<ProfileFieldEditView> Fields { get; init; }
+
+    /// <summary>Gets a value indicating whether the question is answered once per profiled species, shown as a table
+    /// with a row per species instead of <see cref="Fields"/>.</summary>
+    public bool IsPerSpecies { get; init; }
+
+    /// <summary>Gets the table rows of a per-species question.</summary>
+    public IReadOnlyList<ProfileSpeciesAnswerEditView> SpeciesRows { get; init; } = [];
+
+    /// <summary>Gets the field whose answer decides whether the question is relevant, or <see cref="Guid.Empty"/>. The page uses
+    /// it, with <see cref="IrrelevanceValueId"/> and <see cref="IrrelevanceFlag"/>, to show or hide the question as soon as that
+    /// answer changes.</summary>
+    public Guid IrrelevanceFieldId { get; init; }
+
+    /// <summary>Gets the controlling list value the relevance test compares against, or <see cref="Guid.Empty"/> for a Yes/No field.</summary>
+    public Guid IrrelevanceValueId { get; init; }
+
+    /// <summary>Gets the flag the relevance test applies.</summary>
+    public bool IrrelevanceFlag { get; init; }
 
     /// <summary>Gets whether the question has no validation errors, for the tick/cross status icon matching the legacy
     /// <c>CollapsiblePanel</c>'s <c>IsValid</c> icon (legacy <c>question.Validate().Count = 0</c>), or

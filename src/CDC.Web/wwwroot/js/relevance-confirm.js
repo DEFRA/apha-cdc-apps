@@ -1,6 +1,25 @@
 (function () {
     "use strict";
 
+    // Shows a field only while its controlling field in the same question has the answer that makes it visible.
+    var updateVisibility = function () {
+        document.querySelectorAll("[data-visible-when-control]").forEach(function (wrapper) {
+            var control = document.getElementById(wrapper.dataset.visibleWhenControl);
+
+            if (control) {
+                wrapper.hidden = control.value !== wrapper.dataset.visibleWhenValue;
+            }
+        });
+    };
+
+    updateVisibility();
+
+    document.addEventListener("change", function (event) {
+        if (!event.target.hasAttribute("data-affects-relevance-of")) {
+            updateVisibility();
+        }
+    });
+
     // Asks for confirmation before a change to a field that decides whether other questions are relevant, as the legacy page did.
     var selects = document.querySelectorAll("select[data-affects-relevance-of]");
 
@@ -22,10 +41,39 @@
     var message = dialog.querySelector("[data-relevance-message]");
     var current = null;
 
+    // Mirrors the server's relevance test: an unanswered controlling field makes a question irrelevant.
+    var isRelevant = function (section, control) {
+        var answer = control.value;
+        var flag = section.dataset.irrelevanceFlag === "true";
+        var valueId = section.dataset.irrelevanceValue;
+
+        if (!answer) {
+            return false;
+        }
+
+        if (valueId) {
+            return flag ? answer === valueId : answer !== valueId;
+        }
+
+        return (answer === "true") !== flag;
+    };
+
+    var updateRelevance = function () {
+        document.querySelectorAll("[data-irrelevance-field]").forEach(function (section) {
+            var control = document.getElementById(section.dataset.irrelevanceField);
+
+            if (control) {
+                section.hidden = !isRelevant(section, control);
+            }
+        });
+    };
+
     dialog.querySelector("[data-relevance-ok]").addEventListener("click", function () {
         current.select.dataset.lastValue = current.select.value;
         current = null;
         dialog.close();
+        updateRelevance();
+        updateVisibility();
     });
 
     var cancel = function () {

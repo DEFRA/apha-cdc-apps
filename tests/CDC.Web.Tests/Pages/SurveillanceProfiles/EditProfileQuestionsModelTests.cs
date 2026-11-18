@@ -640,9 +640,7 @@ public class EditProfileQuestionsModelTests
             {
                 [$"field_{BooleanFieldId}"] = "true",
                 [$"field_{DecimalFieldId}"] = "12.5",
-                [$"field_{DateFieldId}_day"] = "11",
-                [$"field_{DateFieldId}_month"] = "9",
-                [$"field_{DateFieldId}_year"] = "2026",
+                [$"field_{DateFieldId}"] = "11 September 2026",
                 [$"field_{TextFieldId}"] = "  Some notes  "
             },
             saveResult: new ProfileSectionWriteResult { Outcome = ProfileSectionWriteOutcome.Success, FieldsChangedCount = 4 });
@@ -817,9 +815,7 @@ public class EditProfileQuestionsModelTests
         var pageModel = CreatePageModelWithForm(
             new Dictionary<string, string>
             {
-                [$"field_{DateFieldId}_day"] = "31",
-                [$"field_{DateFieldId}_month"] = "2",
-                [$"field_{DateFieldId}_year"] = "2026"
+                [$"field_{DateFieldId}"] = "31 February 2026"
             },
             throwOnSaveProfileVersionSection: new InvalidOperationException("Save should not have been called"));
 

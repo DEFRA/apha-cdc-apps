@@ -182,9 +182,7 @@ public class ProfileSectionTabPagesIntegrationTests : IClassFixture<CdcWebTestFa
         var body = await GetAsync("EditProfileQuestions", Profile());
 
         Assert.Contains("data-module=\"app-date-picker\" data-date-picker-label=\"Choose date for Date of onset\"", body);
-        Assert.Contains("data-date-picker-part=\"day\"", body);
-        Assert.Contains("data-date-picker-part=\"month\"", body);
-        Assert.Contains("data-date-picker-part=\"year\"", body);
+        Assert.DoesNotContain("data-date-picker-part=", body);
         Assert.Contains("/js/date-picker.js", body);
     }
 

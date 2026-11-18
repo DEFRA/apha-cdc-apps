@@ -158,7 +158,7 @@ public partial class EditProfileFurtherInformationIntegrationTests : IClassFixtu
             var body = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Contains("<title>Error: Title: Bovine tuberculosis - D2R2</title>", body);
+            Assert.Contains("<title>Error: Bovine tuberculosis - D2R2</title>", body);
             Assert.Contains("There is a problem", body);
             Assert.True(
                 body.IndexOf("There is a problem", StringComparison.Ordinal) < body.IndexOf("Add a source of further information", StringComparison.Ordinal),

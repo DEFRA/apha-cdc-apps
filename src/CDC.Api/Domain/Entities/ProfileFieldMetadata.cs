@@ -46,4 +46,10 @@ public sealed record ProfileFieldMetadata : BaseEntity
 
     /// <summary>Gets a value indicating whether the field's answer decides whether other questions are relevant.</summary>
     public bool AffectsRelevance { get; init; }
+
+    /// <summary>Gets the field of the same question whose answer decides whether this field is shown, or <see cref="Guid.Empty"/> when it is always shown.</summary>
+    public Guid RelevanceFieldId { get; init; }
+
+    /// <summary>Gets the answer of <see cref="RelevanceFieldId"/> that makes this field visible.</summary>
+    public Guid RelevanceValueId { get; init; }
 }

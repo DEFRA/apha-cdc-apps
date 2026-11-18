@@ -23,6 +23,13 @@ public sealed record ProfileQuestionMetadataDto : QuestionnaireQuestionMetadataC
 
     /// <summary>Gets the field whose answer decides whether the question is relevant, or <see cref="Guid.Empty"/> when it is always relevant.</summary>
     public Guid IrrelevanceFieldId { get; init; }
+
+    /// <summary>Gets the controlling field's list value the irrelevance test compares against, or <see cref="Guid.Empty"/> for a Yes/No field.</summary>
+    public Guid IrrelevanceValueId { get; init; }
+
+    /// <summary>Gets the flag the relevance test applies: with <see cref="IrrelevanceValueId"/>, the question is relevant when the
+    /// answer equals that value (flag set) or differs from it (flag clear); for a Yes/No field, relevant when the answer differs from the flag.</summary>
+    public bool IrrelevanceFlag { get; init; }
 }
 
 /// <summary>A single answerable field within a profile question.</summary>
@@ -36,6 +43,12 @@ public sealed record ProfileFieldMetadataDto : QuestionnaireFieldMetadataContrac
 
     /// <summary>Gets a value indicating whether the field's answer decides whether other questions are relevant.</summary>
     public bool AffectsRelevance { get; init; }
+
+    /// <summary>Gets the field of the same question whose answer decides whether this field is shown, or <see cref="Guid.Empty"/> when it is always shown.</summary>
+    public Guid RelevanceFieldId { get; init; }
+
+    /// <summary>Gets the answer of <see cref="RelevanceFieldId"/> that makes this field visible.</summary>
+    public Guid RelevanceValueId { get; init; }
 
     /// <summary>Tells whether the field is read-only for one kind of profile: it is neither editable, saved nor cleared.</summary>
     /// <param name="isWhatIfScenario">Whether the profile is a "what-if" scenario rather than the current situation.</param>

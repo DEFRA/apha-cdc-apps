@@ -11,6 +11,9 @@ public sealed record ProfileFieldAnswerInputDto
     /// <summary>Gets the field being answered.</summary>
     public required Guid ProfileFieldId { get; init; }
 
+    /// <summary>Gets the profiled species the answer is for, when the field belongs to a per-species question; otherwise <see langword="null"/>.</summary>
+    public Guid? SpeciesId { get; init; }
+
     /// <summary>Gets the answer for a "Boolean" field.</summary>
     public bool? BooleanValue { get; init; }
 

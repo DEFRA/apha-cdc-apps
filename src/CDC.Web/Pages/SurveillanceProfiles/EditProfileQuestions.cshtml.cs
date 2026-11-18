@@ -40,6 +40,8 @@ public class EditProfileQuestionsModel(
 
     private const string RequestFailedReason = "We could not complete the request. Try again later.";
 
+    private IReadOnlyList<ProfileSectionSpeciesDto> profiledSpecies = [];
+
     // Reference values can carry pasted editor markup such as <!--StartFragment-->, which the legacy page stripped.
     private static readonly Regex MarkupPattern = new("<.*?>", RegexOptions.Singleline, TimeSpan.FromSeconds(1));
 
@@ -423,6 +425,7 @@ public class EditProfileQuestionsModel(
     {
         var answers = await ProfileSectionsApi.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
         SectionLastUpdated = Convert.ToBase64String(answers.LastUpdated);
+        profiledSpecies = answers.ProfiledSpecies;
 
         var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
         var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
@@ -447,10 +450,14 @@ public class EditProfileQuestionsModel(
         [
             .. section.Questions.Select(question =>
             {
-                // Only a standard (non-per-species, non-repeating) question's fields are
-                // editable; editing those two question kinds is not yet supported.
-                var isQuestionEditable = CanEditProfileSection && !question.IsPerSpecies && !question.IsRepeating;
+                // Only a repeating question's fields are not yet editable; a per-species question is edited species by species.
+                var isQuestionEditable = CanEditProfileSection && !question.IsRepeating;
                 var questionValues = valuesByQuestion[question.Id].ToList();
+                var fieldMetadata = question.Fields
+                    // "Field Group" entries are containers for a repeating question's nested
+                    // fields, not values themselves, so they have nothing to render on their own.
+                    .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
 
                 return new ProfileQuestionEditView
                 {
@@ -459,37 +466,57 @@ public class EditProfileQuestionsModel(
                     IsValid = GetQuestionValidationStatus(question.Id),
                     IsHidden = IsQuestionIrrelevant(question.Id),
                     CanEditReferences = CanEditProfileSection,
+                    IsPerSpecies = question.IsPerSpecies,
+                    IrrelevanceFieldId = question.IrrelevanceFieldId,
+                    IrrelevanceValueId = question.IrrelevanceValueId,
+                    IrrelevanceFlag = question.IrrelevanceFlag,
                     Fields =
                     [
-                        // "Field Group" entries are containers for a repeating question's nested
-                        // fields, not values themselves, so they have nothing to render on their own.
-                        .. question.Fields
-                            .Where(field => !string.Equals(field.DataTypeName, "Field Group", StringComparison.OrdinalIgnoreCase))
-                            .Select(field => BuildFieldEditView(
-                                field,
-                                isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario),
-                                questionValues.Where(value => value.FieldNumber == field.FieldNumber).ToList(),
-                                referenceValuesByTable,
-                                AffectedQuestionNumbers(section, field)))
-                    ]
+                        .. fieldMetadata.Select(field => BuildFieldEditView(
+                            field,
+                            isQuestionEditable && !question.IsPerSpecies && !field.IsReadOnlyFor(IsWhatIfScenario),
+                            null,
+                            questionValues.Where(value => value.FieldNumber == field.FieldNumber).ToList(),
+                            referenceValuesByTable,
+                            AffectedQuestionNumbers(Sections, field)))
+                    ],
+                    SpeciesRows = !question.IsPerSpecies
+                        ? []
+                        :
+                        [
+                            .. answers.ProfiledSpecies.Select(species => new ProfileSpeciesAnswerEditView(
+                                species.Id,
+                                MarkupPattern.Replace(species.Name, string.Empty).Trim(),
+                                [
+                                    .. fieldMetadata.Select(field => BuildFieldEditView(
+                                        field,
+                                        isQuestionEditable && !field.IsReadOnlyFor(IsWhatIfScenario),
+                                        species.Id,
+                                        questionValues.Where(value => value.FieldNumber == field.FieldNumber && value.SpeciesId == species.Id).ToList(),
+                                        referenceValuesByTable,
+                                        AffectedQuestionNumbers(Sections, field)))
+                                ]))
+                        ]
                 };
             })
         ];
     }
 
-    /// <summary>Lists the numbers of the section's questions whose relevance depends on <paramref name="field"/>'s answer, or
+    /// <summary>Lists the numbers of the questions, in any section, whose relevance depends on <paramref name="field"/>'s answer, or
     /// <see langword="null"/> when there are none.</summary>
-    private static string? AffectedQuestionNumbers(ProfileSectionMetadataDto section, ProfileFieldMetadataDto field)
+    private static string? AffectedQuestionNumbers(IEnumerable<ProfileSectionMetadataDto> sections, ProfileFieldMetadataDto field)
     {
         if (!field.AffectsRelevance)
         {
             return null;
         }
 
-        var numbers = section.Questions
-            .Where(question => question.IrrelevanceFieldId == field.Id)
-            .OrderBy(question => question.QuestionNumber)
-            .Select(question => $"{section.SectionNumber}.{question.QuestionNumber}")
+        var numbers = sections
+            .OrderBy(section => section.SectionNumber)
+            .SelectMany(section => section.Questions
+                .Where(question => question.IrrelevanceFieldId == field.Id)
+                .OrderBy(question => question.QuestionNumber)
+                .Select(question => $"{section.SectionNumber}.{question.QuestionNumber}"))
             .ToList();
 
         return numbers.Count == 0 ? null : string.Join(", ", numbers);
@@ -502,10 +529,15 @@ public class EditProfileQuestionsModel(
     private static ProfileFieldEditView BuildFieldEditView(
         ProfileFieldMetadataDto field,
         bool isEditable,
+        Guid? speciesId,
         List<ProfileFieldValueDto> recordedValues,
         Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable,
         string? affectsRelevanceOf)
     {
+        var visibleWhenControl = field.RelevanceFieldId == Guid.Empty
+            ? null
+            : speciesId is null ? $"field_{field.RelevanceFieldId}" : $"field_{field.RelevanceFieldId}_{speciesId:N}";
+
         var isListType =
             string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(field.DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase);
@@ -520,16 +552,21 @@ public class EditProfileQuestionsModel(
             return new ProfileFieldEditView
             {
                 FieldId = field.Id,
+                SpeciesId = speciesId,
                 Label = field.Name,
                 DataTypeName = field.DataTypeName,
                 IsMandatory = field.IsMandatory,
                 IsEditable = isEditable,
                 AffectsRelevanceOf = affectsRelevanceOf,
+                VisibleWhenControl = visibleWhenControl,
+                VisibleWhenValue = field.RelevanceValueId,
                 Options =
                 [
                     .. options
                         .Where(option => option.IsActive || selectedValues.Contains(option.Id))
                         .Select(option => new ProfileFieldOptionEditView(option.Id, MarkupPattern.Replace(option.Value, string.Empty).Trim(), selectedValues.Contains(option.Id)))
+                        // The "not known" choice follows the real answers, as it does in the legacy list.
+                        .OrderBy(option => option.Text.StartsWith("Currently not known", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
                 ]
             };
         }
@@ -540,6 +577,7 @@ public class EditProfileQuestionsModel(
         return new ProfileFieldEditView
         {
             FieldId = field.Id,
+            SpeciesId = speciesId,
             Label = field.Name,
             DataTypeName = field.DataTypeName,
             IsMandatory = field.IsMandatory,
@@ -547,6 +585,8 @@ public class EditProfileQuestionsModel(
             ValueDisplay = FormatFieldValues(recordedValues),
             IsHtml = isHtml,
             AffectsRelevanceOf = affectsRelevanceOf,
+            VisibleWhenControl = visibleWhenControl,
+            VisibleWhenValue = field.RelevanceValueId,
             BooleanValue = recordedValue?.BooleanValue,
             DecimalValue = recordedValue?.DecimalValue,
             DateValue = recordedValue?.DateValue,
@@ -567,7 +607,7 @@ public class EditProfileQuestionsModel(
 
         foreach (var question in section.Questions)
         {
-            if (question.IsPerSpecies || question.IsRepeating)
+            if (question.IsRepeating)
             {
                 continue;
             }
@@ -580,7 +620,22 @@ public class EditProfileQuestionsModel(
                     continue;
                 }
 
-                ParseSubmittedField(section, question, field, answers, errors);
+                if (!question.IsPerSpecies)
+                {
+                    ParseSubmittedField(section, question, field, null, answers, errors);
+                    continue;
+                }
+
+                foreach (var species in profiledSpecies)
+                {
+                    var first = answers.Count;
+                    ParseSubmittedField(section, question, field, species.Id, answers, errors);
+
+                    for (var index = first; index < answers.Count; index++)
+                    {
+                        answers[index] = answers[index] with { SpeciesId = species.Id };
+                    }
+                }
             }
         }
 
@@ -591,10 +646,11 @@ public class EditProfileQuestionsModel(
         ProfileSectionMetadataDto section,
         ProfileQuestionMetadataDto question,
         ProfileFieldMetadataDto field,
+        Guid? speciesId,
         List<ProfileFieldAnswerInputDto> answers,
         List<string> errors)
     {
-        var formKey = $"field_{field.Id}";
+        var formKey = speciesId is null ? $"field_{field.Id}" : $"field_{field.Id}_{speciesId:N}";
         var questionDisplay = $"{section.SectionNumber}.{question.QuestionNumber} {field.Name}";
 
         if (string.Equals(field.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
@@ -666,36 +722,19 @@ public class EditProfileQuestionsModel(
     private void ParseDateField(
         Guid fieldId, string questionDisplay, string formKey, List<ProfileFieldAnswerInputDto> answers, List<string> errors)
     {
-        var day = Request.Form[$"{formKey}_day"].ToString();
-        var month = Request.Form[$"{formKey}_month"].ToString();
-        var year = Request.Form[$"{formKey}_year"].ToString();
+        var typed = Request.Form[formKey].ToString();
 
-        if (string.IsNullOrWhiteSpace(day) && string.IsNullOrWhiteSpace(month) && string.IsNullOrWhiteSpace(year))
+        if (string.IsNullOrWhiteSpace(typed))
         {
             answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId });
         }
-        else if (int.TryParse(day, out var dayValue) && int.TryParse(month, out var monthValue) && int.TryParse(year, out var yearValue) &&
-            TryCreateDate(dayValue, monthValue, yearValue, out var dateValue))
+        else if (ProfileRevisionDatesForm.TryParseDate(typed, out var parsed))
         {
-            answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, DateValue = dateValue });
+            answers.Add(new ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, DateValue = DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc) });
         }
         else
         {
             errors.Add($"{questionDisplay}: Enter a valid date");
-        }
-    }
-
-    private static bool TryCreateDate(int day, int month, int year, out DateTime date)
-    {
-        try
-        {
-            date = new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc);
-            return true;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            date = default;
-            return false;
         }
     }
 
