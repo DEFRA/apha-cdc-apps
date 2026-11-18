@@ -31,12 +31,14 @@ public static class SpeciesTreeBuilder
     /// When <see langword="true"/>, every branch starts expanded rather than just the roots, so every
     /// species is visible without interaction - as the legacy affected species selector showed them.
     /// </param>
+    /// <param name="collapseRoots">When <see langword="true"/>, the root nodes start collapsed too, so the whole tree is closed.</param>
     /// <returns>Root nodes, each with its descendants attached.</returns>
     public static IReadOnlyList<TreeNodeViewModel> Build(
         IReadOnlyList<SpeciesDto> species,
         bool includeInactive = false,
         bool preserveApiOrder = false,
-        bool expandAll = false)
+        bool expandAll = false,
+        bool collapseRoots = false)
     {
         ArgumentNullException.ThrowIfNull(species);
 
@@ -53,7 +55,7 @@ public static class SpeciesTreeBuilder
         return
         [
             .. Order(roots, preserveApiOrder)
-                .Select(item => BuildNode(item, childrenByParentId, expanded: true, expandAll, preserveApiOrder, ancestorIds: []))
+                .Select(item => BuildNode(item, childrenByParentId, expanded: !collapseRoots, expandAll, preserveApiOrder, ancestorIds: []))
         ];
     }
 
