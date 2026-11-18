@@ -1615,12 +1615,20 @@ body {
   display: none;
 }
 
-/* The reference selected, shown read-only in a bordered white box, as the legacy dialog showed it. */
+/* The reference selected, shown read-only in a bordered white box of a fixed height, as the legacy dialog showed it. */
 .app-reference-current-note {
+  box-sizing: border-box;
+  height: 150px;
   padding: 5px 10px;
+  overflow-y: auto;
   overflow-wrap: anywhere;
-  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  border: 1px solid var(--govuk-text-colour, #0b0c0c);
   background-color: #ffffff;
+}
+
+/* The collapsible list of the other questions: it ends the dialog's body, so leaves no margin of its own beneath it. */
+.app-reference-picker {
+  margin-bottom: 0;
 }
 
 /* The other questions of the section: a list that scrolls, rather than a dialog taller than the screen. */

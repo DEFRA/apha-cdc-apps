@@ -28,6 +28,9 @@
     var typeGroup = null;
     var addGroup = null;
     var selectGroup = null;
+    var picker = null;
+    var pickerSummary = null;
+    var allBox = null;
     var choices = [];
     var notes = new Map();
     var notesRequest = 0;
@@ -47,11 +50,15 @@
         typeGroup = form.querySelector("[data-reference-type-group]");
         addGroup = form.querySelector("[data-reference-add-group]");
         selectGroup = form.querySelector("[data-reference-select-group]");
+        picker = form.querySelector("[data-reference-questions]");
+        pickerSummary = form.querySelector("[data-reference-questions-summary]");
+        allBox = form.querySelector("[data-reference-all]");
         choices = Array.from(form.querySelectorAll("[data-reference-question-choice]"));
 
         modeSelect.addEventListener("change", onModeOrTypeChange);
         typeSelect.addEventListener("change", onModeOrTypeChange);
         noteSelect.addEventListener("change", onNoteChange);
+        picker.addEventListener("change", onPickerChange);
         form.addEventListener("submit", onSubmit);
         summary.addEventListener("click", onErrorLinkClick);
     }
@@ -101,6 +108,8 @@
             box.checked = false;
         });
 
+        picker.open = false;
+        refreshPicker();
         clearErrors();
         saving = false;
         saveButton.disabled = false;
@@ -134,7 +143,6 @@
         var note = notes.get(noteSelect.value);
         lastUpdatedField.value = note ? note.lastUpdated : "";
         currentNote.replaceChildren();
-        currentNote.hidden = !note;
 
         if (!note) {
             return;
@@ -150,12 +158,46 @@
             var box = choice.querySelector("input");
             box.checked = !box.disabled && applied.has(box.value);
         });
+
+        refreshPicker();
     }
 
+    // Starting the choice again also closes the list of other questions, as the legacy picker was closed when it was cleared.
     function clearTicks() {
         choices.forEach(function (choice) {
             choice.querySelector("input").checked = false;
         });
+
+        picker.open = false;
+        refreshPicker();
+    }
+
+    function onPickerChange(event) {
+        if (event.target === allBox) {
+            offeredBoxes().forEach(function (box) {
+                box.checked = allBox.checked;
+            });
+        }
+
+        refreshPicker();
+    }
+
+    // The boxes of the questions on offer: all but the one the reference is for.
+    function offeredBoxes() {
+        return choices
+            .map(function (choice) { return choice.querySelector("input"); })
+            .filter(function (box) { return !box.disabled; });
+    }
+
+    // All is ticked once every question on offer is, and the heading names those ticked, as the legacy picker's did.
+    function refreshPicker() {
+        var offered = offeredBoxes();
+        var ticked = offered.filter(function (box) { return box.checked; });
+
+        allBox.checked = offered.length > 0 && ticked.length === offered.length;
+        pickerSummary.textContent = ticked
+            .map(function (box) { return box.closest("[data-reference-question-choice]").dataset.referenceChoiceNumber; })
+            .join(", ");
     }
 
     function forgetNotes() {
@@ -164,7 +206,6 @@
         notes = new Map();
         lastUpdatedField.value = "";
         currentNote.replaceChildren();
-        currentNote.hidden = true;
 
         while (noteSelect.options.length > 1) {
             noteSelect.remove(1);

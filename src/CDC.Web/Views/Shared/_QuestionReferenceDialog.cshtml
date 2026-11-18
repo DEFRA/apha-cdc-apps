@@ -79,21 +79,36 @@
                     <select class="govuk-select" id="reference-note" name="Input.NoteId" data-reference-note>
                         <option value="">Please select...</option>
                     </select>
-                    <div class="app-reference-current-note govuk-!-margin-top-3" aria-live="polite" data-reference-current-note hidden></div>
+                    <div class="app-reference-current-note govuk-!-margin-top-3" aria-live="polite" data-reference-current-note></div>
                 </div>
 
-                <fieldset class="govuk-fieldset" data-reference-questions>
-                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Apply this reference also to:</legend>
-                    <div class="govuk-checkboxes govuk-checkboxes--small app-reference-questions">
-                        @foreach (var (index, choice) in Model.Questions.Index())
-                        {
-                            <div class="govuk-checkboxes__item" data-reference-question-choice="@choice.Id">
-                                <input class="govuk-checkboxes__input" id="reference-questions-@index" name="Input.QuestionIds" type="checkbox" value="@choice.Id" />
-                                <label class="govuk-label govuk-checkboxes__label" for="reference-questions-@index">@choice.Number: @ProfileTitleHtmlFormatter.Format(choice.Name)</label>
+                @* As the legacy SelectSpeciesOptionPicker: collapsed, its heading naming the questions ticked, with an All (not posted) at the top. *@
+                <details class="govuk-details app-reference-picker" data-reference-questions>
+                    <summary class="govuk-details__summary">
+                        <span class="govuk-details__summary-text">Apply this reference also to: <span data-reference-questions-summary></span></span>
+                    </summary>
+                    <div class="govuk-details__text">
+                        <fieldset class="govuk-fieldset">
+                            <legend class="govuk-visually-hidden">Apply this reference also to</legend>
+                            <div class="govuk-checkboxes govuk-checkboxes--small">
+                                <div class="govuk-checkboxes__item">
+                                    <input class="govuk-checkboxes__input" id="reference-questions-all" type="checkbox" data-reference-all />
+                                    <label class="govuk-label govuk-checkboxes__label" for="reference-questions-all">All</label>
+                                </div>
                             </div>
-                        }
+                            <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible" />
+                            <div class="govuk-checkboxes govuk-checkboxes--small app-reference-questions">
+                                @foreach (var (index, choice) in Model.Questions.Index())
+                                {
+                                    <div class="govuk-checkboxes__item" data-reference-question-choice="@choice.Id" data-reference-choice-number="@choice.Number">
+                                        <input class="govuk-checkboxes__input" id="reference-questions-@index" name="Input.QuestionIds" type="checkbox" value="@choice.Id" />
+                                        <label class="govuk-label govuk-checkboxes__label" for="reference-questions-@index">@choice.Number: @ProfileTitleHtmlFormatter.Format(choice.Name)</label>
+                                    </div>
+                                }
+                            </div>
+                        </fieldset>
                     </div>
-                </fieldset>
+                </details>
             </div>
             <div class="app-modal__footer">
                 <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button" data-reference-save>Save</button>
