@@ -105,45 +105,17 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
             }
 
             var isWhatIfScenario = reader.ReadGuid(10) != Guid.Empty;
-            var hasInactiveProfiledSpecies = false;
-            var hasInactiveOtherAffectedSpecies = false;
-            var profiledSpecies = new List<string>();
-            var otherAffectedSpecies = new List<string>();
-
-            // Result set 2: species Id, Name, AffectedSpeciesType ("Profiled" or "Other"), IsActive.
-            if (await reader.NextResultAsync(cancellationToken))
-            {
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    var isActive = reader.ReadBoolean(3);
-                    var isProfiled = reader.ReadString(2) == ProfiledSpeciesType;
-                    var name = reader.ReadString(1);
-
-                    (isProfiled ? profiledSpecies : otherAffectedSpecies).Add(isActive ? name : name + InactiveSpeciesSuffix);
-
-                    if (isActive)
-                    {
-                        continue;
-                    }
-
-                    if (isProfiled)
-                    {
-                        hasInactiveProfiledSpecies = true;
-                    }
-                    else
-                    {
-                        hasInactiveOtherAffectedSpecies = true;
-                    }
-                }
-            }
+            var species = await reader.NextResultAsync(cancellationToken) ? await ReadVersionSpeciesAsync(reader, cancellationToken) : [];
+            var profiledSpecies = species.Where(item => item.IsProfiled).ToList();
+            var otherAffectedSpecies = species.Where(item => !item.IsProfiled).ToList();
 
             return new ReportVersionContext
             {
                 IsWhatIfScenario = isWhatIfScenario,
-                HasInactiveProfiledSpecies = hasInactiveProfiledSpecies,
-                HasInactiveOtherAffectedSpecies = hasInactiveOtherAffectedSpecies,
-                ProfiledSpeciesText = string.Join(", ", profiledSpecies),
-                OtherAffectedSpeciesText = string.Join(", ", otherAffectedSpecies)
+                HasInactiveProfiledSpecies = profiledSpecies.Exists(item => !item.IsActive),
+                HasInactiveOtherAffectedSpecies = otherAffectedSpecies.Exists(item => !item.IsActive),
+                ProfiledSpeciesText = SpeciesText(profiledSpecies),
+                OtherAffectedSpeciesText = SpeciesText(otherAffectedSpecies)
             };
         }
         catch (DbException exception)
@@ -425,6 +397,22 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
         return species;
     }
 
+    // Result set 2 of a version's info: species Id, Name, AffectedSpeciesType ("Profiled" or "Other"), IsActive.
+    private static async Task<List<VersionSpeciesRow>> ReadVersionSpeciesAsync(DbDataReader reader, CancellationToken cancellationToken)
+    {
+        var species = new List<VersionSpeciesRow>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            species.Add(new VersionSpeciesRow(reader.ReadString(1), reader.ReadString(2) == ProfiledSpeciesType, reader.ReadBoolean(3)));
+        }
+
+        return species;
+    }
+
+    private static string SpeciesText(List<VersionSpeciesRow> species) =>
+        string.Join(", ", species.Select(item => item.IsActive ? item.Name : item.Name + InactiveSpeciesSuffix));
+
     // Result set 2: SectionId, TechnicalReviewFrequency, PolicyReviewFrequency, AuthorReviewFrequency, NextTechnicalReview, NextPolicyReview,
     // NextAuthorReview, LastUpdated, ParentId, PolicyReviewStatusId, TechnicalReviewStatusId, AuthorReviewStatusId. The database's "Technical" review is the "VA" review.
     private static async Task<ReportSectionRevision?> ReadRevisionAsync(DbDataReader reader, CancellationToken cancellationToken)
@@ -583,4 +571,6 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     private sealed record SectionRow(Guid Id, string Name, string ShortName, int SectionNumber, string Note);
 
     private sealed record QuestionRow(Guid SectionId, ReportQuestion Question);
+
+    private sealed record VersionSpeciesRow(string Name, bool IsProfiled, bool IsActive);
 }
