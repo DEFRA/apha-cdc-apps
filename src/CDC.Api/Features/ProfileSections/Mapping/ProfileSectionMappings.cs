@@ -62,7 +62,9 @@ public static class ProfileSectionMappings
         IsReadOnlyScenario = field.IsReadOnlyScenario,
         IncludeInSummary = field.IncludeInSummary,
         AffectsRelevance = field.AffectsRelevance,
-        AffectsRelevanceOf = field.AffectsRelevanceOf
+        AffectsRelevanceOf = field.AffectsRelevanceOf,
+        RelevanceFieldId = field.RelevanceFieldId,
+        RelevanceValueId = field.RelevanceValueId
     };
 
     /// <summary>Projects one profile version section's recorded answers.</summary>

@@ -66,7 +66,9 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     r.ReadBoolean(12),
                     r.ReadBoolean(13),
                     r.ReadBoolean(16),
-                    r.ReadBoolean(10)),
+                    r.ReadBoolean(10),
+                    r.FieldCount > 18 ? r.ReadGuid(18) : Guid.Empty,
+                    r.FieldCount > 19 ? r.ReadGuid(19) : Guid.Empty),
                 cancellationToken);
 
             // Result set 4 holds a field group's child fields, which no questionnaire page uses, so it is read past.
@@ -881,7 +883,9 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                                 IsReadOnlyScenario = field.IsReadOnlyScenario,
                                 IncludeInSummary = field.IncludeInSummary,
                                 AffectsRelevance = field.AffectsRelevance,
-                                AffectsRelevanceOf = affectedQuestionsByField.TryGetValue(field.Id, out var affectedQuestions) ? affectedQuestions : []
+                                AffectsRelevanceOf = affectedQuestionsByField.TryGetValue(field.Id, out var affectedQuestions) ? affectedQuestions : [],
+                                RelevanceFieldId = field.RelevanceFieldId,
+                                RelevanceValueId = field.RelevanceValueId
                             })]
                             : []
                     })]
@@ -951,7 +955,9 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         bool IsReadOnlyCurrentSituation,
         bool IsReadOnlyScenario,
         bool IncludeInSummary,
-        bool AffectsRelevance);
+        bool AffectsRelevance,
+        Guid RelevanceFieldId,
+        Guid RelevanceValueId);
 
     private sealed record RelevanceRuleRow(Guid FieldId, string QuestionNumber);
 }

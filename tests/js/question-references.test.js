@@ -46,6 +46,18 @@ function box(questionId) {
   return form.querySelector(`[data-reference-question-choice="${questionId}"] input`);
 }
 
+// Ticks or unticks a question's box as the user would, so that the picker hears of it.
+function tick(questionId, checked = true) {
+  const input = box(questionId);
+  input.checked = checked;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function tickAll(checked = true) {
+  els.all.checked = checked;
+  els.all.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function errorTexts() {
   return Array.from(els.errorList.querySelectorAll('li')).map((item) => item.textContent);
 }
@@ -82,13 +94,13 @@ beforeAll(async () => {
         <input type="hidden" name="Input.QuestionId" value="" data-reference-question />
         <input type="hidden" name="Input.LastUpdated" value="" data-reference-last-updated />
         <div data-reference-field-group>
-          <label for="reference-mode">Choose an action</label>
+          <label for="reference-mode">Please choose an action:</label>
           <select id="reference-mode" class="govuk-select" name="Input.Mode" data-reference-mode>
             <option value="">Please select...</option><option value="add">Add a reference</option><option value="select">Select a reference</option>
           </select>
         </div>
         <div data-reference-field-group data-reference-type-group hidden>
-          <label for="reference-type">Choose a reference type</label>
+          <label for="reference-type">Please choose a reference type:</label>
           <select id="reference-type" class="govuk-select" name="Input.NoteTypeId" data-reference-type>
             <option value="">Please select...</option><option value="${typeId}">Scientific paper reference</option>
           </select>
@@ -100,11 +112,15 @@ beforeAll(async () => {
         <div data-reference-field-group data-reference-select-group hidden>
           <label for="reference-note">Select a reference</label>
           <select id="reference-note" class="govuk-select" name="Input.NoteId" data-reference-note><option value="">Please select...</option></select>
-          <div data-reference-current-note hidden></div>
+          <div data-reference-current-note></div>
         </div>
-        <div data-reference-question-choice="${q1}"><input type="checkbox" name="Input.QuestionIds" value="${q1}" /></div>
-        <div data-reference-question-choice="${q2}"><input type="checkbox" name="Input.QuestionIds" value="${q2}" /></div>
-        <div data-reference-question-choice="${q3}"><input type="checkbox" name="Input.QuestionIds" value="${q3}" /></div>
+        <details data-reference-questions>
+          <summary>Apply this reference also to: <span data-reference-questions-summary></span></summary>
+          <input type="checkbox" id="reference-questions-all" data-reference-all />
+          <div data-reference-question-choice="${q1}" data-reference-choice-number="1.1"><input type="checkbox" name="Input.QuestionIds" value="${q1}" /></div>
+          <div data-reference-question-choice="${q2}" data-reference-choice-number="1.2"><input type="checkbox" name="Input.QuestionIds" value="${q2}" /></div>
+          <div data-reference-question-choice="${q3}" data-reference-choice-number="1.3"><input type="checkbox" name="Input.QuestionIds" value="${q3}" /></div>
+        </details>
         <button type="submit" data-reference-save>Save</button>
       </form>
     </dialog>`;
@@ -125,6 +141,9 @@ beforeAll(async () => {
   els.typeGroup = form.querySelector('[data-reference-type-group]');
   els.addGroup = form.querySelector('[data-reference-add-group]');
   els.selectGroup = form.querySelector('[data-reference-select-group]');
+  els.picker = form.querySelector('[data-reference-questions]');
+  els.pickerSummary = form.querySelector('[data-reference-questions-summary]');
+  els.all = form.querySelector('[data-reference-all]');
 
   await import('../../src/CDC.Web/wwwroot/js/question-references.js');
 });
@@ -197,6 +216,7 @@ describe('question-references opening', () => {
     els.text.value = 'Left over';
     submit();
     expect(els.summary.hidden).toBe(true);
+    els.picker.open = true;
 
     openFor('pencil-2');
 
@@ -205,8 +225,11 @@ describe('question-references opening', () => {
     expect(els.text.value).toBe('');
     expect(els.note.options.length).toBe(1);
     expect(els.lastUpdated.value).toBe('');
-    expect(els.currentNote.hidden).toBe(true);
+    expect(els.currentNote.childNodes.length).toBe(0);
     expect(box(q3).checked).toBe(false);
+    expect(els.picker.open).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('');
+    expect(els.all.checked).toBe(false);
     expect(els.typeGroup.hidden).toBe(true);
     expect(els.addGroup.hidden).toBe(true);
     expect(els.selectGroup.hidden).toBe(true);
@@ -292,23 +315,23 @@ describe('question-references choices', () => {
 
     choose(els.note, noteA);
 
-    expect(els.currentNote.hidden).toBe(false);
     expect(els.currentNote.querySelector('em').textContent).toBe('Bovine');
     expect(els.lastUpdated.value).toBe('AQIDBAUGBwg=');
     // The question the dialog is for is never ticked with the others.
     expect(box(q1).checked).toBe(false);
     expect(box(q2).checked).toBe(false);
     expect(box(q3).checked).toBe(true);
+    expect(els.pickerSummary.textContent).toBe('1.3');
 
     choose(els.note, noteB);
 
     expect(els.currentNote.textContent).toBe('Jones 2019');
     expect(els.lastUpdated.value).toBe('CAcGBQQDAgE=');
     expect(box(q3).checked).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('');
 
     choose(els.note, '');
 
-    expect(els.currentNote.hidden).toBe(true);
     expect(els.currentNote.childNodes.length).toBe(0);
     expect(els.lastUpdated.value).toBe('');
   });
@@ -324,9 +347,10 @@ describe('question-references choices', () => {
     choose(els.type, '');
 
     expect(els.note.options.length).toBe(1);
-    expect(els.currentNote.hidden).toBe(true);
+    expect(els.currentNote.childNodes.length).toBe(0);
     expect(box(q2).checked).toBe(false);
     expect(box(q3).checked).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('');
   });
 
   it('shows the references of the last type chosen, when an earlier answer arrives late', async () => {
@@ -364,6 +388,108 @@ describe('question-references choices', () => {
     expect(errorTexts()).toEqual(['We could not load the references. Try again later.']);
     expect(els.errorList.querySelector('a')).toBeNull();
     expect(els.note.options.length).toBe(1);
+  });
+});
+
+describe('question-references picker of the other questions', () => {
+  it('is closed, with nothing ticked and nothing named, until the user opens it', () => {
+    expect(els.picker.open).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('');
+    expect(els.all.checked).toBe(false);
+  });
+
+  it('names the questions ticked in its heading, as the legacy picker did', () => {
+    tick(q3);
+    tick(q2);
+
+    expect(els.pickerSummary.textContent).toBe('1.2, 1.3');
+
+    tick(q2, false);
+
+    expect(els.pickerSummary.textContent).toBe('1.3');
+  });
+
+  it('ticks every question on offer with All, but not the question the reference is for', () => {
+    tickAll();
+
+    expect(box(q2).checked).toBe(true);
+    expect(box(q3).checked).toBe(true);
+    expect(box(q1).checked).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('1.2, 1.3');
+  });
+
+  it('unticks every question with All', () => {
+    tickAll();
+
+    tickAll(false);
+
+    expect(box(q2).checked).toBe(false);
+    expect(box(q3).checked).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('');
+  });
+
+  it('ticks All once every question on offer is ticked, and unticks it when one is not', () => {
+    tick(q2);
+    expect(els.all.checked).toBe(false);
+
+    tick(q3);
+    expect(els.all.checked).toBe(true);
+
+    tick(q2, false);
+    expect(els.all.checked).toBe(false);
+  });
+
+  it('counts the questions on offer for the question it was opened for, not those of another', () => {
+    openFor('pencil-2');
+
+    tick(q1);
+    tick(q3);
+
+    expect(els.all.checked).toBe(true);
+    expect(els.pickerSummary.textContent).toBe('1.1, 1.3');
+  });
+
+  it('does not post All, only the questions', () => {
+    tickAll();
+
+    expect(els.all.hasAttribute('name')).toBe(false);
+    expect(new FormData(form).getAll('Input.QuestionIds')).toEqual([q2, q3]);
+  });
+
+  it('stays open while the user ticks, and closes when the choice starts again', async () => {
+    stubFetch(() => answer({ body: notes }));
+    els.picker.open = true;
+
+    tick(q2);
+    tickAll();
+    expect(els.picker.open).toBe(true);
+
+    choose(els.mode, 'select');
+    expect(els.picker.open).toBe(false);
+    expect(box(q2).checked).toBe(false);
+    expect(els.all.checked).toBe(false);
+
+    choose(els.type, typeId);
+    await settle();
+    els.picker.open = true;
+    choose(els.note, noteA);
+
+    // The reference's questions are named in the closed heading, as the legacy picker named them.
+    expect(els.picker.open).toBe(false);
+    expect(els.pickerSummary.textContent).toBe('1.3');
+    expect(els.all.checked).toBe(false);
+  });
+
+  it('ticks All for a reference that already applies to every question on offer', async () => {
+    stubFetch(() => answer({ body: [{ ...notes[0], questionIds: [q2, q3] }] }));
+    choose(els.mode, 'select');
+    choose(els.type, typeId);
+    await settle();
+
+    choose(els.note, noteA);
+
+    expect(els.all.checked).toBe(true);
+    expect(els.pickerSummary.textContent).toBe('1.2, 1.3');
   });
 });
 

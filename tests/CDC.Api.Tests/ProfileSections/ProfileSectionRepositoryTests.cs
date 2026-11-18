@@ -187,6 +187,68 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         metadata.Sections.Single().Questions.Single().Fields.Single().AffectsRelevanceOf.Should().BeEmpty();
     }
 
+    // A field the page shows only while another field holds one list answer: the procedure returns that field and answer after the editor type.
+    [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_ReadsTheListAnswerThatShowsAField()
+    {
+        var decidingFieldId = ProfileSectionTestData.FieldId;
+        var dependentFieldId = Guid.NewGuid();
+        var variesAnswerId = Guid.NewGuid();
+
+        connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "ShortName", "SectionNumber"], [[ProfileSectionTestData.SectionId, "Geographic distribution", "Geo", 2]]),
+                new FakeResultSet(
+                    ["ProfileSectionId", "Id", "ShortName", "QuestionNumber", "IsPerSpecies", "IsRepeating"],
+                    [[ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, "Q1", 1, false, false]]),
+                new FakeResultSet(
+                    VisibilityFieldColumns,
+                    [
+                        VisibilityFieldRow(decidingFieldId, "Present in the UK?", null, null),
+                        VisibilityFieldRow(dependentFieldId, "How does it vary across Scotland?", decidingFieldId, variesAnswerId)
+                    ]),
+                FakeResultSet.Empty("ProfileSectionId", "ProfileQuestionId", "Id"),
+                FakeResultSet.Empty("Id", "QuestionNumber")
+            ]
+        });
+
+        var metadata = await CreateRepository().GetProfileQuestionnaireMetadataAsync(CancellationToken.None);
+
+        var fields = metadata.Sections.Single().Questions.Single().Fields;
+        var deciding = fields.Single(field => field.Id == decidingFieldId);
+        deciding.RelevanceFieldId.Should().BeEmpty();
+        deciding.RelevanceValueId.Should().BeEmpty();
+        var dependent = fields.Single(field => field.Id == dependentFieldId);
+        dependent.RelevanceFieldId.Should().Be(decidingFieldId);
+        dependent.RelevanceValueId.Should().Be(variesAnswerId);
+    }
+
+    [Fact]
+    public async Task GetProfileQuestionnaireMetadataAsync_ShowsEveryField_WhenTheProcedureReturnsNoColumnsForTheAnswerThatShowsOne()
+    {
+        connection.Script(ProfileSectionStoredProcedures.GetProfileQuestionnaireMetadata, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(["Id", "Name", "ShortName", "SectionNumber"], [[ProfileSectionTestData.SectionId, "Epidemiology", "Epi", 3]]),
+                new FakeResultSet(
+                    ["ProfileSectionId", "Id", "ShortName", "QuestionNumber", "IsPerSpecies", "IsRepeating"],
+                    [[ProfileSectionTestData.SectionId, ProfileSectionTestData.QuestionId, "Q1", 1, false, false]]),
+                new FakeResultSet(FieldColumns, [FieldRow(ProfileSectionTestData.FieldId, "Is it endemic?", includeInSummary: false)]),
+                FakeResultSet.Empty("ProfileSectionId", "ProfileQuestionId", "Id"),
+                FakeResultSet.Empty("Id", "QuestionNumber")
+            ]
+        });
+
+        var metadata = await CreateRepository().GetProfileQuestionnaireMetadataAsync(CancellationToken.None);
+
+        var field = metadata.Sections.Single().Questions.Single().Fields.Single();
+        field.RelevanceFieldId.Should().BeEmpty();
+        field.RelevanceValueId.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task GetProfileQuestionnaireMetadataAsync_ReturnsEmptySections_WhenNoneExist()
     {
@@ -891,6 +953,17 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
         "F", 1, ProfileSectionTestData.DataFieldTypeId, "Text", false,
         Guid.Empty, false, false, name,
         false, false, true, false, includeInSummary
+    ];
+
+    // The columns the procedure returns after the summary flag: the editor type, the deciding field and answer, and two flags the page does not read.
+    private static readonly string[] VisibilityFieldColumns =
+    [
+        .. FieldColumns, "EditorFieldType", "RelevanceFieldId", "RelevanceValueId", "AffectsVisibility", "SourceOfDataReplication"
+    ];
+
+    private static object?[] VisibilityFieldRow(Guid fieldId, string name, Guid? relevanceFieldId, Guid? relevanceValueId) =>
+    [
+        .. FieldRow(fieldId, name, includeInSummary: false), null, relevanceFieldId, relevanceValueId, relevanceFieldId is null, false
     ];
 
     [Fact]

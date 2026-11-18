@@ -4,7 +4,8 @@
 //
 // A panel has an element marked data-answer-field for each field, with the field's data type in data-field-type and whether the user may
 // change it in data-field-editable. Its control, or for a list of choices each of its checkboxes, is marked data-answer-editor. A text
-// answer the user may not change is shown formatted in an element marked data-answer-text-view instead.
+// answer the user may not change is shown formatted in an element marked data-answer-text-view instead, and a list or Boolean answer the
+// user may not change as a row of disabled checkboxes, each marked data-answer-choice, of which the one holding the answer is ticked.
 (function () {
     'use strict';
 
@@ -105,6 +106,11 @@
         return wrapper.dataset.fieldType;
     }
 
+    // The boxes that show a list or Boolean answer the user may not change, in the order the field offers its choices.
+    function choiceBoxes(wrapper) {
+        return Array.prototype.slice.call(wrapper.querySelectorAll('[data-answer-choice]'));
+    }
+
     function booleanText(value) {
         if (value === 'true') {
             return 'Yes';
@@ -124,6 +130,12 @@
                 return booleanText(value);
             case 'List':
                 var option = wrapper.querySelector('option[value="' + value + '"]');
+                var choice = choiceBoxes(wrapper).filter(function (box) {
+                    return box.value === value;
+                })[0];
+                if (choice) {
+                    return labelOf(choice);
+                }
                 return option ? option.textContent : '';
             case 'MultiValueList':
                 var chosen = new Set(value.split(','));
@@ -148,6 +160,16 @@
             }).join(',');
         }
 
+        var choices = choiceBoxes(wrapper);
+
+        if (choices.length > 0) {
+            var ticked = choices.filter(function (box) {
+                return box.checked;
+            })[0];
+
+            return ticked ? ticked.value : '';
+        }
+
         var control = wrapper.querySelector('[data-answer-editor]');
 
         return control ? control.value : '';
@@ -158,6 +180,15 @@
             var chosen = new Set(value === '' ? [] : value.split(','));
             wrapper.querySelectorAll('input[type="checkbox"]').forEach(function (box) {
                 box.checked = chosen.has(box.value);
+            });
+            return;
+        }
+
+        var choices = choiceBoxes(wrapper);
+
+        if (choices.length > 0) {
+            choices.forEach(function (box) {
+                box.checked = value !== '' && box.value === value;
             });
             return;
         }

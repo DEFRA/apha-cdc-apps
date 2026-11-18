@@ -6,6 +6,17 @@ namespace CDC.Web.Models;
 /// <summary>One selectable reference-data option for a "List"/"MultiValueList" edit control.</summary>
 public sealed record ProfileFieldOptionEditView(Guid Id, string Text, bool IsChecked);
 
+/// <summary>The answer of a list field that shows another field (the legacy <c>RelevanceFieldId</c> and <c>RelevanceValueId</c>): the other
+/// field is shown while the list field holds that answer, and hidden while it holds any other, or none.</summary>
+/// <param name="FieldId">The list field whose answer decides.</param>
+/// <param name="ValueId">The answer of that field that shows the other field.</param>
+/// <param name="IsShown">Whether the answer recorded now is <paramref name="ValueId"/>, so the other field is shown when the page opens.</param>
+public sealed record FieldVisibilityRule(Guid FieldId, Guid ValueId, bool IsShown)
+{
+    /// <summary>Gets the id of the deciding field's drop-down, which the page's script watches for a change.</summary>
+    public string ControlId => $"field_{FieldId}";
+}
+
 /// <summary>
 /// One field rendered under a profile question, either as a real editable control (<see
 /// cref="IsEditable"/>) or as a static read-only value, matching the legacy per-datatype
@@ -55,6 +66,10 @@ public sealed record ProfileFieldEditView
     public IHtmlContent RelevanceAttribute => AffectsRelevanceOf.Count == 0
         ? HtmlString.Empty
         : new HtmlString($"data-relevance-affects=\"{HtmlEncoder.Default.Encode(AffectsRelevanceText)}\"");
+
+    /// <summary>Gets the rule that shows the field only while a list field has one answer, or <see langword="null"/> when the field is
+    /// always shown.</summary>
+    public FieldVisibilityRule? VisibleWhen { get; init; }
 
     /// <summary>Gets the read-only plain-text or rich/HTML display value, used when not <see cref="IsEditable"/>.</summary>
     public string? ValueDisplay { get; init; }

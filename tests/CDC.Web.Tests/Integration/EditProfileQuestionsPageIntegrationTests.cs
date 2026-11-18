@@ -279,11 +279,33 @@ public partial class EditProfileQuestionsPageIntegrationTests : IClassFixture<Cd
         Assert.Contains("id=\"question-reference-dialog-title\">Add/Select a reference to question <span data-reference-question-number></span></h2>", dialogMarkup);
         Assert.Contains("<option value=\"add\">Add a reference</option>", dialogMarkup);
         Assert.Contains("<option value=\"select\">Select a reference</option>", dialogMarkup);
+        Assert.Contains("for=\"reference-mode\">Please choose an action:</label>", dialogMarkup);
+        Assert.Contains("for=\"reference-type\">Please choose a reference type:</label>", dialogMarkup);
         Assert.Contains($"<option value=\"{NoteTypeId}\">Scientific paper reference</option>", dialogMarkup);
-        Assert.Contains($"data-reference-question-choice=\"{QuestionId}\"", dialogMarkup);
+        Assert.Contains($"data-reference-question-choice=\"{QuestionId}\" data-reference-choice-number=\"1.1\"", dialogMarkup);
         Assert.Contains(">1.1: ", dialogMarkup);
         Assert.Contains("data-error-mode=\"Select an action\"", dialogMarkup);
         Assert.Contains("/js/question-references.js", body);
+    }
+
+    // The legacy pop-up's picker, "Apply this reference also to:", is collapsed, with an All at the top of the questions, and a circle with a chevron
+    // follows its text; the box that shows the text of the reference selected is in the dialog from the start, not made to appear.
+    [Fact]
+    public async Task ReferencesDialog_HasACollapsedPickerWithAll_AndTheBoxForTheReferenceSelected()
+    {
+        var body = await GetPageAsync(DraftProfile());
+
+        var dialogMarkup = body[body.IndexOf("id=\"question-reference-dialog\"", StringComparison.Ordinal)..];
+        Assert.Contains("<details class=\"govuk-details app-picker app-reference-picker\" data-reference-questions>", dialogMarkup);
+        Assert.DoesNotContain("data-reference-questions open", dialogMarkup);
+        Assert.Matches(
+            "Apply this reference also to: <span data-reference-questions-summary></span></span>\\s*<span class=\"govuk-accordion-nav__chevron govuk-accordion-nav__chevron--down\" aria-hidden=\"true\"></span>",
+            dialogMarkup);
+        Assert.Contains("id=\"reference-questions-all\" type=\"checkbox\" data-reference-all />", dialogMarkup);
+        Assert.Contains("for=\"reference-questions-all\">All</label>", dialogMarkup);
+        Assert.DoesNotContain("name=\"reference-questions-all\"", dialogMarkup);
+        Assert.Contains("data-reference-current-note></div>", dialogMarkup);
+        Assert.DoesNotContain("data-reference-current-note hidden", dialogMarkup);
     }
 
     // The legacy page showed "Reference was saved successfully" in lblErrorDesc, so the page has a banner for the dialog to show.

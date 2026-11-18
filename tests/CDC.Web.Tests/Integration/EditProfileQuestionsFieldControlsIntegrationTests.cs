@@ -24,6 +24,7 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
     private static readonly Guid UnnamedListFieldId = Guid.NewGuid();
     private static readonly Guid RoutesFieldId = Guid.NewGuid();
     private static readonly Guid UnnamedRoutesFieldId = Guid.NewGuid();
+    private static readonly Guid SeverityReasonFieldId = Guid.NewGuid();
     private static readonly Guid SeverityTableId = Guid.NewGuid();
     private static readonly Guid RoutesTableId = Guid.NewGuid();
     private static readonly Guid LowId = Guid.NewGuid();
@@ -67,7 +68,10 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
                             new ProfileFieldMetadataDto { Id = SeverityFieldId, QuestionId = QuestionId, Name = "Severity", FieldNumber = 3, DataTypeName = "List", ReferenceTableId = SeverityTableId, IsMandatory = true },
                             new ProfileFieldMetadataDto { Id = UnnamedListFieldId, QuestionId = QuestionId, Name = string.Empty, FieldNumber = 4, DataTypeName = "List", ReferenceTableId = SeverityTableId },
                             new ProfileFieldMetadataDto { Id = RoutesFieldId, QuestionId = QuestionId, Name = "Routes of infection", FieldNumber = 5, DataTypeName = "MultiValueList", ReferenceTableId = RoutesTableId },
-                            new ProfileFieldMetadataDto { Id = UnnamedRoutesFieldId, QuestionId = QuestionId, Name = string.Empty, FieldNumber = 6, DataTypeName = "MultiValueList", ReferenceTableId = RoutesTableId }
+                            new ProfileFieldMetadataDto { Id = UnnamedRoutesFieldId, QuestionId = QuestionId, Name = string.Empty, FieldNumber = 6, DataTypeName = "MultiValueList", ReferenceTableId = RoutesTableId },
+
+                            // Asked only while the severity is high, as the legacy page showed such a field.
+                            new ProfileFieldMetadataDto { Id = SeverityReasonFieldId, QuestionId = QuestionId, Name = "Why is the severity high?", FieldNumber = 7, DataTypeName = "Long Text", RelevanceFieldId = SeverityFieldId, RelevanceValueId = HighId }
                         ]
                     }
                 ]
@@ -96,9 +100,9 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
         FieldValues = [Value(1, boolean: true), Value(3, list: HighId), Value(5, list: FoodId)]
     };
 
-    private async Task<string> GetPageAsync(ManageProfileViewModel profile)
+    private async Task<string> GetPageAsync(ManageProfileViewModel profile, ProfileSectionAnswersDto? answers = null)
     {
-        var sections = new FakeProfileSectionsApiService(metadata: Metadata(), answers: Answers(), referenceValuesByTable: ReferenceValues());
+        var sections = new FakeProfileSectionsApiService(metadata: Metadata(), answers: answers ?? Answers(), referenceValuesByTable: ReferenceValues());
 
         using var factory = _factory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
@@ -237,5 +241,57 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
         Assert.DoesNotContain($"id=\"field_{RiskFieldId}-readonly-no\" type=\"checkbox\" disabled checked", field);
         Assert.DoesNotContain("<select", field);
         Assert.DoesNotContain("name=\"field_", field);
+    }
+
+    private static ProfileSectionAnswersDto AnswersWithSeverity(Guid? severity)
+    {
+        List<ProfileFieldValueDto> values = [Value(1, boolean: true), Value(5, list: FoodId)];
+
+        if (severity is { } answer)
+        {
+            values.Add(Value(3, list: answer));
+        }
+
+        return new ProfileSectionAnswersDto { FieldValues = values };
+    }
+
+    // As the legacy page did, a field is shown only while the list answer it depends on is the one it names: it sits in a container that says which.
+    [Fact]
+    public async Task FieldThatDependsOnAnAnswer_IsInAContainerNamingTheDropDownAndTheAnswer_AndIsShownWhileTheAnswerIsThat()
+    {
+        var body = await GetPageAsync(ProfileTabTestData.DraftProfile());
+
+        Assert.Contains($"<div data-visible-when-field=\"field_{SeverityFieldId}\" data-visible-when-value=\"{HighId}\">", body);
+        Assert.Contains($"name=\"field_{SeverityReasonFieldId}\"", body);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FieldThatDependsOnAnAnswer_IsHiddenWhileTheDropDownHoldsAnotherAnswerOrNone_ButStaysOnThePageForTheFormToPost(bool answered)
+    {
+        var body = await GetPageAsync(ProfileTabTestData.DraftProfile(), AnswersWithSeverity(answered ? LowId : null));
+
+        Assert.Contains($"<div data-visible-when-field=\"field_{SeverityFieldId}\" data-visible-when-value=\"{HighId}\" hidden=\"hidden\">", body);
+        Assert.Contains($"name=\"field_{SeverityReasonFieldId}\"", body);
+    }
+
+    [Fact]
+    public async Task FieldsThatDoNotDependOnAnAnswer_AreNotInAContainerThatHidesThem()
+    {
+        var body = await GetPageAsync(ProfileTabTestData.DraftProfile());
+
+        Assert.Equal(1, Regex.Count(body, "data-visible-when-field"));
+        Assert.Contains("/js/field-visibility.js", body);
+    }
+
+    [Fact]
+    public async Task ReadOnlyUser_IsShownTheFieldThatDependsOnAnAnswer_OnlyWhileTheAnswerIsTheOneItNames()
+    {
+        var shown = await GetPageAsync(ProfileTabTestData.ReadOnlyDraftProfile());
+        var hidden = await GetPageAsync(ProfileTabTestData.ReadOnlyDraftProfile(), AnswersWithSeverity(LowId));
+
+        Assert.Contains($"data-visible-when-value=\"{HighId}\">", shown);
+        Assert.Contains($"data-visible-when-value=\"{HighId}\" hidden=\"hidden\">", hidden);
     }
 }

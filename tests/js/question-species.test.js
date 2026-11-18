@@ -438,6 +438,79 @@ describe('question-species', () => {
     });
   });
 
+  // A list or Boolean answer the user may not change is shown as boxes that cannot be changed, as the legacy View link showed it.
+  describe('a list or Boolean answer the user may not change', () => {
+    beforeEach(async () => {
+      document.body.innerHTML = `
+        <form id="form">
+          <div id="question" data-species-question data-species-can-edit="false">
+            <table><tbody>
+              <tr data-species-row="cattle" data-species-name="Cattle">
+                <th scope="row">Cattle</th>
+                <td>
+                  <button type="button" id="view-cattle" data-species-edit="cattle">View</button>
+                  <input type="hidden" data-species-value="trade" value="true">
+                  <input type="hidden" data-species-value="level" value="high">
+                </td>
+              </tr>
+              <tr data-species-row="sheep" data-species-name="Sheep">
+                <th scope="row">Sheep</th>
+                <td>
+                  <button type="button" id="view-sheep" data-species-edit="sheep">View</button>
+                  <input type="hidden" data-species-value="trade" value="false">
+                  <input type="hidden" data-species-value="level" value="">
+                </td>
+              </tr>
+            </tbody></table>
+            <div id="panel" data-species-panel hidden tabindex="-1">
+              <h3 data-species-panel-heading></h3>
+              <div data-answer-field="trade" data-field-type="Boolean" data-field-editable="false">
+                <fieldset>
+                  <legend>Commercial trade?</legend>
+                  <input type="checkbox" id="trade-yes" value="true" disabled data-answer-choice><label for="trade-yes">Yes</label>
+                  <input type="checkbox" id="trade-no" value="false" disabled data-answer-choice><label for="trade-no">No</label>
+                </fieldset>
+              </div>
+              <div data-answer-field="level" data-field-type="List" data-field-editable="false">
+                <fieldset>
+                  <legend>Level</legend>
+                  <input type="checkbox" id="level-low" value="low" disabled data-answer-choice><label for="level-low">Low</label>
+                  <input type="checkbox" id="level-high" value="high" disabled data-answer-choice><label for="level-high">High</label>
+                </fieldset>
+              </div>
+              <button type="button" id="ok" data-species-ok>Close</button>
+            </div>
+          </div>
+        </form>`;
+      await load();
+    });
+
+    const ticked = () => ['trade-yes', 'trade-no', 'level-low', 'level-high'].filter((id) => get(id).checked);
+
+    it('ticks the box that holds the answer of the species being viewed', () => {
+      get('view-cattle').click();
+
+      expect(get('panel').querySelector('[data-species-panel-heading]').textContent).toBe('View answer for cattle');
+      expect(ticked()).toEqual(['trade-yes', 'level-high']);
+    });
+
+    it('ticks the boxes of the next species when it is viewed, and none for an answer it has not given', () => {
+      get('view-cattle').click();
+      get('view-sheep').click();
+
+      expect(ticked()).toEqual(['trade-no']);
+    });
+
+    it('keeps the answers the row holds when the panel is closed', () => {
+      get('view-cattle').click();
+      get('ok').click();
+
+      expect(get('panel').hidden).toBe(true);
+      expect(get('question').querySelector('[data-species-row="cattle"] [data-species-value="trade"]').value).toBe('true');
+      expect(get('question').querySelector('[data-species-row="cattle"] [data-species-value="level"]').value).toBe('high');
+    });
+  });
+
   describe('saving the section', () => {
     it('keeps the changes of a panel that is still open when the form is submitted', () => {
       const submitted = vi.fn((event) => event.preventDefault());

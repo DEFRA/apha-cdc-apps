@@ -7,12 +7,50 @@
 
     // A change to the answer of a field that decides whether other questions apply is confirmed first, as the legacy page asked.
     IHtmlContent relevance = field.IsEditable ? field.RelevanceAttribute : HtmlString.Empty;
+
+    // A field with no label of its own is named for the question it answers, which only a screen reader reads.
+    var hasLabel = !string.IsNullOrWhiteSpace(field.Label);
+    var legendText = hasLabel ? field.Label : field.LabelFallback;
+    var legendClass = hasLabel ? "govuk-fieldset__legend govuk-fieldset__legend--s" : "govuk-fieldset__legend govuk-visually-hidden";
 }
 @* One control of the panel that edits a species' answers. It has no name, so it is not posted: question-species.js copies its value into
    the hidden input the species' row keeps the answer in, which is what the form posts. *@
 <div class="govuk-form-group" data-answer-field="@field.FieldId" data-field-type="@field.DataTypeName" data-field-editable="@(field.IsEditable ? "true" : "false")">
     @switch (field.DataTypeName)
     {
+        case "Boolean" when !field.IsEditable:
+            @* As the legacy page showed a Boolean the user may not change: a Yes and a No box, one ticked, neither of which can be changed. *@
+            <fieldset class="govuk-fieldset">
+                <legend class="@legendClass">@legendText</legend>
+                <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                    <div class="govuk-checkboxes__item">
+                        <input class="govuk-checkboxes__input" id="@(controlId)-yes" type="checkbox" value="true" disabled data-answer-choice />
+                        <label class="govuk-label govuk-checkboxes__label" for="@(controlId)-yes">Yes</label>
+                    </div>
+                    <div class="govuk-checkboxes__item">
+                        <input class="govuk-checkboxes__input" id="@(controlId)-no" type="checkbox" value="false" disabled data-answer-choice />
+                        <label class="govuk-label govuk-checkboxes__label" for="@(controlId)-no">No</label>
+                    </div>
+                </div>
+            </fieldset>
+            break;
+        case "List" when !field.IsEditable:
+            @* As the legacy page showed a list the user may not change: a box for each choice, none of them changeable, the answer's ticked by the panel's script. *@
+            <fieldset class="govuk-fieldset">
+                <legend class="@legendClass">@legendText</legend>
+                <div class="govuk-checkboxes govuk-checkboxes--small app-checkboxes--columns" data-module="govuk-checkboxes">
+                    @for (var optionIndex = 0; optionIndex < field.Options.Count; optionIndex++)
+                    {
+                        var option = field.Options[optionIndex];
+                        var optionId = $"{controlId}-{optionIndex}";
+                        <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input" id="@optionId" type="checkbox" value="@option.Id" disabled data-answer-choice />
+                            <label class="govuk-label govuk-checkboxes__label" for="@optionId">@option.Text</label>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+            break;
         case "Boolean":
             <label class="govuk-label govuk-label--s" for="@controlId">@field.Label</label>
             <select class="govuk-select" id="@controlId" disabled="@disabled" data-answer-editor @relevance>

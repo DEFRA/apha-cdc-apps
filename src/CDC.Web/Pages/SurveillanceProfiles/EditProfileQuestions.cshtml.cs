@@ -299,9 +299,9 @@ public class EditProfileQuestionsModel(
 
     /// <summary>
     /// Handles the page's hidden refresh button as the legacy <c>btnHiddenRefresh_Click</c> did. The page presses it when the user has
-    /// changed an answer that decides whether other questions apply and confirmed the change: it saves the section as Save does, so
-    /// that the questions the answers made irrelevant are cleared and hidden, and then says nothing of the save, which the user did not
-    /// ask for.
+    /// changed an answer that decides whether other questions apply and confirmed the change, or one that shows or hides a field: it saves
+    /// the section as Save does, so that the questions the answers made irrelevant are cleared and hidden, and then says nothing of the
+    /// save, which the user did not ask for.
     /// </summary>
     /// <param name="profileVersionId">The profile version being answered, posted from a hidden field.</param>
     /// <param name="lastUpdated">The section's Base64 row version, read when the page was shown.</param>
@@ -511,6 +511,7 @@ public class EditProfileQuestionsModel(
 
         var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
         var valuesByQuestion = answers.FieldValues.ToLookup(value => value.QuestionId);
+        var listAnswers = ListAnswersOfDecidingFields(section, answers.FieldValues);
 
         // "List"/"MultiValueList" fields render as real checkbox/radio options rather than plain
         // text, so fetch every distinct reference table used by this section once.
@@ -535,7 +536,8 @@ public class EditProfileQuestionsModel(
                 question,
                 namesByQuestion.TryGetValue(question.Id, out var name) ? name.Name : question.ShortName,
                 [.. valuesByQuestion[question.Id]],
-                referenceValuesByTable))
+                referenceValuesByTable,
+                listAnswers))
         ];
     }
 
@@ -547,7 +549,8 @@ public class EditProfileQuestionsModel(
         ProfileQuestionMetadataDto question,
         string text,
         List<ProfileFieldValueDto> questionValues,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable,
+        IReadOnlyDictionary<Guid, Guid> listAnswers)
     {
         var number = $"{section.SectionNumber}.{question.QuestionNumber}";
         var isPerSpecies = IsPerSpeciesQuestion(question);
@@ -573,7 +576,10 @@ public class EditProfileQuestionsModel(
                 usesPanel ? [] : [.. questionValues.Where(value => value.FieldNumber == field.FieldNumber)],
                 referenceValuesByTable,
                 valuesInUse,
-                VersionDataText(field)))
+                VersionDataText(field)) with
+            {
+                VisibleWhen = usesPanel ? null : VisibilityRuleOf(field, listAnswers)
+            })
             .ToList();
 
         return new ProfileQuestionEditView
@@ -671,6 +677,44 @@ public class EditProfileQuestionsModel(
             _ => string.Empty
         };
     }
+
+    /// <summary>The recorded list answer of each field that decides whether another field of the section is shown; a field with no answer has no entry.</summary>
+    private static Dictionary<Guid, Guid> ListAnswersOfDecidingFields(ProfileSectionMetadataDto section, IReadOnlyList<ProfileFieldValueDto> values)
+    {
+        var decidingFieldIds = section.Questions
+            .SelectMany(question => question.Fields)
+            .Select(field => field.RelevanceFieldId)
+            .Where(id => id != Guid.Empty)
+            .ToHashSet();
+
+        var answers = new Dictionary<Guid, Guid>();
+
+        foreach (var field in section.Questions.SelectMany(question => question.Fields).Where(field => decidingFieldIds.Contains(field.Id)))
+        {
+            var answer = values.LastOrDefault(value =>
+                value.QuestionId == field.QuestionId
+                && value.FieldNumber == field.FieldNumber
+                && value.SpeciesId is null
+                && value.ProfileVersionQuestionRowId is null
+                && value.ListValue is not null);
+
+            if (answer is not null)
+            {
+                answers[field.Id] = answer.ListValue!.Value;
+            }
+        }
+
+        return answers;
+    }
+
+    /// <summary>The rule that shows a field only while a list field holds one answer, or <see langword="null"/> for a field that is always shown.</summary>
+    private static FieldVisibilityRule? VisibilityRuleOf(ProfileFieldMetadataDto field, IReadOnlyDictionary<Guid, Guid> listAnswers) =>
+        field.RelevanceFieldId == Guid.Empty
+            ? null
+            : new FieldVisibilityRule(
+                field.RelevanceFieldId,
+                field.RelevanceValueId,
+                listAnswers.TryGetValue(field.RelevanceFieldId, out var answer) && answer == field.RelevanceValueId);
 
     /// <summary>Builds one field's view: a real editable control matching its data type when
     /// <paramref name="isEditable"/>, otherwise the same static read-only rendering as before

@@ -225,6 +225,7 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
         Assert.DoesNotContain("data-species-cancel", welfare);
         Assert.Contains("data-species-can-edit=\"false\"", welfare);
         Assert.Contains("<button type=\"button\" class=\"govuk-button govuk-button--secondary\" data-module=\"govuk-button\" data-species-ok>Close</button>", welfare);
+        Assert.Matches("<div class=\"govuk-button-group app-button-group--right\">\\s*<button type=\"button\" class=\"govuk-button govuk-button--secondary\" data-module=\"govuk-button\" data-species-ok>Close</button>", welfare);
     }
 
     [Fact]
@@ -329,16 +330,104 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
     }
 
     [Fact]
-    public async Task Panel_ShowsAReadOnlyUsersLongTextAnswerAsFormattedText_AndDisablesTheOtherControls()
+    public async Task Panel_ShowsAReadOnlyUsersLongTextAnswerAsFormattedText_AndTheirBooleanAsBoxesThatCannotBeChanged()
     {
         var body = await GetPageAsync(ReadOnlyDraftProfile());
 
         var welfare = QuestionMarkup(body, WelfareQuestionId);
+        var controlId = $"species-{WelfareQuestionId}-field-{WelfareFieldId}";
 
         Assert.Contains($"id=\"species-{WelfareQuestionId}-field-{CommentsFieldId}\" aria-labelledby=\"species-{WelfareQuestionId}-field-{CommentsFieldId}-label\" data-answer-text-view", welfare);
         Assert.DoesNotContain("<textarea", welfare);
         Assert.DoesNotContain("data-richtext-command", welfare);
-        Assert.Matches($"<select class=\"govuk-select\" id=\"species-{WelfareQuestionId}-field-{WelfareFieldId}\" disabled=\"disabled\"", welfare);
+
+        // As the legacy View link showed a Boolean the user may not change: a Yes and a No box, not a disabled drop-down.
+        Assert.DoesNotContain("<select", welfare);
+        Assert.Contains($"id=\"{controlId}-yes\" type=\"checkbox\" value=\"true\" disabled data-answer-choice />", welfare);
+        Assert.Contains($"id=\"{controlId}-no\" type=\"checkbox\" value=\"false\" disabled data-answer-choice />", welfare);
+        Assert.Contains("<legend class=\"govuk-fieldset__legend govuk-fieldset__legend--s\">Compromised welfare?</legend>", welfare);
+    }
+
+    // As the legacy View link showed a list the user may not change: a box for each choice, not a disabled drop-down.
+    [Fact]
+    public async Task Panel_ShowsAListTheUserMayNotChangeAsBoxes_NotAsADropDown()
+    {
+        var body = await GetPageAsync(ReadOnlyDraftProfile());
+
+        var impact = QuestionMarkup(body, ImpactQuestionId);
+        var controlId = $"species-{ImpactQuestionId}-field-{ImpactFieldId}";
+
+        Assert.Contains($"type=\"checkbox\" value=\"{MildId}\" disabled data-answer-choice />", impact);
+        Assert.Contains($"type=\"checkbox\" value=\"{SevereId}\" disabled data-answer-choice />", impact);
+        Assert.Matches($"<label class=\"govuk-label govuk-checkboxes__label\" for=\"{controlId}-\\d+\">Mild</label>", impact);
+        Assert.DoesNotContain($"id=\"{controlId}\"", impact);
+        Assert.DoesNotContain($"<option value=\"{MildId}\">", impact);
+    }
+
+    // A field with no label of its own is named for the question it answers, which only a screen reader reads.
+    [Fact]
+    public async Task Panel_NamesAnUnlabelledListTheUserMayNotChangeForTheQuestion_ForAScreenReader()
+    {
+        var questionId = Guid.NewGuid();
+        var fieldId = Guid.NewGuid();
+        var tableId = Guid.NewGuid();
+        var optionId = Guid.NewGuid();
+        var metadata = new ProfileQuestionnaireMetadataDto
+        {
+            Sections =
+            [
+                new ProfileSectionMetadataDto
+                {
+                    Id = SectionId,
+                    Name = "International trade",
+                    ShortName = "Trade",
+                    SectionNumber = 13,
+                    Questions =
+                    [
+                        new ProfileQuestionMetadataDto
+                        {
+                            Id = questionId,
+                            SectionId = SectionId,
+                            ShortName = "Level",
+                            QuestionNumber = 6,
+                            IsPerSpecies = true,
+                            Fields =
+                            [
+                                new ProfileFieldMetadataDto
+                                {
+                                    Id = fieldId,
+                                    QuestionId = questionId,
+                                    FieldNumber = 1,
+                                    DataTypeName = "List",
+                                    ReferenceTableId = tableId,
+                                    IncludeInSummary = true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var answers = new ProfileSectionAnswersDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            ProfileSectionId = SectionId,
+            ProfiledSpecies = [new ProfileSpeciesDto { Id = CattleId, Name = "Cattle" }]
+        };
+        var sections = new FakeProfileSectionsApiService(
+            metadata: metadata,
+            answers: answers,
+            referenceValuesByTable: new Dictionary<Guid, IReadOnlyList<ReferenceValueDto>>
+            {
+                [tableId] = [new ReferenceValueDto { Id = optionId, Value = "Some" }]
+            });
+
+        var body = await GetPageAsync(ReadOnlyDraftProfile(), sections);
+
+        var panel = QuestionMarkup(body, questionId);
+
+        Assert.Contains("<legend class=\"govuk-fieldset__legend govuk-visually-hidden\">Answer to question 13.6</legend>", panel);
+        Assert.Contains($"type=\"checkbox\" value=\"{optionId}\" disabled data-answer-choice />", panel);
     }
 
     [Fact]
@@ -355,18 +444,36 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
     }
 
     [Fact]
-    public async Task Panel_HasACollapsibleListOfTheOtherSpeciesToApplyTheAnswerTo()
+    public async Task Panel_HasACollapsibleListOfTheOtherSpeciesToApplyTheAnswerTo_WithACircleAndChevronAfterItsText()
     {
         var body = await GetPageAsync(DraftProfile());
 
         var welfare = QuestionMarkup(body, WelfareQuestionId);
 
-        Assert.Contains("<details class=\"govuk-details app-species-picker\" data-species-picker>", welfare);
-        Assert.Contains("Apply this answer also to: <span data-species-picker-names></span>", welfare);
+        Assert.Contains("<details class=\"govuk-details app-picker app-species-picker\" data-species-picker>", welfare);
+        Assert.Matches(
+            "Apply this answer also to: <span data-species-picker-names></span></span>\\s*<span class=\"govuk-accordion-nav__chevron govuk-accordion-nav__chevron--down\" aria-hidden=\"true\"></span>",
+            welfare);
         Assert.Contains($"id=\"species-{WelfareQuestionId}-pick-all\" type=\"checkbox\" data-species-pick-all", welfare);
         Assert.Contains("<label class=\"govuk-label govuk-checkboxes__label\" for=\"species-" + WelfareQuestionId + "-pick-all\">All</label>", welfare);
         Assert.Contains($"value=\"{CattleId}\" data-species-pick=\"{CattleId}\" data-species-name=\"Cattle\"", welfare);
         Assert.Contains($"value=\"{BadgerId}\" data-species-pick=\"{BadgerId}\" data-species-name=\"Meles meles (badger)\"", welfare);
+    }
+
+    // As the legacy panel's table had them, the picker of the other species and the buttons share a row, the buttons at the right.
+    [Fact]
+    public async Task Panel_PutsThePickerAndTheButtonsInOneRow_TheButtonsAtTheRight()
+    {
+        var body = await GetPageAsync(DraftProfile());
+
+        var welfare = QuestionMarkup(body, WelfareQuestionId);
+
+        var footer = welfare.IndexOf("<div class=\"app-answer-panel__footer\">", StringComparison.Ordinal);
+        var picker = welfare.IndexOf("data-species-picker>", StringComparison.Ordinal);
+        var buttons = welfare.IndexOf("<div class=\"govuk-button-group app-button-group--right\">", StringComparison.Ordinal);
+
+        Assert.True(footer >= 0 && picker > footer && buttons > picker, "The picker, then the buttons, should be inside the footer.");
+        Assert.Matches("data-species-ok>OK</button>\\s*<button[^>]* data-species-cancel>Cancel</button>", welfare[buttons..]);
     }
 
     [Fact]
@@ -428,6 +535,16 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
         var relevance = body.IndexOf("/js/relevance-confirm.js", StringComparison.Ordinal);
 
         Assert.True(richText >= 0 && species > richText && relevance > species);
+    }
+
+    // The scripts that keep the user's place across the refresh and show a field as the answer it depends on changes are on the page.
+    [Fact]
+    public async Task Page_LoadsTheScriptsThatKeepTheUsersPlaceAcrossTheRefresh_AndShowFieldsAsTheirAnswerChanges()
+    {
+        var body = await GetPageAsync(DraftProfile());
+
+        Assert.Contains("/js/refresh-scroll.js", body);
+        Assert.Contains("/js/field-visibility.js", body);
     }
 
     [Fact]
