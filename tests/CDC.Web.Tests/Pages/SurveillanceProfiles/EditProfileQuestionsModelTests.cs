@@ -1583,4 +1583,205 @@ public class EditProfileQuestionsModelTests
         Assert.IsType<PageResult>(result);
         Assert.Equal(0, service.SaveProfileVersionSectionCallCount);
     }
+
+    private static readonly Guid SpeciesOneId = Guid.NewGuid();
+    private static readonly Guid SpeciesTwoId = Guid.NewGuid();
+    private static readonly Guid ListFieldId = Guid.NewGuid();
+    private static readonly Guid MultiListFieldId = Guid.NewGuid();
+
+    private static ProfileQuestionnaireMetadataDto PerSpeciesMetadata() => new()
+    {
+        Sections =
+        [
+            new ProfileSectionMetadataDto
+            {
+                Id = StandardSectionId,
+                Name = "Epidemiology",
+                ShortName = "Epi",
+                SectionNumber = 3,
+                Questions =
+                [
+                    new ProfileQuestionMetadataDto
+                    {
+                        Id = StandardQuestionId,
+                        SectionId = StandardSectionId,
+                        ShortName = "Q1",
+                        QuestionNumber = 1,
+                        IsPerSpecies = true,
+                        Fields =
+                        [
+                            new ProfileFieldMetadataDto { Id = BooleanFieldId, QuestionId = StandardQuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean" }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    private static ProfileSectionAnswersDto TwoSpeciesAnswers() => new()
+    {
+        ProfiledSpecies = [new ProfileSectionSpeciesDto(SpeciesOneId, "<b>Cattle</b>"), new ProfileSectionSpeciesDto(SpeciesTwoId, "Sheep")],
+        FieldValues =
+        [
+            new ProfileFieldValueDto { QuestionId = StandardQuestionId, FieldNumber = 1, SpeciesId = SpeciesOneId, BooleanValue = true },
+            new ProfileFieldValueDto { QuestionId = StandardQuestionId, FieldNumber = 1, SpeciesId = SpeciesTwoId, BooleanValue = false }
+        ]
+    };
+
+    [Fact]
+    public async Task OnGetAsync_PerSpeciesQuestion_BuildsOneRowPerProfiledSpecies_WithMarkupStrippedFromTheName()
+    {
+        var pageModel = CreatePageModel(EditableProfile(), metadata: PerSpeciesMetadata(), answers: TwoSpeciesAnswers(), section: StandardSectionId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var rows = Assert.Single(pageModel.Questions).SpeciesRows;
+        Assert.Equal(["Cattle", "Sheep"], rows.Select(row => row.SpeciesName));
+    }
+
+    [Fact]
+    public async Task OnGetAsync_PerSpeciesQuestion_GivesEachRowItsOwnSpeciesAnswer()
+    {
+        var pageModel = CreatePageModel(EditableProfile(), metadata: PerSpeciesMetadata(), answers: TwoSpeciesAnswers(), section: StandardSectionId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var rows = Assert.Single(pageModel.Questions).SpeciesRows;
+        Assert.Equal([true, false], rows.Select(row => Assert.Single(row.Fields).BooleanValue));
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_PerSpeciesQuestion_SendsOneAnswerPerSpecies()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string>
+            {
+                [$"field_{BooleanFieldId}_{SpeciesOneId:N}"] = "true",
+                [$"field_{BooleanFieldId}_{SpeciesTwoId:N}"] = "false"
+            },
+            metadata: PerSpeciesMetadata(),
+            answers: TwoSpeciesAnswers());
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.NotNull(service.SavedAnswers);
+        Assert.Equal([SpeciesOneId, SpeciesTwoId], service.SavedAnswers.Select(answer => answer.SpeciesId!.Value));
+    }
+
+    private static ProfileQuestionnaireMetadataDto ListFieldsMetadata() => new()
+    {
+        Sections =
+        [
+            new ProfileSectionMetadataDto
+            {
+                Id = StandardSectionId,
+                Name = "Epidemiology",
+                ShortName = "Epi",
+                SectionNumber = 3,
+                Questions =
+                [
+                    new ProfileQuestionMetadataDto
+                    {
+                        Id = StandardQuestionId,
+                        SectionId = StandardSectionId,
+                        ShortName = "Q1",
+                        QuestionNumber = 1,
+                        Fields =
+                        [
+                            new ProfileFieldMetadataDto { Id = ListFieldId, QuestionId = StandardQuestionId, Name = "Route", FieldNumber = 1, DataTypeName = "List" },
+                            new ProfileFieldMetadataDto { Id = MultiListFieldId, QuestionId = StandardQuestionId, Name = "Routes", FieldNumber = 2, DataTypeName = "MultiValueList" }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_ListField_SendsTheSelectedGuid()
+    {
+        var selected = Guid.NewGuid();
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string> { [$"field_{ListFieldId}"] = selected.ToString() },
+            metadata: ListFieldsMetadata());
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal(selected, service.SavedAnswers!.Single(answer => answer.ProfileFieldId == ListFieldId).ListValue);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_ListField_SendsNoValue_WhenTheSelectionIsNotAGuid()
+    {
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string> { [$"field_{ListFieldId}"] = "not-a-guid" },
+            metadata: ListFieldsMetadata());
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Null(service.SavedAnswers!.Single(answer => answer.ProfileFieldId == ListFieldId).ListValue);
+    }
+
+    [Fact]
+    public async Task OnPostSaveSectionAsync_MultiValueListField_KeepsOnlyTheValidGuids()
+    {
+        var selected = Guid.NewGuid();
+        var (pageModel, service) = CreateValidatingPageModel(
+            EditableProfile(),
+            new Dictionary<string, string> { [$"field_{MultiListFieldId}"] = selected.ToString() },
+            metadata: ListFieldsMetadata());
+
+        await pageModel.OnPostSaveSectionAsync(ProfileVersionId, null, CancellationToken.None);
+
+        Assert.Equal([selected], service.SavedAnswers!.Single(answer => answer.ProfileFieldId == MultiListFieldId).MultiListValues);
+    }
+
+    [Theory]
+    [InlineData("<p>Hello &amp; goodbye</p>", "Hello & goodbye")]
+    [InlineData("  plain  ", "plain")]
+    public void SummaryText_ReturnsPlainDecodedText(string valueDisplay, string expected)
+    {
+        var view = new ProfileFieldEditView { FieldId = Guid.NewGuid(), Label = "L", DataTypeName = "Text", ValueDisplay = valueDisplay };
+
+        Assert.Equal(expected, view.SummaryText);
+    }
+
+    [Fact]
+    public void SummaryText_TruncatesToFiftyCharacters()
+    {
+        var view = new ProfileFieldEditView { FieldId = Guid.NewGuid(), Label = "L", DataTypeName = "Text", ValueDisplay = new string('a', 80) };
+
+        Assert.Equal(50, view.SummaryText.Length);
+    }
+
+    [Fact]
+    public void DisplayText_ListsTheCheckedOptions()
+    {
+        var view = new ProfileFieldEditView
+        {
+            FieldId = Guid.NewGuid(),
+            Label = "L",
+            DataTypeName = "List",
+            Options = [new ProfileFieldOptionEditView(Guid.NewGuid(), "A", true), new ProfileFieldOptionEditView(Guid.NewGuid(), "B", false), new ProfileFieldOptionEditView(Guid.NewGuid(), "C", true)]
+        };
+
+        Assert.Equal("A, C", view.DisplayText);
+    }
+
+    [Fact]
+    public void DisplayText_ReportsNotAnswered_WhenNoOptionIsChecked()
+    {
+        var view = new ProfileFieldEditView
+        {
+            FieldId = Guid.NewGuid(),
+            Label = "L",
+            DataTypeName = "List",
+            Options = [new ProfileFieldOptionEditView(Guid.NewGuid(), "A", false)]
+        };
+
+        Assert.Equal("Not answered", view.DisplayText);
+    }
 }
