@@ -31,11 +31,6 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         "SELECT UserId, ProfileVersionId, ShortName, SectionNumber, TechnicalReviewStatus, PolicyReviewStatus, " +
         "AuthorReviewStatus, NextTechnicalReview, NextPolicyReview, NextAuthorReview FROM dbo.vwReviewEmailProfileSections";
 
-    internal const string RolesQuery =
-        "SELECT pu.UserId, pv.Id AS ProfileVersionId, r.Name AS RoleName FROM dbo.ProfileUser pu " +
-        "INNER JOIN dbo.luProfileUserRole r ON r.Id = pu.ProfileUserRoleId " +
-        "INNER JOIN dbo.ProfileVersion pv ON pv.ProfileId = pu.ProfileId WHERE pv.EffectiveDateTo IS NULL";
-
     /// <inheritdoc />
     public async Task<IReadOnlyList<ReviewDueUser>> GetUsersDueReviewAsync(CancellationToken cancellationToken)
     {
@@ -44,8 +39,6 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         var users = (await connection.QueryAsync<UserRow>(new CommandDefinition(UsersQuery, cancellationToken: cancellationToken))).ToList();
         var profiles = (await connection.QueryAsync<ProfileRow>(new CommandDefinition(ProfilesQuery, cancellationToken: cancellationToken))).ToList();
         var sections = (await connection.QueryAsync<SectionRow>(new CommandDefinition(SectionsQuery, cancellationToken: cancellationToken))).ToList();
-
-        var roles = (await connection.QueryAsync<RoleRow>(new CommandDefinition(RolesQuery, cancellationToken: cancellationToken))).ToList();
 
         var result = new List<ReviewDueUser>();
 
@@ -63,10 +56,6 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
                         .Where(s => s.UserId == user.Id && s.ProfileVersionId == p.ProfileVersionId)
                         .OrderBy(s => s.SectionNumber)
                         .Select(ToSection)
-                        .ToList(),
-                    roles
-                        .Where(r => r.UserId == user.Id && r.ProfileVersionId == p.ProfileVersionId)
-                        .Select(r => r.RoleName)
                         .ToList(),
                     p.HasPublishedVersion))
                 .Where(p => p.Sections.Count > 0)
@@ -115,15 +104,6 @@ public sealed class ReviewNotificationsRepository(IDbConnectionFactory connectio
         public byte VersionMinor { get; set; }
 
         public bool HasPublishedVersion { get; set; }
-    }
-
-    internal sealed class RoleRow
-    {
-        public Guid UserId { get; set; }
-
-        public Guid ProfileVersionId { get; set; }
-
-        public string RoleName { get; set; } = string.Empty;
     }
 
     internal sealed class SectionRow
