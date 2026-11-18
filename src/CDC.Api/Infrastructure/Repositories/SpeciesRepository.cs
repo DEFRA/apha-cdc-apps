@@ -488,18 +488,16 @@ public sealed class SpeciesRepository(IDbConnectionFactory connectionFactory, IL
             await connection.ExecuteAsync(new CommandDefinition(
                 SpeciesStoredProcedures.ChangeSpeciesPosition,
                 parameters,
-                commandType: CommandType.StoredProcedure,
+                commandType: CommandType.Text,
                 cancellationToken: cancellationToken));
         }
         catch (DbException exception)
         {
-            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.ChangeSpeciesPosition);
+            logger.StoredProcedureFailed(exception, SpeciesStoredProcedures.ChangeSpeciesPositionName);
 
-            // spuSpeciesSequenceNumber RAISERRORs (error 50000) when no sibling exists at the
-            // resulting sequence number - either the species is already first/last, or (as with
-            // legacy data) the adjacent sequence number has a gap. The legacy CSLA business
-            // object surfaced this inline rather than as a crash, so it is passed through here
-            // rather than left to bubble up as an unhandled 500.
+            // The batch RAISERRORs when the species is already first/last under its parent. The
+            // legacy CSLA business object surfaced this inline rather than as a crash, so it is
+            // passed through here rather than left to bubble up as an unhandled 500.
             throw IsReorderBlockedViolation(exception)
                 ? new SpeciesReorderBlockedException(exception.Message, exception)
                 : exception;

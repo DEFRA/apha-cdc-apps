@@ -48,8 +48,70 @@ public static class SpeciesStoredProcedures
     /// <summary>Returns every recorded species name/parent change.</summary>
     public const string GetSpeciesAuditTrail = "spgaSpeciesTableAuditLog";
 
-    /// <summary>Swaps a species' sequence number with its previous or next sibling.</summary>
-    public const string ChangeSpeciesPosition = "spuSpeciesSequenceNumber";
+    /// <summary>Name used when logging a failed <see cref="ChangeSpeciesPosition"/> batch.</summary>
+    public const string ChangeSpeciesPositionName = "ChangeSpeciesPosition";
+
+    /// <summary>
+    /// Swaps a species with its previous or next sibling and writes the audit trail entry. An inline
+    /// batch rather than <c>spuSpeciesSequenceNumber</c>, so it works whatever version of that
+    /// procedure an environment has. Siblings are renumbered 1..n first, so gaps, duplicates and
+    /// NULL sequence numbers in legacy data cannot block a move.
+    /// </summary>
+    public const string ChangeSpeciesPosition = """
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+
+        DECLARE @Empty uniqueidentifier = '00000000-0000-0000-0000-000000000000';
+        DECLARE @ParentId uniqueidentifier;
+        DECLARE @Name varchar(50);
+        DECLARE @ParentName varchar(50);
+        DECLARE @OldPos int;
+        DECLARE @NewPos int;
+        DECLARE @Siblings TABLE (Id uniqueidentifier PRIMARY KEY, Pos int NOT NULL);
+
+        BEGIN TRANSACTION;
+
+        SELECT @ParentId = [ParentId], @Name = [Name] FROM [Species] WHERE [Id] = @SpeciesId;
+
+        INSERT INTO @Siblings (Id, Pos)
+        SELECT [Id], ROW_NUMBER() OVER (ORDER BY ISNULL([SequenceNumber], 2147483647), [Name], [Id])
+        FROM [Species]
+        WHERE ISNULL([ParentId], @Empty) = ISNULL(@ParentId, @Empty);
+
+        SELECT @OldPos = Pos FROM @Siblings WHERE Id = @SpeciesId;
+        SET @NewPos = CASE WHEN @IsMovingUp = 1 THEN @OldPos - 1 ELSE @OldPos + 1 END;
+
+        IF @OldPos IS NULL OR NOT EXISTS (SELECT 1 FROM @Siblings WHERE Pos = @NewPos)
+        BEGIN
+            ROLLBACK TRANSACTION;
+            RAISERROR('Sequence change failed: There is no species above/below this one', 16, 1);
+            RETURN;
+        END
+
+        UPDATE s
+        SET s.[SequenceNumber] = n.NewPos
+        FROM [Species] s
+        INNER JOIN (
+            SELECT Id,
+                CASE WHEN Id = @SpeciesId THEN @NewPos WHEN Pos = @NewPos THEN @OldPos ELSE Pos END AS NewPos
+            FROM @Siblings
+        ) n ON n.Id = s.[Id]
+        WHERE s.[SequenceNumber] IS NULL OR s.[SequenceNumber] <> n.NewPos;
+
+        IF @ParentId IS NULL
+            SET @ParentName = '- root species -';
+        ELSE
+            SELECT @ParentName = [Name] FROM [Species] WHERE [Id] = @ParentId;
+
+        INSERT INTO [SpeciesTableAuditLog]
+            ([Id], [UserId], [EffectiveDate], [LogDate], [Reason], [OldName], [NewName], [OldParent], [NewParent])
+        VALUES
+            (NEWID(), @UserId, GETDATE(), GETDATE(),
+             CASE WHEN @IsMovingUp = 1 THEN 'Moved up within the hierarchy' ELSE 'Moved down within the hierarchy' END,
+             @Name, @Name, @ParentName, @ParentName);
+
+        COMMIT TRANSACTION;
+        """;
 
     /// <summary>Marks a species inactive, and writes the audit trail entry.</summary>
     public const string InactivateSpecies = "sppSpecies";

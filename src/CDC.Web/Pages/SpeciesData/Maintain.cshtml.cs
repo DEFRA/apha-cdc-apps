@@ -606,12 +606,16 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
 
         if (result.Outcome != SpeciesUpdateOutcome.Success)
         {
-            logger.MoveFailed(SelectedSpeciesId.Value, result.Outcome);
+            logger.MoveFailed(SelectedSpeciesId.Value, result.Outcome, result.ApiStatusCode);
             SelectionErrorMessage = result.ErrorMessage ?? "This species cannot be moved in that direction.";
 
             if (IsFetchRequest)
             {
-                return new JsonResult(new { success = false, message = SelectionErrorMessage }) { StatusCode = StatusCodes.Status409Conflict };
+                var status = result.Outcome == SpeciesUpdateOutcome.ValidationFailed
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status502BadGateway;
+
+                return new JsonResult(new { success = false, message = SelectionErrorMessage }) { StatusCode = status };
             }
 
             UpdateMoveAvailability();
@@ -864,7 +868,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
                 ItemNameSingular = SpeciesKey,
                 ItemNamePlural = SpeciesKey,
                 SelectedValue = SelectedSpeciesId?.ToString(),
-                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true)
+                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, collapseRoots: SelectedSpeciesId is null)
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
@@ -964,7 +968,7 @@ internal static partial class MaintainLog
     [LoggerMessage(EventId = 2109, Level = LogLevel.Information, Message = "Deleted species {SpeciesId}")]
     public static partial void Deleted(this ILogger logger, Guid speciesId);
 
-    [LoggerMessage(EventId = 2110, Level = LogLevel.Warning, Message = "Failed to move species {SpeciesId}: {Outcome}")]
-    public static partial void MoveFailed(this ILogger logger, Guid speciesId, SpeciesUpdateOutcome outcome);
+    [LoggerMessage(EventId = 2110, Level = LogLevel.Warning, Message = "Failed to move species {SpeciesId}: {Outcome} (API status {ApiStatusCode})")]
+    public static partial void MoveFailed(this ILogger logger, Guid speciesId, SpeciesUpdateOutcome outcome, int? apiStatusCode);
 }
 

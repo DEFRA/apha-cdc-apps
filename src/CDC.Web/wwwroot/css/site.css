@@ -854,6 +854,25 @@ body {
   line-height: 1;
 }
 
+/* Label in column 1, file input and make-public checkbox stacked in column 2 so they line up. */
+.app-upload-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 30px;
+  row-gap: 15px;
+}
+
+.app-upload-row__public {
+  grid-column: 2;
+}
+
+/* Right-aligns a GOV.UK button group or single button form. */
+.app-actions-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Audit trail "Items per page" control: label and select sit on one line rather than
    stacking, aligned to the right of the page, per Maintain.cshtml. */
 .app-audit-trail-page-size {
