@@ -536,7 +536,7 @@ public class EditProfileQuestionsModel(
     {
         var visibleWhenControl = field.RelevanceFieldId == Guid.Empty
             ? null
-            : speciesId is null ? $"field_{field.RelevanceFieldId}" : $"field_{field.RelevanceFieldId}_{speciesId:N}";
+            : BuildFormKey(field.RelevanceFieldId, speciesId);
 
         var isListType =
             string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase) ||
@@ -626,21 +626,35 @@ public class EditProfileQuestionsModel(
                     continue;
                 }
 
-                foreach (var species in profiledSpecies)
+                foreach (var speciesId in profiledSpecies.Select(species => species.Id))
                 {
-                    var first = answers.Count;
-                    ParseSubmittedField(section, question, field, species.Id, answers, errors);
-
-                    for (var index = first; index < answers.Count; index++)
-                    {
-                        answers[index] = answers[index] with { SpeciesId = species.Id };
-                    }
+                    ParseSubmittedSpeciesField(section, question, field, speciesId, answers, errors);
                 }
             }
         }
 
         return (answers, errors);
     }
+
+    private void ParseSubmittedSpeciesField(
+        ProfileSectionMetadataDto section,
+        ProfileQuestionMetadataDto question,
+        ProfileFieldMetadataDto field,
+        Guid speciesId,
+        List<ProfileFieldAnswerInputDto> answers,
+        List<string> errors)
+    {
+        var first = answers.Count;
+        ParseSubmittedField(section, question, field, speciesId, answers, errors);
+
+        for (var index = first; index < answers.Count; index++)
+        {
+            answers[index] = answers[index] with { SpeciesId = speciesId };
+        }
+    }
+
+    private static string BuildFormKey(Guid fieldId, Guid? speciesId) =>
+        speciesId is null ? $"field_{fieldId}" : $"field_{fieldId}_{speciesId:N}";
 
     private void ParseSubmittedField(
         ProfileSectionMetadataDto section,
@@ -650,7 +664,7 @@ public class EditProfileQuestionsModel(
         List<ProfileFieldAnswerInputDto> answers,
         List<string> errors)
     {
-        var formKey = speciesId is null ? $"field_{field.Id}" : $"field_{field.Id}_{speciesId:N}";
+        var formKey = BuildFormKey(field.Id, speciesId);
         var questionDisplay = $"{section.SectionNumber}.{question.QuestionNumber} {field.Name}";
 
         if (string.Equals(field.DataTypeName, "Boolean", StringComparison.OrdinalIgnoreCase))
@@ -666,7 +680,7 @@ public class EditProfileQuestionsModel(
             answers.Add(new ProfileFieldAnswerInputDto
             {
                 ProfileFieldId = field.Id,
-                ListValue = Guid.TryParse(Request.Form[formKey].ToString(), out var listValue) ? listValue : null
+                ListValue = ParseGuid(Request.Form[formKey].ToString())
             });
         }
         else if (string.Equals(field.DataTypeName, "MultiValueList", StringComparison.OrdinalIgnoreCase))
@@ -677,9 +691,8 @@ public class EditProfileQuestionsModel(
                 MultiListValues =
                 [
                     .. Request.Form[formKey]
-                        .Select(value => Guid.TryParse(value, out var guid) ? guid : (Guid?)null)
-                        .Where(guid => guid is not null)
-                        .Select(guid => guid!.Value)
+                        .Select(value => ParseGuid(value))
+                        .OfType<Guid>()
                 ]
             });
         }
@@ -700,6 +713,16 @@ public class EditProfileQuestionsModel(
                 TextValue = string.IsNullOrWhiteSpace(rawValue) ? null : rawValue.Trim()
             });
         }
+    }
+
+    private static Guid? ParseGuid(string? value)
+    {
+        if (Guid.TryParse(value, out var guid))
+        {
+            return guid;
+        }
+
+        return null;
     }
 
     private static void ParseDecimalField(

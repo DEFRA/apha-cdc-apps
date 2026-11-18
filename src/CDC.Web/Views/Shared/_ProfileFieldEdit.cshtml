@@ -38,7 +38,7 @@
     {
         <div class="govuk-form-group">
             <span class="govuk-label govuk-label--s" id="@(inputName)-label">@Model.Label</span>
-            <div class="app-readonly-box" role="textbox" aria-readonly="true" aria-labelledby="@(inputName)-label">@(string.IsNullOrEmpty(Model.ValueDisplay) ? "\u00a0" : Model.ValueDisplay)</div>
+            <textarea class="app-readonly-box" readonly rows="1" aria-labelledby="@(inputName)-label">@Model.ValueDisplay</textarea>
         </div>
     }
 }

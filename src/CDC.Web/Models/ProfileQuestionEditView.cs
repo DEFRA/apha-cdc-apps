@@ -35,9 +35,13 @@ public sealed record ProfileFieldEditView
     }
 
     /// <summary>Gets the field's recorded answer as text, for a table cell.</summary>
-    public string DisplayText => Options.Count > 0
-        ? (Options.Any(option => option.IsChecked) ? string.Join(", ", Options.Where(option => option.IsChecked).Select(option => option.Text)) : "Not answered")
-        : ValueDisplay ?? string.Empty;
+    public string DisplayText => Options.Count > 0 ? CheckedOptionsText() : ValueDisplay ?? string.Empty;
+
+    private string CheckedOptionsText()
+    {
+        var checkedTexts = Options.Where(option => option.IsChecked).Select(option => option.Text).ToList();
+        return checkedTexts.Count > 0 ? string.Join(", ", checkedTexts) : "Not answered";
+    }
 
     /// <summary>Gets the field label.</summary>
     public required string Label { get; init; }
