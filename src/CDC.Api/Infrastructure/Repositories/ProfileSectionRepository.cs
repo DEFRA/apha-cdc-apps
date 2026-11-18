@@ -143,12 +143,12 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
 
             // Result set 5: Id, SpeciesId, RowId, BooleanValue, ListValue, DecimalValue, DateValue,
             // TextValue, ProfileFieldId, ProfileFieldGroupId, QuestionNumber, QuestionId, FieldNumber.
-            var fieldValues = new List<ProfileFieldValue>();
+            var fieldValues = new FieldValueCollector<ProfileFieldValue>();
             if (await reader.NextResultAsync(cancellationToken))
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    fieldValues.Add(new ProfileFieldValue
+                    var fieldValue = new ProfileFieldValue
                     {
                         Id = reader.GetGuid(0),
                         QuestionId = reader.GetGuid(11),
@@ -160,7 +160,10 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                         DecimalValue = reader.ReadNullableDecimal(5),
                         DateValue = reader.ReadNullableDateTime(6),
                         TextValue = reader.ReadNullableString(7)
-                    });
+                    };
+
+                    fieldValues.Add(
+                        reader.GetGuid(8), fieldValue.SpeciesId, fieldValue.ProfileVersionQuestionRowId, fieldValue.ListValue is not null, fieldValue);
                 }
             }
 
@@ -171,7 +174,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                 ProfiledSpecies = profiledSpecies,
                 QuestionNames = questionNames,
                 QuestionRows = questionRows,
-                FieldValues = fieldValues,
+                FieldValues = fieldValues.Values,
                 LastUpdated = lastUpdated
             };
         }

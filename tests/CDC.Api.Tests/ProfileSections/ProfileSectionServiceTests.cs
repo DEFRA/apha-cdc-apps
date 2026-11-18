@@ -158,6 +158,9 @@ public class ProfileSectionServiceTests
                 ProfileSectionTestData.SectionId,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(answers);
+        contentRepository
+            .Setup(repo => repo.GetVersionContextAsync(ProfileSectionTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReportVersionContext { ProfiledSpeciesText = "Cattle (inactive), Sheep", OtherAffectedSpeciesText = "Goats" });
 
         var result = await CreateService().GetProfileSectionAnswersAsync(
             ProfileSectionTestData.ProfileVersionId,
@@ -172,6 +175,10 @@ public class ProfileSectionServiceTests
         species.Id.Should().Be(cattleId);
         species.Name.Should().Be("Cattle");
         species.IsActive.Should().BeFalse();
+
+        // The species fields of the Summary section hold no answer; they show the version's own species.
+        result.ProfiledSpeciesText.Should().Be("Cattle (inactive), Sheep");
+        result.OtherAffectedSpeciesText.Should().Be("Goats");
     }
 
     [Fact]

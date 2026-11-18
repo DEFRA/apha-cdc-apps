@@ -6,11 +6,14 @@ namespace CDC.Api.Infrastructure.Repositories;
 public static class ReferenceDataStoredProcedures
 {
     /// <summary>
-    /// Returns every value in a reference table, for populating a question's selectable options.
-    /// Unlike <c>spgReferenceValueByTable</c> (used by the "maintain reference data" admin screen),
-    /// this works for every reference table, not only ones flagged as user-maintainable.
+    /// Returns every value in a reference table, for populating a question's selectable options, in the order the legacy list controls
+    /// showed a maintainable table's values: by sequence number, a value with none (the "Currently not known" value of several tables)
+    /// after the others, then by when it took effect. <c>spgLookupValueByTable</c> sorts by sequence number alone, which puts such a value
+    /// first, and the legacy site shares it, so it is not used or changed. Unlike <c>spgReferenceValueByTable</c> (used by the "maintain
+    /// reference data" admin screen), this works for every reference table, not only ones flagged as user-maintainable.
     /// </summary>
-    public const string GetLookupValuesByTable = "spgLookupValueByTable";
+    public const string GetOrderedLookupValuesByTable =
+        "SELECT [Id], [LookupValue] FROM [dbo].[ReferenceValue] WHERE [ReferenceTableId] = @ReferenceTableId ORDER BY ISNULL([SequenceNumber], 255), [EffectiveDateFrom]";
 
     /// <summary>Lists the reference tables flagged <c>IsMaintainable</c>, for the "maintain reference data" dropdown.</summary>
     public const string GetMaintainableTables = "spgMaintainableReferenceTables";

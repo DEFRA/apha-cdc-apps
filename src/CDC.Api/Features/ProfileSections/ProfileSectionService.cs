@@ -50,9 +50,15 @@ public sealed class ProfileSectionService(
         await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
 
         var answers = await repository.GetProfileSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
+        var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
         logger.RetrievedProfileSectionAnswers(profileVersionId, profileSectionId, answers.FieldValues.Count);
 
-        return answers.ToDto();
+        // The Summary section's species fields have no stored answer: the legacy page showed the version's own species as text.
+        return answers.ToDto() with
+        {
+            ProfiledSpeciesText = version.ProfiledSpeciesText,
+            OtherAffectedSpeciesText = version.OtherAffectedSpeciesText
+        };
     }
 
     /// <inheritdoc />

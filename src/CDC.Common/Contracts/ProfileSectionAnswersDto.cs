@@ -18,6 +18,14 @@ public sealed record ProfileSectionAnswersDto
     /// answered once for each of them.</summary>
     public IReadOnlyList<ProfileSpeciesDto> ProfiledSpecies { get; init; } = [];
 
+    /// <summary>Gets the species the profile version profiles as one line: their names, separated by commas, an inactive one followed by
+    /// "(inactive)". It is what the "Profiled species" field of the Summary section shows, for which no answer is stored.</summary>
+    public string ProfiledSpeciesText { get; init; } = string.Empty;
+
+    /// <summary>Gets the other species the profile version affects as one line, as <see cref="ProfiledSpeciesText"/> gives the profiled ones. It is
+    /// what the "Other affected species" field of the Summary section shows, for which no answer is stored.</summary>
+    public string OtherAffectedSpeciesText { get; init; } = string.Empty;
+
     /// <summary>Gets the display names of each question in this section.</summary>
     public IReadOnlyList<ProfileQuestionNameDto> QuestionNames { get; init; } = [];
 

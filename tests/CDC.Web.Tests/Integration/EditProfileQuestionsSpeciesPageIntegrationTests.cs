@@ -106,6 +106,62 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
         return body[start..(end < 0 ? body.Length : end)];
     }
 
+    // The Summary section's species fields hold no answer: the page shows the version's own species in a bordered box, as the legacy page did.
+    [Fact]
+    public async Task VersionDataField_ShowsTheVersionsSpeciesInAReadOnlyBox()
+    {
+        var questionId = Guid.NewGuid();
+        var metadata = new ProfileQuestionnaireMetadataDto
+        {
+            Sections =
+            [
+                new ProfileSectionMetadataDto
+                {
+                    Id = SectionId,
+                    Name = "Summary",
+                    ShortName = "Summary",
+                    SectionNumber = 1,
+                    Questions =
+                    [
+                        new ProfileQuestionMetadataDto
+                        {
+                            Id = questionId,
+                            SectionId = SectionId,
+                            ShortName = "Profiled Species",
+                            QuestionNumber = 3,
+                            Fields =
+                            [
+                                new ProfileFieldMetadataDto
+                                {
+                                    Id = Guid.NewGuid(),
+                                    QuestionId = questionId,
+                                    ShortName = "Profiled Species",
+                                    FieldNumber = 1,
+                                    DataTypeName = "Profile Version Data",
+                                    IsReadOnlyCurrentSituation = true,
+                                    IsReadOnlyScenario = true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var answers = new ProfileSectionAnswersDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            ProfileSectionId = SectionId,
+            ProfiledSpeciesText = "Chickens, <em>Anas platyrhynchos</em> (inactive)"
+        };
+
+        var body = await GetPageAsync(DraftProfile(), CreateApi(metadata, answers));
+
+        Assert.Contains("<p class=\"govuk-body app-version-data-box\">", body);
+        Assert.Contains("<span class=\"govuk-visually-hidden\">Answer to question 1.3: </span>", body);
+        Assert.Contains("Chickens, <em>Anas platyrhynchos</em> (inactive)", body);
+        Assert.DoesNotContain("Not answered", body);
+    }
+
     [Fact]
     public async Task Table_HasAColumnForTheSpecies_AndForEachFieldTheSummaryIncludes()
     {

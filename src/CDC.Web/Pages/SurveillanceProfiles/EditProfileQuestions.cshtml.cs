@@ -40,6 +40,9 @@ public class EditProfileQuestionsModel(
 
     private const string RequestFailedReason = "We could not complete the request. Try again later.";
 
+    // The data type of a field whose value is a property of the profile version, such as the species it profiles.
+    private const string ProfileVersionDataType = "Profile Version Data";
+
     // The start of the message shown when the answers were cleared but a later step could not be; what failed and the reason follow it.
     private const string ClearFailedWhileClearingMessage = "Clear section failed while trying to clear the ";
 
@@ -48,6 +51,10 @@ public class EditProfileQuestionsModel(
 
     // The species the profile version profiles, as CDC.Api listed them when the answers were loaded; a save reads an answer for each.
     private IReadOnlyList<ProfileSpeciesDto> profiledSpecies = [];
+
+    // The species the version profiles and the others it affects, as the text the Summary section's species fields show.
+    private string profiledSpeciesText = string.Empty;
+    private string otherAffectedSpeciesText = string.Empty;
 
     // The rows CDC.Api recorded for the section's repeating questions when the answers were loaded.
     private IReadOnlyList<ProfileQuestionRowDto> questionRows = [];
@@ -494,6 +501,8 @@ public class EditProfileQuestionsModel(
         var answers = await ProfileSectionsApi.GetProfileSectionAnswersAsync(profileVersionId, section.Id, cancellationToken);
         SectionLastUpdated = Convert.ToBase64String(answers.LastUpdated);
         profiledSpecies = answers.ProfiledSpecies;
+        profiledSpeciesText = answers.ProfiledSpeciesText;
+        otherAffectedSpeciesText = answers.OtherAffectedSpeciesText;
         questionRows = answers.QuestionRows;
 
         var namesByQuestion = answers.QuestionNames.ToDictionary(name => name.Id);
@@ -552,7 +561,8 @@ public class EditProfileQuestionsModel(
                 number,
                 CanEditProfileSection && !field.IsReadOnlyFor(IsWhatIfScenario) && (!usesPanel || CanEditInPanel(field)),
                 usesPanel ? [] : [.. questionValues.Where(value => value.FieldNumber == field.FieldNumber)],
-                referenceValuesByTable))
+                referenceValuesByTable,
+                VersionDataText(field)))
             .ToList();
 
         return new ProfileQuestionEditView
@@ -629,16 +639,39 @@ public class EditProfileQuestionsModel(
     private static bool CanEditInPanel(ProfileFieldMetadataDto field) =>
         PanelEditableTypes.Contains(field.DataTypeName, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>A field of the type whose value is a property of the profile version itself, which no answer is stored for.</summary>
+    private static bool IsVersionData(ProfileFieldMetadataDto field) =>
+        string.Equals(field.DataTypeName, ProfileVersionDataType, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The value of a version data field. The legacy <c>ProfileVersionDataFieldValue</c> read the version's property named for the
+    /// field's short name without its spaces, which for the Summary section's fields is the species the version profiles or the others it affects.</summary>
+    /// <returns>The text to show, or <see langword="null"/> for a field that is not a version data field.</returns>
+    private string? VersionDataText(ProfileFieldMetadataDto field)
+    {
+        if (!IsVersionData(field))
+        {
+            return null;
+        }
+
+        return field.ShortName.Replace(" ", string.Empty, StringComparison.Ordinal) switch
+        {
+            "ProfiledSpecies" => profiledSpeciesText,
+            "OtherAffectedSpecies" => otherAffectedSpeciesText,
+            _ => string.Empty
+        };
+    }
+
     /// <summary>Builds one field's view: a real editable control matching its data type when
     /// <paramref name="isEditable"/>, otherwise the same static read-only rendering as before
     /// (checkbox group for "List"/"MultiValueList", rich/HTML content for "Long Text", or plain
-    /// text).</summary>
+    /// text). A version data field shows <paramref name="versionDataText"/>.</summary>
     private static ProfileFieldEditView BuildFieldEditView(
         ProfileFieldMetadataDto field,
         string questionNumber,
         bool isEditable,
         List<ProfileFieldValueDto> recordedValues,
-        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable)
+        Dictionary<Guid, IReadOnlyList<ReferenceValueDto>> referenceValuesByTable,
+        string? versionDataText = null)
     {
         var isListType =
             string.Equals(field.DataTypeName, "List", StringComparison.OrdinalIgnoreCase) ||
@@ -678,7 +711,7 @@ public class EditProfileQuestionsModel(
             IsEditable = isEditable,
             IncludeInSummary = field.IncludeInSummary,
             AffectsRelevanceOf = field.AffectsRelevanceOf,
-            ValueDisplay = FormatFieldValues(recordedValues),
+            ValueDisplay = versionDataText ?? FormatFieldValues(recordedValues),
             IsHtml = isHtml,
             BooleanValue = recordedValue?.BooleanValue,
             DecimalValue = recordedValue?.DecimalValue,

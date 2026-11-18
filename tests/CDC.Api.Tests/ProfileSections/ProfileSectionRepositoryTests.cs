@@ -280,6 +280,55 @@ public sealed class ProfileSectionRepositoryTests : IDisposable
             .WhoseValue.Should().Be(ProfileSectionTestData.ProfileVersionId);
     }
 
+    // The migrated data stores the Boolean of question 1.5 twice for nearly every version. The legacy page took the last row the database
+    // returned, which is also the row a save changes, so that is the answer; the rows of a list are each an item and all stay.
+    [Fact]
+    public async Task GetProfileSectionAnswersAsync_TakesTheLastRowOfASingleValueFieldStoredTwice_AndKeepsEveryItemOfAList()
+    {
+        var firstRowId = Guid.NewGuid();
+        var lastRowId = Guid.NewGuid();
+        var listFieldId = Guid.NewGuid();
+        var firstItem = Guid.NewGuid();
+        var secondItem = Guid.NewGuid();
+        var speciesId = Guid.NewGuid();
+        connection.Script(ProfileSectionStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                FakeResultSet.Empty("Id", "Name", "IsActive"),
+                FakeResultSet.Empty(
+                    "ProfileSectionId", "TechnicalReviewFrequency", "PolicyReviewFrequency", "NextTechnicalReview",
+                    "NextPolicyReview", "LastUpdated", "ParentId", "PolicyReviewStatusId", "TechnicalReviewStatusId"),
+                FakeResultSet.Empty("Id", "Name", "NonTechnicalName"),
+                FakeResultSet.Empty("Id", "ProfileQuestionId", "SequenceNumber"),
+                new FakeResultSet(
+                    [
+                        "Id", "SpeciesId", "ProfileVersionQuestionRowId", "BooleanValue", "ListValue", "DecimalValue",
+                        "DateValue", "TextValue", "ProfileFieldId", "ProfileFieldGroupId", "QuestionNumber",
+                        "QuestionId", "FieldNumber"
+                    ],
+                    [
+                        [firstRowId, null, null, false, null, null, null, null, ProfileSectionTestData.FieldId, null, 5, ProfileSectionTestData.QuestionId, 2],
+                        [lastRowId, null, null, true, null, null, null, null, ProfileSectionTestData.FieldId, null, 5, ProfileSectionTestData.QuestionId, 2],
+                        [Guid.NewGuid(), speciesId, null, false, null, null, null, null, ProfileSectionTestData.FieldId, null, 5, ProfileSectionTestData.QuestionId, 2],
+                        [Guid.NewGuid(), null, null, null, firstItem, null, null, null, listFieldId, null, 5, ProfileSectionTestData.QuestionId, 3],
+                        [Guid.NewGuid(), null, null, null, secondItem, null, null, null, listFieldId, null, 5, ProfileSectionTestData.QuestionId, 3]
+                    ])
+            ]
+        });
+
+        var answers = await CreateRepository().GetProfileSectionAnswersAsync(
+            ProfileSectionTestData.ProfileVersionId,
+            ProfileSectionTestData.SectionId,
+            CancellationToken.None);
+
+        var answered = answers.FieldValues.Where(value => value.FieldNumber == 2 && value.SpeciesId is null).Should().ContainSingle().Subject;
+        answered.Id.Should().Be(lastRowId);
+        answered.BooleanValue.Should().BeTrue();
+        answers.FieldValues.Should().ContainSingle(value => value.SpeciesId == speciesId);
+        answers.FieldValues.Where(value => value.FieldNumber == 3).Select(value => value.ListValue).Should().Equal(firstItem, secondItem);
+    }
+
     [Fact]
     public async Task GetProfileSectionAnswersAsync_ReturnsEmpty_WhenSectionHasNoAnswers()
     {

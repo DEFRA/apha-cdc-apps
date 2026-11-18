@@ -1591,6 +1591,19 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* A property of the profile version (the species it profiles) shown read-only in a bordered white box, which keeps its height when it is
+   empty, as the legacy page showed it. */
+.app-version-data-box {
+  box-sizing: border-box;
+  width: 95%;
+  min-height: 2.5rem;
+  margin-bottom: 0;
+  padding: 5px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #fff;
+}
+
 /* The "Add/Select a reference to question" dialog of the Questions tab (_QuestionReferenceDialog.cshtml, question-references.js). */
 .app-reference-dialog {
   max-width: 760px;

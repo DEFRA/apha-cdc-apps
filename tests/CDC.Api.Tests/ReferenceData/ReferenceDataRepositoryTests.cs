@@ -30,9 +30,9 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
         new(new StubConnectionFactory(connection), logger.Object);
 
     [Fact]
-    public async Task GetReferenceValuesAsync_ExecutesStoredProcedureAndMapsRows()
+    public async Task GetReferenceValuesAsync_ExecutesTheOrderedQueryAndMapsRows()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
         {
             ResultSets =
             [
@@ -49,14 +49,24 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
         value.Value.Should().Be("Market records");
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(ReferenceDataStoredProcedures.GetLookupValuesByTable);
-        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.CommandText.Should().Be(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable);
+        executed.CommandType.Should().Be(CommandType.Text);
+        executed.Parameters.Should().ContainKey("ReferenceTableId").WhoseValue.Should().Be(ReferenceTableId);
+    }
+
+    // The legacy list controls put a maintainable table's value with no sequence number ("Currently not known") after the others, which
+    // spgLookupValueByTable, sorting by sequence number alone, does not.
+    [Fact]
+    public void TheOrderedQuery_SortsAValueWithNoSequenceNumberAfterTheOthers_ThenByWhenItTookEffect()
+    {
+        ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable.Should()
+            .EndWith("ORDER BY ISNULL([SequenceNumber], 255), [EffectiveDateFrom]");
     }
 
     [Fact]
     public async Task GetReferenceValuesAsync_ReturnsEmpty_WhenTheTableHasNoValues()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
         {
             ResultSets = [new FakeResultSet(["Id", "LookupValue"], [])]
         });
@@ -69,7 +79,7 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
     [Fact]
     public async Task GetReferenceValuesAsync_DefaultsNullLookupValue()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
         {
             ResultSets =
             [
@@ -87,7 +97,7 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
     [Fact]
     public async Task GetReferenceValuesAsync_RethrowsAndLogs_OnDbException()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
 

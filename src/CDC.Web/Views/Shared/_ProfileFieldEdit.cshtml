@@ -1,4 +1,5 @@
 @model CDC.Web.Models.ProfileFieldEditView
+@using CDC.Web.Infrastructure
 @{
     var inputName = $"field_{Model.FieldId}";
     var hint = !Model.IsMandatory ? "(optional)" : null;
@@ -50,6 +51,24 @@
                     </div>
                 </div>
             </fieldset>
+        </div>
+    }
+    else if (string.Equals(Model.DataTypeName, "Profile Version Data", StringComparison.OrdinalIgnoreCase))
+    {
+        @* As the legacy page showed such a field, which is a property of the version (the species it profiles) and so read-only: its text in a
+           bordered white box, which keeps its height when the text is empty. *@
+        <div class="govuk-form-group">
+            @if (hasLabel)
+            {
+                <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@Model.Label</h3>
+            }
+            <p class="govuk-body app-version-data-box">
+                @if (!hasLabel)
+                {
+                    <span class="govuk-visually-hidden">@(Model.LabelFallback): </span>
+                }
+                @ProfileTitleHtmlFormatter.Format(Model.ValueDisplay)
+            </p>
         </div>
     }
     else if (Model.IsHtml)

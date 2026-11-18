@@ -22,6 +22,9 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     private const int FieldGroupIdOrdinal = 17;
     private const string ProfiledSpeciesType = "Profiled";
 
+    // What the legacy site put after the name of a species that has been ended, in the text it listed a version's species as.
+    private const string InactiveSpeciesSuffix = " (inactive)";
+
     /// <inheritdoc />
     public async Task<ReportQuestionnaire> GetQuestionnaireAsync(CancellationToken cancellationToken)
     {
@@ -104,18 +107,26 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
             var isWhatIfScenario = reader.ReadGuid(10) != Guid.Empty;
             var hasInactiveProfiledSpecies = false;
             var hasInactiveOtherAffectedSpecies = false;
+            var profiledSpecies = new List<string>();
+            var otherAffectedSpecies = new List<string>();
 
             // Result set 2: species Id, Name, AffectedSpeciesType ("Profiled" or "Other"), IsActive.
             if (await reader.NextResultAsync(cancellationToken))
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    if (reader.ReadBoolean(3))
+                    var isActive = reader.ReadBoolean(3);
+                    var isProfiled = reader.ReadString(2) == ProfiledSpeciesType;
+                    var name = reader.ReadString(1);
+
+                    (isProfiled ? profiledSpecies : otherAffectedSpecies).Add(isActive ? name : name + InactiveSpeciesSuffix);
+
+                    if (isActive)
                     {
                         continue;
                     }
 
-                    if (reader.ReadString(2) == ProfiledSpeciesType)
+                    if (isProfiled)
                     {
                         hasInactiveProfiledSpecies = true;
                     }
@@ -130,7 +141,9 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
             {
                 IsWhatIfScenario = isWhatIfScenario,
                 HasInactiveProfiledSpecies = hasInactiveProfiledSpecies,
-                HasInactiveOtherAffectedSpecies = hasInactiveOtherAffectedSpecies
+                HasInactiveOtherAffectedSpecies = hasInactiveOtherAffectedSpecies,
+                ProfiledSpeciesText = string.Join(", ", profiledSpecies),
+                OtherAffectedSpeciesText = string.Join(", ", otherAffectedSpecies)
             };
         }
         catch (DbException exception)
@@ -465,11 +478,11 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     // ProfileFieldGroupId, QuestionNumber, QuestionId, FieldNumber.
     private static async Task<List<ReportFieldValue>> ReadValuesAsync(DbDataReader reader, CancellationToken cancellationToken)
     {
-        var values = new List<ReportFieldValue>();
+        var values = new FieldValueCollector<ReportFieldValue>();
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            values.Add(new ReportFieldValue
+            var value = new ReportFieldValue
             {
                 SpeciesId = reader.ReadNullableGuid(1),
                 RowId = reader.ReadNullableGuid(2),
@@ -481,10 +494,12 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
                 FieldId = reader.GetGuid(8),
                 FieldGroupId = reader.ReadGuid(9),
                 QuestionId = reader.GetGuid(11)
-            });
+            };
+
+            values.Add(value.FieldId, value.SpeciesId, value.RowId, value.ListValue is not null, value);
         }
 
-        return values;
+        return values.Values;
     }
 
     private static ReportQuestionnaire Build(

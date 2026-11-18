@@ -170,6 +170,14 @@ public sealed record ReportVersionContext
 
     /// <summary>Gets a value indicating whether any of the version's other affected species is inactive.</summary>
     public bool HasInactiveOtherAffectedSpecies { get; init; }
+
+    /// <summary>Gets the species the version profiles as one line: their names, separated by commas, an inactive one followed by "(inactive)",
+    /// as the legacy <c>ProfileVersionInfo.ProfiledSpecies</c> read. Empty when it profiles none.</summary>
+    public string ProfiledSpeciesText { get; init; } = string.Empty;
+
+    /// <summary>Gets the other species the version affects as one line, as <see cref="ProfiledSpeciesText"/> gives the profiled ones, as the
+    /// legacy <c>ProfileVersionInfo.OtherAffectedSpecies</c> read. Empty when there are none.</summary>
+    public string OtherAffectedSpeciesText { get; init; } = string.Empty;
 }
 
 /// <summary>A species the profile version profiles.</summary>

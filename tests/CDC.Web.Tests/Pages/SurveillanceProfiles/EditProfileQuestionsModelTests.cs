@@ -365,6 +365,56 @@ public class EditProfileQuestionsModelTests
         Assert.Empty(field.Options);
     }
 
+    // The Summary section's species fields store no answer: the legacy page showed the version's own species (ProfileVersionInfo.ProfiledSpecies and
+    // OtherAffectedSpecies), found by the field's short name, in a read-only box.
+    [Fact]
+    public async Task OnGetAsync_ShowsTheVersionsSpeciesAsTheValueOfTheSpeciesFieldsOfTheSummary()
+    {
+        var metadata = new ProfileQuestionnaireMetadataDto
+        {
+            Sections =
+            [
+                new ProfileSectionMetadataDto
+                {
+                    Id = SummarySectionId,
+                    Name = "Summary",
+                    SectionNumber = 1,
+                    Questions =
+                    [
+                        new ProfileQuestionMetadataDto
+                        {
+                            Id = QuestionId,
+                            SectionId = SummarySectionId,
+                            ShortName = "Profiled Species",
+                            QuestionNumber = 3,
+                            Fields =
+                            [
+                                new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, ShortName = "Profiled Species", FieldNumber = 1, DataTypeName = "Profile Version Data", IsReadOnlyCurrentSituation = true, IsReadOnlyScenario = true },
+                                new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, ShortName = "Other Affected Species", FieldNumber = 2, DataTypeName = "Profile Version Data", IsReadOnlyCurrentSituation = true, IsReadOnlyScenario = true },
+                                new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, ShortName = "Something Else", FieldNumber = 3, DataTypeName = "Profile Version Data", IsReadOnlyCurrentSituation = true, IsReadOnlyScenario = true }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var answers = new ProfileSectionAnswersDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            ProfileSectionId = SummarySectionId,
+            ProfiledSpeciesText = "Chickens, Ducks (inactive)",
+            OtherAffectedSpeciesText = "Geese, Turkeys"
+        };
+
+        var pageModel = CreatePageModel(EditableProfile(), metadata: metadata, answers: answers);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var fields = Assert.Single(pageModel.Questions).Fields;
+        Assert.Equal(["Chickens, Ducks (inactive)", "Geese, Turkeys", string.Empty], fields.Select(field => field.ValueDisplay));
+        Assert.All(fields, field => Assert.False(field.IsEditable));
+    }
+
     [Fact]
     public async Task OnGetAsync_RendersAListField_AsACheckboxGroup_WithTheRecordedOptionChecked()
     {
