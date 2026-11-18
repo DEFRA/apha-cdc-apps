@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace CDC.Web.Pages.SurveillanceProfiles;
 
 /// <summary>
-/// The References tab of a profile section: its scientific paper and legislative references. Replaces the legacy
-/// <c>EditProfileReferences.aspx</c>.
+/// The References tab of a profile section: its scientific paper and legislative references. Each kind is added, picked from the
+/// version's master list, viewed (to change which of the section's questions it is linked to) or deleted (unlinked from the
+/// section; it stays in the master list), as on the legacy <c>EditProfileReferences.aspx</c>, which hosted an <c>EditNoteUI</c>
+/// control for each. The work is done by the page's two <see cref="ProfileNoteEditor"/>s.
 /// </summary>
 /// <param name="apiClient">Typed client for the profile management endpoints on CDC.Api.</param>
 /// <param name="profileSectionsApiService">Typed client for the profile sections endpoints on CDC.Api.</param>
@@ -14,58 +16,32 @@ namespace CDC.Web.Pages.SurveillanceProfiles;
 public class EditProfileReferencesModel(
     IApiClient apiClient,
     IProfileSectionsApiService profileSectionsApiService,
-    ILogger<EditProfileReferencesModel> logger) : ProfileSectionTabPageModel(apiClient, profileSectionsApiService, logger)
+    ILogger<EditProfileReferencesModel> logger) : ProfileNoteTabPageModel(apiClient, profileSectionsApiService, logger)
 {
     /// <inheritdoc />
     public override ProfileSectionTab ActiveTab => ProfileSectionTab.References;
 
-    /// <summary>Gets the selected section's scientific paper references.</summary>
-    public ProfileNoteGroupView ScientificPaperReferences { get; private set; } = ProfileNoteDisplayHelper.EmptyGroup("Scientific paper references");
+    /// <inheritdoc />
+    public override string PanelId => "profile-references-panel";
 
-    /// <summary>Gets the selected section's legislative references.</summary>
-    public ProfileNoteGroupView LegislativeReferences { get; private set; } = ProfileNoteDisplayHelper.EmptyGroup("Legislative references");
+    /// <summary>Gets or sets the scientific paper references table's page and sort, bound from the querystring under <c>scientific</c>.</summary>
+    [BindProperty(Name = ProfileNoteEditorDefinition.ScientificPaperKey, SupportsGet = true)]
+    public ProfileNoteListState ScientificPaperList { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
-    {
-        var notFound = await LoadProfileContextAsync(cancellationToken);
+    /// <summary>Gets or sets the legislative references table's page and sort, bound from the querystring under <c>legislative</c>.</summary>
+    [BindProperty(Name = ProfileNoteEditorDefinition.LegislativeKey, SupportsGet = true)]
+    public ProfileNoteListState LegislativeList { get; set; } = new();
 
-        if (notFound is not null)
-        {
-            return notFound;
-        }
+    /// <summary>Gets the editor of the section's scientific paper references.</summary>
+    public ProfileNoteEditor ScientificPaperReferences => Editors[0];
 
-        if (IsReady)
-        {
-            await LoadReferencesAsync(cancellationToken);
-        }
+    /// <summary>Gets the editor of the section's legislative references.</summary>
+    public ProfileNoteEditor LegislativeReferences => Editors[1];
 
-        return Page();
-    }
-
-    /// <summary>Loads the notes, resiliently: a failure degrades to empty lists rather than failing the page.</summary>
-    private async Task LoadReferencesAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var noteTypes = await ProfileSectionsApi.GetProfileNoteTypesAsync(cancellationToken);
-            var questionNumbersById = ProfileNoteDisplayHelper.BuildQuestionNumbersById(Sections);
-            var section = new ProfileNoteSectionContext(CurrentProfileVersionId, CurrentSection!.Id, questionNumbersById);
-
-            // Both lists are read at once; each is still assigned as it is awaited, so a failure reading the second leaves the first showing.
-            var scientificPaperReferences = ProfileNoteDisplayHelper.LoadGroupAsync(
-                ProfileSectionsApi, noteTypes, ProfileNoteDisplayHelper.ScientificPaperReferenceType, "Scientific paper references",
-                section, cancellationToken);
-
-            var legislativeReferences = ProfileNoteDisplayHelper.LoadGroupAsync(
-                ProfileSectionsApi, noteTypes, ProfileNoteDisplayHelper.LegislativeReferenceType, "Legislative references",
-                section, cancellationToken);
-
-            ScientificPaperReferences = await scientificPaperReferences;
-            LegislativeReferences = await legislativeReferences;
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
-        {
-            Logger.ProfileNotesLoadFailed(exception, ProfileId);
-        }
-    }
+    /// <inheritdoc />
+    protected override IReadOnlyList<ProfileNoteEditor> CreateEditors() =>
+    [
+        new ProfileNoteEditor(this, ProfileNoteEditorDefinition.ScientificPaperReference, ScientificPaperList),
+        new ProfileNoteEditor(this, ProfileNoteEditorDefinition.LegislativeReference, LegislativeList)
+    ];
 }

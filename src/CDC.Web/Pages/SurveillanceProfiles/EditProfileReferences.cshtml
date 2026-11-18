@@ -5,20 +5,11 @@
 }
 @if (Model.CurrentSection is not null)
 {
-    var tabsModel = Model.BuildTabs();
+    <partial name="_ProfileNoteTab" model="Model" />
+}
 
-    <div class="govuk-tabs app-tab-carousel">
-        <partial name="_ProfileSectionTabs" model="tabsModel" />
-        <div class="govuk-tabs__panel" id="profile-references-panel">
-            @if (Model.HasNoVersion)
-            {
-                <div class="govuk-inset-text">This profile has no current version to browse.</div>
-            }
-            else
-            {
-                <partial name="_ProfileNoteList" model="Model.ScientificPaperReferences" />
-                <partial name="_ProfileNoteList" model="Model.LegislativeReferences" />
-            }
-        </div>
-    </div>
+@section Scripts {
+    <partial name="_SpellCheckDialog" />
+    <script src="~/js/richtext-toolbar.js" asp-append-version="true"></script>
+    <script src="~/js/spell-check.js" asp-append-version="true"></script>
 }

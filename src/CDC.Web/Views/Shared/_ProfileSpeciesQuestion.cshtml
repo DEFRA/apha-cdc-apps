@@ -1,0 +1,111 @@
+@model CDC.Web.Models.ProfileQuestionEditView
+@using CDC.Web.Infrastructure
+@{
+    var rows = Model.SpeciesRows ?? [];
+    var prefix = $"species-{Model.Id}";
+    var summaryFields = Model.Fields.Where(field => field.IncludeInSummary).ToList();
+    var summaryFieldIds = summaryFields.Select(field => field.FieldId).ToList();
+    var actionText = Model.CanEditSpecies ? "Edit" : "View";
+    var relevantRows = rows.Where(row => row.IsRelevant).ToList();
+}
+@if (rows.Count == 0)
+{
+    <p class="govuk-body">This question repeats per-species, but the current profile does not have any affected species.</p>
+}
+else
+{
+    @* The answers of every species are held in hidden inputs of the form, which question-species.js keeps up to date as the one panel
+       below the table is used to change a species' answers; the panel's own controls are never posted. *@
+    <div class="app-species-question" id="@prefix" data-species-question data-species-can-edit="@(Model.CanEditSpecies ? "true" : "false")">
+        <table class="govuk-table app-species-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Answers to question @Model.Number for each species</caption>
+            <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                    <th scope="col" class="govuk-table__header">Species / species group</th>
+                    @foreach (var field in summaryFields)
+                    {
+                        <th scope="col" class="govuk-table__header">@field.Label</th>
+                    }
+                    <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Action</span></th>
+                </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+                @foreach (var row in rows)
+                {
+                    var speciesName = SpeciesNameHtml.ToPlainText(row.Name);
+
+                    <tr class="govuk-table__row" data-species-row="@row.SpeciesId" data-species-name="@speciesName" hidden="@(row.IsRelevant ? null : "hidden")">
+                        <th scope="row" class="govuk-table__header">@ProfileTitleHtmlFormatter.Format(row.Name)</th>
+                        @foreach (var fieldId in summaryFieldIds)
+                        {
+                            <td class="govuk-table__cell" data-species-summary="@fieldId">@row.AnswerTo(fieldId)?.SummaryText</td>
+                        }
+                        <td class="govuk-table__cell govuk-table__cell--numeric app-species-table__action">
+                            <button type="button" class="govuk-link app-link-button" aria-controls="@(prefix)-panel" aria-expanded="false" data-species-edit="@row.SpeciesId">@actionText<span class="govuk-visually-hidden"> @speciesName answer to question @Model.Number</span></button>
+                            @foreach (var field in Model.Fields)
+                            {
+                                var answer = row.AnswerTo(field.FieldId);
+
+                                @* Only a field the user may change is posted; the other fields' values are for the panel to show. *@
+                                <input type="hidden" name="@(field.IsEditable ? ProfileSpeciesRowView.InputName(row.SpeciesId, field.FieldId) : null)" value="@answer?.FormValue" data-species-value="@field.FieldId" />
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <fieldset class="govuk-fieldset app-answer-panel" id="@(prefix)-panel" data-species-panel hidden tabindex="-1">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+                <h3 class="govuk-fieldset__heading" data-species-panel-heading>Edit answer</h3>
+            </legend>
+
+            @foreach (var field in Model.Fields)
+            {
+                <partial name="_ProfileAnswerFieldEdit" model="new ProfileAnswerFieldEditModel(prefix, field)" />
+            }
+
+            @if (Model.CanEditSpecies)
+            {
+                @* Offers every species the question applies to, bar the one being edited, which question-species.js leaves out. *@
+                <details class="govuk-details app-species-picker" data-species-picker>
+                    <summary class="govuk-details__summary">
+                        <span class="govuk-details__summary-text">Apply this answer also to: <span data-species-picker-names></span></span>
+                    </summary>
+                    <div class="govuk-details__text">
+                        <fieldset class="govuk-fieldset">
+                            <legend class="govuk-fieldset__legend govuk-visually-hidden">The species to apply this answer to</legend>
+                            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                                <div class="govuk-checkboxes__item">
+                                    <input class="govuk-checkboxes__input" id="@(prefix)-pick-all" type="checkbox" data-species-pick-all />
+                                    <label class="govuk-label govuk-checkboxes__label" for="@(prefix)-pick-all">All</label>
+                                </div>
+                                @for (var pickIndex = 0; pickIndex < relevantRows.Count; pickIndex++)
+                                {
+                                    var pickRow = relevantRows[pickIndex];
+
+                                    <div class="govuk-checkboxes__item" data-species-pick-item="@pickRow.SpeciesId">
+                                        <input class="govuk-checkboxes__input" id="@(prefix)-pick-@pickIndex" type="checkbox" value="@pickRow.SpeciesId" data-species-pick="@pickRow.SpeciesId" data-species-name="@SpeciesNameHtml.ToPlainText(pickRow.Name)" />
+                                        <label class="govuk-label govuk-checkboxes__label" for="@(prefix)-pick-@pickIndex">@ProfileTitleHtmlFormatter.Format(pickRow.Name)</label>
+                                    </div>
+                                }
+                            </div>
+                        </fieldset>
+                    </div>
+                </details>
+            }
+
+            <div class="govuk-button-group">
+                @if (Model.CanEditSpecies)
+                {
+                    <button type="button" class="govuk-button" data-module="govuk-button" data-species-ok>OK</button>
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-species-cancel>Cancel</button>
+                }
+                else
+                {
+                    <button type="button" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-species-ok>Close</button>
+                }
+            </div>
+        </fieldset>
+    </div>
+}

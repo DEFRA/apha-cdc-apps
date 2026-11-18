@@ -130,10 +130,14 @@ public class ProfileSectionHandlerTests
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionCommandHandler_ReturnsSuccess_AndForwardsTheAnswersAndTheRowVersion()
+    public async Task SaveProfileVersionSectionCommandHandler_ReturnsSuccess_AndForwardsTheAnswersTheRowsAndTheRowVersion()
     {
         var dto = new SaveProfileSectionResultDto { FieldsSavedCount = 3 };
         var answers = new List<ProfileFieldAnswerInputDto> { new() { ProfileFieldId = ProfileSectionTestData.FieldId, TextValue = "Some notes" } };
+        var repeatingQuestions = new List<ProfileRepeatingQuestionInputDto>
+        {
+            new() { QuestionId = Guid.NewGuid(), Rows = [new ProfileQuestionRowInputDto { Id = Guid.NewGuid() }] }
+        };
         byte[] rowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
         service
@@ -141,13 +145,21 @@ public class ProfileSectionHandlerTests
                 ProfileSectionTestData.ProfileVersionId,
                 ProfileSectionTestData.SectionId,
                 answers,
+                repeatingQuestions,
                 rowVersion,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
         var result = await new SaveProfileVersionSectionCommandHandler(service.Object, NullLogger<SaveProfileVersionSectionCommandHandler>.Instance)
             .Handle(
-                new SaveProfileVersionSectionCommand { ProfileVersionId = ProfileSectionTestData.ProfileVersionId, ProfileSectionId = ProfileSectionTestData.SectionId, Answers = answers, LastUpdated = rowVersion },
+                new SaveProfileVersionSectionCommand
+                {
+                    ProfileVersionId = ProfileSectionTestData.ProfileVersionId,
+                    ProfileSectionId = ProfileSectionTestData.SectionId,
+                    Answers = answers,
+                    RepeatingQuestions = repeatingQuestions,
+                    LastUpdated = rowVersion
+                },
                 CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -159,7 +171,7 @@ public class ProfileSectionHandlerTests
     {
         service
             .Setup(svc => svc.SaveProfileVersionSectionAsync(
-                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ProfileFieldAnswerInputDto>>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<ProfileFieldAnswerInputDto>>(), It.IsAny<IReadOnlyList<ProfileRepeatingQuestionInputDto>>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ConcurrencyException("The profile version section has been edited by another user"));
 
         var result = await new SaveProfileVersionSectionCommandHandler(service.Object, NullLogger<SaveProfileVersionSectionCommandHandler>.Instance)

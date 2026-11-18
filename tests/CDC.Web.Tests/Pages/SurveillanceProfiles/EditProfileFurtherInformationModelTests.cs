@@ -126,8 +126,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(["In section"], pageModel.Rows.Select(row => row.PlainText));
-        Assert.Single(pageModel.AvailableNoteChoices);
+        Assert.Equal(["In section"], pageModel.Editor.Rows.Select(row => row.PlainText));
+        Assert.Single(pageModel.Editor.AvailableNoteChoices);
     }
 
     [Fact]
@@ -152,12 +152,12 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(["avian source", "Zebra source"], pageModel.Rows.Select(row => row.PlainText));
-        Assert.Equal(["1.2", "1.1, 1.2"], pageModel.Rows.Select(row => row.QuestionReferenceDisplay));
-        Assert.Equal("<p>Zebra source</p>", pageModel.Rows[1].TextHtml);
-        Assert.Equal(RowVersionText, pageModel.Rows[0].LastUpdated);
-        Assert.Equal(2, pageModel.TotalRecords);
-        Assert.Equal(1, pageModel.TotalPages);
+        Assert.Equal(["avian source", "Zebra source"], pageModel.Editor.Rows.Select(row => row.PlainText));
+        Assert.Equal(["1.2", "1.1, 1.2"], pageModel.Editor.Rows.Select(row => row.QuestionReferenceDisplay));
+        Assert.Equal("<p>Zebra source</p>", pageModel.Editor.Rows[1].TextHtml);
+        Assert.Equal(RowVersionText, pageModel.Editor.Rows[0].LastUpdated);
+        Assert.Equal(2, pageModel.Editor.TotalRecords);
+        Assert.Equal(1, pageModel.Editor.TotalPages);
     }
 
     [Theory]
@@ -176,7 +176,7 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(expectedOrder, string.Join(",", pageModel.Rows.Select(row => row.PlainText)));
+        Assert.Equal(expectedOrder, string.Join(",", pageModel.Editor.Rows.Select(row => row.PlainText)));
     }
 
     [Theory]
@@ -203,12 +203,12 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(12, pageModel.TotalRecords);
-        Assert.Equal(2, pageModel.TotalPages);
+        Assert.Equal(12, pageModel.Editor.TotalRecords);
+        Assert.Equal(2, pageModel.Editor.TotalPages);
         Assert.Equal(2, pageModel.PageNumber);
         Assert.Equal(2, pageModel.ListPageNumber);
         Assert.Equal(2, pageModel.ListTotalPages);
-        Assert.Equal(["Note 11", "Note 12"], pageModel.Rows.Select(row => row.PlainText));
+        Assert.Equal(["Note 11", "Note 12"], pageModel.Editor.Rows.Select(row => row.PlainText));
     }
 
     [Fact]
@@ -235,23 +235,22 @@ public class EditProfileFurtherInformationModelTests
         await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.Equal(expectedSize, pageModel.PageSize);
-        Assert.Equal(expectedRows, pageModel.Rows.Count);
+        Assert.Equal(expectedRows, pageModel.Editor.Rows.Count);
     }
 
     [Fact]
-    public async Task OnGetAsync_OffersEditing_ButNotSelect_WhenEverySourceIsAlreadyLinkedToTheSection()
+    public async Task OnGetAsync_OffersEditing_WithNothingToSelect_WhenEverySourceIsAlreadyLinkedToTheSection()
     {
         var (pageModel, _, _) = CreatePage(DraftProfile(), [Linked("Source", QuestionId)]);
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.True(pageModel.CanEdit);
-        Assert.False(pageModel.CanSelect);
-        Assert.Empty(pageModel.AvailableNoteChoices);
+        Assert.True(pageModel.Editor.CanEdit);
+        Assert.Empty(pageModel.Editor.AvailableNoteChoices);
     }
 
     [Fact]
-    public async Task OnGetAsync_OffersSelect_ForTheMasterListSourcesNotYetLinkedToTheSection()
+    public async Task OnGetAsync_ListsTheMasterListSourcesNotYetLinkedToTheSection_ForSelecting()
     {
         var inSection = Linked("In the section", QuestionId);
         var available = Unlinked("<p>" + new string('x', 60) + "</p>");
@@ -259,8 +258,7 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.True(pageModel.CanSelect);
-        var choice = Assert.Single(pageModel.AvailableNoteChoices);
+        var choice = Assert.Single(pageModel.Editor.AvailableNoteChoices);
         Assert.Equal(available.Id, choice.Id);
         Assert.Equal(new string('x', 47) + "...", choice.Text);
         Assert.False(choice.IsSelected);
@@ -274,10 +272,10 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Single(pageModel.Rows);
-        Assert.False(pageModel.CanEdit);
-        Assert.False(pageModel.CanSelect);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
+        Assert.Single(pageModel.Editor.Rows);
+        Assert.False(pageModel.Editor.CanEdit);
+        Assert.Empty(pageModel.Editor.AvailableNoteChoices);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
         Assert.Null(api.RequestedQuestionInfoSectionId);
     }
 
@@ -288,12 +286,12 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Empty(pageModel.Rows);
-        Assert.Equal("There are no sources of further information to display.", pageModel.NoNotesMessage);
-        Assert.Equal("Add a new source of further information:", pageModel.AddLabel);
-        Assert.Equal("Select a source of further information from the master list:", pageModel.SelectLabel);
-        Assert.Equal("Are you sure you want to delete the association to this source of further information?", pageModel.DeleteConfirmation);
-        Assert.True(pageModel.CanEdit);
+        Assert.Empty(pageModel.Editor.Rows);
+        Assert.Equal("There are no sources of further information to display.", pageModel.Editor.NoNotesMessage);
+        Assert.Equal("Add a new source of further information:", pageModel.Editor.AddLabel);
+        Assert.Equal("Select a source of further information from the master list:", pageModel.Editor.SelectLabel);
+        Assert.Equal("Are you sure you want to delete the association to this source of further information?", pageModel.Editor.DeleteConfirmation);
+        Assert.True(pageModel.Editor.CanEdit);
     }
 
     [Fact]
@@ -304,8 +302,8 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Single(pageModel.Rows);
-        Assert.Equal("SourceOfFurtherInformation", pageModel.NoteTypeName);
+        Assert.Single(pageModel.Editor.Rows);
+        Assert.Equal("SourceOfFurtherInformation", pageModel.Editor.NoteTypeName);
     }
 
     [Fact]
@@ -316,8 +314,8 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal("SourceOfFurtherInformation", pageModel.NoteTypeName);
-        Assert.Equal("Sources of further information", pageModel.NoteTypePluralName);
+        Assert.Equal("SourceOfFurtherInformation", pageModel.Editor.NoteTypeName);
+        Assert.Equal("Sources of further information", pageModel.Editor.NoteTypePluralName);
     }
 
     [Fact]
@@ -328,11 +326,11 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.False(pageModel.CanEdit);
-        Assert.Empty(pageModel.Rows);
-        Assert.Null(pageModel.ActionMessage);
-        Assert.Equal("Source of further information", pageModel.NoteTypeName);
-        Assert.Equal("There are no sources of further information to display.", pageModel.NoNotesMessage);
+        Assert.False(pageModel.Editor.CanEdit);
+        Assert.Empty(pageModel.Editor.Rows);
+        Assert.Null(pageModel.Editor.ActionMessage);
+        Assert.Equal("Source of further information", pageModel.Editor.NoteTypeName);
+        Assert.Equal("There are no sources of further information to display.", pageModel.Editor.NoNotesMessage);
     }
 
     [Theory]
@@ -354,11 +352,11 @@ public class EditProfileFurtherInformationModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.False(pageModel.HasError);
-        Assert.Equal("We could not load the sources of further information. Try again later.", pageModel.ActionMessage);
-        Assert.True(pageModel.ActionMessageIsError);
+        Assert.Equal("We could not load the sources of further information. Try again later.", pageModel.Editor.ActionMessage);
+        Assert.True(pageModel.Editor.ActionMessageIsError);
         Assert.True(pageModel.HasFormErrors);
-        Assert.False(pageModel.CanEdit);
-        Assert.Empty(pageModel.Rows);
+        Assert.False(pageModel.Editor.CanEdit);
+        Assert.Empty(pageModel.Editor.Rows);
         Assert.Contains(log.Messages, message => message.StartsWith("Failed to load profile", StringComparison.Ordinal));
     }
 
@@ -370,7 +368,7 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.True(pageModel.ActionMessageIsError);
+        Assert.True(pageModel.Editor.ActionMessageIsError);
     }
 
     [Fact]
@@ -382,8 +380,8 @@ public class EditProfileFurtherInformationModelTests
 
         Assert.IsType<PageResult>(result);
         Assert.True(pageModel.HasNoVersion);
-        Assert.Empty(pageModel.Rows);
-        Assert.False(pageModel.CanEdit);
+        Assert.Empty(pageModel.Editor.Rows);
+        Assert.False(pageModel.Editor.CanEdit);
         Assert.Null(api.RequestedQuestionInfoSectionId);
     }
 
@@ -397,13 +395,13 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(ProfileNotePanel.Add, pageModel.Panel);
-        Assert.Equal("Add a source of further information", pageModel.PanelHeading);
+        Assert.Equal(ProfileNotePanel.Add, pageModel.Editor.Panel);
+        Assert.Equal("Add a source of further information", pageModel.Editor.PanelHeading);
         Assert.Equal("add", pageModel.Input.Mode);
-        Assert.Equal(["1.1", "1.2", "1.3"], pageModel.QuestionChoices.Select(choice => choice.Number));
-        Assert.Equal(["Is it endemic?", "How is it spread?", "Is it notifiable?"], pageModel.QuestionChoices.Select(choice => choice.Name));
-        Assert.DoesNotContain(pageModel.QuestionChoices, choice => choice.IsTicked);
-        Assert.Null(pageModel.PanelNoteHtml);
+        Assert.Equal(["1.1", "1.2", "1.3"], pageModel.Editor.QuestionChoices.Select(choice => choice.Number));
+        Assert.Equal(["Is it endemic?", "How is it spread?", "Is it notifiable?"], pageModel.Editor.QuestionChoices.Select(choice => choice.Name));
+        Assert.DoesNotContain(pageModel.Editor.QuestionChoices, choice => choice.IsTicked);
+        Assert.Null(pageModel.Editor.PanelNoteHtml);
         Assert.Equal(SummarySectionId, api.RequestedQuestionInfoSectionId);
     }
 
@@ -416,11 +414,11 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(ProfileNotePanel.Select, pageModel.Panel);
-        Assert.Equal("Select a source of further information", pageModel.PanelHeading);
-        Assert.Null(pageModel.PanelNoteHtml);
+        Assert.Equal(ProfileNotePanel.Select, pageModel.Editor.Panel);
+        Assert.Equal("Select a source of further information", pageModel.Editor.PanelHeading);
+        Assert.Null(pageModel.Editor.PanelNoteHtml);
         Assert.Null(pageModel.Input.NoteId);
-        Assert.DoesNotContain(pageModel.AvailableNoteChoices, choice => choice.IsSelected);
+        Assert.DoesNotContain(pageModel.Editor.AvailableNoteChoices, choice => choice.IsSelected);
     }
 
     [Fact]
@@ -433,22 +431,39 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal("Master only <i>source</i>", pageModel.PanelNoteHtml);
+        Assert.Equal("Master only <i>source</i>", pageModel.Editor.PanelNoteHtml);
         Assert.Equal(available.Id, pageModel.Input.NoteId);
         Assert.Equal(RowVersionText, pageModel.Input.LastUpdated);
-        Assert.Equal(available.Id, Assert.Single(pageModel.AvailableNoteChoices, choice => choice.IsSelected).Id);
-        Assert.DoesNotContain(pageModel.QuestionChoices, choice => choice.IsTicked);
+        Assert.Equal(available.Id, Assert.Single(pageModel.Editor.AvailableNoteChoices, choice => choice.IsSelected).Id);
+        Assert.DoesNotContain(pageModel.Editor.QuestionChoices, choice => choice.IsTicked);
     }
 
+    // The legacy page showed the Select button again once Add was cancelled, whatever the master list held, so the panel opens with an
+    // empty drop-down rather than not at all.
     [Fact]
-    public async Task OnGetAsync_DoesNotOpenTheSelectPanel_WhenTheMasterListHoldsNothingToSelect()
+    public async Task OnGetAsync_OpensTheSelectPanel_WithAnEmptyDropDown_WhenTheMasterListHoldsNothingToSelect()
     {
         var (pageModel, _, _) = CreatePage(DraftProfile(), [Linked("Source", QuestionId)]);
         pageModel.Mode = "select";
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
+        Assert.Equal(ProfileNotePanel.Select, pageModel.Editor.Panel);
+        Assert.Equal("Select a source of further information", pageModel.Editor.PanelHeading);
+        Assert.Empty(pageModel.Editor.AvailableNoteChoices);
+        Assert.Null(pageModel.Editor.PanelNoteHtml);
+        Assert.Equal(["1.1", "1.2", "1.3"], pageModel.Editor.QuestionChoices.Select(choice => choice.Number));
+    }
+
+    [Fact]
+    public async Task OnGetAsync_DoesNotOpenTheSelectPanel_WhenTheUserCannotEdit()
+    {
+        var (pageModel, _, _) = CreatePage(ReadOnlyProfile(), [Linked("Source", QuestionId)], masterList: [Unlinked("Other")]);
+        pageModel.Mode = "select";
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
     }
 
     [Fact]
@@ -460,12 +475,12 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(ProfileNotePanel.View, pageModel.Panel);
-        Assert.Equal("View a source of further information", pageModel.PanelHeading);
+        Assert.Equal(ProfileNotePanel.View, pageModel.Editor.Panel);
+        Assert.Equal("View a source of further information", pageModel.Editor.PanelHeading);
         Assert.Equal("view", pageModel.Input.Mode);
         Assert.Equal(source.Id, pageModel.Input.NoteId);
-        Assert.Equal("A source", pageModel.PanelNoteHtml);
-        Assert.Equal([true, true, false], pageModel.QuestionChoices.Select(choice => choice.IsTicked));
+        Assert.Equal("A source", pageModel.Editor.PanelNoteHtml);
+        Assert.Equal([true, true, false], pageModel.Editor.QuestionChoices.Select(choice => choice.IsTicked));
     }
 
     [Fact]
@@ -476,8 +491,8 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
-        Assert.Empty(pageModel.QuestionChoices);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
+        Assert.Empty(pageModel.Editor.QuestionChoices);
     }
 
     [Fact]
@@ -487,7 +502,7 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(string.Empty, pageModel.PanelHeading);
+        Assert.Equal(string.Empty, pageModel.Editor.PanelHeading);
     }
 
     [Fact]
@@ -499,8 +514,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnGetAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
-        Assert.Equal("We could not load the questions for this section. Try again later.", pageModel.ActionMessage);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
+        Assert.Equal("We could not load the questions for this section. Try again later.", pageModel.Editor.ActionMessage);
         Assert.True(pageModel.HasFormErrors);
         Assert.Contains(log.Messages, message => message.Contains("questions from CDC.Api", StringComparison.Ordinal));
     }
@@ -516,8 +531,8 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(expectedMessage, pageModel.ActionMessage);
-        Assert.False(pageModel.ActionMessageIsError);
+        Assert.Equal(expectedMessage, pageModel.Editor.ActionMessage);
+        Assert.False(pageModel.Editor.ActionMessageIsError);
         Assert.False(pageModel.HasFormErrors);
     }
 
@@ -529,7 +544,7 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Null(pageModel.ActionMessage);
+        Assert.Null(pageModel.Editor.ActionMessage);
     }
 
     [Fact]
@@ -540,8 +555,8 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.True(pageModel.ActionMessageIsError);
-        Assert.StartsWith("We could not load", pageModel.ActionMessage, StringComparison.Ordinal);
+        Assert.True(pageModel.Editor.ActionMessageIsError);
+        Assert.StartsWith("We could not load", pageModel.Editor.ActionMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -603,12 +618,12 @@ public class EditProfileFurtherInformationModelTests
         Assert.IsType<PageResult>(result);
         Assert.Equal(
             [
-                new ProfileNoteFormError("Input_NoteText", "Enter a source of further information"),
-                new ProfileNoteFormError("Input_QuestionIds_0", "Select at least one question")
+                new ProfileNoteFormError("Input_NoteText", "Please enter a reference"),
+                new ProfileNoteFormError("Input_QuestionIds_0", "At least one question must be selected")
             ],
-            pageModel.FormErrors);
-        Assert.Equal(ProfileNotePanel.Add, pageModel.Panel);
-        Assert.Equal(3, pageModel.QuestionChoices.Count);
+            pageModel.Editor.FormErrors);
+        Assert.Equal(ProfileNotePanel.Add, pageModel.Editor.Panel);
+        Assert.Equal(3, pageModel.Editor.QuestionChoices.Count);
         Assert.True(pageModel.HasFormErrors);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
@@ -672,7 +687,7 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnPostSaveAsync(CancellationToken.None);
 
-        Assert.Equal([new ProfileNoteFormError("Input_QuestionIds_0", "Select at least one question")], pageModel.FormErrors);
+        Assert.Equal([new ProfileNoteFormError("Input_QuestionIds_0", "At least one question must be selected")], pageModel.Editor.FormErrors);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -685,8 +700,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal([new ProfileNoteFormError("NoteId", "Select a source of further information")], pageModel.FormErrors);
-        Assert.Equal(ProfileNotePanel.Select, pageModel.Panel);
+        Assert.Equal([new ProfileNoteFormError("NoteId", "Please select a reference")], pageModel.Editor.FormErrors);
+        Assert.Equal(ProfileNotePanel.Select, pageModel.Editor.Panel);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -699,9 +714,9 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnPostSaveAsync(CancellationToken.None);
 
-        Assert.Equal([new ProfileNoteFormError("Input_QuestionIds_0", "Select at least one question")], pageModel.FormErrors);
+        Assert.Equal([new ProfileNoteFormError("Input_QuestionIds_0", "At least one question must be selected")], pageModel.Editor.FormErrors);
         Assert.Equal(available.Id, pageModel.Input.NoteId);
-        Assert.NotNull(pageModel.PanelNoteHtml);
+        Assert.NotNull(pageModel.Editor.PanelNoteHtml);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -784,8 +799,8 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnPostSaveAsync(CancellationToken.None);
 
-        Assert.Equal([new ProfileNoteFormError("Input_QuestionIds_0", "Select at least one question")], pageModel.FormErrors);
-        Assert.Equal(ProfileNotePanel.View, pageModel.Panel);
+        Assert.Equal([new ProfileNoteFormError("Input_QuestionIds_0", "At least one question must be selected")], pageModel.Editor.FormErrors);
+        Assert.Equal(ProfileNotePanel.View, pageModel.Editor.Panel);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -798,8 +813,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal("Source of further information save failed: The source of further information no longer exists.", pageModel.ActionMessage);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
+        Assert.Equal("Source of further information save failed: The source of further information no longer exists.", pageModel.Editor.ActionMessage);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -820,7 +835,7 @@ public class EditProfileFurtherInformationModelTests
         Assert.IsType<PageResult>(result);
         Assert.Equal(
             "Source of further information save failed: The source of further information could not be identified. Reopen it and try again.",
-            pageModel.ActionMessage);
+            pageModel.Editor.ActionMessage);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
         Assert.Contains(log.Messages, message => message.Contains("refused", StringComparison.Ordinal) && message.Contains("ValidationFailed", StringComparison.Ordinal));
     }
@@ -837,12 +852,12 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal($"Source of further information save failed: {message}", pageModel.ActionMessage);
-        Assert.True(pageModel.ActionMessageIsError);
+        Assert.Equal($"Source of further information save failed: {message}", pageModel.Editor.ActionMessage);
+        Assert.True(pageModel.Editor.ActionMessageIsError);
         Assert.True(pageModel.HasFormErrors);
-        Assert.Equal(ProfileNotePanel.Add, pageModel.Panel);
+        Assert.Equal(ProfileNotePanel.Add, pageModel.Editor.Panel);
         Assert.Equal("<p>Typed text</p>", pageModel.Input.NoteText);
-        Assert.True(Assert.Single(pageModel.QuestionChoices, choice => choice.Id == QuestionId).IsTicked);
+        Assert.True(Assert.Single(pageModel.Editor.QuestionChoices, choice => choice.Id == QuestionId).IsTicked);
         Assert.Equal(outcome != ProfileNoteChangeOutcome.Error, log.Messages.Any(entry => entry.Contains("was refused by CDC.Api", StringComparison.Ordinal)));
     }
 
@@ -859,8 +874,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal("Source of further information save failed: We could not save the change. Try again later.", pageModel.ActionMessage);
-        Assert.Contains(log.Messages, message => message.StartsWith("Failed to change a source of further information", StringComparison.Ordinal));
+        Assert.Equal("Source of further information save failed: We could not save the change. Try again later.", pageModel.Editor.ActionMessage);
+        Assert.Contains(log.Messages, message => message.StartsWith("Failed to change a reference or source of further information", StringComparison.Ordinal));
         Assert.DoesNotContain(log.Messages, message => message.Contains("was refused by CDC.Api", StringComparison.Ordinal));
     }
 
@@ -875,8 +890,8 @@ public class EditProfileFurtherInformationModelTests
         Assert.IsType<PageResult>(result);
         Assert.Equal(
             "Source of further information save failed: You cannot change a source of further information on this version.",
-            pageModel.ActionMessage);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
+            pageModel.Editor.ActionMessage);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -888,7 +903,7 @@ public class EditProfileFurtherInformationModelTests
 
         await pageModel.OnPostSaveAsync(CancellationToken.None);
 
-        Assert.StartsWith("We could not load", pageModel.ActionMessage, StringComparison.Ordinal);
+        Assert.StartsWith("We could not load", pageModel.Editor.ActionMessage, StringComparison.Ordinal);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -901,8 +916,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostSaveAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal("We could not load the questions for this section. Try again later.", pageModel.ActionMessage);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
+        Assert.Equal("We could not load the questions for this section. Try again later.", pageModel.Editor.ActionMessage);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -956,8 +971,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostDeleteAsync(Guid.NewGuid(), RowVersionText, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal("Source of further information deletion failed: The source of further information no longer exists.", pageModel.ActionMessage);
-        Assert.True(pageModel.ActionMessageIsError);
+        Assert.Equal("Source of further information deletion failed: The source of further information no longer exists.", pageModel.Editor.ActionMessage);
+        Assert.True(pageModel.Editor.ActionMessageIsError);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -976,7 +991,7 @@ public class EditProfileFurtherInformationModelTests
         Assert.IsType<PageResult>(result);
         Assert.Equal(
             "Source of further information deletion failed: The source of further information could not be identified. Reload the page and try again.",
-            pageModel.ActionMessage);
+            pageModel.Editor.ActionMessage);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -991,8 +1006,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostDeleteAsync(source.Id, RowVersionText, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal($"Source of further information deletion failed: {message}", pageModel.ActionMessage);
-        Assert.Single(pageModel.Rows);
+        Assert.Equal($"Source of further information deletion failed: {message}", pageModel.Editor.ActionMessage);
+        Assert.Single(pageModel.Editor.Rows);
     }
 
     [Fact]
@@ -1004,7 +1019,7 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostDeleteAsync(source.Id, RowVersionText, CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.StartsWith("Source of further information deletion failed: ", pageModel.ActionMessage, StringComparison.Ordinal);
+        Assert.StartsWith("Source of further information deletion failed: ", pageModel.Editor.ActionMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1018,7 +1033,7 @@ public class EditProfileFurtherInformationModelTests
         Assert.IsType<PageResult>(result);
         Assert.Equal(
             "Source of further information deletion failed: You cannot change a source of further information on this version.",
-            pageModel.ActionMessage);
+            pageModel.Editor.ActionMessage);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -1042,11 +1057,11 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostTickAllAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(ProfileNotePanel.Add, pageModel.Panel);
-        Assert.DoesNotContain(pageModel.QuestionChoices, choice => !choice.IsTicked);
+        Assert.Equal(ProfileNotePanel.Add, pageModel.Editor.Panel);
+        Assert.DoesNotContain(pageModel.Editor.QuestionChoices, choice => !choice.IsTicked);
         Assert.Equal(3, pageModel.Input.QuestionIds.Count);
         Assert.Equal("<p>keep me</p>", pageModel.Input.NoteText);
-        Assert.Empty(pageModel.FormErrors);
+        Assert.Empty(pageModel.Editor.FormErrors);
         Assert.Equal(0, api.UpdateProfileNotesCallCount);
     }
 
@@ -1060,10 +1075,10 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostUntickAllAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(ProfileNotePanel.Select, pageModel.Panel);
-        Assert.DoesNotContain(pageModel.QuestionChoices, choice => choice.IsTicked);
+        Assert.Equal(ProfileNotePanel.Select, pageModel.Editor.Panel);
+        Assert.DoesNotContain(pageModel.Editor.QuestionChoices, choice => choice.IsTicked);
         Assert.Empty(pageModel.Input.QuestionIds);
-        Assert.Equal("Master only", pageModel.PanelNoteHtml);
+        Assert.Equal("Master only", pageModel.Editor.PanelNoteHtml);
     }
 
     [Theory]
@@ -1089,7 +1104,7 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostTickAllAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
     }
 
     [Fact]
@@ -1101,8 +1116,8 @@ public class EditProfileFurtherInformationModelTests
         var result = await pageModel.OnPostTickAllAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(ProfileNotePanel.None, pageModel.Panel);
-        Assert.Equal("We could not load the questions for this section. Try again later.", pageModel.ActionMessage);
+        Assert.Equal(ProfileNotePanel.None, pageModel.Editor.Panel);
+        Assert.Equal("We could not load the questions for this section. Try again later.", pageModel.Editor.ActionMessage);
     }
 
     [Fact]
@@ -1127,11 +1142,11 @@ public class EditProfileFurtherInformationModelTests
         var prefix = $"{FurtherInformationPage}?profileId={ProfileId}&section={SummarySectionId}";
         const string Paging = "pageNumber=2&pageSize=10&sortColumn=QuestionReference&sortDirection=Descending";
 
-        Assert.Equal($"{prefix}&mode=add&noteId=&{Paging}", pageModel.BuildAddUrl());
-        Assert.Equal($"{prefix}&mode=select&noteId=&{Paging}", pageModel.BuildSelectUrl());
-        Assert.Equal($"{prefix}&mode=&noteId={noteId}&{Paging}", pageModel.BuildViewUrl(noteId));
-        Assert.Equal($"{prefix}&mode=&noteId=&{Paging}", pageModel.BuildListUrl());
-        Assert.Equal($"{prefix}&mode=&noteId=&pageNumber=3&pageSize=10&sortColumn=QuestionReference&sortDirection=Descending", pageModel.BuildListUrl(3));
+        Assert.Equal($"{prefix}&mode=add&noteId=&{Paging}", pageModel.Editor.BuildAddUrl());
+        Assert.Equal($"{prefix}&mode=select&noteId=&{Paging}", pageModel.Editor.BuildSelectUrl());
+        Assert.Equal($"{prefix}&mode=&noteId={noteId}&{Paging}", pageModel.Editor.BuildViewUrl(noteId));
+        Assert.Equal($"{prefix}&mode=&noteId=&{Paging}", pageModel.Editor.BuildListUrl());
+        Assert.Equal($"{prefix}&mode=&noteId=&pageNumber=3&pageSize=10&sortColumn=QuestionReference&sortDirection=Descending", pageModel.Editor.BuildListUrl(3));
     }
 
     [Theory]
@@ -1150,7 +1165,7 @@ public class EditProfileFurtherInformationModelTests
         pageModel.SortDirection = currentDirection;
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        var url = pageModel.BuildSortUrl(clickedColumn);
+        var url = pageModel.Editor.BuildSortUrl(clickedColumn);
 
         Assert.Equal(
             $"{FurtherInformationPage}?profileId={ProfileId}&section={SummarySectionId}&mode=&noteId=&pageNumber=1&pageSize=10&sortColumn={clickedColumn}&sortDirection={expectedDirection}",
@@ -1169,6 +1184,6 @@ public class EditProfileFurtherInformationModelTests
         pageModel.SortDirection = currentDirection;
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Equal(expected, pageModel.GetAriaSort(column));
+        Assert.Equal(expected, pageModel.Editor.GetAriaSort(column));
     }
 }

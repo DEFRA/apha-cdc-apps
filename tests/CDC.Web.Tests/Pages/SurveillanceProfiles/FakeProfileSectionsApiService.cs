@@ -55,6 +55,9 @@ internal sealed class FakeProfileSectionsApiService(
     /// <summary>Gets the answers most recently passed to <c>SaveProfileVersionSectionAsync</c>.</summary>
     public IReadOnlyList<ProfileFieldAnswerInputDto>? SavedAnswers { get; private set; }
 
+    /// <summary>Gets the rows of the repeating questions most recently passed to <c>SaveProfileVersionSectionAsync</c>.</summary>
+    public IReadOnlyList<ProfileRepeatingQuestionInputDto>? SavedRepeatingQuestions { get; private set; }
+
     /// <summary>Gets the row version most recently passed to <c>ClearProfileVersionSectionAsync</c>.</summary>
     public byte[]? ClearedLastUpdated { get; private set; }
 
@@ -255,11 +258,13 @@ internal sealed class FakeProfileSectionsApiService(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> repeatingQuestions,
         byte[]? lastUpdated,
         CancellationToken cancellationToken = default)
     {
         SaveProfileVersionSectionCallCount++;
         SavedAnswers = answers;
+        SavedRepeatingQuestions = repeatingQuestions;
         SavedLastUpdated = lastUpdated;
 
         if (throwOnSaveProfileVersionSection is not null)

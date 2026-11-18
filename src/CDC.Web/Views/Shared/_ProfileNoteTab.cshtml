@@ -1,0 +1,59 @@
+@model CDC.Web.Pages.SurveillanceProfiles.ProfileNoteTabPageModel
+@using CDC.Web.Pages.SurveillanceProfiles
+@* A tab of a profile section that edits notes: the tab strip, then the messages about what the user last did, then the
+   editor of each kind of note the tab holds. The region is reloaded in place by the pagination links inside it. *@
+@{
+    var tabsModel = Model.BuildTabs();
+    var notified = Model.Editors.FirstOrDefault(editor => editor.ActionMessage is not null);
+}
+<div class="govuk-tabs app-tab-carousel">
+    <partial name="_ProfileSectionTabs" model="tabsModel" />
+    <div class="govuk-tabs__panel" id="@Model.PanelId" data-app-paged-region>
+        @if (Model.HasNoVersion)
+        {
+            <div class="govuk-inset-text">This profile has no current version to browse.</div>
+        }
+        else
+        {
+            @if (Model.HasFormErrors)
+            {
+                <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" aria-labelledby="note-errors-title">
+                    <div role="alert">
+                        <h2 class="govuk-error-summary__title" id="note-errors-title">The following errors have occurred:</h2>
+                        <div class="govuk-error-summary__body">
+                            <ul class="govuk-list govuk-error-summary__list">
+                                @foreach (var editor in Model.Editors)
+                                {
+                                    @if (editor.ActionMessageIsError)
+                                    {
+                                        <li>@editor.ActionMessage</li>
+                                    }
+                                    @foreach (var error in editor.FormErrors)
+                                    {
+                                        <li><a href="#@error.FieldId">@error.Message</a></li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (notified is not null)
+            {
+                <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="note-message-title" data-module="govuk-notification-banner">
+                    <div class="govuk-notification-banner__header">
+                        <h2 class="govuk-notification-banner__title" id="note-message-title">Success</h2>
+                    </div>
+                    <div class="govuk-notification-banner__content">
+                        <p class="govuk-notification-banner__heading">@notified.ActionMessage</p>
+                    </div>
+                </div>
+            }
+
+            @foreach (var editor in Model.Editors)
+            {
+                <partial name="_ProfileNoteEditor" model="editor" />
+            }
+        }
+    </div>
+</div>

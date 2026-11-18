@@ -28,6 +28,28 @@ public static class ProfileRevisionDatesForm
         "d MMMM yyyy", "d MMM yyyy", "d/M/yyyy", "dd/MM/yyyy", "d-M-yyyy", "yyyy-MM-dd"
     ];
 
+    // The heading of each section's block, word for word as legacy EditProfileAllRevisionDates.aspx spelled them out by section number
+    // (so "7. WiderSociety", with the capitals and "&" the page used). A section this does not know keeps the name CDC.Api gives it.
+    private static readonly Dictionary<int, string> LegacySectionHeadings = new()
+    {
+        [1] = "Summary",
+        [2] = "Geographic distribution & levels of disease",
+        [3] = "Epidemiology",
+        [4] = "Characteristics of the agent",
+        [5] = "Animal Welfare",
+        [6] = "Human Health",
+        [7] = "WiderSociety",
+        [8] = "Legislation & Mandates",
+        [9] = "Approach to Control",
+        [10] = "Risk Assessment",
+        [11] = "Laboratories",
+        [12] = "Surveillance",
+        [13] = "International Trade",
+        [14] = "Opportunity to add value",
+        [15] = "Public and Stakeholder Perception",
+        [16] = "Areas of Uncertainty"
+    };
+
     /// <summary>Reads a date typed into a date field, in any of the formats the field accepts.</summary>
     /// <param name="value">The text typed.</param>
     /// <param name="date">The date read, when <see langword="true"/> is returned.</param>
@@ -288,7 +310,8 @@ public static class ProfileRevisionDatesForm
         };
     }
 
-    private static string SectionDisplay(ProfileSectionRevisionDatesDto section) => $"{section.SectionNumber}. {section.SectionName}";
+    private static string SectionDisplay(ProfileSectionRevisionDatesDto section) =>
+        $"{section.SectionNumber}. {(LegacySectionHeadings.TryGetValue(section.SectionNumber, out var heading) ? heading : section.SectionName)}";
 
     private static string IdText(Guid? id) => id?.ToString() ?? string.Empty;
 

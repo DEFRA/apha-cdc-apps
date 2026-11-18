@@ -1,5 +1,6 @@
 using System.Net;
 using CDC.Common.Contracts;
+using CDC.Web.Infrastructure.Reports;
 using CDC.Web.Models;
 using CDC.Web.Pages.SurveillanceProfiles;
 using CDC.Web.Tests.Features.Landing;
@@ -39,7 +40,10 @@ public class EditProfileQuestionsModelTests
         ProfileSectionValidationResultDto? sectionValidationResult = null,
         ProfileSectionWriteResult? clearResult = null,
         Exception? throwOnClearProfileVersionSection = null,
-        Exception? throwOnGetProfileSectionAnswers = null)
+        Exception? throwOnGetProfileSectionAnswers = null,
+        IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
+        Exception? throwOnGetProfileNoteTypes = null,
+        AlwaysEnabledLogger<EditProfileQuestionsModel>? logger = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -53,8 +57,10 @@ public class EditProfileQuestionsModelTests
                 sectionValidationResult: sectionValidationResult,
                 clearResult: clearResult,
                 throwOnClearProfileVersionSection: throwOnClearProfileVersionSection,
-                throwOnGetProfileSectionAnswers: throwOnGetProfileSectionAnswers),
-            new AlwaysEnabledLogger<EditProfileQuestionsModel>())
+                throwOnGetProfileSectionAnswers: throwOnGetProfileSectionAnswers,
+                noteTypes: noteTypes,
+                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes),
+            logger ?? new AlwaysEnabledLogger<EditProfileQuestionsModel>())
         {
             ProfileId = ProfileId,
             Section = section,
@@ -92,8 +98,6 @@ public class EditProfileQuestionsModelTests
                         SectionId = SummarySectionId,
                         ShortName = "Overview",
                         QuestionNumber = 1,
-                        IsPerSpecies = true,
-                        IsRepeating = true,
                         Fields =
                         [
                             new ProfileFieldMetadataDto
@@ -361,6 +365,56 @@ public class EditProfileQuestionsModelTests
         Assert.Empty(field.Options);
     }
 
+    // The Summary section's species fields store no answer: the legacy page showed the version's own species (ProfileVersionInfo.ProfiledSpecies and
+    // OtherAffectedSpecies), found by the field's short name, in a read-only box.
+    [Fact]
+    public async Task OnGetAsync_ShowsTheVersionsSpeciesAsTheValueOfTheSpeciesFieldsOfTheSummary()
+    {
+        var metadata = new ProfileQuestionnaireMetadataDto
+        {
+            Sections =
+            [
+                new ProfileSectionMetadataDto
+                {
+                    Id = SummarySectionId,
+                    Name = "Summary",
+                    SectionNumber = 1,
+                    Questions =
+                    [
+                        new ProfileQuestionMetadataDto
+                        {
+                            Id = QuestionId,
+                            SectionId = SummarySectionId,
+                            ShortName = "Profiled Species",
+                            QuestionNumber = 3,
+                            Fields =
+                            [
+                                new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, ShortName = "Profiled Species", FieldNumber = 1, DataTypeName = "Profile Version Data", IsReadOnlyCurrentSituation = true, IsReadOnlyScenario = true },
+                                new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, ShortName = "Other Affected Species", FieldNumber = 2, DataTypeName = "Profile Version Data", IsReadOnlyCurrentSituation = true, IsReadOnlyScenario = true },
+                                new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, ShortName = "Something Else", FieldNumber = 3, DataTypeName = "Profile Version Data", IsReadOnlyCurrentSituation = true, IsReadOnlyScenario = true }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        var answers = new ProfileSectionAnswersDto
+        {
+            ProfileVersionId = ProfileVersionId,
+            ProfileSectionId = SummarySectionId,
+            ProfiledSpeciesText = "Chickens, Ducks (inactive)",
+            OtherAffectedSpeciesText = "Geese, Turkeys"
+        };
+
+        var pageModel = CreatePageModel(EditableProfile(), metadata: metadata, answers: answers);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        var fields = Assert.Single(pageModel.Questions).Fields;
+        Assert.Equal(["Chickens, Ducks (inactive)", "Geese, Turkeys", string.Empty], fields.Select(field => field.ValueDisplay));
+        Assert.All(fields, field => Assert.False(field.IsEditable));
+    }
+
     [Fact]
     public async Task OnGetAsync_RendersAListField_AsACheckboxGroup_WithTheRecordedOptionChecked()
     {
@@ -460,31 +514,17 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_FieldThatAffectsRelevance_ListsTheQuestionsItControls()
+    public async Task OnGetAsync_FieldThatAffectsRelevance_CarriesTheQuestionsItControls()
     {
-        var fieldId = Guid.NewGuid();
         var metadata = SingleFieldMetadata(
-            new ProfileFieldMetadataDto { Id = fieldId, QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean", AffectsRelevance = true },
-            dependentQuestionNumbers: [3, 2],
-            irrelevanceFieldId: fieldId);
+            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean", AffectsRelevanceOf = ["1.2", "1.3"] });
         var pageModel = CreatePageModel(Profile(), metadata: metadata);
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
         var field = Assert.Single(pageModel.Questions[0].Fields);
-        Assert.Equal("1.2, 1.3", field.AffectsRelevanceOf);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_FieldThatAffectsRelevanceButControlsNoQuestion_HasNoAffectedQuestions()
-    {
-        var metadata = SingleFieldMetadata(
-            new ProfileFieldMetadataDto { Id = Guid.NewGuid(), QuestionId = QuestionId, Name = "Is it endemic?", FieldNumber = 1, DataTypeName = "Boolean", AffectsRelevance = true });
-        var pageModel = CreatePageModel(Profile(), metadata: metadata);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Null(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
+        Assert.Equal(["1.2", "1.3"], field.AffectsRelevanceOf);
+        Assert.Equal("1.2, 1.3", field.AffectsRelevanceText);
     }
 
     [Fact]
@@ -496,44 +536,32 @@ public class EditProfileQuestionsModelTests
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
-        Assert.Null(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
+        Assert.Empty(Assert.Single(pageModel.Questions[0].Fields).AffectsRelevanceOf);
     }
 
-    private static ProfileQuestionnaireMetadataDto SingleFieldMetadata(
-        ProfileFieldMetadataDto field,
-        int[]? dependentQuestionNumbers = null,
-        Guid irrelevanceFieldId = default) => new()
-        {
-            Sections =
-            [
-                new ProfileSectionMetadataDto
-                {
-                    Id = SummarySectionId,
-                    Name = "Summary",
-                    SectionNumber = 1,
-                    Questions =
-                    [
-                        new ProfileQuestionMetadataDto
-                        {
-                            Id = QuestionId,
-                            SectionId = SummarySectionId,
-                            ShortName = "Species",
-                            QuestionNumber = 1,
-                            Fields = [field]
-                        },
-                        .. (dependentQuestionNumbers ?? []).Select(number => new ProfileQuestionMetadataDto
-                        {
-                            Id = Guid.NewGuid(),
-                            SectionId = SummarySectionId,
-                            ShortName = $"Dependent {number}",
-                            QuestionNumber = number,
-                            IrrelevanceFieldId = irrelevanceFieldId,
-                            Fields = []
-                        })
-                    ]
-                }
-            ]
-        };
+    private static ProfileQuestionnaireMetadataDto SingleFieldMetadata(ProfileFieldMetadataDto field) => new()
+    {
+        Sections =
+        [
+            new ProfileSectionMetadataDto
+            {
+                Id = SummarySectionId,
+                Name = "Summary",
+                SectionNumber = 1,
+                Questions =
+                [
+                    new ProfileQuestionMetadataDto
+                    {
+                        Id = QuestionId,
+                        SectionId = SummarySectionId,
+                        ShortName = "Species",
+                        QuestionNumber = 1,
+                        Fields = [field]
+                    }
+                ]
+            }
+        ]
+    };
 
     [Fact]
     public async Task OnGetAsync_PopulatesCanEditProfileSectionAndCanClearProfileSection_FromTheProfile()
@@ -621,10 +649,9 @@ public class EditProfileQuestionsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_MarksFieldsReadOnly_ForAPerSpeciesOrRepeatingQuestion_EvenWhenUserCanEditProfileSection()
+    public async Task OnGetAsync_MarksFieldsReadOnly_WhenUserCannotEditProfileSection()
     {
-        var profile = EditableProfile();
-        var pageModel = CreatePageModel(profile, metadata: TwoSectionMetadata(), section: SummarySectionId);
+        var pageModel = CreatePageModel(Profile(), metadata: StandardQuestionMetadata(), section: StandardSectionId);
 
         await pageModel.OnGetAsync(CancellationToken.None);
 
@@ -1365,6 +1392,89 @@ public class EditProfileQuestionsModelTests
 
         Assert.True(Assert.Single(editablePageModel.Questions).CanEditReferences);
         Assert.False(Assert.Single(readOnlyPageModel.Questions).CanEditReferences);
+    }
+
+    // The icons of a question name it when they open their dialogs.
+    [Fact]
+    public async Task OnGetAsync_GivesEachQuestionItsId()
+    {
+        var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), section: StandardSectionId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(StandardQuestionId, Assert.Single(pageModel.Questions).Id);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ReadsTheTypesOfReference_ForAUserWhoCanEditTheSection()
+    {
+        ProfileNoteTypeDto[] noteTypes =
+        [
+            new() { Id = Guid.NewGuid(), Name = "Scientific paper reference" },
+            new() { Id = Guid.NewGuid(), Name = "Legislative reference" }
+        ];
+        var pageModel = CreatePageModel(EditableProfile(), metadata: StandardQuestionMetadata(), section: StandardSectionId, noteTypes: noteTypes);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(noteTypes, pageModel.ReferenceNoteTypes);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_OffersNoTypesOfReference_ToAUserWhoCannotEditTheSection()
+    {
+        var pageModel = CreatePageModel(
+            Profile(),
+            metadata: StandardQuestionMetadata(),
+            section: StandardSectionId,
+            noteTypes: [new() { Id = Guid.NewGuid(), Name = "Scientific paper reference" }]);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Empty(pageModel.ReferenceNoteTypes);
+    }
+
+    [Theory]
+    [InlineData(typeof(HttpRequestException))]
+    [InlineData(typeof(TaskCanceledException))]
+    [InlineData(typeof(NotSupportedException))]
+    public async Task OnGetAsync_ShowsTheQuestionsWithoutTheTypesOfReference_AndLogsIt_WhenTheyCannotBeRead(Type exceptionType)
+    {
+        var logger = new AlwaysEnabledLogger<EditProfileQuestionsModel>();
+        var pageModel = CreatePageModel(
+            EditableProfile(),
+            metadata: StandardQuestionMetadata(),
+            section: StandardSectionId,
+            throwOnGetProfileNoteTypes: (Exception)Activator.CreateInstance(exceptionType)!,
+            logger: logger);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.HasError);
+        Assert.Empty(pageModel.ReferenceNoteTypes);
+        Assert.Single(pageModel.Questions);
+        Assert.Contains(logger.Messages, message => message.Contains(ProfileId.ToString(), StringComparison.Ordinal));
+    }
+
+    // The legacy panels opened collapsed whenever the page was opened, and kept their state only across the page's own postbacks.
+    [Theory]
+    [InlineData("GET", true)]
+    [InlineData("POST", false)]
+    public void CollapseQuestionsOnOpen_IsTrueOnlyWhenThePageIsOpened(string method, bool expected)
+    {
+        var pageModel = CreatePageModel();
+        pageModel.HttpContext.Request.Method = method;
+
+        Assert.Equal(expected, pageModel.CollapseQuestionsOnOpen);
+    }
+
+    [Fact]
+    public void PaginationFootnote_IsTheStatementAboutQuestionsThatAreNoLongerUpdated()
+    {
+        var pageModel = CreatePageModel();
+
+        Assert.Equal(ProfileReportLayout.WarningText, pageModel.PaginationFootnote);
+        Assert.StartsWith("The content in a number of questions constitutes static information", pageModel.PaginationFootnote, StringComparison.Ordinal);
     }
 
     [Fact]

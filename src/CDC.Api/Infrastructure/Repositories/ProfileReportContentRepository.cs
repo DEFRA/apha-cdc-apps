@@ -22,6 +22,9 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     private const int FieldGroupIdOrdinal = 17;
     private const string ProfiledSpeciesType = "Profiled";
 
+    // What the legacy site put after the name of a species that has been ended, in the text it listed a version's species as.
+    private const string InactiveSpeciesSuffix = " (inactive)";
+
     /// <inheritdoc />
     public async Task<ReportQuestionnaire> GetQuestionnaireAsync(CancellationToken cancellationToken)
     {
@@ -102,35 +105,17 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
             }
 
             var isWhatIfScenario = reader.ReadGuid(10) != Guid.Empty;
-            var hasInactiveProfiledSpecies = false;
-            var hasInactiveOtherAffectedSpecies = false;
-
-            // Result set 2: species Id, Name, AffectedSpeciesType ("Profiled" or "Other"), IsActive.
-            if (await reader.NextResultAsync(cancellationToken))
-            {
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    if (reader.ReadBoolean(3))
-                    {
-                        continue;
-                    }
-
-                    if (reader.ReadString(2) == ProfiledSpeciesType)
-                    {
-                        hasInactiveProfiledSpecies = true;
-                    }
-                    else
-                    {
-                        hasInactiveOtherAffectedSpecies = true;
-                    }
-                }
-            }
+            var species = await reader.NextResultAsync(cancellationToken) ? await ReadVersionSpeciesAsync(reader, cancellationToken) : [];
+            var profiledSpecies = species.Where(item => item.IsProfiled).ToList();
+            var otherAffectedSpecies = species.Where(item => !item.IsProfiled).ToList();
 
             return new ReportVersionContext
             {
                 IsWhatIfScenario = isWhatIfScenario,
-                HasInactiveProfiledSpecies = hasInactiveProfiledSpecies,
-                HasInactiveOtherAffectedSpecies = hasInactiveOtherAffectedSpecies
+                HasInactiveProfiledSpecies = profiledSpecies.Exists(item => !item.IsActive),
+                HasInactiveOtherAffectedSpecies = otherAffectedSpecies.Exists(item => !item.IsActive),
+                ProfiledSpeciesText = SpeciesText(profiledSpecies),
+                OtherAffectedSpeciesText = SpeciesText(otherAffectedSpecies)
             };
         }
         catch (DbException exception)
@@ -412,6 +397,22 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
         return species;
     }
 
+    // Result set 2 of a version's info: species Id, Name, AffectedSpeciesType ("Profiled" or "Other"), IsActive.
+    private static async Task<List<VersionSpeciesRow>> ReadVersionSpeciesAsync(DbDataReader reader, CancellationToken cancellationToken)
+    {
+        var species = new List<VersionSpeciesRow>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            species.Add(new VersionSpeciesRow(reader.ReadString(1), reader.ReadString(2) == ProfiledSpeciesType, reader.ReadBoolean(3)));
+        }
+
+        return species;
+    }
+
+    private static string SpeciesText(List<VersionSpeciesRow> species) =>
+        string.Join(", ", species.Select(item => item.IsActive ? item.Name : item.Name + InactiveSpeciesSuffix));
+
     // Result set 2: SectionId, TechnicalReviewFrequency, PolicyReviewFrequency, AuthorReviewFrequency, NextTechnicalReview, NextPolicyReview,
     // NextAuthorReview, LastUpdated, ParentId, PolicyReviewStatusId, TechnicalReviewStatusId, AuthorReviewStatusId. The database's "Technical" review is the "VA" review.
     private static async Task<ReportSectionRevision?> ReadRevisionAsync(DbDataReader reader, CancellationToken cancellationToken)
@@ -465,11 +466,11 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     // ProfileFieldGroupId, QuestionNumber, QuestionId, FieldNumber.
     private static async Task<List<ReportFieldValue>> ReadValuesAsync(DbDataReader reader, CancellationToken cancellationToken)
     {
-        var values = new List<ReportFieldValue>();
+        var values = new FieldValueCollector<ReportFieldValue>();
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            values.Add(new ReportFieldValue
+            var value = new ReportFieldValue
             {
                 SpeciesId = reader.ReadNullableGuid(1),
                 RowId = reader.ReadNullableGuid(2),
@@ -481,10 +482,12 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
                 FieldId = reader.GetGuid(8),
                 FieldGroupId = reader.ReadGuid(9),
                 QuestionId = reader.GetGuid(11)
-            });
+            };
+
+            values.Add(value.FieldId, value.SpeciesId, value.RowId, value.ListValue is not null, value);
         }
 
-        return values;
+        return values.Values;
     }
 
     private static ReportQuestionnaire Build(
@@ -568,4 +571,6 @@ public sealed class ProfileReportContentRepository(IDbConnectionFactory connecti
     private sealed record SectionRow(Guid Id, string Name, string ShortName, int SectionNumber, string Note);
 
     private sealed record QuestionRow(Guid SectionId, ReportQuestion Question);
+
+    private sealed record VersionSpeciesRow(string Name, bool IsProfiled, bool IsActive);
 }

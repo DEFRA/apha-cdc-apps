@@ -1,7 +1,8 @@
 namespace CDC.Api.Domain.Entities;
 
 /// <summary>
-/// An external user as read from <c>spgaExternalUserMaintenance</c>: a user linked to a CIDM identity. Distinct from
+/// An external user as read from <c>spgaExternalUserMaintenance</c>: a user flagged as external (<c>IsExternal</c>), whether or not the user has
+/// signed in through CIDM yet. Distinct from
 /// <see cref="ExternalUser"/>, which is the sign-in resolution result.
 /// </summary>
 public sealed record ExternalUserAccount

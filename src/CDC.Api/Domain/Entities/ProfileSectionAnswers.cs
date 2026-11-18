@@ -12,6 +12,9 @@ public sealed record ProfileSectionAnswers
     /// <summary>Gets the section the answers belong to.</summary>
     public required Guid ProfileSectionId { get; init; }
 
+    /// <summary>Gets the species the profile version profiles, in the order the database returns them.</summary>
+    public IReadOnlyList<ReportSpecies> ProfiledSpecies { get; init; } = [];
+
     /// <summary>Gets the display names of each question in this section.</summary>
     public required IReadOnlyList<ProfileQuestionName> QuestionNames { get; init; }
 

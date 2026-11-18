@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Core;
@@ -43,13 +44,23 @@ public class LoadTestingExtensionsTests
         return settings;
     }
 
-    private static ServiceProvider Build(Dictionary<string, string?> settings, ControllableClock? clock = null)
+    private static ServiceProvider Build(
+        Dictionary<string, string?> settings,
+        ControllableClock? clock = null,
+        string hostEnvironment = "Development",
+        ILoggerProvider? loggerProvider = null)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var services = new ServiceCollection();
-        services.AddLogging();
+        services.AddLogging(logging =>
+        {
+            if (loggerProvider is not null)
+            {
+                logging.AddProvider(loggerProvider);
+            }
+        });
         services.AddSingleton<IConfiguration>(configuration);
-        services.AddSingleton<IHostEnvironment>(new FakeHostEnvironment("Development"));
+        services.AddSingleton<IHostEnvironment>(new FakeHostEnvironment(hostEnvironment));
         services.AddSingleton<TimeProvider>(clock ?? new ControllableClock(Now));
         services.AddSingleton<IApiClient>(new FakeApiClient());
         services.AddAuthentication()
@@ -79,6 +90,17 @@ public class LoadTestingExtensionsTests
     public void WhenNothingIsConfigured_ItIsOff()
     {
         using var services = Build([]);
+
+        Assert.False(services.GetRequiredService<ILoadTestingStatus>().IsEnabled);
+        Assert.Null(services.GetService<ILoadTestSignIn>());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void WhenTheTaskDefinitionPassesABlankValue_ItIsOff(string blank)
+    {
+        using var services = Build(new Dictionary<string, string?> { ["LoadTesting:Enabled"] = blank });
 
         Assert.False(services.GetRequiredService<ILoadTestingStatus>().IsEnabled);
         Assert.Null(services.GetService<ILoadTestSignIn>());
@@ -126,6 +148,40 @@ public class LoadTestingExtensionsTests
         Assert.False(LoadTestingOptions.IsEnabledIn(new ConfigurationBuilder().Build()));
     }
 
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData("false", false)]
+    [InlineData("False", false)]
+    [InlineData("true", true)]
+    [InlineData("TRUE", true)]
+    [InlineData(" true ", true)]
+    public void TheSwitchIsOnOnlyWhenTheTaskDefinitionGivesItAValueOfTrue(string value, bool expected)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["LoadTesting:Enabled"] = value }).Build();
+
+        Assert.Equal(expected, LoadTestingOptions.IsEnabledIn(configuration));
+    }
+
+    [Fact]
+    public void AValueThatIsNotABooleanStillStopsTheApp()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["LoadTesting:Enabled"] = "maybe" }).Build();
+
+        Assert.Throws<InvalidOperationException>(() => LoadTestingOptions.IsEnabledIn(configuration));
+    }
+
+    [Fact]
+    public void WhenOnWithABlankExpiry_NoExpiryIsBound()
+    {
+        using var services = Build(new Dictionary<string, string?> { ["LoadTesting:Enabled"] = "true", ["LoadTesting:ExpiresAtUtc"] = "" });
+
+        var options = services.GetRequiredService<IOptions<LoadTestingOptions>>().Value;
+
+        Assert.True(options.Enabled);
+        Assert.Null(options.ExpiresAtUtc);
+    }
+
     // A request carrying a LoadTesting session after the window has passed: ended when LoadTesting is on, untouched when it is off.
     private static async Task<int> RequestWithAnExpiredSessionAsync(ServiceProvider services)
     {
@@ -156,6 +212,40 @@ public class LoadTestingExtensionsTests
         using var services = Build(Settings(enabled: false));
 
         Assert.Equal(StatusCodes.Status404NotFound, await RequestWithAnExpiredSessionAsync(services));
+    }
+
+    // An ECS task runs as Production and may carry no deployment label; the warning then names the hosting environment, not "local".
+    [Theory]
+    [InlineData(null, "Production")]
+    [InlineData("TEST", "TEST")]
+    public void UseLoadTesting_WhenOn_WarnsWhereItIsRunning(string? deployment, string expected)
+    {
+        var logs = new CapturingLoggerProvider();
+        using var services = Build(Settings(enabled: true, expiresAtUtc: "2026-11-05T12:00:00Z", deployment: deployment), hostEnvironment: "Production", loggerProvider: logs);
+
+        new ApplicationBuilder(services).UseLoadTesting();
+
+        var warning = Assert.Single(logs.Messages, message => message.Contains("LoadTesting is ENABLED", StringComparison.Ordinal));
+        Assert.Contains($"(deployment {expected},", warning, StringComparison.Ordinal);
+    }
+
+    private sealed class CapturingLoggerProvider : ILoggerProvider, Microsoft.Extensions.Logging.ILogger
+    {
+        public List<string> Messages { get; } = [];
+
+        public Microsoft.Extensions.Logging.ILogger CreateLogger(string categoryName) => this;
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Messages.Add(formatter(state, exception));
+
+        public void Dispose()
+        {
+        }
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using CDC.Web.Models;
 namespace CDC.Web.Infrastructure;
 
 /// <summary>
-/// Builds the changes the Further information page sends to CDC.Api, following the legacy <c>EditNoteUI</c> save: each
+/// Builds the changes the References and Further information tabs send to CDC.Api, following the legacy <c>EditNoteUI</c> save: each
 /// ticked question is linked to the note and each unticked one is unlinked, for the current section only, so links the
 /// note has in other sections are untouched.
 /// </summary>

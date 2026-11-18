@@ -162,7 +162,7 @@ public class ManageProfileAndEditProfileQuestionsIntegrationTests : IClassFixtur
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Contains("Is it endemic?", body);
-        Assert.Contains("Epi", body);
+        Assert.Contains("2. Epi", body);
         Assert.DoesNotContain("A relevant paper.", body);
     }
 

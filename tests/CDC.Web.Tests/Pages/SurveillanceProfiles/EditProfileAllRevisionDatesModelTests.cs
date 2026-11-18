@@ -273,4 +273,187 @@ public class EditProfileAllRevisionDatesModelTests
         Assert.Null(service.SavedRevisionDates);
         Assert.NotNull(pageModel.RevisionDatesSaveError);
     }
+
+    [Fact]
+    public async Task HasFormErrors_ReportsASaveThatFoundInvalidDates_AndNothingBefore()
+    {
+        var (pageModel, _) = CreatePageModel(DraftProfile(), RevisionForm(vaNext: "not a date"));
+
+        Assert.False(pageModel.HasFormErrors);
+
+        await pageModel.OnPostSaveRevisionDatesAsync(ProfileVersionId, CancellationToken.None);
+
+        Assert.True(pageModel.HasFormErrors);
+    }
+
+    private static PublishProfileResult Published(Guid? newVersionId = null) => new(PublishProfileOutcome.Success, newVersionId ?? Guid.NewGuid(), null);
+
+    private static ManageProfileViewModel PublishableDraft() =>
+        DraftProfile() with { LinkVisibility = new ManageProfileLinkVisibilityDto { CanPublishPublic = true, CanPublishDefranetOnly = true } };
+
+    private static (EditProfileAllRevisionDatesModel PageModel, FakeApiClient Api) CreatePublishPage(
+        ManageProfileViewModel manageProfile,
+        PublishProfileResult? publishResult = null,
+        Exception? throwOnPublish = null)
+    {
+        var api = new FakeApiClient(manageProfile: manageProfile, publishProfileResult: publishResult, throwOnPublishProfile: throwOnPublish);
+        var service = new FakeProfileSectionsApiService(metadata: TwoSectionMetadata(), allRevisionDates: RevisionDatesData());
+        var pageModel = Configure(new EditProfileAllRevisionDatesModel(api, service, new AlwaysEnabledLogger<EditProfileAllRevisionDatesModel>()));
+
+        return (pageModel, api);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task OnGetAsync_OffersEachPublishLink_ToWhoeverMayUseIt(bool canPublishPublic, bool canPublishDefranetOnly)
+    {
+        var profile = DraftProfile() with { LinkVisibility = new ManageProfileLinkVisibilityDto { CanPublishPublic = canPublishPublic, CanPublishDefranetOnly = canPublishDefranetOnly } };
+        var (pageModel, _) = CreatePublishPage(profile);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(canPublishPublic, pageModel.CanPublishPublic);
+        Assert.Equal(canPublishDefranetOnly, pageModel.CanPublishDefranetOnly);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_OffersNoPublishLink_WhenTheProfileCannotBePublished()
+    {
+        var (pageModel, _) = CreatePublishPage(DraftProfile());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.False(pageModel.CanPublishPublic);
+        Assert.False(pageModel.CanPublishDefranetOnly);
+    }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_PublishesAndMakesItPublic_ThenGoesToTheNewVersionsProfileReports()
+    {
+        var newVersionId = Guid.NewGuid();
+        var (pageModel, api) = CreatePublishPage(PublishableDraft(), Published(newVersionId));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/SurveillanceProfiles/ProfileReports", redirect.PageName);
+        Assert.Equal(newVersionId, redirect.RouteValues!["profileVersionId"]);
+        Assert.Equal(ProfileId, api.PublishedProfileId);
+        Assert.True(api.PublishedAsPublic);
+        Assert.Equal("Successfully published this profile and made it public.", pageModel.SuccessMessage);
+        Assert.True(pageModel.GenerateReports);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_PublishesWithoutMakingItPublic_ThenGoesToTheNewVersionsProfileReports()
+    {
+        var newVersionId = Guid.NewGuid();
+        var (pageModel, api) = CreatePublishPage(PublishableDraft(), Published(newVersionId));
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/SurveillanceProfiles/ProfileReports", redirect.PageName);
+        Assert.Equal(newVersionId, redirect.RouteValues!["profileVersionId"]);
+        Assert.Equal(ProfileId, api.PublishedProfileId);
+        Assert.False(api.PublishedAsPublic);
+        Assert.Equal("Successfully published this profile but did not make it public.", pageModel.SuccessMessage);
+        Assert.True(pageModel.GenerateReports);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OnPostPublishAsync_ListsTheValidationErrors_AndStaysOnTheTab_WhenTheDraftIsInvalid(bool isPublic)
+    {
+        ProfileSectionInvalidReasonDto[] reasons =
+        [
+            new() { SectionNumber = 1, QuestionNumber = 0, Description = "\"Revision dates, Next policy review\" is required" },
+            new() { SectionNumber = 3, QuestionNumber = 2, QuestionId = Guid.NewGuid(), Description = "Cattle Row 2, \"Laboratory test - Name\" is required" }
+        ];
+        var (pageModel, api) = CreatePublishPage(PublishableDraft(), new PublishProfileResult(PublishProfileOutcome.InvalidProfile, null, null) { InvalidReasons = reasons });
+
+        var result = isPublic
+            ? await pageModel.OnPostPublishPublicAsync(CancellationToken.None)
+            : await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(isPublic, api.PublishedAsPublic);
+        Assert.Equal(reasons, pageModel.InvalidReasons);
+        Assert.Null(pageModel.PublishErrorMessage);
+        Assert.Null(pageModel.SuccessMessage);
+        Assert.False(pageModel.GenerateReports);
+        Assert.True(pageModel.HasFormErrors);
+        Assert.NotNull(pageModel.RevisionDatesTab);
+    }
+
+    [Theory]
+    [InlineData(PublishProfileOutcome.Conflict, "You cannot publish a profile based on an already published version.")]
+    [InlineData(PublishProfileOutcome.Forbidden, "You do not have permission to publish this profile.")]
+    [InlineData(PublishProfileOutcome.NotFound, "This profile could not be found. Another user may have already deleted it.")]
+    public async Task OnPostPublishPublicAsync_ShowsTheMessageOfTheRuleThatWasBroken_WhenThePublishIsRefused(PublishProfileOutcome outcome, string message)
+    {
+        var (pageModel, _) = CreatePublishPage(PublishableDraft(), new PublishProfileResult(outcome, null, message));
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(message, pageModel.PublishErrorMessage);
+        Assert.Empty(pageModel.InvalidReasons);
+        Assert.Null(pageModel.SuccessMessage);
+        Assert.True(pageModel.HasFormErrors);
+        Assert.NotNull(pageModel.RevisionDatesTab);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_FallsBackToAGenericMessage_WhenTheRefusalHasNone()
+    {
+        var (pageModel, _) = CreatePublishPage(PublishableDraft(), new PublishProfileResult(PublishProfileOutcome.Error, null, null));
+
+        await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.Equal("We could not publish the profile. Try again later.", pageModel.PublishErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(typeof(HttpRequestException))]
+    [InlineData(typeof(TaskCanceledException))]
+    [InlineData(typeof(NotSupportedException))]
+    public async Task OnPostPublishPublicAsync_ShowsAnError_WhenCdcApiCannotBeReached(Type exceptionType)
+    {
+        var (pageModel, _) = CreatePublishPage(PublishableDraft(), throwOnPublish: (Exception)Activator.CreateInstance(exceptionType)!);
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("We could not publish the profile. Try again later.", pageModel.PublishErrorMessage);
+        Assert.False(pageModel.HasError);
+        Assert.NotNull(pageModel.RevisionDatesTab);
+    }
+
+    [Fact]
+    public async Task OnPostPublishPublicAsync_ReturnsNotFound_WithoutPublishing_WhenTheUserCannotViewTheRevisionDates()
+    {
+        var (pageModel, api) = CreatePublishPage(Profile() with { LinkVisibility = new ManageProfileLinkVisibilityDto { CanPublishPublic = true } });
+
+        var result = await pageModel.OnPostPublishPublicAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Null(api.PublishedProfileId);
+    }
+
+    [Fact]
+    public async Task OnPostPublishDefranetOnlyAsync_ShowsThePageWithoutPublishing_WhenTheProfileHasNoVersion()
+    {
+        var (pageModel, api) = CreatePublishPage(Profile(currentProfileVersionId: Guid.Empty) with { LinkVisibility = new ManageProfileLinkVisibilityDto { CanPublishDefranetOnly = true } });
+
+        var result = await pageModel.OnPostPublishDefranetOnlyAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(pageModel.HasNoVersion);
+        Assert.Null(api.PublishedProfileId);
+    }
 }

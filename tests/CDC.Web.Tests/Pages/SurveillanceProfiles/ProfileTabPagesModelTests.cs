@@ -8,180 +8,6 @@ using static CDC.Web.Tests.Pages.SurveillanceProfiles.ProfileTabTestData;
 
 namespace CDC.Web.Tests.Pages.SurveillanceProfiles;
 
-public class EditProfileReferencesModelTests
-{
-    private static EditProfileReferencesModel CreatePageModel(
-        ManageProfileViewModel? manageProfile,
-        IReadOnlyList<ProfileNoteTypeDto>? noteTypes = null,
-        IReadOnlyDictionary<Guid, IReadOnlyList<ProfileNoteDto>>? notesByNoteType = null,
-        Exception? throwOnGetProfileNoteTypes = null,
-        Func<Guid, Task>? beforeGetProfileNotesBySection = null) =>
-        Configure(new EditProfileReferencesModel(
-            new FakeApiClient(manageProfile: manageProfile),
-            new FakeProfileSectionsApiService(
-                metadata: TwoSectionMetadata(),
-                noteTypes: noteTypes,
-                notesByNoteType: notesByNoteType,
-                throwOnGetProfileNoteTypes: throwOnGetProfileNoteTypes,
-                beforeGetProfileNotesBySection: beforeGetProfileNotesBySection),
-            new AlwaysEnabledLogger<EditProfileReferencesModel>()));
-
-    [Fact]
-    public void ActiveTab_IsReferences() =>
-        Assert.Equal(ProfileSectionTab.References, CreatePageModel(Profile()).ActiveTab);
-
-    [Fact]
-    public async Task OnGetAsync_ReturnsNotFound_WhenTheProfileDoesNotExist()
-    {
-        var result = await CreatePageModel(manageProfile: null).OnGetAsync(CancellationToken.None);
-
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_PopulatesBothReferenceGroups_MatchedByNoteTypeName_RegardlessOfCasingOrSpacing()
-    {
-        var scientificPaperReferenceTypeId = Guid.NewGuid();
-        var legislativeReferenceTypeId = Guid.NewGuid();
-
-        var noteTypes = new List<ProfileNoteTypeDto>
-        {
-            new() { Id = scientificPaperReferenceTypeId, Name = "scientific paper reference", PluralName = "Scientific paper references" },
-            new() { Id = legislativeReferenceTypeId, Name = "Legislative Reference", PluralName = "Legislative references" }
-        };
-
-        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
-        {
-            [scientificPaperReferenceTypeId] =
-            [
-                new ProfileNoteDto
-                {
-                    Id = Guid.NewGuid(),
-                    NoteText = "Zebra et al. (2020) <a href='https://example.com'>https://example.com</a>",
-                    QuestionReferences = [new QuestionReferenceDto { ProfileSectionId = SummarySectionId, ProfileQuestionId = QuestionId }]
-                },
-                new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }
-            ],
-            [legislativeReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Animal Health Act 1981" }]
-        };
-
-        var pageModel = CreatePageModel(Profile(), noteTypes, notesByNoteType);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Equal("Scientific paper references", pageModel.ScientificPaperReferences.Heading);
-        Assert.Equal(2, pageModel.ScientificPaperReferences.Notes.Count);
-        Assert.Equal("Aardvark et al. (2019)", pageModel.ScientificPaperReferences.Notes[0].NoteTextHtml);
-        Assert.Equal("1.1", pageModel.ScientificPaperReferences.Notes[1].QuestionReferenceDisplay);
-        Assert.Contains("<a href=", pageModel.ScientificPaperReferences.Notes[1].NoteTextHtml);
-
-        Assert.Equal("Legislative references", pageModel.LegislativeReferences.Heading);
-        Assert.Single(pageModel.LegislativeReferences.Notes);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_ReadsBothReferenceGroupsAtOnce()
-    {
-        var scientificPaperReferenceTypeId = Guid.NewGuid();
-        var legislativeReferenceTypeId = Guid.NewGuid();
-        var legislativeStarted = new TaskCompletionSource();
-        var noteTypes = new List<ProfileNoteTypeDto>
-        {
-            new() { Id = scientificPaperReferenceTypeId, Name = "Scientific paper reference", PluralName = "Scientific paper references" },
-            new() { Id = legislativeReferenceTypeId, Name = "Legislative reference", PluralName = "Legislative references" }
-        };
-        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
-        {
-            [scientificPaperReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }],
-            [legislativeReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Animal Health Act 1981" }]
-        };
-
-        // The scientific paper references cannot finish until the legislative ones have been asked for, so reading them one after the other would time out.
-        Task BeforeNotesAreRead(Guid noteTypeId)
-        {
-            if (noteTypeId == legislativeReferenceTypeId)
-            {
-                legislativeStarted.TrySetResult();
-
-                return Task.CompletedTask;
-            }
-
-            return legislativeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        }
-
-        var pageModel = CreatePageModel(Profile(), noteTypes, notesByNoteType, beforeGetProfileNotesBySection: BeforeNotesAreRead);
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Single(pageModel.ScientificPaperReferences.Notes);
-        Assert.Single(pageModel.LegislativeReferences.Notes);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_KeepsTheScientificPaperReferences_WhenTheLegislativeReferencesCannotBeRead()
-    {
-        var scientificPaperReferenceTypeId = Guid.NewGuid();
-        var legislativeReferenceTypeId = Guid.NewGuid();
-        var noteTypes = new List<ProfileNoteTypeDto>
-        {
-            new() { Id = scientificPaperReferenceTypeId, Name = "Scientific paper reference", PluralName = "Scientific paper references" },
-            new() { Id = legislativeReferenceTypeId, Name = "Legislative reference", PluralName = "Legislative references" }
-        };
-        var notesByNoteType = new Dictionary<Guid, IReadOnlyList<ProfileNoteDto>>
-        {
-            [scientificPaperReferenceTypeId] = [new ProfileNoteDto { Id = Guid.NewGuid(), NoteText = "Aardvark et al. (2019)" }]
-        };
-
-        Task BeforeNotesAreRead(Guid noteTypeId) =>
-            noteTypeId == legislativeReferenceTypeId ? Task.FromException(new HttpRequestException("connection refused")) : Task.CompletedTask;
-
-        var pageModel = CreatePageModel(Profile(), noteTypes, notesByNoteType, beforeGetProfileNotesBySection: BeforeNotesAreRead);
-
-        var result = await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.IsType<PageResult>(result);
-        Assert.False(pageModel.HasError);
-        Assert.Single(pageModel.ScientificPaperReferences.Notes);
-        Assert.Empty(pageModel.LegislativeReferences.Notes);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DefaultsToEmptyGroups_WhenNoteTypesAreNotFound()
-    {
-        var pageModel = CreatePageModel(Profile());
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
-        Assert.Equal("There are no scientific paper references to display.", pageModel.ScientificPaperReferences.EmptyMessage);
-        Assert.Empty(pageModel.LegislativeReferences.Notes);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_StillReturnsThePage_WhenLoadingReferencesFails()
-    {
-        var pageModel = CreatePageModel(Profile(), throwOnGetProfileNoteTypes: new HttpRequestException("connection refused"));
-
-        var result = await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.IsType<PageResult>(result);
-        Assert.False(pageModel.HasError);
-        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
-        Assert.Empty(pageModel.LegislativeReferences.Notes);
-    }
-
-    [Fact]
-    public async Task OnGetAsync_DoesNotLoadReferences_WhenTheProfileHasNoVersion()
-    {
-        var pageModel = CreatePageModel(Profile(currentProfileVersionId: Guid.Empty));
-
-        await pageModel.OnGetAsync(CancellationToken.None);
-
-        Assert.True(pageModel.HasNoVersion);
-        Assert.Empty(pageModel.ScientificPaperReferences.Notes);
-    }
-}
-
 public class EditProfileContributionsModelTests
 {
     private static EditProfileContributionsModel CreatePageModel(
@@ -196,22 +22,32 @@ public class EditProfileContributionsModelTests
                 throwOnGetProfileVersionSectionContributions: throwOnGetProfileVersionSectionContributions),
             new AlwaysEnabledLogger<EditProfileContributionsModel>()));
 
+    private static ProfileSectionContributionDto Contribution(string userName, string fullName, string organisation, DateTime lastContributionDate) => new()
+    {
+        UserName = userName,
+        FullName = fullName,
+        OrganisationName = organisation,
+        LastContributionDate = lastContributionDate
+    };
+
+    // Three contributors whose order differs by every column.
+    private static List<ProfileSectionContributionDto> ThreeContributions() =>
+    [
+        Contribution("bsmith", "Zoe Adams", "Defra", new DateTime(2026, 9, 11, 9, 0, 0, DateTimeKind.Utc)),
+        Contribution("asmith", "Mia Brown", "APHA", new DateTime(2026, 9, 13, 9, 0, 0, DateTimeKind.Utc)),
+        Contribution("csmith", "Abe Clark", "Cefas", new DateTime(2026, 9, 12, 9, 0, 0, DateTimeKind.Utc))
+    ];
+
     [Fact]
     public void ActiveTab_IsContributions() =>
         Assert.Equal(ProfileSectionTab.Contributions, CreatePageModel(Profile()).ActiveTab);
 
     [Fact]
-    public async Task OnGetAsync_LoadsContributions()
+    public async Task OnGetAsync_LoadsContributions_WithTheDateAndTimeInTheLegacyFormat()
     {
         var contributions = new List<ProfileSectionContributionDto>
         {
-            new()
-            {
-                FullName = "Jane Doe",
-                UserName = "jdoe",
-                OrganisationName = "APHA",
-                LastContributionDate = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc)
-            }
+            Contribution("jdoe", "Jane Doe", "APHA", new DateTime(2026, 9, 11, 13, 14, 15, DateTimeKind.Utc))
         };
 
         var pageModel = CreatePageModel(DraftProfile(), contributions);
@@ -222,7 +58,158 @@ public class EditProfileContributionsModelTests
         Assert.Equal("Jane Doe", contribution.FullName);
         Assert.Equal("jdoe", contribution.UserName);
         Assert.Equal("APHA", contribution.OrganisationName);
-        Assert.Equal("11/09/2026", contribution.LastContributionDate);
+        Assert.Equal("11/09/26 13:14:15", contribution.LastContributionDate);
+        Assert.Equal(1, pageModel.TotalRecords);
+        Assert.Equal(1, pageModel.TotalPages);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsTheNewestContributionFirst_ByDefault()
+    {
+        var pageModel = CreatePageModel(DraftProfile(), ThreeContributions());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(["asmith", "csmith", "bsmith"], pageModel.Contributions.Select(contribution => contribution.UserName));
+        Assert.Equal(EditProfileContributionsModel.ContributionDateSortColumn, pageModel.SortColumn);
+        Assert.Equal(EditProfileContributionsModel.DescendingDirection, pageModel.SortDirection);
+    }
+
+    [Theory]
+    [InlineData("UserName", "Ascending", new[] { "asmith", "bsmith", "csmith" })]
+    [InlineData("UserName", "Descending", new[] { "csmith", "bsmith", "asmith" })]
+    [InlineData("FullName", "Ascending", new[] { "csmith", "asmith", "bsmith" })]
+    [InlineData("FullName", "Descending", new[] { "bsmith", "asmith", "csmith" })]
+    [InlineData("OrganisationName", "Ascending", new[] { "asmith", "csmith", "bsmith" })]
+    [InlineData("OrganisationName", "Descending", new[] { "bsmith", "csmith", "asmith" })]
+    [InlineData("LastContributionDate", "Ascending", new[] { "bsmith", "csmith", "asmith" })]
+    [InlineData("LastContributionDate", "Descending", new[] { "asmith", "csmith", "bsmith" })]
+    [InlineData("username", "ascending", new[] { "asmith", "bsmith", "csmith" })]
+    public async Task OnGetAsync_SortsByTheChosenColumnAndDirection(string column, string direction, string[] expectedUserNames)
+    {
+        var pageModel = CreatePageModel(DraftProfile(), ThreeContributions());
+        pageModel.SortColumn = column;
+        pageModel.SortDirection = direction;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedUserNames, pageModel.Contributions.Select(contribution => contribution.UserName));
+    }
+
+    [Theory]
+    [InlineData("Password", "Sideways")]
+    [InlineData(null, null)]
+    public async Task OnGetAsync_FallsBackToTheNewestFirst_ForAnUnknownColumnOrDirection(string? column, string? direction)
+    {
+        var pageModel = CreatePageModel(DraftProfile(), ThreeContributions());
+        pageModel.SortColumn = column!;
+        pageModel.SortDirection = direction!;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(["asmith", "csmith", "bsmith"], pageModel.Contributions.Select(contribution => contribution.UserName));
+        Assert.Equal(EditProfileContributionsModel.ContributionDateSortColumn, pageModel.SortColumn);
+        Assert.Equal(EditProfileContributionsModel.DescendingDirection, pageModel.SortDirection);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_PagesTheContributions_TenToAPageByDefault()
+    {
+        var contributions = Enumerable.Range(1, 12)
+            .Select(index => Contribution($"user{index:00}", $"User {index:00}", "APHA", new DateTime(2026, 9, index, 0, 0, 0, DateTimeKind.Utc)))
+            .ToList();
+        var pageModel = CreatePageModel(DraftProfile(), contributions);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(10, pageModel.Contributions.Count);
+        Assert.Equal("user12", pageModel.Contributions[0].UserName);
+        Assert.Equal(12, pageModel.TotalRecords);
+        Assert.Equal(2, pageModel.TotalPages);
+        Assert.Equal(1, pageModel.ListPageNumber);
+        Assert.Equal(2, pageModel.ListTotalPages);
+    }
+
+    [Theory]
+    [InlineData(2, 2, "user02")]
+    [InlineData(9, 2, "user02")]
+    [InlineData(0, 1, "user12")]
+    [InlineData(-3, 1, "user12")]
+    public async Task OnGetAsync_ShowsTheRequestedPage_KeepingItWithinTheAvailablePages(int requested, int expectedPage, string expectedFirstUserName)
+    {
+        var contributions = Enumerable.Range(1, 12)
+            .Select(index => Contribution($"user{index:00}", $"User {index:00}", "APHA", new DateTime(2026, 9, index, 0, 0, 0, DateTimeKind.Utc)))
+            .ToList();
+        var pageModel = CreatePageModel(DraftProfile(), contributions);
+        pageModel.PageNumber = requested;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedPage, pageModel.PageNumber);
+        Assert.Equal(expectedFirstUserName, pageModel.Contributions[0].UserName);
+    }
+
+    [Theory]
+    [InlineData("25", "25", 12)]
+    [InlineData("abc", "10", 10)]
+    [InlineData("7", "10", 10)]
+    [InlineData(null, "10", 10)]
+    public async Task OnGetAsync_UsesTheChosenPageSize_AndFallsBackToTheFirstOptionForAnUnknownOne(string? requested, string expectedSize, int expectedRows)
+    {
+        var contributions = Enumerable.Range(1, 12)
+            .Select(index => Contribution($"user{index:00}", $"User {index:00}", "APHA", new DateTime(2026, 9, index, 0, 0, 0, DateTimeKind.Utc)))
+            .ToList();
+        var pageModel = CreatePageModel(DraftProfile(), contributions);
+        pageModel.PageSize = requested!;
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(expectedSize, pageModel.PageSize);
+        Assert.Equal(expectedRows, pageModel.Contributions.Count);
+    }
+
+    [Fact]
+    public async Task BuildSortUrl_SortsAnotherColumnAscendingFirst_AndTogglesTheColumnTheTableIsSortedBy()
+    {
+        var pageModel = CreatePageModel(DraftProfile(), ThreeContributions());
+        await pageModel.OnGetAsync(CancellationToken.None);
+        var page = $"/SurveillanceProfiles/EditProfileContributions?profileId={ProfileId}&section={SummarySectionId}";
+
+        Assert.Equal($"{page}&pageNumber=1&pageSize=10&sortColumn=UserName&sortDirection=Ascending", pageModel.BuildSortUrl(EditProfileContributionsModel.UserNameSortColumn));
+        Assert.Equal($"{page}&pageNumber=1&pageSize=10&sortColumn=LastContributionDate&sortDirection=Ascending", pageModel.BuildSortUrl(EditProfileContributionsModel.ContributionDateSortColumn));
+
+        pageModel.SortColumn = EditProfileContributionsModel.FullNameSortColumn;
+        pageModel.SortDirection = EditProfileContributionsModel.AscendingDirection;
+
+        Assert.Equal($"{page}&pageNumber=1&pageSize=10&sortColumn=FullName&sortDirection=Descending", pageModel.BuildSortUrl(EditProfileContributionsModel.FullNameSortColumn));
+    }
+
+    [Fact]
+    public async Task GetAriaSort_ReportsTheDirectionOfTheSortedColumnOnly()
+    {
+        var pageModel = CreatePageModel(DraftProfile(), ThreeContributions());
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal("descending", pageModel.GetAriaSort(EditProfileContributionsModel.ContributionDateSortColumn));
+        Assert.Equal("none", pageModel.GetAriaSort(EditProfileContributionsModel.UserNameSortColumn));
+
+        pageModel.SortDirection = EditProfileContributionsModel.AscendingDirection;
+
+        Assert.Equal("ascending", pageModel.GetAriaSort(EditProfileContributionsModel.ContributionDateSortColumn));
+    }
+
+    [Fact]
+    public async Task BuildListUrl_KeepsTheSortAndThePageSize_ForTheCurrentOrAnotherPage()
+    {
+        var pageModel = CreatePageModel(DraftProfile(), ThreeContributions());
+        pageModel.SortColumn = EditProfileContributionsModel.OrganisationSortColumn;
+        pageModel.SortDirection = EditProfileContributionsModel.AscendingDirection;
+        pageModel.PageSize = "25";
+        await pageModel.OnGetAsync(CancellationToken.None);
+        var page = $"/SurveillanceProfiles/EditProfileContributions?profileId={ProfileId}&section={SummarySectionId}";
+
+        Assert.Equal($"{page}&pageNumber=1&pageSize=25&sortColumn=OrganisationName&sortDirection=Ascending", pageModel.BuildListUrl());
+        Assert.Equal($"{page}&pageNumber=3&pageSize=25&sortColumn=OrganisationName&sortDirection=Ascending", pageModel.BuildListUrl(3));
     }
 
     [Fact]
@@ -248,5 +235,7 @@ public class EditProfileContributionsModelTests
         Assert.IsType<PageResult>(result);
         Assert.False(pageModel.HasError);
         Assert.Empty(pageModel.Contributions);
+        Assert.Equal(0, pageModel.TotalRecords);
+        Assert.Equal(1, pageModel.TotalPages);
     }
 }

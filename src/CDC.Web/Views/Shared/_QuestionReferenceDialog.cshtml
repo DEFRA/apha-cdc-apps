@@ -1,0 +1,104 @@
+@model CDC.Web.Models.QuestionReferenceDialogViewModel
+@using CDC.Web.Infrastructure
+@using CDC.Web.Pages.SurveillanceProfiles
+@* As the legacy "Add/Select a reference to question" pop-up of EditProfileQuestions.aspx did: the edit references icon of a question opens it,
+   and question-references.js drives it. The messages it shows are passed in its data attributes, so the wording lives with the page model. *@
+<dialog class="app-modal app-modal--sectioned app-reference-dialog" id="question-reference-dialog" aria-labelledby="question-reference-dialog-title"
+        data-notes-url="@Url.Page("/SurveillanceProfiles/QuestionReferences", "Notes", new { profileId = Model.ProfileId, section = Model.SectionId })"
+        data-error-mode="@QuestionReferencesModel.ActionRequiredMessage"
+        data-error-type="@QuestionReferencesModel.NoteTypeRequiredMessage"
+        data-error-text="@QuestionReferencesModel.NoteTextRequiredMessage"
+        data-error-note="@QuestionReferencesModel.NoteRequiredMessage"
+        data-error-load="We could not load the references. Try again later."
+        data-error-save="@(QuestionReferencesModel.SaveFailedMessage + QuestionReferencesModel.RequestFailedReason)">
+    <div class="app-modal__header">
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-0" id="question-reference-dialog-title">Add/Select a reference to question <span data-reference-question-number></span></h2>
+    </div>
+    @if (Model.NoteTypes.Count == 0)
+    {
+        <div class="app-modal__body">
+            <p class="govuk-body govuk-!-margin-bottom-0">We could not load the reference types. Try again later.</p>
+        </div>
+        <div class="app-modal__footer">
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Close</button>
+        </div>
+    }
+    else
+    {
+        <form method="post" asp-page="/SurveillanceProfiles/QuestionReferences" asp-page-handler="Save" asp-route-profileId="@Model.ProfileId" asp-route-section="@Model.SectionId" novalidate data-reference-form>
+            <div class="app-modal__body">
+                <div class="govuk-error-summary" tabindex="-1" aria-labelledby="question-reference-errors-title" data-reference-errors hidden>
+                    <div role="alert">
+                        <h2 class="govuk-error-summary__title" id="question-reference-errors-title">There is a problem</h2>
+                        <div class="govuk-error-summary__body">
+                            <ul class="govuk-list govuk-error-summary__list" data-reference-error-list></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="Input.QuestionId" value="" data-reference-question />
+                <input type="hidden" name="Input.LastUpdated" value="" data-reference-last-updated />
+
+                <div class="govuk-form-group" data-reference-field-group>
+                    <label class="govuk-label govuk-label--s" for="reference-mode">Choose an action</label>
+                    <select class="govuk-select" id="reference-mode" name="Input.Mode" data-reference-mode>
+                        <option value="">Please select...</option>
+                        <option value="@QuestionReferencesModel.AddMode">Add a reference</option>
+                        <option value="@QuestionReferencesModel.SelectMode">Select a reference</option>
+                    </select>
+                </div>
+
+                <div class="govuk-form-group" data-reference-field-group data-reference-type-group hidden>
+                    <label class="govuk-label govuk-label--s" for="reference-type">Choose a reference type</label>
+                    <select class="govuk-select" id="reference-type" name="Input.NoteTypeId" data-reference-type>
+                        <option value="">Please select...</option>
+                        @foreach (var noteType in Model.NoteTypes)
+                        {
+                            <option value="@noteType.Id">@noteType.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="govuk-form-group" data-reference-field-group data-reference-add-group hidden>
+                    <label class="govuk-label govuk-label--s" for="reference-note-text">Reference text</label>
+                    <div class="app-richtext-toolbar" role="toolbar" aria-label="Reference text formatting">
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="undo" data-richtext-target="reference-note-text" aria-label="Undo" title="Undo">&#8630;</button>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="redo" data-richtext-target="reference-note-text" aria-label="Redo" title="Redo">&#8631;</button>
+                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon app-richtext-toolbar__button--italic" data-richtext-command="italic" data-richtext-target="reference-note-text" aria-label="Italic" title="Italic">I</button>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="bullist" data-richtext-target="reference-note-text" aria-label="Bulleted list" title="Bulleted list"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="2" cy="3" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="2" cy="13" r="1.5"/><rect x="6" y="2" width="10" height="2"/><rect x="6" y="7" width="10" height="2"/><rect x="6" y="12" width="10" height="2"/></svg></button>
+                        <span class="app-richtext-toolbar__divider" aria-hidden="true"></span>
+                        <button type="button" class="app-richtext-toolbar__button app-richtext-toolbar__button--icon" data-richtext-command="link" data-richtext-target="reference-note-text" aria-label="Insert link" title="Insert link">&#128279;</button>
+                    </div>
+                    <textarea class="govuk-textarea app-richtext-editor" id="reference-note-text" name="Input.NoteText" rows="6" spellcheck="true" data-reference-text></textarea>
+                    <button type="button" class="govuk-button govuk-!-margin-top-2 govuk-!-margin-bottom-0" data-spellcheck-target="reference-note-text" data-module="govuk-button">Spell check</button>
+                </div>
+
+                <div class="govuk-form-group" data-reference-field-group data-reference-select-group hidden>
+                    <label class="govuk-label govuk-label--s" for="reference-note">Select a reference</label>
+                    <select class="govuk-select" id="reference-note" name="Input.NoteId" data-reference-note>
+                        <option value="">Please select...</option>
+                    </select>
+                    <div class="app-reference-current-note govuk-!-margin-top-3" aria-live="polite" data-reference-current-note hidden></div>
+                </div>
+
+                <fieldset class="govuk-fieldset" data-reference-questions>
+                    <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Apply this reference also to:</legend>
+                    <div class="govuk-checkboxes govuk-checkboxes--small app-reference-questions">
+                        @foreach (var (index, choice) in Model.Questions.Index())
+                        {
+                            <div class="govuk-checkboxes__item" data-reference-question-choice="@choice.Id">
+                                <input class="govuk-checkboxes__input" id="reference-questions-@index" name="Input.QuestionIds" type="checkbox" value="@choice.Id" />
+                                <label class="govuk-label govuk-checkboxes__label" for="reference-questions-@index">@choice.Number: @ProfileTitleHtmlFormatter.Format(choice.Name)</label>
+                            </div>
+                        }
+                    </div>
+                </fieldset>
+            </div>
+            <div class="app-modal__footer">
+                <button type="submit" class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button" data-reference-save>Save</button>
+                <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+            </div>
+        </form>
+    }
+</dialog>

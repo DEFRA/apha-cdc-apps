@@ -2,10 +2,10 @@ using CDC.Api.Domain.Entities;
 
 namespace CDC.Api.Features.ExternalUsers.Interfaces;
 
-/// <summary>Data access for maintaining external users: the users linked to a CIDM identity.</summary>
+/// <summary>Data access for maintaining external users: the users flagged as external.</summary>
 public interface IExternalUsersRepository
 {
-    /// <summary>Gets every external user (<c>SsoUserIdExt</c> set), ordered by username.</summary>
+    /// <summary>Gets every external user (<c>IsExternal</c> set), ordered by username.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The external users.</returns>
     Task<IReadOnlyList<ExternalUserAccount>> GetExternalUsersAsync(CancellationToken cancellationToken);
@@ -16,7 +16,7 @@ public interface IExternalUsersRepository
     /// <returns>The user's profile access.</returns>
     Task<ExternalUserProfileAccess> GetProfileAccessAsync(Guid userId, CancellationToken cancellationToken);
 
-    /// <summary>Creates an external user that has not yet signed in through CIDM.</summary>
+    /// <summary>Creates an external user that has not yet signed in through CIDM, flagged as external so the list shows it at once.</summary>
     /// <param name="id">The new user's identifier.</param>
     /// <param name="userName">The logon username.</param>
     /// <param name="fullName">The user's full name.</param>

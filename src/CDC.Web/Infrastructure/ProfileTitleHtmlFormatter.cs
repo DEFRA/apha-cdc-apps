@@ -27,9 +27,17 @@ public static partial class ProfileTitleHtmlFormatter
         "br", "br/", "br /"
     ];
 
-    // WebUtility.HtmlEncode escapes the ampersand of any named character reference the title
-    // already contains, so restore the ones with no markup risk to render as intended.
-    private static readonly string[] AllowedEntities = ["nbsp;", "lt;", "gt;", "quot;", "apos;", "#39;"];
+    // WebUtility.HtmlEncode escapes the ampersand of any character reference the title already contains
+    // (the legacy editor stored accented letters, curly quotes and the like as entities such as &rsquo;),
+    // so every well-formed named, decimal or hexadecimal reference is restored to render as the character.
+    // A reference can only produce text, never markup, so restoring one cannot let anything through.
+    [GeneratedRegex(@"&amp;(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,30});", RegexOptions.None, matchTimeoutMilliseconds: 2000)]
+    private static partial Regex CharacterReferenceRegex();
+
+    // Pasting from a browser or Word can leave comments such as <!--StartFragment--> in a stored title.
+    // They are not text, so they are removed rather than shown.
+    [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline, matchTimeoutMilliseconds: 2000)]
+    private static partial Regex CommentRegex();
 
     [GeneratedRegex(@"&lt;/?span\b(?:(?!&gt;).)*&gt;", RegexOptions.IgnoreCase)]
     private static partial Regex SpanTagRegex();
@@ -37,7 +45,7 @@ public static partial class ProfileTitleHtmlFormatter
     [GeneratedRegex(@"<[^>]*>")]
     private static partial Regex AnyTagRegex();
 
-    /// <summary>Encodes <paramref name="title"/> and selectively restores only the allowed formatting tags.</summary>
+    /// <summary>Encodes <paramref name="title"/> and selectively restores only the allowed formatting tags and character references.</summary>
     public static IHtmlContent Format(string? title)
     {
         if (string.IsNullOrEmpty(title))
@@ -45,7 +53,7 @@ public static partial class ProfileTitleHtmlFormatter
             return HtmlString.Empty;
         }
 
-        var encoded = WebUtility.HtmlEncode(title);
+        var encoded = WebUtility.HtmlEncode(CommentRegex().Replace(title, string.Empty));
 
         encoded = SpanTagRegex().Replace(encoded, string.Empty);
 
@@ -59,12 +67,7 @@ public static partial class ProfileTitleHtmlFormatter
             encoded = encoded.Replace($"&lt;{tag}&gt;", $"<{tag}>", StringComparison.OrdinalIgnoreCase);
         }
 
-        foreach (var entity in AllowedEntities)
-        {
-            encoded = encoded.Replace($"&amp;{entity}", $"&{entity}", StringComparison.OrdinalIgnoreCase);
-        }
-
-        return new HtmlString(encoded);
+        return new HtmlString(CharacterReferenceRegex().Replace(encoded, "&$1;"));
     }
 
     /// <summary>Strips every markup tag from <paramref name="title"/> and decodes entities, leaving

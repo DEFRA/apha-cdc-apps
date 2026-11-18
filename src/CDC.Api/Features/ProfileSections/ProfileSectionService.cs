@@ -50,9 +50,15 @@ public sealed class ProfileSectionService(
         await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
 
         var answers = await repository.GetProfileSectionAnswersAsync(profileVersionId, profileSectionId, cancellationToken);
+        var version = await contentRepository.GetVersionContextAsync(profileVersionId, cancellationToken);
         logger.RetrievedProfileSectionAnswers(profileVersionId, profileSectionId, answers.FieldValues.Count);
 
-        return answers.ToDto();
+        // The Summary section's species fields have no stored answer: the legacy page showed the version's own species as text.
+        return answers.ToDto() with
+        {
+            ProfiledSpeciesText = version.ProfiledSpeciesText,
+            OtherAffectedSpeciesText = version.OtherAffectedSpeciesText
+        };
     }
 
     /// <inheritdoc />
@@ -74,7 +80,8 @@ public sealed class ProfileSectionService(
                 ProfileSectionId = section.Id,
                 IsValid = reasons.Count == 0,
                 InvalidQuestionIds = [.. reasons.Where(reason => reason.QuestionId != Guid.Empty).Select(reason => reason.QuestionId).Distinct()],
-                IrrelevantQuestionIds = ProfileSectionChangePlanner.FindIrrelevantQuestionIds(section, validation.Answers[section.Id], validation.ValuesByField)
+                IrrelevantQuestionIds = ProfileSectionChangePlanner.FindIrrelevantQuestionIds(section, validation.Answers[section.Id], validation.ValuesByField),
+                IrrelevantSpecies = ProfileSectionChangePlanner.FindIrrelevantSpecies(section, validation.Answers[section.Id], validation.ValuesByField)
             });
         }
 
@@ -172,6 +179,7 @@ public sealed class ProfileSectionService(
         Guid profileVersionId,
         Guid profileSectionId,
         IReadOnlyList<ProfileFieldAnswerInputDto> answers,
+        IReadOnlyList<ProfileRepeatingQuestionInputDto> repeatingQuestions,
         byte[]? lastUpdated,
         CancellationToken cancellationToken)
     {
@@ -191,7 +199,7 @@ public sealed class ProfileSectionService(
             return new SaveProfileSectionResultDto { FieldsSavedCount = 0 };
         }
 
-        var change = ProfileSectionChangePlanner.PlanSave(section, versionAnswers.Answers, versionAnswers.Context.IsWhatIfScenario, answers, lastUpdated);
+        var change = ProfileSectionChangePlanner.PlanSave(section, versionAnswers.Answers, versionAnswers.Context.IsWhatIfScenario, answers, repeatingQuestions, lastUpdated);
 
         // The legacy page saved nothing, and so did not touch the section, when no answer had changed.
         if (change.ValueChangeCount == 0)

@@ -36,6 +36,10 @@ public partial class EditUserGuidanceIntegrationTests
         Assert.Contains("<li class=\"govuk-breadcrumbs__list-item\" aria-current=\"page\">Questions and guidance</li>", page);
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(page, "govuk-breadcrumbs__list-item"));
         Assert.Contains("Use the buttons below to generate the user guidance reports.", page);
+        Assert.Contains(
+            "Use this function to modify the user-guidance text that appears for each of the questions within the profile and/or to modify the question itself. N.B. Rich formatting, such as bold, underline or italics cannot be used.",
+            WhitespaceRegex().Replace(page, " "));
+        Assert.DoesNotContain("You can use italics, bulleted lists and links", page);
         Assert.Contains("Full profile guidance report", page);
         Assert.Contains("Summary profile guidance report", page);
         Assert.Contains("SPR guidance report", page);
@@ -108,9 +112,52 @@ public partial class EditUserGuidanceIntegrationTests
         Assert.Contains($"name=\"QuestionId\" value=\"{FirstQuestionId}\"", page);
         Assert.Contains(">OK</button>", page);
         Assert.Contains($"href=\"{PageUrl}?section={SectionId}\"", page);
+
+        // As the legacy page showed them: Spell check user guidance is a primary (green) button, and OK and Cancel sit at the right.
+        Assert.Contains(
+            "<button type=\"button\" class=\"govuk-button govuk-!-margin-top-2\" data-spellcheck-target=\"Input_UserGuidance-editor\" data-module=\"govuk-button\">Spell check user guidance</button>",
+            page);
+        var actionsStart = page.IndexOf("<div class=\"govuk-button-group app-button-group--right\">", StringComparison.Ordinal);
+        Assert.True(actionsStart >= 0, "OK and Cancel are not in a right-aligned button group.");
+        var actions = page[actionsStart..page.IndexOf("</div>", actionsStart, StringComparison.Ordinal)];
+        Assert.True(actions.IndexOf(">OK</button>", StringComparison.Ordinal) < actions.IndexOf(">Cancel</a>", StringComparison.Ordinal));
         Assert.Contains("/js/edit-profile-title.js", page);
         Assert.Contains("/js/richtext-toolbar.js", page);
         Assert.Contains("/js/spell-check.js", page);
+    }
+
+    [Fact]
+    public async Task Get_ShowsStoredTextAsItReads_NotAsCharacterReferencesPasteMarkersOrExtraLineBreaks()
+    {
+        var question = new ProfileQuestionEditDto
+        {
+            Id = FirstQuestionId,
+            Name = "Farmer&rsquo;s <i>pig</i> &amp; goat",
+            NonTechnicalName = "<!--StartFragment--><!-- x-tinymce/html -->How well?<!--EndFragment-->",
+            QuestionNumber = 1,
+            UserGuidance = "First\r\nSecond:\r\n<ul>\n<li>A &ldquo;quote&rdquo;</li>\n</ul>",
+            LastUpdated = RowVersion
+        };
+        var sections = new FakeProfileSectionsApiService(
+            metadata: new ProfileQuestionnaireMetadataDto
+            {
+                Sections = [new ProfileSectionMetadataDto { Id = SectionId, ShortName = "DISEASE AND OVERVIEW", SectionNumber = 1 }]
+            },
+            questionInfos: [new ProfileQuestionInfoDto { Id = FirstQuestionId, Name = "Farmer&rsquo;s <i>pig</i> &amp; goat", QuestionNumber = 1 }]);
+        using var factory = CreateFactory(new FakeProfileQuestionsApiService(question), sections);
+        var client = await EditorAsync(factory);
+
+        var page = await client.GetStringAsync($"{PageUrl}?section={SectionId}&questionId={FirstQuestionId}");
+
+        // The browser turns each reference into its character, so none is shown as code, in the list or in the title editors.
+        Assert.Contains("<td class=\"govuk-table__cell\">Farmer&rsquo;s <i>pig</i> &amp; goat</td>", page);
+        Assert.Contains("data-app-title-hidden-input=\"Input_Name\">Farmer&rsquo;s <i>pig</i> &amp; goat</div>", page);
+        Assert.Contains("data-app-title-hidden-input=\"Input_NonTechnicalName\">How well?</div>", page);
+
+        // Only a CRLF is a line break for the editor script. The line feeds between the list tags (&#xA; once encoded) are left as layout.
+        Assert.Contains(
+            "First&lt;br/&gt;Second:&lt;br/&gt;&lt;ul&gt;&#xA;&lt;li&gt;A &amp;ldquo;quote&amp;rdquo;&lt;/li&gt;&#xA;&lt;/ul&gt;</textarea>",
+            page);
     }
 
     [Fact]
@@ -169,6 +216,21 @@ public partial class EditUserGuidanceIntegrationTests
         Assert.Equal(FirstQuestionId, questions.UpdatedQuestionId);
         Assert.Equal("Is <i>it</i> here?", questions.UpdateRequest!.Name);
         Assert.Equal(RowVersion, questions.UpdateRequest.LastUpdated);
+    }
+
+    [Fact]
+    public async Task Post_WithTextOutsideAscii_SavesItAsNumericReferences()
+    {
+        var questions = new FakeProfileQuestionsApiService(OpenQuestion());
+        using var factory = CreateFactory(questions);
+        var client = await EditorAsync(factory);
+
+        var response = await PostAsync(client, name: "Farmer\u2019s <i>pig</i>", nonTechnicalName: "Caf\u00e9", guidance: "<p>It\u2019s \u201Cfine\u201D \u2013 \u00A35</p>");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Farmer&#8217;s <i>pig</i>", questions.UpdateRequest!.Name);
+        Assert.Equal("Caf&#233;", questions.UpdateRequest.NonTechnicalName);
+        Assert.Equal("<p>It&#8217;s &#8220;fine&#8221; &#8211; &#163;5</p>", questions.UpdateRequest.UserGuidance);
     }
 
     [Fact]
@@ -263,4 +325,7 @@ public partial class EditUserGuidanceIntegrationTests
 
     [GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*?value=\"([^\"]+)\"")]
     private static partial Regex AntiforgeryTokenRegex();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRegex();
 }

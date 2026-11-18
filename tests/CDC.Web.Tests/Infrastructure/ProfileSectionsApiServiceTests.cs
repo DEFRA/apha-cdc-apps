@@ -353,9 +353,11 @@ public class ProfileSectionsApiServiceTests
     }
 
     [Fact]
-    public async Task SaveProfileVersionSectionAsync_ReturnsSuccessWithTheSavedCount_AndSendsTheAnswersAndTheRowVersion()
+    public async Task SaveProfileVersionSectionAsync_ReturnsSuccessWithTheSavedCount_AndSendsTheAnswersTheRowsAndTheRowVersion()
     {
         var fieldId = Guid.NewGuid();
+        var questionId = Guid.NewGuid();
+        var rowId = Guid.NewGuid();
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, """{ "fieldsSavedCount": 2 }""");
         var service = CreateService(handler);
 
@@ -363,6 +365,13 @@ public class ProfileSectionsApiServiceTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             [new CDC.Common.Contracts.ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, TextValue = "Some notes" }],
+            [
+                new CDC.Common.Contracts.ProfileRepeatingQuestionInputDto
+                {
+                    QuestionId = questionId,
+                    Rows = [new CDC.Common.Contracts.ProfileQuestionRowInputDto { Id = rowId, Answers = [new CDC.Common.Contracts.ProfileFieldAnswerInputDto { ProfileFieldId = fieldId, TextValue = "A row" }] }]
+                }
+            ],
             [1, 2, 3, 4, 5, 6, 7, 8]);
 
         Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
@@ -372,6 +381,9 @@ public class ProfileSectionsApiServiceTests
         Assert.Contains("\"lastUpdated\":\"AQIDBAUGBwg=\"", handler.LastRequestBody, StringComparison.Ordinal);
         Assert.Contains("Some notes", handler.LastRequestBody, StringComparison.Ordinal);
         Assert.Contains(fieldId.ToString(), handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"repeatingQuestions\":[{\"questionId\":\"" + questionId + "\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"id\":\"" + rowId + "\"", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("A row", handler.LastRequestBody, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -379,7 +391,7 @@ public class ProfileSectionsApiServiceTests
     {
         var service = CreateService(new FakeHttpMessageHandler(HttpStatusCode.OK, "null"));
 
-        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], null);
+        var result = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], [], null);
 
         Assert.Equal(ProfileSectionWriteOutcome.Success, result.Outcome);
         Assert.Equal(0, result.FieldsChangedCount);
@@ -395,7 +407,7 @@ public class ProfileSectionsApiServiceTests
 
         var result = clear
             ? await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), null)
-            : await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], null);
+            : await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], [], null);
 
         Assert.Equal(ProfileSectionWriteOutcome.Conflict, result.Outcome);
         Assert.Equal("The profile version section has been edited by another user", result.ErrorMessage);
@@ -409,7 +421,7 @@ public class ProfileSectionsApiServiceTests
     {
         var service = CreateService(new FakeHttpMessageHandler(statusCode, body));
 
-        var saved = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], null);
+        var saved = await service.SaveProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), [], [], null);
         var cleared = await service.ClearProfileVersionSectionAsync(Guid.NewGuid(), Guid.NewGuid(), null);
 
         Assert.Equal(ProfileSectionWriteOutcome.Error, saved.Outcome);

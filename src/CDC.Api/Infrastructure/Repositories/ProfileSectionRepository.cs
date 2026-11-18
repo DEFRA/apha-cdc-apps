@@ -14,8 +14,8 @@ namespace CDC.Api.Infrastructure.Repositories;
 /// <remarks>
 /// Both stored procedures return several result sets, so they are read positionally through a
 /// data reader exactly as <see cref="SpeciesRepository"/> already does for the equivalent
-/// species questionnaire procedures. Result sets not needed for read-only browsing (profiled
-/// species, revision dates, repeating question rows) are skipped via <c>NextResultAsync</c>.
+/// species questionnaire procedures. Result sets no page uses (a field group's child fields) are
+/// skipped via <c>NextResultAsync</c>.
 /// </remarks>
 /// <param name="connectionFactory">Opens connections to the Surveillance Profiles database.</param>
 /// <param name="logger">Structured logger.</param>
@@ -65,10 +65,20 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     r.ReadString(11),
                     r.ReadBoolean(12),
                     r.ReadBoolean(13),
+                    r.ReadBoolean(16),
                     r.ReadBoolean(10)),
                 cancellationToken);
 
-            return BuildMetadata(sections, questions, fields);
+            // Result set 4 holds a field group's child fields, which no questionnaire page uses, so it is read past.
+            await reader.NextResultAsync(cancellationToken);
+
+            // Result set 5: the controlling field, then the number (for example "5.2") of a question its answer can make irrelevant.
+            var relevance = await MetadataResultSetReader.ReadNextResultSetAsync(
+                reader,
+                static r => new RelevanceRuleRow(r.GetGuid(0), r.ReadString(1)),
+                cancellationToken);
+
+            return BuildMetadata(sections, questions, fields, relevance);
         }
         catch (DbException exception)
         {
@@ -95,7 +105,13 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                     cancellationToken: cancellationToken),
                 CommandBehavior.Default);
 
-            // Result set 1: profiled species - not needed for read-only browsing.
+            // Result set 1: the species the version profiles - Id, Name, IsActive - which a per-species question is answered for.
+            var profiledSpecies = new List<ReportSpecies>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                profiledSpecies.Add(new ReportSpecies(reader.GetGuid(0), reader.ReadString(1), reader.ReadBoolean(2)));
+            }
+
             // Result set 2: ProfileSectionId, ..., LastUpdated (column 7), ... - the row version a later save is checked against.
             await reader.NextResultAsync(cancellationToken);
             var lastUpdated = await reader.ReadAsync(cancellationToken) ? reader.ReadRowVersion(7) : [];
@@ -130,12 +146,12 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
 
             // Result set 5: Id, SpeciesId, RowId, BooleanValue, ListValue, DecimalValue, DateValue,
             // TextValue, ProfileFieldId, ProfileFieldGroupId, QuestionNumber, QuestionId, FieldNumber.
-            var fieldValues = new List<ProfileFieldValue>();
+            var fieldValues = new FieldValueCollector<ProfileFieldValue>();
             if (await reader.NextResultAsync(cancellationToken))
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    fieldValues.Add(new ProfileFieldValue
+                    var fieldValue = new ProfileFieldValue
                     {
                         Id = reader.GetGuid(0),
                         QuestionId = reader.GetGuid(11),
@@ -147,7 +163,10 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                         DecimalValue = reader.ReadNullableDecimal(5),
                         DateValue = reader.ReadNullableDateTime(6),
                         TextValue = reader.ReadNullableString(7)
-                    });
+                    };
+
+                    fieldValues.Add(
+                        reader.GetGuid(8), fieldValue.SpeciesId, fieldValue.ProfileVersionQuestionRowId, fieldValue.ListValue is not null, fieldValue);
                 }
             }
 
@@ -155,9 +174,10 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             {
                 ProfileVersionId = profileVersionId,
                 ProfileSectionId = profileSectionId,
+                ProfiledSpecies = profiledSpecies,
                 QuestionNames = questionNames,
                 QuestionRows = questionRows,
-                FieldValues = fieldValues,
+                FieldValues = fieldValues.Values,
                 LastUpdated = lastUpdated
             };
         }
@@ -191,6 +211,30 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                 await connection.ExecuteAsync(new CommandDefinition(
                     storedProcedure,
                     new { Id = rowId },
+                    transaction,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+            }
+
+            storedProcedure = ProfileSectionStoredProcedures.InsertProfileVersionQuestionRow;
+
+            foreach (var row in change.QuestionRowsToInsert)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    storedProcedure,
+                    new { row.Id, ProfileVersionId = profileVersionId, ProfileQuestionId = row.QuestionId, row.SequenceNumber },
+                    transaction,
+                    commandType: CommandType.StoredProcedure,
+                    cancellationToken: cancellationToken));
+            }
+
+            storedProcedure = ProfileSectionStoredProcedures.UpdateProfileVersionQuestionRow;
+
+            foreach (var row in change.QuestionRowsToUpdate)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    storedProcedure,
+                    new { row.Id, row.SequenceNumber },
                     transaction,
                     commandType: CommandType.StoredProcedure,
                     cancellationToken: cancellationToken));
@@ -713,7 +757,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             // existing rows are replaced wholesale rather than upserted individually.
             await connection.ExecuteAsync(new CommandDefinition(
                 ProfileSectionStoredProcedures.ClearProfileVersionFieldMultiValue,
-                new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, SpeciesId = (Guid?)null, ProfileVersionQuestionRowId = (Guid?)null },
+                new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, instruction.SpeciesId, instruction.ProfileVersionQuestionRowId },
                 transaction,
                 commandType: CommandType.StoredProcedure,
                 cancellationToken: cancellationToken));
@@ -722,7 +766,7 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             {
                 await connection.ExecuteAsync(new CommandDefinition(
                     ProfileSectionStoredProcedures.InsertProfileVersionFieldMultiValue,
-                    new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, SpeciesId = (Guid?)null, ProfileVersionQuestionRowId = (Guid?)null, ListValue = listValue },
+                    new { ProfileVersionId = profileVersionId, instruction.ProfileFieldId, instruction.SpeciesId, instruction.ProfileVersionQuestionRowId, ListValue = listValue },
                     transaction,
                     commandType: CommandType.StoredProcedure,
                     cancellationToken: cancellationToken));
@@ -739,8 +783,8 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
             {
                 ProfileVersionId = profileVersionId,
                 instruction.ProfileFieldId,
-                SpeciesId = (Guid?)null,
-                ProfileVersionQuestionRowId = (Guid?)null,
+                instruction.SpeciesId,
+                instruction.ProfileVersionQuestionRowId,
                 instruction.BooleanValue,
                 instruction.ListValue,
                 instruction.DecimalValue,
@@ -786,7 +830,8 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
     private static ProfileQuestionnaireMetadata BuildMetadata(
         List<SectionMetadataRow> sections,
         List<QuestionMetadataRow> questions,
-        List<FieldMetadataRow> fields)
+        List<FieldMetadataRow> fields,
+        List<RelevanceRuleRow> relevanceRules)
     {
         var fieldsByQuestion = fields
             .GroupBy(field => field.QuestionId)
@@ -795,6 +840,11 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         var questionsBySection = questions
             .GroupBy(question => question.SectionId)
             .ToDictionary(group => group.Key, group => group.ToList());
+
+        // The procedure lists each controlling field's questions in question order, which the grouping keeps.
+        var affectedQuestionsByField = relevanceRules
+            .GroupBy(rule => rule.FieldId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)[.. group.Select(rule => rule.QuestionNumber)]);
 
         return new ProfileQuestionnaireMetadata
         {
@@ -829,7 +879,9 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
                                 ReferenceTableIsMaintainable = field.ReferenceTableIsMaintainable,
                                 IsReadOnlyCurrentSituation = field.IsReadOnlyCurrentSituation,
                                 IsReadOnlyScenario = field.IsReadOnlyScenario,
-                                AffectsRelevance = field.AffectsRelevance
+                                IncludeInSummary = field.IncludeInSummary,
+                                AffectsRelevance = field.AffectsRelevance,
+                                AffectsRelevanceOf = affectedQuestionsByField.TryGetValue(field.Id, out var affectedQuestions) ? affectedQuestions : []
                             })]
                             : []
                     })]
@@ -898,5 +950,8 @@ public sealed class ProfileSectionRepository(IDbConnectionFactory connectionFact
         string Name,
         bool IsReadOnlyCurrentSituation,
         bool IsReadOnlyScenario,
+        bool IncludeInSummary,
         bool AffectsRelevance);
+
+    private sealed record RelevanceRuleRow(Guid FieldId, string QuestionNumber);
 }

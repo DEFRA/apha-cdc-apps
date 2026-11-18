@@ -70,6 +70,20 @@ public class AccountSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // Shown to a user who signed in with GOV.UK One Login (or Entra ID) but is not authorised to use D2R2.
+    [Fact]
+    public async Task NotPermitted_TellsTheUserTheAccountIsNotAuthorisedAndWhoToContact()
+    {
+        var client = _factory.CreateClient();
+
+        var html = await client.GetStringAsync("/Account/NotPermitted");
+
+        Assert.Contains("<h1 class=\"govuk-heading-l\">You cannot sign in with this account</h1>", html);
+        Assert.Contains(
+            "The account is not authorised to access the D2R2 service. If you are having any difficulties, please contact <a class=\"govuk-link\" href=\"mailto:D2R2@defra.gov.uk\">D2R2@defra.gov.uk</a>.",
+            html);
+    }
+
     // The page the cookie schemes redirect a signed-in user to when a policy refuses them a page.
     [Fact]
     public async Task AccessDenied_ReturnsForbiddenWithAnExplanation()

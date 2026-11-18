@@ -187,6 +187,38 @@ public class ProfileReportContentRepositoryTests : IDisposable
         command.Parameters["ProfileSectionId"].Should().Be(SectionId);
     }
 
+    // The migrated data stores the Boolean of question 1.5 twice for nearly every version: the answer is the last row, as the legacy page read it.
+    [Fact]
+    public async Task GetSectionAnswersAsync_TakesTheLastRowOfASingleValueFieldStoredTwice_AndKeepsEveryItemOfAList()
+    {
+        var listFieldId = Guid.NewGuid();
+        var firstItem = Guid.NewGuid();
+        var secondItem = Guid.NewGuid();
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionSection, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                FakeResultSet.Empty("Id", "Name", "IsActive"),
+                FakeResultSet.Empty("SectionId"),
+                FakeResultSet.Empty("Id", "Name", "NonTechnicalName"),
+                FakeResultSet.Empty("Id", "ProfileQuestionId", "SequenceNumber"),
+                new FakeResultSet(
+                    Columns(13),
+                    [
+                        [Guid.NewGuid(), null, null, false, null, null, null, null, FieldId, Guid.Empty, 5, QuestionId, 2],
+                        [Guid.NewGuid(), null, null, true, null, null, null, null, FieldId, Guid.Empty, 5, QuestionId, 2],
+                        [Guid.NewGuid(), null, null, null, firstItem, null, null, null, listFieldId, Guid.Empty, 5, QuestionId, 3],
+                        [Guid.NewGuid(), null, null, null, secondItem, null, null, null, listFieldId, Guid.Empty, 5, QuestionId, 3]
+                    ])
+            ]
+        });
+
+        var answers = await CreateRepository().GetSectionAnswersAsync(Guid.NewGuid(), SectionId, CancellationToken.None);
+
+        answers.Values.Where(value => value.FieldId == FieldId).Should().ContainSingle().Which.BooleanValue.Should().BeTrue();
+        answers.Values.Where(value => value.FieldId == listFieldId).Select(value => value.ListValue).Should().Equal(firstItem, secondItem);
+    }
+
     [Fact]
     public async Task GetSectionAnswersAsync_ToleratesMissingLaterResultSets()
     {
@@ -254,6 +286,32 @@ public class ProfileReportContentRepositoryTests : IDisposable
         connection.Executed.Should().ContainSingle().Subject.Parameters["Id"].Should().Be(versionId);
     }
 
+    // What the legacy ProfileVersionInfo.ProfiledSpecies and OtherAffectedSpecies read, which the Summary section's species fields show.
+    [Fact]
+    public async Task GetVersionContextAsync_ListsTheProfiledAndTheOtherAffectedSpeciesAsText_MarkingTheInactiveOnes()
+    {
+        connection.Script(ProfileReportStoredProcedures.GetProfileVersionInfoById, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Columns(14), [[Guid.NewGuid(), Guid.NewGuid(), "Title", 1, 0, "Draft", new DateTime(2026, 1, 1), null, true, "", null, false, null, null]]),
+                new FakeResultSet(
+                    Columns(4),
+                    [
+                        [Guid.NewGuid(), "Cattle", "Profiled", true],
+                        [Guid.NewGuid(), "Sheep", "Profiled", false],
+                        [Guid.NewGuid(), "Goats", "Other", true],
+                        [Guid.NewGuid(), "<em>Bos taurus</em>", "Other", false]
+                    ])
+            ]
+        });
+
+        var context = await CreateRepository().GetVersionContextAsync(Guid.NewGuid(), CancellationToken.None);
+
+        context.ProfiledSpeciesText.Should().Be("Cattle, Sheep (inactive)");
+        context.OtherAffectedSpeciesText.Should().Be("Goats, <em>Bos taurus</em> (inactive)");
+    }
+
     [Fact]
     public async Task GetVersionContextAsync_FlagsInactiveOtherAffectedSpecies_ForTheCurrentSituation()
     {
@@ -298,6 +356,8 @@ public class ProfileReportContentRepositoryTests : IDisposable
 
         context.HasInactiveProfiledSpecies.Should().BeFalse();
         context.HasInactiveOtherAffectedSpecies.Should().BeFalse();
+        context.ProfiledSpeciesText.Should().BeEmpty();
+        context.OtherAffectedSpeciesText.Should().BeEmpty();
     }
 
     [Fact]

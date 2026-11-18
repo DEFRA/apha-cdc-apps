@@ -30,15 +30,15 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
         new(new StubConnectionFactory(connection), logger.Object);
 
     [Fact]
-    public async Task GetReferenceValuesAsync_ExecutesStoredProcedureAndMapsRows()
+    public async Task GetReferenceValuesAsync_ExecutesTheOrderedQueryAndMapsRows()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
         {
             ResultSets =
             [
                 new FakeResultSet(
-                    ["Id", "LookupValue"],
-                    [[OptionId, "Market records"]])
+                    ["Id", "LookupValue", "IsActive"],
+                    [[OptionId, "Market records", true]])
             ]
         });
 
@@ -47,16 +47,67 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
         var value = values.Should().ContainSingle().Subject;
         value.Id.Should().Be(OptionId);
         value.Value.Should().Be("Market records");
+        value.IsActive.Should().BeTrue();
 
         var executed = connection.Executed.Should().ContainSingle().Subject;
-        executed.CommandText.Should().Be(ReferenceDataStoredProcedures.GetLookupValuesByTable);
-        executed.CommandType.Should().Be(CommandType.StoredProcedure);
+        executed.CommandText.Should().Be(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable);
+        executed.CommandType.Should().Be(CommandType.Text);
+        executed.Parameters.Should().ContainKey("ReferenceTableId").WhoseValue.Should().Be(ReferenceTableId);
+    }
+
+    [Fact]
+    public async Task GetReferenceValuesAsync_FlagsAValueThatIsNoLongerInForce()
+    {
+        var inactiveId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(
+                    ["Id", "LookupValue", "IsActive"],
+                    [[OptionId, "Market records", true], [inactiveId, "Retired source", false]])
+            ]
+        });
+
+        var values = await CreateRepository().GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
+
+        values.Select(value => (value.Id, value.IsActive)).Should().Equal((OptionId, true), (inactiveId, false));
+    }
+
+    [Fact]
+    public async Task GetReferenceValuesAsync_TreatsAValueAsInForce_WhenTheQueryDoesNotSayOtherwise()
+    {
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
+        {
+            ResultSets = [new FakeResultSet(["Id", "LookupValue"], [[OptionId, "Market records"]])]
+        });
+
+        var values = await CreateRepository().GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
+
+        values.Should().ContainSingle().Which.IsActive.Should().BeTrue();
+    }
+
+    // A value is in force until it is given an end date, as the maintain reference data screen's Inactivate does.
+    [Fact]
+    public void TheOrderedQuery_ReportsAValueWithAnEndDateAsNotInForce()
+    {
+        ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable.Should()
+            .Contain("CAST(CASE WHEN [EffectiveDateTo] IS NULL THEN 1 ELSE 0 END AS bit) AS [IsActive]");
+    }
+
+    // The legacy list controls put a maintainable table's value with no sequence number ("Currently not known") after the others, which
+    // spgLookupValueByTable, sorting by sequence number alone, does not.
+    [Fact]
+    public void TheOrderedQuery_SortsAValueWithNoSequenceNumberAfterTheOthers_ThenByWhenItTookEffect()
+    {
+        ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable.Should()
+            .EndWith("ORDER BY ISNULL([SequenceNumber], 255), [EffectiveDateFrom]");
     }
 
     [Fact]
     public async Task GetReferenceValuesAsync_ReturnsEmpty_WhenTheTableHasNoValues()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
         {
             ResultSets = [new FakeResultSet(["Id", "LookupValue"], [])]
         });
@@ -69,7 +120,7 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
     [Fact]
     public async Task GetReferenceValuesAsync_DefaultsNullLookupValue()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript
         {
             ResultSets =
             [
@@ -87,7 +138,7 @@ public sealed class ReferenceDataRepositoryTests : IDisposable
     [Fact]
     public async Task GetReferenceValuesAsync_RethrowsAndLogs_OnDbException()
     {
-        connection.Script(ReferenceDataStoredProcedures.GetLookupValuesByTable, new FakeCommandScript { Throws = new FakeDbException("boom") });
+        connection.Script(ReferenceDataStoredProcedures.GetOrderedLookupValuesByTable, new FakeCommandScript { Throws = new FakeDbException("boom") });
 
         var act = () => CreateRepository().GetReferenceValuesAsync(ReferenceTableId, CancellationToken.None);
 

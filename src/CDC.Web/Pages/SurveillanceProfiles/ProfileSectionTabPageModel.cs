@@ -21,8 +21,8 @@ public abstract class ProfileSectionTabPageModel(
     IProfileSectionsApiService profileSectionsApiService,
     ILogger logger) : PageModel
 {
-    /// <summary>The date format used by the Contributions and Review comments tables.</summary>
-    protected const string DateDisplayFormat = "dd/MM/yyyy";
+    /// <summary>The date and time format used by the Contributions and Review comments tables, as the legacy grids showed them.</summary>
+    protected const string DateTimeDisplayFormat = "dd/MM/yy HH:mm:ss";
 
     /// <summary>The error type the Application error page shows when CDC.Api refuses the user the profile data: the legacy site's exception.</summary>
     public const string AccessRefusedErrorType = "System.Security.SecurityException";
@@ -103,6 +103,12 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets a value indicating whether the "All Revision dates" tab is shown (legacy <c>CanGetRevisionInformation()</c>).</summary>
     public bool CanViewAllRevisionDates { get; private set; }
 
+    /// <summary>Gets a value indicating whether the "Publish (public)" link is offered on the All Revision dates tab (legacy <c>Profile.CanPublishPublic()</c>).</summary>
+    public bool CanPublishPublic { get; private set; }
+
+    /// <summary>Gets a value indicating whether the "Publish (Defranet only)" link is offered on the All Revision dates tab (legacy <c>Profile.CanPublish()</c>).</summary>
+    public bool CanPublishDefranetOnly { get; private set; }
+
     /// <summary>Gets the profile's current version id, posted back by forms. <see cref="Guid.Empty"/> when the
     /// profile has no current version.</summary>
     public Guid CurrentProfileVersionId { get; private set; }
@@ -133,6 +139,8 @@ public abstract class ProfileSectionTabPageModel(
 
     private HashSet<Guid> irrelevantQuestionIds = [];
 
+    private HashSet<(Guid QuestionId, Guid SpeciesId)> irrelevantSpecies = [];
+
     /// <summary>Gets the tab this page implements, used to highlight the active tab and to build pagination links.</summary>
     public abstract ProfileSectionTab ActiveTab { get; }
 
@@ -150,11 +158,18 @@ public abstract class ProfileSectionTabPageModel(
     /// <summary>Gets how many pages the list this page shows has. A page that paginates a list overrides this; otherwise it is 1.</summary>
     public virtual int ListTotalPages => 1;
 
+    /// <summary>Gets the paragraph shown under the previous and next section links, or <see langword="null"/> for none. A page whose
+    /// legacy tab had one overrides this.</summary>
+    public virtual string? PaginationFootnote => null;
+
+    /// <summary>Gets the typed client for the profile management endpoints.</summary>
+    protected internal IApiClient ApiClient => apiClient;
+
     /// <summary>Gets the typed client for the profile sections endpoints.</summary>
-    protected IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
+    protected internal IProfileSectionsApiService ProfileSectionsApi => profileSectionsApiService;
 
     /// <summary>Gets the logger.</summary>
-    protected ILogger Logger => logger;
+    protected internal ILogger Logger => logger;
 
     /// <summary>Gets one section's validation status for the left-nav tick/cross icon, or <see langword="null"/>
     /// when it is not known (for example, after a load failure).</summary>
@@ -175,6 +190,14 @@ public abstract class ProfileSectionTabPageModel(
     /// <param name="questionId">The question.</param>
     /// <returns><see langword="true"/> when the question is irrelevant.</returns>
     public bool IsQuestionIrrelevant(Guid questionId) => irrelevantQuestionIds.Contains(questionId);
+
+    /// <summary>Gets whether the answers make a per-species question of the selected section irrelevant for one species, so the page
+    /// leaves the species out of the question's table as the legacy page did (<c>QuestionSpecies.IsRelevant</c>). A species is
+    /// shown when this is not known.</summary>
+    /// <param name="questionId">The per-species question.</param>
+    /// <param name="speciesId">The species.</param>
+    /// <returns><see langword="true"/> when the question does not apply to the species.</returns>
+    public bool IsSpeciesIrrelevant(Guid questionId, Guid speciesId) => irrelevantSpecies.Contains((questionId, speciesId));
 
     /// <summary>Builds the URL a left-nav section link opens. Legacy <c>ProfileSectionLinks</c> always opens the
     /// section's Questions tab, whichever tab is showing.</summary>
@@ -317,6 +340,8 @@ public abstract class ProfileSectionTabPageModel(
         CanViewReviewComments = profile.CanViewReviewComments;
         CanViewContributions = profile.CanViewContributions;
         CanViewAllRevisionDates = profile.CanViewAllRevisionDates;
+        CanPublishPublic = profile.LinkVisibility.CanPublishPublic;
+        CanPublishDefranetOnly = profile.LinkVisibility.CanPublishDefranetOnly;
     }
 
     /// <summary>Whether the user may edit one section. A profile editor may edit every section; an author only the sections
@@ -347,6 +372,13 @@ public abstract class ProfileSectionTabPageModel(
                     .Where(section => section.ProfileSectionId == CurrentSection?.Id)
                     .SelectMany(section => section.IrrelevantQuestionIds)
             ];
+            irrelevantSpecies =
+            [
+                .. validationStatus.Sections
+                    .Where(section => section.ProfileSectionId == CurrentSection?.Id)
+                    .SelectMany(section => section.IrrelevantSpecies)
+                    .Select(item => (item.QuestionId, item.SpeciesId))
+            ];
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)
         {
@@ -354,6 +386,7 @@ public abstract class ProfileSectionTabPageModel(
             SectionValidationStatus = new Dictionary<Guid, bool>();
             invalidQuestionIds = [];
             irrelevantQuestionIds = [];
+            irrelevantSpecies = [];
         }
     }
 }

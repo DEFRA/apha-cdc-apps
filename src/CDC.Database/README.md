@@ -44,6 +44,9 @@ There is no journal table, so track what has been run here:
 | 0082-AddUserLoginInstructionsSent.sql (run before deploying the CDC.Api that sends external user login instructions) | Y | | | |
 | 0083-AddDirectoryDetailsToSpiGlobalUser.sql (run before deploying the CDC.Api that records the directory email and object id) | | | | |
 | 0083-CreateUserListProcedures.sql (run before deploying the CDC.Api that lists Global and External users by `SsoUserIdInt` / `SsoUserIdExt`) | Y | | | |
+| 0084-AddIsInternalIsExternalToUser.sql (run 0084, 0085 and 0086 together, in this order) | Y | | | |
+| 0085-MaintainIsInternalIsExternalInUserProcedures.sql (run before deploying the CDC.Api that sets `IsInternal` when a global user is added; needs 0082) | Y | | | |
+| 0086-BackfillIsInternalIsExternalOnUser.sql (one-time update of the users that exist) | Y | | | |
 
 The original 0057/0062/0063 scripts (`spgUserBySsoUserIdExt`, `spgUserBySsoUserIdInt`,
 `spgUserByUserName`) were deleted and the rest renumbered - those procedures were superseded by
@@ -76,7 +79,23 @@ set (`spgaExternalUserMaintenance`, which also returns their profile access, and
 saves the review email subscription by `[Id]`). The legacy `spgaGlobalUser` (users holding a global role) and `spgaSsoUserMaintenance`
 (users with the legacy `[SsoUserId]`) are not changed; CDC.Api still calls `spgaGlobalUser` for the Disease Reviews author list. A
 user is listed only once the column is filled in, that is after their first Entra ID or CIDM sign-in, so an external user pre-registered
-on Maintain external users, or a global user added on Maintain global users, is not listed until they have signed in.
+on Maintain external users, or a global user added on Maintain global users, is not listed until they have signed in. 0085 changes the
+External users list to the `IsExternal` flag, which lists a user added there straight away.
+
+0084 to 0086 add `[User].[IsInternal]` and `[User].[IsExternal]` (`bit NOT NULL`, default 0), so that a user is listed by what the user is
+rather than by whether they have signed in yet. Run them together, in order, once per environment, before deploying the CDC.Api that passes
+`@IsInternal`; 0082 must already have been run. 0084 adds the columns, which the legacy site never names, so it is unaffected. 0085 changes
+the procedures that decide the flags: `spiExternalUserPreRegistration` (Maintain external users, Add) creates the user with `IsExternal = 1`;
+`spgaExternalUserMaintenance` and `spuExternalUserSubscribedToReviewEmails` use `IsExternal = 1` in place of `[SsoUserIdExt]` set, so an
+added external user is listed at once and can be given profile access and sent the login instructions before signing in; `spiGlobalUser`
+takes an optional `@IsInternal` (Maintain global users, Add from the lookup, passes 1 for a new user and for an existing one given a global
+role; an edit passes 0, which never clears the flag, and the legacy site passes nothing) and repeats the directory parameters of
+`0083-AddDirectoryDetailsToSpiGlobalUser.sql`, so that script is not needed first; and the sign-in procedures that record `[SsoUserIdExt]`
+(`spuUserSsoUserIdExt`, `spiExternalUser`) or `[SsoUserIdInt]` (`spuUserSsoUserIdInt`, `spiInternalUser`) set the matching flag with it. 0086 is
+the one-time update of the users that exist: `IsInternal = 1` where `[SsoUserIdInt]` is not null and `IsExternal = 1` where `[SsoUserIdExt]`
+is not null. Until it has run the External users list is empty. The Global users list (`spgaInternalUser`) is unchanged and still lists the
+users with `[SsoUserIdInt]` set. An external user the legacy site registered (legacy `[SsoUserId]` set) is not flagged until they first sign in
+through CIDM.
 
 CDC.Api no longer calls `spgaInternalUser`: Maintain global users lists the users holding a global role (`spgaGlobalUser`), as
 legacy did, so an added user is listed straight away and a user whose role is revoked drops off the list.
