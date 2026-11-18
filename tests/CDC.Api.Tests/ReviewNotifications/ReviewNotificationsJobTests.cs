@@ -18,15 +18,7 @@ public class ReviewNotificationsJobTests
     public ReviewNotificationsJobTests() =>
         logger.Setup(log => log.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
 
-    private ReviewNotificationsOptions options = new()
-    {
-        ReviewerGroups = new(StringComparer.OrdinalIgnoreCase)
-        {
-            [ReviewerGroups.Policy] = ["Policy reviewer"],
-            [ReviewerGroups.AuthorTechnical] = ["Technical author"],
-            [ReviewerGroups.VeterinaryAdvisor] = ["Veterinary advisor"]
-        }
-    };
+    private readonly ReviewNotificationsOptions options = new();
 
     private ReviewNotificationsJob CreateJob() => new(
         repository.Object,
@@ -36,16 +28,15 @@ public class ReviewNotificationsJobTests
         TimeProvider.System,
         logger.Object);
 
-    private static ReviewDueUser User(string name, string email, params string[] roles)
+    private static ReviewDueUser User(string name, string email)
     {
         var due = new ReviewItem(DateTime.Today.AddDays(-1), "Active");
-        var none = new ReviewItem(null, null);
 
         return new(
             Guid.NewGuid(),
             name,
             email,
-            [new ReviewDueProfile(Guid.NewGuid(), Guid.NewGuid(), "Anthrax", null, "1.0", [new ReviewDueSection(1, "Intro", due, due, due)], roles.Length == 0 ? ["Policy reviewer"] : roles)]);
+            [new ReviewDueProfile(Guid.NewGuid(), Guid.NewGuid(), "Anthrax", null, "1.0", [new ReviewDueSection(1, "Intro", due, due, due)])]);
     }
 
     [Fact]
@@ -62,50 +53,17 @@ public class ReviewNotificationsJobTests
     }
 
     [Fact]
-    public async Task RunAsync_SendsOnlyReviewTypesOfTheUsersGroup()
+    public async Task RunAsync_ListsAllThreeReviewTypes()
     {
         repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test", "Technical author")]);
+            .ReturnsAsync([User("Ann", "ann@example.test")]);
         EmailMessage? message = null;
         sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
             .Callback<EmailMessage, CancellationToken>((m, _) => message = m);
 
         await CreateJob().RunAsync(CancellationToken.None);
 
-        // One due cell (Author) of the three types.
-        message!.Body.Split("(overdue)").Length.Should().Be(2);
-    }
-
-    [Theory]
-    [InlineData("Policy reviewer")]
-    [InlineData("Veterinary advisor")]
-    public async Task RunAsync_SendsOnlyTheReviewTypeOfTheUsersGroup_ForPolicyAndVeterinaryAdvisor(string role)
-    {
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test", role)]);
-        EmailMessage? message = null;
-        sender.Setup(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()))
-            .Callback<EmailMessage, CancellationToken>((m, _) => message = m);
-
-        await CreateJob().RunAsync(CancellationToken.None);
-
-        message!.ToAddress.Should().Be("ann@example.test");
-        message.Body.Split("(overdue)").Length.Should().Be(2);
-    }
-
-    [Fact]
-    public async Task RunAsync_StillEmailsConfiguredGroups_AndFails_WhenOneGroupUnconfigured()
-    {
-        options.ReviewerGroups.Remove(ReviewerGroups.VeterinaryAdvisor);
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test", "Veterinary advisor"), User("Bob", "bob@example.test", "Policy reviewer")]);
-
-        var result = await CreateJob().RunAsync(CancellationToken.None);
-
-        result.Should().BeFalse();
-        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "ann@example.test"), It.IsAny<CancellationToken>()), Times.Never);
-        sender.Verify(s => s.SendAsync(It.Is<EmailMessage>(m => m.ToAddress == "bob@example.test"), It.IsAny<CancellationToken>()), Times.Once);
-        VerifyErrorLogged(Times.Once());
+        message!.Body.Should().Contain("VA review").And.Contain("policy review").And.Contain("author review");
     }
 
     [Fact]
@@ -118,32 +76,6 @@ public class ReviewNotificationsJobTests
 
         VerifyLogged(LogLevel.Information, Times.Exactly(3));
         VerifyErrorLogged(Times.Never());
-    }
-
-    [Fact]
-    public async Task RunAsync_SkipsUser_WhenNotInAnyReviewerGroup()
-    {
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test", "Policy author")]);
-
-        var result = await CreateJob().RunAsync(CancellationToken.None);
-
-        result.Should().BeTrue();
-        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RunAsync_DoesNotSendAndLogs_WhenReviewerGroupNotConfigured()
-    {
-        options = new();
-        repository.Setup(r => r.GetUsersDueReviewAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([User("Ann", "ann@example.test")]);
-
-        var result = await CreateJob().RunAsync(CancellationToken.None);
-
-        result.Should().BeFalse();
-        sender.Verify(s => s.SendAsync(It.IsAny<EmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
-        VerifyErrorLogged(Times.Exactly(3));
     }
 
     [Fact]

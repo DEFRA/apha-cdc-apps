@@ -14,7 +14,7 @@ public class ReviewEmailComposerTests
         Guid.NewGuid(),
         name,
         "reviewer@example.test",
-        [new ReviewDueProfile(Guid.NewGuid(), Guid.NewGuid(), "Anthrax", scenario, "2.1", [section], null, hasPublishedVersion)]);
+        [new ReviewDueProfile(Guid.NewGuid(), Guid.NewGuid(), "Anthrax", scenario, "2.1", [section], hasPublishedVersion)]);
 
     private static ReviewDueSection Section(ReviewItem author, ReviewItem? technical = null, ReviewItem? policy = null) =>
         new(3, "Transmission", author, technical ?? new ReviewItem(null, null), policy ?? new ReviewItem(null, null));
@@ -55,7 +55,7 @@ public class ReviewEmailComposerTests
     {
         var profileId = Guid.NewGuid();
         var user = new ReviewDueUser(Guid.NewGuid(), "Ann", "a@example.test",
-            [new ReviewDueProfile(profileId, Guid.NewGuid(), "Anthrax", null, "2.1", [Section(new ReviewItem(Today, "Active"))], null, true)]);
+            [new ReviewDueProfile(profileId, Guid.NewGuid(), "Anthrax", null, "2.1", [Section(new ReviewItem(Today, "Active"))], true)]);
 
         ReviewEmailComposer.Compose(user, Today, Options()).Body
             .Should().Contain($"(https://d2r2.example.test/SurveillanceProfiles/EditProfileAllRevisionDates/{profileId})")
