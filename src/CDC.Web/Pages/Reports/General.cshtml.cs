@@ -13,7 +13,8 @@ public partial class GeneralModel : BreadcrumbPageModelBase
 {
     private const string ReportsPage = "/Reports/General";
     private const string ReportsTitle = "General reports";
-    private const long MaxUploadBytes = 20 * 1024 * 1024;
+    private const int MaxUploadBytes = 20 * 1024 * 1024;
+    private const string FileTooLargeError = "The file must be smaller than 20MB";
     private static readonly byte[] PdfSignature = "%PDF-"u8.ToArray();
 
     private readonly IApiClient apiClient;
@@ -170,18 +171,21 @@ public partial class GeneralModel : BreadcrumbPageModelBase
             return ("Choose a PDF file to upload", null, null);
         }
 
-        if (ReportFile.Length > MaxUploadBytes)
+        if (Base64FileUpload.ExceedsLimit(ReportFile, MaxUploadBytes))
         {
-            return ("The file must be smaller than 20MB", null, null);
+            return (FileTooLargeError, null, null);
         }
 
-        using var stream = new MemoryStream();
-        await ReportFile.CopyToAsync(stream, cancellationToken);
-        var pdfData = stream.ToArray();
+        var pdfData = await Base64FileUpload.ReadAsync(ReportFile, cancellationToken);
+        if (pdfData is null || !pdfData.AsSpan().StartsWith(PdfSignature))
+        {
+            return ("Choose a PDF file to upload", null, null);
+        }
 
-        return pdfData.AsSpan().StartsWith(PdfSignature)
-            ? (null, title.Trim(), pdfData)
-            : ("Choose a PDF file to upload", null, null);
+        // Base64 text can decode to slightly more than the limit while still passing the length check on the text.
+        return pdfData.Length > MaxUploadBytes
+            ? (FileTooLargeError, null, null)
+            : (null, title.Trim(), pdfData);
     }
 
     private async Task<bool> CheckCanManageAsync() =>

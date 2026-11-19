@@ -179,7 +179,7 @@ else
     {
         <div class="govuk-form-group">
             <h2 class="govuk-heading-m">Upload a @(Model.IsUserManual ? "user manual" : "static report")</h2>
-            <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" data-upload-form>
+            <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" data-upload-form data-base64-upload>
                 <input type="hidden" name="UserManual" value="@Model.UserManual" />
                 <div class="govuk-form-group app-label-select-inline">
                     <label class="govuk-label" for="UploadedFile">@(Model.IsUserManual ? "User manual:" : "Report file:")</label>
@@ -206,5 +206,6 @@ else
 
 @section Scripts {
     <script src="~/js/static-report-upload.js" asp-append-version="true"></script>
+    <script src="~/js/base64-file-upload.js" asp-append-version="true"></script>
 }
 

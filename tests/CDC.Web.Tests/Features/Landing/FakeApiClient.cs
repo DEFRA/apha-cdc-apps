@@ -191,6 +191,8 @@ internal sealed class FakeApiClient( // NOSONAR
 
     public string? LastUploadedStaticReportTitle { get; private set; }
 
+    public byte[]? LastUploadedStaticReportPdfData { get; private set; }
+
     public Task<UploadStaticReportResult> UploadStaticReportAsync(
         string title,
         byte[] pdfData,
@@ -199,6 +201,7 @@ internal sealed class FakeApiClient( // NOSONAR
         CancellationToken cancellationToken = default)
     {
         LastUploadedStaticReportTitle = title;
+        LastUploadedStaticReportPdfData = pdfData;
 
         return throwOnStaticReportOperation is not null
             ? Task.FromException<UploadStaticReportResult>(throwOnStaticReportOperation)

@@ -375,6 +375,37 @@ public class StaticReportsModelTests
     }
 
     [Fact]
+    public async Task OnPostUploadAsync_UploadsTheDecodedPdf_WhenTheFileIsSentAsBase64()
+    {
+        var apiClient = new FakeApiClient();
+        var pageModel = CreatePageModel(apiClient: apiClient);
+        var pdf = "%PDF-1.4 <x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/>"u8.ToArray();
+        pageModel.UploadedFile = CreateFormFile(
+            "D2R2 Quality Statement.pdf", Base64FileUpload.ContentType, System.Text.Encoding.ASCII.GetBytes(Convert.ToBase64String(pdf)));
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Equal("D2R2 Quality Statement", apiClient.LastUploadedStaticReportTitle);
+        Assert.Equal(pdf, apiClient.LastUploadedStaticReportPdfData);
+        Assert.Equal("The report was uploaded successfully", pageModel.SuccessMessage);
+    }
+
+    [Theory]
+    [InlineData("not base64!")]
+    [InlineData("AQID")]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheBase64ContentIsNotAPdf(string text)
+    {
+        var apiClient = new FakeApiClient();
+        var pageModel = CreatePageModel(apiClient: apiClient);
+        pageModel.UploadedFile = CreateFormFile("manual.pdf", Base64FileUpload.ContentType, System.Text.Encoding.ASCII.GetBytes(text));
+
+        await pageModel.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Contains("must be a Pdf", pageModel.ErrorMessage);
+        Assert.Null(apiClient.LastUploadedStaticReportTitle);
+    }
+
+    [Fact]
     public async Task OnPostUploadAsync_ShowsError_WhenTheApiThrows()
     {
         var pageModel = CreatePageModel(apiClient: new FakeApiClient(throwOnStaticReportOperation: new HttpRequestException("boom")));
