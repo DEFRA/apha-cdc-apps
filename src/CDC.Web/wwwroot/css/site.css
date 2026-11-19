@@ -23,12 +23,12 @@ html {
   padding-bottom: 20px;
   font-family: inherit;
   font-size: 1rem;
-  color: var(--govuk-link-colour, #1d70b8);
+  color: #003078;
   text-decoration: underline;
 }
 
 .govuk-back-to-top-link:hover {
-  color: #003078;
+  color: #0b0c0c;
 }
 
 .govuk-back-to-top-link__icon {
@@ -68,7 +68,11 @@ html {
 }
 
 .app-search-letter {
-  margin-right: .5rem;
+  display: inline-block;
+  min-width: 24px;
+  min-height: 24px;
+  margin-right: .25rem;
+  text-align: center;
 }
 
 .app-search-letter--selected {
