@@ -36,12 +36,13 @@ public class GeneralModelTests
         Exception? throwOnGetReports = null,
         bool operationResult = false,
         Exception? throwOnOperation = null,
-        UploadStaticReportResult? uploadResult = null)
+        UploadStaticReportResult? uploadResult = null,
+        FakeApiClient? apiClient = null)
     {
         var metadataProvider = new EmptyModelMetadataProvider();
 
         return new GeneralModel(
-            new FakeApiClient(
+            apiClient ?? new FakeApiClient(
                 staticReports: reports,
                 throwOnGetCurrentStaticReports: throwOnGetReports,
                 staticReportHistory: history,
@@ -76,7 +77,7 @@ public class GeneralModelTests
     };
 
     private static FormFile File(string name, byte[] content) =>
-        new(new MemoryStream(content), 0, content.Length, "ReportFile", name);
+        new(new MemoryStream(content), 0, content.Length, "ReportFile", name) { Headers = new HeaderDictionary() };
 
     [Fact]
     public async Task OnGetAsync_LoadsCurrentReports_WhenNotHistoryPage()
@@ -280,7 +281,7 @@ public class GeneralModelTests
     public async Task OnPostUploadAsync_ShowsError_WhenFileIsTooLarge()
     {
         var model = CreatePageModel();
-        model.ReportFile = new FormFile(new MemoryStream(), 0, 20 * 1024 * 1024 + 1, "ReportFile", "big.pdf");
+        model.ReportFile = new FormFile(new MemoryStream(), 0, 20 * 1024 * 1024 + 1, "ReportFile", "big.pdf") { Headers = new HeaderDictionary() };
 
         await model.OnPostUploadAsync(CancellationToken.None);
 
@@ -296,6 +297,76 @@ public class GeneralModelTests
         await model.OnPostUploadAsync(CancellationToken.None);
 
         Assert.Equal("Choose a PDF file to upload", model.UploadError);
+    }
+
+    private static FormFile Base64File(string name, byte[] content) => Base64File(name, Convert.ToBase64String(content));
+
+    private static FormFile Base64File(string name, string text)
+    {
+        var bytes = Encoding.ASCII.GetBytes(text);
+
+        return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "ReportFile", name)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = Base64FileUpload.ContentType
+        };
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_UploadsTheDecodedPdf_WhenTheFileIsSentAsBase64()
+    {
+        var apiClient = new FakeApiClient(uploadStaticReportResult: new UploadStaticReportResult(UploadStaticReportOutcome.Success, null));
+        var model = CreatePageModel(apiClient: apiClient);
+        var pdf = Encoding.ASCII.GetBytes("%PDF-1.4 <x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/>");
+        model.ReportFile = Base64File(" Disease ranking .pdf", pdf);
+
+        var result = await model.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("Disease ranking", apiClient.LastUploadedStaticReportTitle);
+        Assert.Equal(pdf, apiClient.LastUploadedStaticReportPdfData);
+    }
+
+    [Theory]
+    [InlineData("not base64!")]
+    [InlineData("bm90IGEgcGRm")]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheBase64FileIsNotAPdf(string text)
+    {
+        var model = CreatePageModel();
+        model.ReportFile = Base64File("report.pdf", text);
+
+        await model.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Equal("Choose a PDF file to upload", model.UploadError);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheBase64FileIsTooLarge()
+    {
+        var model = CreatePageModel();
+        var oversized = new FormFile(new MemoryStream(), 0, 20 * 1024 * 1024 * 4L / 3 + 8, "ReportFile", "big.pdf")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = Base64FileUpload.ContentType
+        };
+        model.ReportFile = oversized;
+
+        await model.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Equal("The file must be smaller than 20MB", model.UploadError);
+    }
+
+    [Fact]
+    public async Task OnPostUploadAsync_ShowsError_WhenTheBase64FileDecodesToMoreThanTheLimit()
+    {
+        var model = CreatePageModel();
+        var content = new byte[20 * 1024 * 1024 + 1];
+        "%PDF-"u8.CopyTo(content);
+        model.ReportFile = Base64File("big.pdf", content);
+
+        await model.OnPostUploadAsync(CancellationToken.None);
+
+        Assert.Equal("The file must be smaller than 20MB", model.UploadError);
     }
 
     [Fact]
