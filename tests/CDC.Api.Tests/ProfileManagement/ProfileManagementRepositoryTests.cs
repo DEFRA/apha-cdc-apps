@@ -615,6 +615,33 @@ public class ProfileManagementRepositoryTests : IDisposable
         connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("The profile title is already in use for a different profile")]
+    [InlineData("The scenario title is already in use for a different scenario belonging to the same profile")]
+    public async Task CreateProfileAsync_ThrowsProfileTitleRefused_WithTheProceduresMessage_WhenTheTitleIsInUse(string message)
+    {
+        connection.Script(ProfileManagementStoredProcedures.InsertProfile, new FakeCommandScript
+        {
+            Throws = new FakeDbException(message)
+        });
+
+        var command = new CreateProfileCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            Title = "Anthrax",
+            CloneProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
+
+        var act = () => CreateRepository().CreateProfileAsync(command, CancellationToken.None);
+
+        var exception = await act.Should().ThrowAsync<ProfileTitleRefusedException>();
+        exception.Which.Message.Should().Be(message);
+        connection.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
+    }
+
     [Fact]
     public async Task CreateNewProfileVersionAsync_RethrowsAndLogs_OnDbException()
     {
