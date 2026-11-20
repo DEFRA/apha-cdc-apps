@@ -513,14 +513,17 @@ public class ProfilePropertiesModel(
 
     // As legacy, which stayed on the page it was opened as: a created profile keeps its create or clone address, so a
     // second save updates it rather than creating another.
-    private RedirectToPageResult RedirectToSamePage(Guid savedProfileId) => Mode == ProfilePropertiesMode.Edit
-        ? RedirectToPage(new { profileId = savedProfileId })
-        : RedirectToPage(new
+    private RedirectToPageResult RedirectToSamePage(Guid savedProfileId)
+    {
+        if (Mode == ProfilePropertiesMode.Edit)
         {
-            cloneProfileVersionId = CloneProfileVersionId,
-            scenario = Mode == ProfilePropertiesMode.CloneScenario ? Scenario : null,
-            createdProfileId = savedProfileId
-        });
+            return RedirectToPage(new { profileId = savedProfileId });
+        }
+
+        var scenario = Mode == ProfilePropertiesMode.CloneScenario ? Scenario : null;
+
+        return RedirectToPage(new { cloneProfileVersionId = CloneProfileVersionId, scenario, createdProfileId = savedProfileId });
+    }
 
     private PageResult RenderPage()
     {

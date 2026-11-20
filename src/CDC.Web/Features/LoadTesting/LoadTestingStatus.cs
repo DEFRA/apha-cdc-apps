@@ -36,11 +36,7 @@ public sealed class LoadTestingStatus(IOptions<LoadTestingOptions> options, Time
     public DateTimeOffset? CutoffUtc => options.Value.CutoffUtc;
 
     /// <inheritdoc />
-    public DateTimeOffset? SwitchesOffAtUtc => (ExpiresAtUtc, CutoffUtc) switch
-    {
-        ({ } expires, { } cutoff) => expires < cutoff ? expires : cutoff,
-        (var expires, var cutoff) => expires ?? cutoff
-    };
+    public DateTimeOffset? SwitchesOffAtUtc => new[] { ExpiresAtUtc, CutoffUtc }.Min();
 
     /// <inheritdoc />
     public bool IsActive => IsEnabled && (SwitchesOffAtUtc is not { } switchesOffAtUtc || timeProvider.GetUtcNow() < switchesOffAtUtc);
