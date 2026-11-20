@@ -42,7 +42,8 @@ public class LoadTestingIntegrationTests : IClassFixture<CdcWebTestFactory>
         FakeApiClient api,
         ControllableClock? clock = null,
         string? deployment = "TEST",
-        TimeSpan? window = null)
+        TimeSpan? window = null,
+        string? cutoffDate = null)
     {
         var appClock = clock ?? new ControllableClock(DateTimeOffset.UtcNow);
         var expiresAtUtc = appClock.GetUtcNow().Add(window ?? TimeSpan.FromHours(1)).ToString("o", CultureInfo.InvariantCulture);
@@ -51,6 +52,11 @@ public class LoadTestingIntegrationTests : IClassFixture<CdcWebTestFactory>
         {
             builder.UseSetting("LoadTesting:Enabled", "true");
             builder.UseSetting("LoadTesting:ExpiresAtUtc", expiresAtUtc);
+
+            if (cutoffDate is not null)
+            {
+                builder.UseSetting("LoadTesting:CutoffDate", cutoffDate);
+            }
 
             if (deployment is not null)
             {
@@ -482,5 +488,46 @@ public class LoadTestingIntegrationTests : IClassFixture<CdcWebTestFactory>
         var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
 
         Assert.Contains("7 days", failure.ToString(), StringComparison.Ordinal);
+    }
+
+    // The hard stop wins over the switch: even where the switch would refuse to start (PROD), a passed or unreadable cutoff leaves it off.
+    [Theory]
+    [InlineData("2020-01-01")]
+    [InlineData("2020-01-01T09:00:00Z")]
+    [InlineData("31/12/2099")]
+    [InlineData("soon")]
+    public async Task WhenTheCutoffDateHasPassedOrIsNotADate_LoadTestingIsOffAlthoughItIsSwitchedOn(string cutoffDate)
+    {
+        using var factory = Factory(ApiWithTheTwoUsers(), deployment: "PROD", cutoffDate: cutoffDate);
+        var client = Client(factory);
+
+        var login = await client.GetAsync("/Account/LoginInternal");
+        var landing = await client.GetStringAsync("/");
+        var loginPage = await client.GetAsync("/Account/LoadTestLogin?kind=internal");
+
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, login.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(Banner, landing, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NotFound, loginPage.StatusCode);
+    }
+
+    [Fact]
+    public async Task WhenTheCutoffPassesWhileTheAppRuns_ASessionIsEndedAndSignInGoesToTheIdentityProviderAgain()
+    {
+        var clock = new ControllableClock(DateTimeOffset.UtcNow);
+        var cutoff = clock.GetUtcNow().AddMinutes(10);
+        using var factory = Factory(ApiWithTheTwoUsers(), clock, cutoffDate: cutoff.ToString("yyyy-MM-dd'T'HH:mm:ssK", CultureInfo.InvariantCulture));
+        var client = Client(factory);
+        await PostLoginAsync(client, "internal", LoadTestUsers.InternalEmailAddress);
+        var page = await client.GetStringAsync("/Landing/Internal");
+
+        // The banner names the cutoff, as it comes before the hour-long window ends.
+        Assert.Contains($"It switches itself off at {cutoff.UtcDateTime.ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)} UTC.", page, StringComparison.Ordinal);
+
+        clock.Advance(TimeSpan.FromMinutes(15));
+        var ended = await client.GetAsync("/Landing/Internal");
+        var login = await Client(factory).GetAsync("/Account/LoginInternal");
+
+        Assert.Equal("/", ended.Headers.Location!.OriginalString);
+        Assert.StartsWith(CdcWebTestFactory.FakeEntraAuthorizationEndpoint, login.Headers.Location!.ToString(), StringComparison.Ordinal);
     }
 }

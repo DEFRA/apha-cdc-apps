@@ -45,4 +45,30 @@ public class LoadTestingStatusTests
         Assert.False(status.IsActive);
         Assert.True(status.IsEnabled);
     }
+
+    [Theory]
+    [InlineData(30, 60, 30)]
+    [InlineData(60, 30, 30)]
+    [InlineData(null, 30, 30)]
+    [InlineData(30, null, 30)]
+    public void TheEarlierOfTheExpiryAndTheCutoff_SwitchesItOff(int? expiresInMinutes, int? cutoffInMinutes, int switchesOffInMinutes)
+    {
+        var clock = new ControllableClock(Now);
+        var status = StatusOf(
+            new LoadTestingOptions
+            {
+                Enabled = true,
+                ExpiresAtUtc = expiresInMinutes is { } expires ? Now.AddMinutes(expires) : null,
+                CutoffUtc = cutoffInMinutes is { } cutoff ? Now.AddMinutes(cutoff) : null
+            },
+            clock);
+
+        Assert.Equal(Now.AddMinutes(switchesOffInMinutes), status.SwitchesOffAtUtc);
+
+        clock.Advance(TimeSpan.FromMinutes(switchesOffInMinutes).Subtract(TimeSpan.FromSeconds(1)));
+        Assert.True(status.IsActive);
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.False(status.IsActive);
+    }
 }

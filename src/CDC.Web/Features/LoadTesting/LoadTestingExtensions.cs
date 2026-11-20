@@ -10,28 +10,34 @@ namespace CDC.Web.Features.LoadTesting;
 public static class LoadTestingExtensions
 {
     /// <summary>
-    /// Reads and validates the <c>LoadTesting</c> section; a missing or blank <c>Enabled</c> means off. Only while it is switched on does
-    /// this register the sign-in bypass; with it off, the app is exactly as it is without LoadTesting.
+    /// Reads and validates the <c>LoadTesting</c> section; a missing or blank <c>Enabled</c> means off, and so does a passed
+    /// <c>CutoffDate</c>. Only while it is switched on does this register the sign-in bypass; with it off, the app is exactly as it is
+    /// without LoadTesting.
     /// </summary>
     /// <param name="services">The service collection; the identity providers' cookie schemes must be registered on it.</param>
     /// <param name="configuration">The configuration holding the <c>LoadTesting</c> section.</param>
+    /// <param name="timeProvider">The clock the cutoff is checked against at startup; the system clock when not given.</param>
     /// <returns>The same collection, for chaining.</returns>
-    public static IServiceCollection AddLoadTesting(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddLoadTesting(this IServiceCollection services, IConfiguration configuration, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+
+        var enabled = LoadTestingOptions.IsEnabledIn(configuration, timeProvider);
+        LoadTestingOptions.TryReadCutoff(configuration, out var cutoffUtc);
 
         services.AddOptions<LoadTestingOptions>()
             .Configure(options =>
             {
-                options.Enabled = LoadTestingOptions.IsEnabledIn(configuration);
+                options.Enabled = enabled;
                 options.ExpiresAtUtc = configuration.GetValue<DateTimeOffset?>($"{LoadTestingOptions.SectionName}:{nameof(LoadTestingOptions.ExpiresAtUtc)}");
+                options.CutoffUtc = cutoffUtc;
             })
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<LoadTestingOptions>, LoadTestingOptionsValidator>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ILoadTestingStatus, LoadTestingStatus>();
 
-        if (!LoadTestingOptions.IsEnabledIn(configuration))
+        if (!enabled)
         {
             return services;
         }
@@ -56,15 +62,23 @@ public static class LoadTestingExtensions
         ArgumentNullException.ThrowIfNull(app);
 
         var status = app.ApplicationServices.GetRequiredService<ILoadTestingStatus>();
+        var configuration = app.ApplicationServices.GetRequiredService<IConfiguration>();
         if (!status.IsEnabled)
         {
+            // Switched on, but held off by the cutoff: say so, as the operator will expect it to be on.
+            if (LoadTestingOptions.IsSwitchedOnIn(configuration))
+            {
+                app.ApplicationServices.GetRequiredService<ILogger<LoadTestingSessionMiddleware>>()
+                    .HeldOffByCutoff(configuration[LoadTestingOptions.CutoffDateKey] ?? string.Empty);
+            }
+
             return app;
         }
 
-        var deployment = app.ApplicationServices.GetRequiredService<IConfiguration>()[LoadTestingOptionsValidator.DeploymentKey];
+        var deployment = configuration[LoadTestingOptionsValidator.DeploymentKey];
         var hostEnvironment = app.ApplicationServices.GetRequiredService<IHostEnvironment>().EnvironmentName;
         app.ApplicationServices.GetRequiredService<ILogger<LoadTestingSessionMiddleware>>()
-            .Enabled(string.IsNullOrEmpty(deployment) ? hostEnvironment : deployment, status.ExpiresAtUtc);
+            .Enabled(string.IsNullOrEmpty(deployment) ? hostEnvironment : deployment, status.ExpiresAtUtc, status.CutoffUtc);
 
         return app.UseMiddleware<LoadTestingSessionMiddleware>();
     }
