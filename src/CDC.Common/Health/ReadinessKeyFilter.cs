@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
+using CDC.Common.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
@@ -27,7 +26,7 @@ public sealed class ReadinessKeyFilter(IConfiguration configuration) : IEndpoint
         var expectedKey = configuration["HealthCheck:ReadinessKey"];
         var providedKey = context.HttpContext.Request.Headers[HeaderName].ToString();
 
-        if (string.IsNullOrEmpty(expectedKey) || !KeysMatch(providedKey, expectedKey))
+        if (string.IsNullOrEmpty(expectedKey) || !SharedSecret.Matches(providedKey, expectedKey))
         {
             // 404, not 401/403 - a route that demands auth confirms its own
             // existence to a scanner; this should look like nothing is here.
@@ -35,13 +34,5 @@ public sealed class ReadinessKeyFilter(IConfiguration configuration) : IEndpoint
         }
 
         return next(context);
-    }
-
-    private static bool KeysMatch(string provided, string expected)
-    {
-        var providedBytes = Encoding.UTF8.GetBytes(provided);
-        var expectedBytes = Encoding.UTF8.GetBytes(expected);
-        return providedBytes.Length == expectedBytes.Length
-            && CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
 }

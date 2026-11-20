@@ -1,4 +1,5 @@
 using CDC.Api.Application;
+using CDC.Api.Authentication;
 using CDC.Api.Features.Health;
 using CDC.Api.Features.ReviewNotifications;
 using CDC.Api.Features.ReviewNotifications.Interfaces;
@@ -34,6 +35,9 @@ StartupChecks.RequireReadinessKey(builder.Configuration);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+
+// Every endpoint except /health and /health/ready needs CDC.Web's service key (X-Api-Key).
+builder.Services.AddServiceKeyAuthentication();
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
@@ -76,12 +80,18 @@ if (args.Length > 0 && args[0] == "review-notifications")
     return;
 }
 
+// Checked after job mode: the scheduled job serves no HTTP requests, so its task needs no service key.
+StartupChecks.RequireServiceApiKey(app.Configuration);
+
 // First in the pipeline so it also catches failures raised by routing and model binding.
 app.UseGlobalExceptionHandling();
 
 // Correlation ID before request logging so the one-line-per-request log carries it; CDC.Web
 // forwards its own ID here via CorrelationIdDelegatingHandler, so both services' logs correlate.
 app.UseCorrelationId();
+
+// Authentication before the acting user, whose header is honoured only from an authenticated caller.
+app.UseAuthentication();
 
 // Before request logging, so the one-line-per-request log carries the acting user's id too.
 app.UseActingUser();
@@ -94,6 +104,8 @@ if (app.Configuration.GetValue("Swagger:Enabled", true))
 {
     app.UseSwaggerDocumentation();
 }
+
+app.UseAuthorization();
 
 app.MapGet("/", () => "Hello World!");
 

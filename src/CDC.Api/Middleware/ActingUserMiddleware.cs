@@ -12,9 +12,8 @@ namespace CDC.Api.Middleware;
 /// <c>ProfilesIdentity</c>. A missing, malformed or unknown id leaves the request anonymous.
 /// </summary>
 /// <remarks>
-/// The header is not authenticated: CDC.Api is reachable only from inside the VPC, where CDC.Web is
-/// its only caller. The header names the user but never carries a role - the flags always come from
-/// the database.
+/// The header is honoured only when the caller authenticated with the service key (CDC.Web); it is
+/// ignored otherwise. It names the user but never carries a role - the flags always come from the database.
 /// </remarks>
 /// <param name="next">The next component in the pipeline.</param>
 /// <param name="logger">Structured logger.</param>
@@ -31,7 +30,7 @@ public sealed class ActingUserMiddleware(RequestDelegate next, ILogger<ActingUse
         ArgumentNullException.ThrowIfNull(userContext);
         ArgumentNullException.ThrowIfNull(users);
 
-        if (TryReadUserId(context, out var userId))
+        if (context.User.Identity?.IsAuthenticated == true && TryReadUserId(context, out var userId))
         {
             var user = await users.GetActingUserAsync(userId, context.RequestAborted);
 

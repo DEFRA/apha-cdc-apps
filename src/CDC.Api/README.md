@@ -68,6 +68,7 @@ four separate values, validated at startup by `StartupChecks`:
 | `Database:Password` | `Database__Password` | Secrets Manager |
 | `Database:TrustServerCertificate` | `Database__TrustServerCertificate` | Local development only; leave `false` in deployed environments |
 | `HealthCheck:ReadinessKey` | `HealthCheck__ReadinessKey` | Secrets Manager |
+| `ServiceAuth:ApiKey` | `ServiceAuth__ApiKey` | Secrets Manager (same secret as CDC.Web's `Api__ServiceKey`) |
 
 Locally, put them in `appsettings.Development.json` — except the password, which must go in user
 secrets so that it is never committed:
@@ -77,6 +78,14 @@ dotnet user-secrets --project src\CDC.Api\CDC.Api.csproj set "Database:Password"
 ```
 
 The application fails fast at startup if any of these are missing.
+
+### Service authentication
+
+Every endpoint except `/health` and `/health/ready` requires the `X-Api-Key` header to equal
+`ServiceAuth:ApiKey`; anything else gets a 401. CDC.Web sends it on every call (`ActingUserDelegatingHandler`,
+from its `Api:ServiceKey`), so both services must be given the same secret. The `X-Acting-User-Id` header is
+honoured only on a request that carries the key; the acting user's roles still come from the database.
+Add the secret to both ECS task definitions before releasing this version.
 
 Against SQL Server LocalDB, `Database:Host` is `(localdb)\MSSQLLocalDB` and
 `Database:TrustServerCertificate` must be `true`, because LocalDB presents a self-signed
@@ -211,6 +220,8 @@ Deliberate differences, all recorded in `docs\SpeciesApiPrompt.md`:
 | `Login failed for user 'SurveillanceProfilesAppUser'` | The SQL login is missing, has a different password, or the instance is not in mixed-authentication mode. Re-set the user secret and confirm the login exists on that instance. |
 | `HealthCheck:ReadinessKey is not configured` at startup | Set `HealthCheck__ReadinessKey`. The readiness endpoint cannot distinguish "unset" from "wrong key" at request time, so this is validated at startup instead. |
 | `/health/ready` returns 404 | The `X-Readiness-Key` header is missing or wrong. This is deliberate: an unauthenticated caller must not be able to tell the endpoint exists. |
+| `ServiceAuth:ApiKey is not configured` at startup | Set `ServiceAuth__ApiKey` (locally in `appsettings.Development.json`, the same value as CDC.Web's `Api:ServiceKey`). |
+| 401 on every call | The `X-Api-Key` header is missing or differs from `ServiceAuth:ApiKey`. Check that CDC.Web's `Api__ServiceKey` and the API's `ServiceAuth__ApiKey` come from the same secret. |
 | 500 with `"title": "Database error"` | The stored procedure failed. The detail is suppressed outside Development; search the logs for event 1009 (`StoredProcedureFailed`) and the trace id from the response. |
 | 409 on every update | The client is sending a stale `lastUpdated`. Re-read `GET /api/species/{speciesId}/answers` and resend with the returned row version. |
 | Swagger UI is empty or missing summaries | `GenerateDocumentationFile` must be enabled and `CDC.Api.xml` must be next to the DLL. It is copied to the output folder automatically; check the Docker image includes it. |

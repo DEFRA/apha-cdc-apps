@@ -25,6 +25,7 @@ public class ProfileStatusEndpointTests : IClassFixture<WebApplicationFactory<Pr
         Environment.SetEnvironmentVariable("Database__User", "cdc-tests");
         Environment.SetEnvironmentVariable("Database__Password", "cdc-tests-password");
         Environment.SetEnvironmentVariable("HealthCheck__ReadinessKey", "local-dev-readiness-key");
+        TestServiceKey.Configure();
 
         _factory = factory;
     }
@@ -118,7 +119,8 @@ public class ProfileStatusEndpointTests : IClassFixture<WebApplicationFactory<Pr
                 services.RemoveAll<IUserRepository>();
                 services.AddSingleton(users.Object);
             }))
-            .CreateClient();
+            .CreateClient()
+            .WithServiceKey();
 
         if (actingUser is not null)
         {
