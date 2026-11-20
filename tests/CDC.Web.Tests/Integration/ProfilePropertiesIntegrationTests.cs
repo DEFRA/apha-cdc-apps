@@ -153,6 +153,8 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("data-app-title-required-error hidden=\"hidden\"><span class=\"govuk-visually-hidden\">Error:</span> You must enter a title</p>", page);
         Assert.DoesNotContain("id=\"ProfileTitle-error\"", page);
         Assert.DoesNotContain("id=\"profiled-species-error\"", page);
+        Assert.Contains("data-species-required-error hidden=\"hidden\"><span class=\"govuk-visually-hidden\">Error:</span> You must specify at least one profiled species</p>", page);
+        Assert.Contains("aria-describedby=\"profiled-species-status\"", page);
         Assert.DoesNotContain("govuk-form-group--error", page);
     }
 
@@ -379,6 +381,16 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains("aria-describedby=\"ProfileTitle-required-error\"", body);
         Assert.Contains(TitleMark(hidden: false), body);
         Assert.Contains(SpeciesMark(hidden: false), body);
+
+        // As legacy's asterisk-only validator, the message neither indents the Profiled species box nor pushes its tree below the other one.
+        Assert.Matches(
+            "id=\"profiled-species-status\"[^>]*>Selected: <strong data-species-selected></strong></output>\\s*<div aria-live=\"polite\">\\s*"
+                + "<p id=\"profiled-species-required-error\" class=\"govuk-error-message app-species-selector__error\" data-species-required-error>"
+                + "<span class=\"govuk-visually-hidden\">Error:</span> You must specify at least one profiled species</p>",
+            body);
+        Assert.Contains("aria-describedby=\"profiled-species-status profiled-species-required-error\"", body);
+        Assert.DoesNotContain("id=\"profiled-species-error\"", body);
+        Assert.Equal(1, Regex.Count(body, "govuk-form-group--error", RegexOptions.None, TimeSpan.FromSeconds(5)));
     }
 
     // A message that is not about a missing title stays a server message, and gets no asterisk.

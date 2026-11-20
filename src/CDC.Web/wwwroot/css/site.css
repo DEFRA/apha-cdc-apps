@@ -1284,6 +1284,12 @@ body {
   margin-bottom: 0;
 }
 
+/* Species messages go below the "Selected:" line, so the two trees stay level when one appears. */
+.app-species-selector__error {
+  margin-top: 5px;
+  margin-bottom: 0;
+}
+
 /* The warning about removing profiled species is red, as legacy's ErrorLabel was; the GOV.UK warning text, and its icon, are black. */
 .app-warning-text--error {
   --govuk-text-colour: #d4351c;

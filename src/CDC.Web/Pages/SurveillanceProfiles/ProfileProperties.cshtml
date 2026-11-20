@@ -19,6 +19,13 @@
         titleErrorId = "ProfileTitle-error";
     }
     var speciesRequiredError = speciesErrors.Any(error => error.ErrorMessage == AffectedSpeciesSelection.NoProfiledSpeciesMessage);
+    var otherSpeciesErrors = speciesErrors.Where(error => error.ErrorMessage != AffectedSpeciesSelection.NoProfiledSpeciesMessage).ToList();
+    var profiledSpeciesDescribedBy = string.Join(" ", new[]
+    {
+        "profiled-species-status",
+        speciesRequiredError ? "profiled-species-required-error" : null,
+        otherSpeciesErrors.Count > 0 ? "profiled-species-error" : null
+    }.Where(id => id is not null));
     var hasErrors = !ViewData.ModelState.IsValid;
     var plainHeading = ProfileTitleHtmlFormatter.ToPlainText(Model.Heading);
 
@@ -175,15 +182,10 @@
                 {
                     <div data-module="app-species-selector" data-species-warning-enabled="@(Model.ShowRemovalWarning ? "true" : "false")">
                         <div class="app-species-selector">
-                            <div class="govuk-form-group app-species-selector__column@(speciesErrors.Count > 0 ? " govuk-form-group--error" : string.Empty)">
-                                <fieldset class="govuk-fieldset" id="profiled-species-group" aria-describedby="@(speciesErrors.Count > 0 ? "profiled-species-error " : string.Empty)profiled-species-status">
+                            @* As legacy's asterisk-only validator did, an error neither indents this column nor pushes its tree below the other one. *@
+                            <div class="govuk-form-group app-species-selector__column">
+                                <fieldset class="govuk-fieldset" id="profiled-species-group" aria-describedby="@profiledSpeciesDescribedBy">
                                     <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Profiled species<span class="app-validator-marker" data-species-required-mark title="@AffectedSpeciesSelection.NoProfiledSpeciesMessage" aria-hidden="true" hidden="@(speciesRequiredError ? null : "hidden")">*</span></legend>
-                                    @foreach (var error in speciesErrors)
-                                    {
-                                        <p id="profiled-species-error" class="govuk-error-message">
-                                            <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
-                                        </p>
-                                    }
                                     <div class="app-tree__panel app-species-selector__panel" data-species-tree="profiled">
                                         <div class="app-tree__controls">
                                             <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
@@ -201,6 +203,15 @@
                                         </div>
                                     </div>
                                     <output class="govuk-body app-species-selector__status" id="profiled-species-status" data-species-status="profiled">Selected: <strong data-species-selected></strong></output>
+                                    <div aria-live="polite">
+                                        <p id="profiled-species-required-error" class="govuk-error-message app-species-selector__error" data-species-required-error hidden="@(speciesRequiredError ? null : "hidden")"><span class="govuk-visually-hidden">Error:</span> @AffectedSpeciesSelection.NoProfiledSpeciesMessage</p>
+                                    </div>
+                                    @foreach (var error in otherSpeciesErrors)
+                                    {
+                                        <p id="profiled-species-error" class="govuk-error-message app-species-selector__error">
+                                            <span class="govuk-visually-hidden">Error:</span> @error.ErrorMessage
+                                        </p>
+                                    }
                                 </fieldset>
                             </div>
 
