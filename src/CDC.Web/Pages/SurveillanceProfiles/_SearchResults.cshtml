@@ -44,7 +44,7 @@
                 <div class="app-results-toolbar govuk-!-margin-bottom-3">
                     <div class="govuk-form-group govuk-!-margin-bottom-0">
                         <label class="govuk-label" for="SortBy">Sort by:</label>
-                        <select class="govuk-select" id="SortBy" name="SortBy" form="search-form" onchange="this.form.requestSubmit()">
+                        <select class="govuk-select" id="SortBy" name="SortBy" form="search-form" data-app-submit-on-change>
                             @foreach (var option in CDC.Web.Pages.SurveillanceProfilesSearchModel.SortByOptions)
                             {
                                 <option value="@option.Value" selected="@(option.Value == Model.SortBy ? "selected" : null)">@option.Text</option>
@@ -54,7 +54,7 @@
 
                     <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
                         <label class="govuk-label" for="PageSize">Items per page:</label>
-                        <select class="govuk-select" id="PageSize" name="PageSize" form="search-form" onchange="this.form.requestSubmit()">
+                        <select class="govuk-select" id="PageSize" name="PageSize" form="search-form" data-app-submit-on-change>
                             @foreach (var option in CDC.Web.Pages.SurveillanceProfilesSearchModel.PageSizeOptions)
                             {
                                 <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>

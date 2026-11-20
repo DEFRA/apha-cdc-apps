@@ -98,7 +98,7 @@ else if (success is not null)
 <form method="get" action="@Url.Page("EditUserGuidance")">
     <div class="govuk-form-group">
         <label class="govuk-label govuk-label--s" for="Section">Select a profile section</label>
-        <select class="govuk-select" id="Section" name="section" onchange="this.form.requestSubmit()">
+        <select class="govuk-select" id="Section" name="section" data-app-submit-on-change>
             <option value="">Please select...</option>
             @foreach (var choice in Model.Sections)
             {
