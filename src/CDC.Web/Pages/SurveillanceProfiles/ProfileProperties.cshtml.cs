@@ -62,6 +62,13 @@ public class ProfilePropertiesModel(
     [BindProperty(SupportsGet = true)]
     public string? Scenario { get; set; }
 
+    /// <summary>
+    /// Gets or sets the profile this create or clone page has just created, bound from the query string. The page then
+    /// shows and saves that profile but stays the create or clone page, as the legacy page did after its postback.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public Guid? CreatedProfileId { get; set; }
+
     /// <summary>Gets or sets the title, or scenario title, which may contain the editor's HTML formatting.</summary>
     [BindProperty]
     public string? ProfileTitle { get; set; }
@@ -112,8 +119,8 @@ public class ProfilePropertiesModel(
     /// <summary>Gets the label of the button that saves the form.</summary>
     public string SubmitButtonText => Mode == ProfilePropertiesMode.Edit ? "Update" : "Create profile";
 
-    /// <summary>Gets a value indicating whether the introduction to creating a profile is shown. It is not when editing.</summary>
-    public bool ShowInfoPanel => Mode != ProfilePropertiesMode.Edit;
+    /// <summary>Gets a value indicating whether the introduction to creating a profile is shown: not when editing, nor once the profile is created.</summary>
+    public bool ShowInfoPanel => Mode != ProfilePropertiesMode.Edit && CreatedProfileId is null;
 
     /// <summary>Gets a value indicating whether removing a profiled species warns that its data will be lost - only when editing.</summary>
     public bool ShowRemovalWarning => Mode == ProfilePropertiesMode.Edit && ShowSpeciesSelector;
@@ -121,14 +128,19 @@ public class ProfilePropertiesModel(
     /// <summary>Gets the profile whose "Manage profile" page is linked, when editing.</summary>
     public Guid? ManageProfileId => Mode == ProfilePropertiesMode.Edit ? ProfileId : null;
 
-    /// <summary>Gets the last breadcrumb, naming this page.</summary>
+    /// <summary>Gets the last breadcrumb, naming this page as the legacy site map and breadcrumb code did.</summary>
     public string BreadcrumbCurrent => Mode switch
     {
-        ProfilePropertiesMode.Create => "Create profile",
+        ProfilePropertiesMode.Create => "Create disease profile",
         ProfilePropertiesMode.CloneProfile => "Clone profile",
         ProfilePropertiesMode.CloneScenario => "Clone scenario",
         _ => "Profile properties"
     };
+
+    /// <summary>Gets the Search breadcrumb text: the legacy clone pages named it "Search Disease Profiles".</summary>
+    public string BreadcrumbSearch => Mode == ProfilePropertiesMode.Edit ? "Search disease profiles" : "Search Disease Profiles";
+
+    private Guid? SavedProfileId => ProfileId ?? CreatedProfileId;
 
     private bool IsScenarioRequested =>
         Scenario == "1" || string.Equals(Scenario, "true", StringComparison.OrdinalIgnoreCase);
@@ -177,7 +189,7 @@ public class ProfilePropertiesModel(
             return RenderPage();
         }
 
-        return Mode == ProfilePropertiesMode.Edit
+        return SavedProfileId is not null
             ? await UpdateAsync(title, selection, cancellationToken)
             : await CreateAsync(title, selection!, cancellationToken);
     }
@@ -198,6 +210,7 @@ public class ProfilePropertiesModel(
         // invalid GUID as "create a new profile", rather than failing model binding.
         ModelState.Remove(nameof(CloneProfileVersionId));
         ModelState.Remove(nameof(Scenario));
+        ModelState.Remove(nameof(CreatedProfileId));
 
         if (CloneProfileVersionId == Guid.Empty)
         {
@@ -205,6 +218,11 @@ public class ProfilePropertiesModel(
         }
 
         Mode = DetermineMode();
+
+        if (Mode == ProfilePropertiesMode.Edit || CreatedProfileId == Guid.Empty)
+        {
+            CreatedProfileId = null;
+        }
         IsScenarioTitle = Mode == ProfilePropertiesMode.CloneScenario;
         Heading = Mode switch
         {
@@ -241,12 +259,17 @@ public class ProfilePropertiesModel(
                 _ => await LoadCloneSourceAsync(cancellationToken)
             };
 
+            if (outcome == LoadOutcome.Ok && Mode != ProfilePropertiesMode.Edit && CreatedProfileId is not null)
+            {
+                outcome = await LoadProfileAsync(cancellationToken);
+            }
+
             if (outcome != LoadOutcome.Ok)
             {
                 return outcome;
             }
 
-            ShowSpeciesSelector = Mode != ProfilePropertiesMode.Edit || attributes!.CurrentDraftProfileVersionId != Guid.Empty;
+            ShowSpeciesSelector = attributes is null || attributes.CurrentDraftProfileVersionId != Guid.Empty;
 
             if (ShowSpeciesSelector)
             {
@@ -268,11 +291,12 @@ public class ProfilePropertiesModel(
 
     private async Task<LoadOutcome> LoadProfileAsync(CancellationToken cancellationToken)
     {
-        attributes = await apiClient.GetProfileAttributesAsync(ProfileId!.Value, cancellationToken);
+        var profileId = SavedProfileId!.Value;
+        attributes = await apiClient.GetProfileAttributesAsync(profileId, cancellationToken);
 
         if (attributes is null)
         {
-            logger.ProfileNotFound(ProfileId.Value);
+            logger.ProfileNotFound(profileId);
 
             return LoadOutcome.NotFound;
         }
@@ -328,9 +352,9 @@ public class ProfilePropertiesModel(
     {
         IReadOnlyList<AffectedSpeciesDto> source = [];
 
-        if (Mode == ProfilePropertiesMode.Edit)
+        if (attributes is not null)
         {
-            ProfileTitle = attributes!.IsWhatIfScenario ? attributes.ScenarioTitle : attributes.Title;
+            ProfileTitle = attributes.IsWhatIfScenario ? attributes.ScenarioTitle : attributes.Title;
             LastUpdated = Convert.ToBase64String(attributes.LastUpdated);
             source = attributes.AffectedSpecies;
         }
@@ -358,9 +382,7 @@ public class ProfilePropertiesModel(
 
     private AffectedSpeciesSelectionResult ValidateSpecies()
     {
-        IEnumerable<AffectedSpeciesDto> alreadySelected = Mode == ProfilePropertiesMode.Edit
-            ? attributes!.AffectedSpecies
-            : defaults?.AffectedSpecies ?? [];
+        IEnumerable<AffectedSpeciesDto> alreadySelected = attributes?.AffectedSpecies ?? defaults?.AffectedSpecies ?? [];
 
         var result = AffectedSpeciesSelection.Normalise(
             species,
@@ -414,18 +436,20 @@ public class ProfilePropertiesModel(
             logger.ProfileCreated(createdProfileId, cloneId, isScenario);
             StatusMessage = CreatedMessage;
 
-            // Reloads the new profile as an edit page, so a second save updates it rather than creating another.
-            return RedirectToPage(new { profileId = createdProfileId });
+            return RedirectToSamePage(createdProfileId);
         }
 
         logger.CreateRefused(result.Outcome);
-        ModelState.AddModelError(string.Empty, $"Profile creation failed: {result.ErrorMessage}");
+
+        // Legacy said "update" here too: its "Create" check never matched the "Create profile" button text.
+        ModelState.AddModelError(string.Empty, $"Profile update failed: {result.ErrorMessage}");
 
         return RenderPage();
     }
 
     private async Task<IActionResult> UpdateAsync(string title, AffectedSpeciesSelectionResult? selection, CancellationToken cancellationToken)
     {
+        var profileId = SavedProfileId!.Value;
         byte[] rowVersion;
 
         try
@@ -446,7 +470,7 @@ public class ProfilePropertiesModel(
 
         var request = new UpdateProfileAttributesRequest
         {
-            Id = ProfileId!.Value,
+            Id = profileId,
             Title = attributes!.IsWhatIfScenario ? string.Empty : title,
             ScenarioTitle = attributes.IsWhatIfScenario ? title : string.Empty,
             LastUpdated = rowVersion,
@@ -458,24 +482,24 @@ public class ProfilePropertiesModel(
 
         try
         {
-            result = await profilePropertiesApiService.UpdateProfileAttributesAsync(ProfileId.Value, request, cancellationToken);
+            result = await profilePropertiesApiService.UpdateProfileAttributesAsync(profileId, request, cancellationToken);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
-            logger.SaveFailed(exception, ProfileId);
+            logger.SaveFailed(exception, profileId);
             result = new UpdateProfileAttributesResult(SaveProfileOutcome.Error, "The profile could not be saved. Please try again.");
         }
 
         if (result.Outcome == SaveProfileOutcome.Success)
         {
-            logger.ProfileUpdated(ProfileId.Value);
+            logger.ProfileUpdated(profileId);
             StatusMessage = SavedMessage;
 
             // Redirecting reloads the profile, so the page shows what was saved and carries its new row version.
-            return RedirectToPage(new { profileId = ProfileId });
+            return RedirectToSamePage(profileId);
         }
 
-        logger.UpdateRefused(ProfileId.Value, result.Outcome);
+        logger.UpdateRefused(profileId, result.Outcome);
         ModelState.AddModelError(string.Empty, $"Profile update failed: {result.ErrorMessage}");
 
         // As the legacy page did after a failed update, show what is now saved when another user changed it first.
@@ -486,6 +510,17 @@ public class ProfilePropertiesModel(
 
         return RenderPage();
     }
+
+    // As legacy, which stayed on the page it was opened as: a created profile keeps its create or clone address, so a
+    // second save updates it rather than creating another.
+    private RedirectToPageResult RedirectToSamePage(Guid savedProfileId) => Mode == ProfilePropertiesMode.Edit
+        ? RedirectToPage(new { profileId = savedProfileId })
+        : RedirectToPage(new
+        {
+            cloneProfileVersionId = CloneProfileVersionId,
+            scenario = Mode == ProfilePropertiesMode.CloneScenario ? Scenario : null,
+            createdProfileId = savedProfileId
+        });
 
     private PageResult RenderPage()
     {

@@ -138,7 +138,7 @@ public sealed class ProfileManagementController(ISender mediator) : ControllerBa
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The new profile's identifier and row version.</returns>
     /// <response code="201">The profile was created.</response>
-    /// <response code="400">The request failed validation.</response>
+    /// <response code="400">The request failed validation, or the title is already in use.</response>
     /// <response code="403">The user is not a profile editor.</response>
     [HttpPost]
     [AuthorizeGlobalRole(GlobalRole.ProfileEditor)]

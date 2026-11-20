@@ -34,7 +34,7 @@
             @if (Model.Mode != ProfilePropertiesMode.Create)
             {
                 <li class="govuk-breadcrumbs__list-item">
-                    <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">Search disease profiles</a>
+                    <a class="govuk-breadcrumbs__link" asp-area="" asp-page="/SurveillanceProfiles/Search">@Model.BreadcrumbSearch</a>
                 </li>
             }
             @if (Model.ManageProfileId is { } manageProfileId)

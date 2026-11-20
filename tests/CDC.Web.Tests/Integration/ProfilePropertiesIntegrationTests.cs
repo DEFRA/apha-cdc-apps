@@ -269,8 +269,9 @@ public partial class ProfilePropertiesIntegrationTests
         Assert.Contains($"href=\"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={CloneVersionId}&amp;scenario=true\">Clone new scenario</a>", page);
     }
 
+    // As the legacy postback did, the create page stays the create page (same breadcrumb) and shows the saved profile.
     [Fact]
-    public async Task Create_ReloadsTheNewProfilesProperties_WithTheSpeciesTheUserTicked_AndShowsTheSuccessMessageOnce()
+    public async Task Create_StaysOnTheCreatePage_WithTheLegacyBreadcrumb_AndShowsTheSuccessMessageOnce()
     {
         var properties = new FakeProfilePropertiesApiService();
         using var factory = CreateFactory(properties);
@@ -285,7 +286,7 @@ public partial class ProfilePropertiesIntegrationTests
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         var request = properties.LastCreateRequest!;
-        var url = $"/SurveillanceProfiles/ProfileProperties/{request.Id}";
+        var url = $"/SurveillanceProfiles/ProfileProperties?createdProfileId={request.Id}";
         Assert.Equal(url, response.Headers.Location?.OriginalString);
         Assert.Equal("Anthrax", request.Title);
         Assert.Equal(["Profiled", "Other"], request.AffectedSpeciesInsertList.Select(species => species.Type));
@@ -293,9 +294,57 @@ public partial class ProfilePropertiesIntegrationTests
         var reloaded = await client.GetStringAsync(url);
         Assert.Contains("govuk-notification-banner--success", reloaded);
         Assert.Contains("Your changes are successfully saved", reloaded);
-        Assert.Contains("data-app-title-save=\"on-blur\">Update</button>", reloaded);
+        Assert.Matches(BreadcrumbRegex("Create disease profile"), reloaded);
+        Assert.Contains("data-app-title-save=\"on-blur\">Create profile</button>", reloaded);
         Assert.DoesNotContain("Use this function to create a brand new Surveillance Profile", reloaded);
+        Assert.DoesNotContain("Manage profile</a>", reloaded);
         Assert.DoesNotContain("Your changes are successfully saved", await client.GetStringAsync(url));
+    }
+
+    [Theory]
+    [InlineData("1", "Clone scenario")]
+    [InlineData(null, "Clone profile")]
+    public async Task Clone_StaysOnTheClonePage_WithTheLegacyBreadcrumb(string? scenario, string current)
+    {
+        var properties = new FakeProfilePropertiesApiService(defaults: new NewProfileDefaultsDto
+        {
+            Title = "Anthrax",
+            ScenarioTitle = "Outbreak",
+            ParentTitle = "Anthrax",
+            ClonedVersionDescription = "Anthrax - v2.0 (Published) Valid from 01/01/2020",
+            AffectedSpecies = [new AffectedSpeciesDto { SpeciesId = Sheep, Name = "Sheep", Type = "Profiled", IsActive = true }]
+        });
+        using var factory = CreateFactory(properties);
+        var client = await SignedInClientWithoutRedirectsAsync(factory);
+        var cloneUrl = $"/SurveillanceProfiles/ProfileProperties?cloneProfileVersionId={CloneVersionId}{(scenario is null ? string.Empty : $"&scenario={scenario}")}";
+
+        Assert.Matches(BreadcrumbRegex("Search Disease Profiles", current), await client.GetStringAsync(cloneUrl));
+
+        var response = await PostAsync(client, cloneUrl, new Dictionary<string, string[]>
+        {
+            ["ProfileTitle"] = ["Copy"],
+            ["ProfiledSpeciesIds"] = [Sheep.ToString()]
+        });
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var url = $"{cloneUrl}&createdProfileId={properties.LastCreateRequest!.Id}";
+        Assert.Equal(url, response.Headers.Location?.OriginalString);
+
+        var reloaded = await client.GetStringAsync(url);
+        Assert.Contains("Your changes are successfully saved", reloaded);
+        Assert.Matches(BreadcrumbRegex("Search Disease Profiles", current), reloaded);
+        Assert.Contains("will be cloned from: Anthrax - v2.0 (Published) Valid from 01/01/2020", reloaded);
+    }
+
+    // D2R2 Home, then the given links, then the current page.
+    private static Regex BreadcrumbRegex(params string[] trail)
+    {
+        var links = string.Concat(trail[..^1].Select(text => $@"\s*<li class=""govuk-breadcrumbs__list-item"">\s*<a class=""govuk-breadcrumbs__link"" href=""[^""]+"">{Regex.Escape(text)}</a>\s*</li>"));
+
+        return new Regex(
+            $@"<a class=""govuk-breadcrumbs__link"" href=""[^""]+"">D2R2 Home</a>\s*</li>{links}\s*<li class=""govuk-breadcrumbs__list-item"" aria-current=""page"">\s*{Regex.Escape(trail[^1])}\s*</li>\s*</ol>",
+            RegexOptions.None,
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]

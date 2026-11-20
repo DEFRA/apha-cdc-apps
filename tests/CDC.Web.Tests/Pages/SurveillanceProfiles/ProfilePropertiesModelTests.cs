@@ -42,7 +42,8 @@ public class ProfilePropertiesModelTests
         Exception? throwOnGetSpecies = null,
         Guid? profileId = null,
         Guid? cloneProfileVersionId = null,
-        string? scenario = null)
+        string? scenario = null,
+        Guid? createdProfileId = null)
     {
         var modelMetadataProvider = new EmptyModelMetadataProvider();
 
@@ -55,6 +56,7 @@ public class ProfilePropertiesModelTests
             ProfileId = profileId,
             CloneProfileVersionId = cloneProfileVersionId,
             Scenario = scenario,
+            CreatedProfileId = createdProfileId,
             PageContext = new PageContext
             {
                 HttpContext = new DefaultHttpContext(),
@@ -128,6 +130,7 @@ public class ProfilePropertiesModelTests
         Assert.Null(pageModel.ProfileTitle);
         Assert.Empty(pageModel.ProfiledSpeciesIds);
         Assert.Single(pageModel.ProfiledSpeciesTree.Nodes);
+        Assert.Equal("Create disease profile", pageModel.BreadcrumbCurrent);
     }
 
     [Fact]
@@ -181,6 +184,7 @@ public class ProfilePropertiesModelTests
         Assert.Equal("Scenario title", pageModel.TitleLabel);
         Assert.Equal("Badger cull", pageModel.ProfileTitle);
         Assert.Equal("Clone scenario", pageModel.BreadcrumbCurrent);
+        Assert.Equal("Search Disease Profiles", pageModel.BreadcrumbSearch);
     }
 
     [Fact]
@@ -240,6 +244,69 @@ public class ProfilePropertiesModelTests
         Assert.False(pageModel.ShowInfoPanel);
         Assert.Equal(ProfileId, pageModel.ManageProfileId);
         Assert.Equal("Profile properties", pageModel.BreadcrumbCurrent);
+        Assert.Equal("Search disease profiles", pageModel.BreadcrumbSearch);
+    }
+
+    // As the legacy postback did: the page that created the profile stays a create page, now showing the saved profile.
+    [Fact]
+    public async Task OnGetAsync_ShowsTheCreatedProfile_OnTheCreatePage()
+    {
+        var pageModel = CreatePageModel(Profile(), createdProfileId: ProfileId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ProfilePropertiesMode.Create, pageModel.Mode);
+        Assert.Equal("Profile properties for Bovine tuberculosis", pageModel.Heading);
+        Assert.Equal("Create disease profile", pageModel.BreadcrumbCurrent);
+        Assert.Equal("Create profile", pageModel.SubmitButtonText);
+        Assert.Equal("Bovine tuberculosis", pageModel.ProfileTitle);
+        Assert.Equal(Convert.ToBase64String(RowVersion), pageModel.LastUpdated);
+        Assert.Equal([Sheep], pageModel.ProfiledSpeciesIds);
+        Assert.True(pageModel.ShowSpeciesSelector);
+        Assert.False(pageModel.ShowInfoPanel);
+        Assert.False(pageModel.ShowRemovalWarning);
+        Assert.Null(pageModel.ManageProfileId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ShowsTheCreatedScenario_OnTheCloneScenarioPage_StillNamingWhereItWasClonedFrom()
+    {
+        var pageModel = CreatePageModel(
+            Scenario(),
+            properties: new FakeProfilePropertiesApiService(defaults: Defaults()),
+            cloneProfileVersionId: CloneVersionId,
+            scenario: "1",
+            createdProfileId: ProfileId);
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ProfilePropertiesMode.CloneScenario, pageModel.Mode);
+        Assert.Equal("Profile properties for Bovine tuberculosis (Badger cull)", pageModel.Heading);
+        Assert.Equal("Clone scenario", pageModel.BreadcrumbCurrent);
+        Assert.Equal("Search Disease Profiles", pageModel.BreadcrumbSearch);
+        Assert.Equal("Scenario title", pageModel.TitleLabel);
+        Assert.Equal("Badger cull", pageModel.ProfileTitle);
+        Assert.Equal("Bovine tuberculosis - v1.0 (Published) Valid from 01/01/2020", pageModel.ClonedFromDescription);
+        Assert.False(pageModel.ShowInfoPanel);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_IgnoresACreatedProfileId_WhenEditingAProfile()
+    {
+        var pageModel = CreatePageModel(Profile(), profileId: ProfileId, createdProfileId: Guid.NewGuid());
+
+        await pageModel.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(ProfilePropertiesMode.Edit, pageModel.Mode);
+        Assert.Null(pageModel.CreatedProfileId);
+    }
+
+    [Fact]
+    public async Task OnGetAsync_ReturnsNotFound_WhenTheCreatedProfileHasGone()
+    {
+        var pageModel = CreatePageModel(attributes: null, createdProfileId: ProfileId);
+
+        Assert.IsType<NotFoundResult>(await pageModel.OnGetAsync(CancellationToken.None));
     }
 
     [Fact]
@@ -474,7 +541,7 @@ public class ProfilePropertiesModelTests
     // ---- Creating ----
 
     [Fact]
-    public async Task OnPostAsync_CreatesTheProfile_AndReloadsItsPropertiesWithAMessage()
+    public async Task OnPostAsync_CreatesTheProfile_AndStaysOnTheCreatePageWithAMessage()
     {
         var properties = new FakeProfilePropertiesApiService();
         var pageModel = CreatePageModel(properties: properties);
@@ -487,7 +554,10 @@ public class ProfilePropertiesModelTests
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         var request = properties.LastCreateRequest!;
         Assert.Null(redirect.PageName);
-        Assert.Equal(request.Id, redirect.RouteValues!["profileId"]);
+        Assert.Equal(request.Id, redirect.RouteValues!["createdProfileId"]);
+        Assert.Null(redirect.RouteValues["cloneProfileVersionId"]);
+        Assert.Null(redirect.RouteValues["scenario"]);
+        Assert.False(redirect.RouteValues.ContainsKey("profileId"));
         Assert.Equal(CreatedMessage, pageModel.StatusMessage);
         Assert.Equal("<em>Anthrax</em>", request.Title);
         Assert.Equal(string.Empty, request.ScenarioTitle);
@@ -511,7 +581,10 @@ public class ProfilePropertiesModelTests
 
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
-        Assert.IsType<RedirectToPageResult>(result);
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(CloneVersionId, redirect.RouteValues!["cloneProfileVersionId"]);
+        Assert.Null(redirect.RouteValues["scenario"]);
+        Assert.Equal(properties.LastCreateRequest!.Id, redirect.RouteValues["createdProfileId"]);
         Assert.Equal(CreatedMessage, pageModel.StatusMessage);
         var request = properties.LastCreateRequest!;
         Assert.Equal(CloneVersionId, request.CloneProfileVersionId);
@@ -533,7 +606,10 @@ public class ProfilePropertiesModelTests
 
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
-        Assert.IsType<RedirectToPageResult>(result);
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal(CloneVersionId, redirect.RouteValues!["cloneProfileVersionId"]);
+        Assert.Equal("1", redirect.RouteValues["scenario"]);
+        Assert.Equal(properties.LastCreateRequest!.Id, redirect.RouteValues["createdProfileId"]);
         Assert.Equal(CreatedMessage, pageModel.StatusMessage);
         var request = properties.LastCreateRequest!;
         Assert.Equal(string.Empty, request.Title);
@@ -557,7 +633,7 @@ public class ProfilePropertiesModelTests
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(["Profile creation failed: A title is required."], Errors(pageModel, string.Empty));
+        Assert.Equal(["Profile update failed: A title is required."], Errors(pageModel, string.Empty));
         Assert.Null(pageModel.StatusMessage);
         Assert.Contains(Sheep.ToString(), pageModel.ProfiledSpeciesTree.SelectedValues);
     }
@@ -572,7 +648,26 @@ public class ProfilePropertiesModelTests
         var result = await pageModel.OnPostAsync(CancellationToken.None);
 
         Assert.IsType<PageResult>(result);
-        Assert.Equal(["Profile creation failed: The profile could not be created. Please try again."], Errors(pageModel, string.Empty));
+        Assert.Equal(["Profile update failed: The profile could not be created. Please try again."], Errors(pageModel, string.Empty));
+    }
+
+    [Fact]
+    public async Task OnPostAsync_ShowsTheLegacyMessage_WhenTheClonedProfilesTitleIsAlreadyInUse()
+    {
+        var properties = new FakeProfilePropertiesApiService(
+            defaults: Defaults(),
+            createResult: new CreateProfileResult(SaveProfileOutcome.ValidationFailed, null, "The profile title is already in use for a different profile"));
+        var pageModel = CreatePageModel(properties: properties, cloneProfileVersionId: CloneVersionId);
+        pageModel.ProfileTitle = "Bovine tuberculosis";
+        pageModel.ProfiledSpeciesIds = [Cattle];
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(["Profile update failed: The profile title is already in use for a different profile"], Errors(pageModel, string.Empty));
+        Assert.Equal("Bovine tuberculosis", pageModel.ProfileTitle);
+        Assert.Equal(ProfilePropertiesMode.CloneProfile, pageModel.Mode);
+        Assert.True(pageModel.ShowForm);
     }
 
     // ---- Updating ----
@@ -586,6 +681,27 @@ public class ProfilePropertiesModelTests
         pageModel.LastUpdated = lastUpdated ?? Convert.ToBase64String(RowVersion);
 
         return pageModel;
+    }
+
+    [Fact]
+    public async Task OnPostAsync_UpdatesTheCreatedProfile_InsteadOfCreatingAnother_AndStaysOnTheClonePage()
+    {
+        var properties = new FakeProfilePropertiesApiService(defaults: Defaults());
+        var pageModel = CreatePageModel(Profile(), properties: properties, cloneProfileVersionId: CloneVersionId, createdProfileId: ProfileId);
+        pageModel.ProfileTitle = "Bovine TB";
+        pageModel.ProfiledSpeciesIds = [Sheep];
+        pageModel.OtherSpeciesIds = [Goats];
+        pageModel.LastUpdated = Convert.ToBase64String(RowVersion);
+
+        var result = await pageModel.OnPostAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Null(properties.LastCreateRequest);
+        Assert.Equal(ProfileId, properties.LastUpdate!.Value.ProfileId);
+        Assert.Equal("Bovine TB", properties.LastUpdate.Value.Request.Title);
+        Assert.Equal(CloneVersionId, redirect.RouteValues!["cloneProfileVersionId"]);
+        Assert.Equal(ProfileId, redirect.RouteValues["createdProfileId"]);
+        Assert.Equal("Your changes were successfully saved", pageModel.StatusMessage);
     }
 
     [Fact]
