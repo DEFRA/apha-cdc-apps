@@ -20,7 +20,7 @@ public class DiseaseRankingModel(
     IDiseaseRankingApiService apiService,
     IDiseaseRankingPdfService pdfService,
     INavigationAuthorizationService navigationAuthorization,
-    ILogger<DiseaseRankingModel> logger) : BreadcrumbPageModelBase("Disease ranking report")
+    ILogger<DiseaseRankingModel> logger) : BreadcrumbPageModelBase("Disease ranking")
 {
     /// <summary>The title the stored report is uploaded under - see legacy <c>NavigationLinks.ascx.vb</c>.</summary>
     private const string StoredReportTitle = "DiseaseRankingReport";
@@ -94,7 +94,7 @@ public class DiseaseRankingModel(
 
         if (string.IsNullOrWhiteSpace(normalizedReportKey))
         {
-            ModelState.AddModelError(fieldName, "Select a report");
+            ModelState.AddModelError(fieldName, "Select a disease ranking report");
             await LoadOptionsAsync(cancellationToken);
 
             return Page();
@@ -109,7 +109,7 @@ public class DiseaseRankingModel(
                 return File(pdf.Content, "application/pdf", pdf.FileName);
             }
 
-            ModelState.AddModelError(fieldName, "Select a report from the list");
+            ModelState.AddModelError(fieldName, "Select a disease ranking report from the list");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
