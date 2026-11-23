@@ -281,6 +281,22 @@ public class LandingExternalAuthSmokeTests : IClassFixture<CdcWebTestFactory>
         Assert.Contains("General reports", body);
     }
 
+    // Legacy Home.aspx described the General Reports link as "View a list of reports.".
+    [Fact]
+    public async Task Internal_DescribesTheGeneralReportsAsLegacyDid()
+    {
+        var client = await _factory.SignedInClientAsync();
+
+        var body = await client.GetStringAsync("/Landing/Internal");
+
+        Assert.Matches(
+            new System.Text.RegularExpressions.Regex(
+                "href=\"/Reports/General\">General reports</a>\\s*<p class=\"govuk-body govuk-!-margin-bottom-0\">View a list of reports.</p>",
+                System.Text.RegularExpressions.RegexOptions.None,
+                TimeSpan.FromSeconds(5)),
+            body);
+    }
+
     // Every link on the External page, plus the footer's Help and Support, must open for a CIDM-only session
     // rather than sending the user to the internal (Entra ID) sign-in.
     [Theory]

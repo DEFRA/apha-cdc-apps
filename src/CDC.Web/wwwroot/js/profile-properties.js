@@ -14,7 +14,8 @@
 // - Opening or closing a branch in one tree does the same in the other, so the two stay level; each box's
 //   "Open all"/"Close all" works on its own tree only.
 // - Each box has a "Selected: ..." line, always shown as in legacy, with only the species named in it in bold.
-// - An asterisk beside "Profiled species" shows while none is ticked, once the species have been changed or reset.
+// - An asterisk beside "Profiled species", and the required message below its box, show while none is ticked, once the title is
+//   typed in or left, or the species have been changed or reset - as legacy's title box validated the whole page as it was typed in.
 (function () {
     'use strict';
 
@@ -66,6 +67,23 @@
         return ($label ? $label.textContent : node.value).replace(/\s+/g, ' ').trim();
     }
 
+    // Adds the message to, or removes it from, the description of the fieldset it is in.
+    function describeBy($message, shown) {
+        const $fieldset = $message.closest('fieldset');
+
+        if (!$fieldset) {
+            return;
+        }
+
+        const ids = ($fieldset.getAttribute('aria-describedby') || '').split(/\s+/).filter((id) => id && id !== $message.id);
+
+        if (shown) {
+            ids.push($message.id);
+        }
+
+        $fieldset.setAttribute('aria-describedby', ids.join(' '));
+    }
+
     // Brings every box in a tree in line with what is ticked in it and in the other tree.
     function applyRules(tree, own, other) {
         tree.nodes.forEach((node) => {
@@ -97,6 +115,7 @@
             this.$warning = $root.querySelector('[data-species-warning]');
             this.$announcement = $root.querySelector('[data-species-announcement]');
             this.$requiredMark = $root.querySelector('[data-species-required-mark]');
+            this.$requiredError = $root.querySelector('[data-species-required-error]');
             this.statuses = {
                 profiled: $root.querySelector('[data-species-status="profiled"]'),
                 other: $root.querySelector('[data-species-status="other"]')
@@ -167,10 +186,17 @@
                 .join(', ');
         }
 
-        // Legacy's required-species validator, shown only once the species have been changed (or reset), not when the page opens.
+        // Legacy's required-species validator, shown only once the title or the species have been changed (or reset), not when the page opens.
         validateProfiled() {
+            const missing = !this.profiled.nodes.some((node) => node.input.checked);
+
             if (this.$requiredMark) {
-                this.$requiredMark.hidden = this.profiled.nodes.some((node) => node.input.checked);
+                this.$requiredMark.hidden = !missing;
+            }
+
+            if (this.$requiredError) {
+                this.$requiredError.hidden = !missing;
+                describeBy(this.$requiredError, missing);
             }
         }
 
@@ -232,6 +258,13 @@
             const $reset = $form.querySelector('[data-profile-properties-reset]');
 
             this.selector = $selector ? new SpeciesSelector($selector) : null;
+
+            const $title = $form.querySelector('[data-app-title-hidden-input]');
+
+            if ($title && this.selector) {
+                // Legacy's title box ran every validator on the page as it was typed in and left, the species one included.
+                ['input', 'blur'].forEach((type) => $title.addEventListener(type, () => this.selector.validateProfiled()));
+            }
 
             if ($reset) {
                 $reset.addEventListener('click', () => this.reset($reset));

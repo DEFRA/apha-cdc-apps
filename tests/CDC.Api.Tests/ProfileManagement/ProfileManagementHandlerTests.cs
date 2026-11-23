@@ -34,10 +34,33 @@ public class ProfileManagementHandlerTests
             .Setup(svc => svc.CreateProfileAsync(command, It.IsAny<CancellationToken>()))
             .ReturnsAsync(resultDto);
 
-        var result = await new CreateProfileCommandHandler(service.Object).Handle(command, CancellationToken.None);
+        var result = await new CreateProfileCommandHandler(service.Object, NullLogger<CreateProfileCommandHandler>.Instance).Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(resultDto);
+    }
+
+    [Fact]
+    public async Task CreateProfileCommandHandler_ReturnsValidationFailed_WithTheReason_WhenTheTitleIsRefused()
+    {
+        var command = new CreateProfileCommand
+        {
+            Id = ProfileManagementTestData.ProfileId,
+            Title = "Anthrax",
+            CurrentDraftProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            CloneProfileVersionId = ProfileManagementTestData.ProfileVersionId,
+            ParentId = Guid.Empty,
+            ProfileStatusId = ProfileManagementTestData.ProfileStatusId
+        };
+
+        service
+            .Setup(svc => svc.CreateProfileAsync(command, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ProfileTitleRefusedException("The profile title is already in use for a different profile"));
+
+        var result = await new CreateProfileCommandHandler(service.Object, NullLogger<CreateProfileCommandHandler>.Instance).Handle(command, CancellationToken.None);
+
+        result.Status.Should().Be(ResultStatus.ValidationFailed);
+        result.Error.Should().Be("The profile title is already in use for a different profile");
     }
 
     [Fact]
