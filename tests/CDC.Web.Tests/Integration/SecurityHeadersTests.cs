@@ -101,11 +101,11 @@ public partial class SecurityHeadersTests : IClassFixture<CdcWebTestFactory>
         Assert.EndsWith("; upgrade-insecure-requests", Header(response, "Content-Security-Policy"), StringComparison.Ordinal);
     }
 
-    // HSTS only means anything over HTTPS, so a plain-HTTP response (a local run) gets neither it nor the upgrade.
+    // HSTS only means anything over HTTPS, so a plain-HTTP response gets neither it nor the upgrade.
     [Fact]
-    public async Task InProduction_APlainHttpResponseCarriesNoHstsAndNoUpgrade()
+    public async Task InProduction_WithNoHttpsPort_APlainHttpResponseCarriesNoHstsAndNoUpgrade()
     {
-        await using var production = Production();
+        await using var production = Production(httpsPort: string.Empty);
         var client = production.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("http://d2r2.test") });
 
         var response = await client.GetAsync("/");
@@ -116,9 +116,9 @@ public partial class SecurityHeadersTests : IClassFixture<CdcWebTestFactory>
     }
 
     [Fact]
-    public async Task InProduction_WithTheHttpsPortSet_APlainHttpRequestIsRedirectedPermanently()
+    public async Task InProduction_APlainHttpRequestIsRedirectedPermanentlyToTheDefaultHttpsPort()
     {
-        await using var production = Production(httpsPort: "443");
+        await using var production = Production();
         var client = production.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("http://d2r2.test"),
@@ -135,9 +135,9 @@ public partial class SecurityHeadersTests : IClassFixture<CdcWebTestFactory>
     [Theory]
     [InlineData("/health")]
     [InlineData("/HEALTH")]
-    public async Task InProduction_WithTheHttpsPortSet_TheHealthCheckIsNotRedirected(string url)
+    public async Task InProduction_TheHealthCheckIsNotRedirected(string url)
     {
-        await using var production = Production(httpsPort: "443");
+        await using var production = Production();
         var client = production.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("http://d2r2.test"),

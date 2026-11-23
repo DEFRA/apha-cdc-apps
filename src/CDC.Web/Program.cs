@@ -333,8 +333,7 @@ builder.Services.AddHsts(options =>
     options.Preload = false;
 });
 
-// A deployed site's HTTPS address is permanent, so browsers may remember the redirect. Development keeps the default
-// temporary 307, so a local switch between http and https is not cached.
+// A deployed site's HTTPS address is permanent, so browsers may remember the redirect. Local runs are plain HTTP only.
 if (!builder.Environment.IsDevelopment())
 {
     builder.Services.AddHttpsRedirection(options => options.RedirectStatusCode = StatusCodes.Status308PermanentRedirect);
@@ -363,15 +362,12 @@ if (!app.Environment.IsDevelopment())
 
     // After UseForwardedHeaders, so a request the ALB received over HTTPS counts as HTTPS: the header is only sent on those.
     app.UseHsts();
-}
 
-// Sends a plain-HTTP request to the HTTPS address. Behind the ALB this needs the public HTTPS port, which ASP.NET Core
-// reads from ASPNETCORE_HTTPS_PORT (443 in the ECS task definition); without it, or when the ALB already redirects port 80,
-// nothing is redirected here. The health checks are left out: the ALB and ECS call them over plain HTTP, straight to the
-// container, and a redirect would fail them.
-app.UseWhen(
-    context => !context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase),
-    branch => branch.UseHttpsRedirection());
+    // Redirects to the public HTTPS port, https_port in appsettings.json. Not /health: the ALB and ECS call it over plain HTTP.
+    app.UseWhen(
+        context => !context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase),
+        branch => branch.UseHttpsRedirection());
+}
 
 // Before UseStaticFiles and every endpoint, so static files, pages and error responses all get the browser security headers.
 app.UseSecurityHeaders(
