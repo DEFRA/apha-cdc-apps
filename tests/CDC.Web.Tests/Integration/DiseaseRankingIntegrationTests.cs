@@ -80,13 +80,13 @@ public class DiseaseRankingIntegrationTests
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<h1 class=\"govuk-heading-l\">Disease ranking report</h1>", body, StringComparison.Ordinal);
+        Assert.Contains("<h1 class=\"govuk-heading-l\">Disease ranking</h1>", body, StringComparison.Ordinal);
         Assert.Contains("Please select which disease ranking report and scored RFI graphs you would like to view.", body, StringComparison.Ordinal);
         Assert.Contains("Please select which disease ranking report with ranked RFI graphs you would like to view.", body, StringComparison.Ordinal);
         Assert.Equal(2, Regex.Count(body, "Disease ranking report: Terrestrial diseases", RegexOptions.None, TimeSpan.FromSeconds(5)));
         Assert.Equal(2, Regex.Count(body, ">All viral diseases<", RegexOptions.None, TimeSpan.FromSeconds(5)));
         Assert.Equal(2, Regex.Count(body, "href=\"/DiseaseRanking/EditFilters\"", RegexOptions.None, TimeSpan.FromSeconds(5)));
-        Assert.Equal(2, Regex.Count(body, ">Select a report<", RegexOptions.None, TimeSpan.FromSeconds(5)));
+        Assert.Equal(2, Regex.Count(body, ">--Select Disease Ranking Report--<", RegexOptions.None, TimeSpan.FromSeconds(5)));
         Assert.DoesNotContain("There is a problem", body, StringComparison.Ordinal);
     }
 
@@ -100,7 +100,7 @@ public class DiseaseRankingIntegrationTests
 
         Assert.Contains("There is a problem", body, StringComparison.Ordinal);
         Assert.Contains("The list of reports could not be loaded. Try again later", body, StringComparison.Ordinal);
-        Assert.Contains("<title>Error: Disease ranking report", body, StringComparison.Ordinal);
+        Assert.Contains("<title>Error: Disease ranking", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -168,9 +168,9 @@ public class DiseaseRankingIntegrationTests
 
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
         Assert.Contains("There is a problem", body, StringComparison.Ordinal);
-        Assert.Contains("<a href=\"#scored-report\">Select a report</a>", body, StringComparison.Ordinal);
+        Assert.Contains("<a href=\"#scored-report\">Select a disease ranking report</a>", body, StringComparison.Ordinal);
         Assert.Contains("govuk-error-message", body, StringComparison.Ordinal);
-        Assert.Contains("<title>Error: Disease ranking report", body, StringComparison.Ordinal);
+        Assert.Contains("<title>Error: Disease ranking", body, StringComparison.Ordinal);
         Assert.DoesNotContain("<a href=\"#ranked-report\">", body, StringComparison.Ordinal);
     }
 
@@ -182,7 +182,7 @@ public class DiseaseRankingIntegrationTests
 
         var body = await (await PostAsync(client, "Ranked", ("RankedReportKey", string.Empty))).Content.ReadAsStringAsync();
 
-        Assert.Contains("<a href=\"#ranked-report\">Select a report</a>", body, StringComparison.Ordinal);
+        Assert.Contains("<a href=\"#ranked-report\">Select a disease ranking report</a>", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class DiseaseRankingIntegrationTests
 
         var body = await (await PostAsync(client, "Scored", ("ScoredReportKey", "aquatic"))).Content.ReadAsStringAsync();
 
-        Assert.Contains("Select a report from the list", body, StringComparison.Ordinal);
+        Assert.Contains("Select a disease ranking report from the list", body, StringComparison.Ordinal);
         Assert.Contains("<option value=\"aquatic\" selected=\"selected\">", body, StringComparison.Ordinal);
     }
 
