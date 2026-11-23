@@ -83,7 +83,7 @@
         <form method="get" novalidate data-app-region-form>
             <div class="govuk-form-group app-label-select-inline">
                 <label class="govuk-label" for="tableId">Choose reference table:</label>
-                <select class="govuk-select" id="tableId" name="tableId" onchange="this.form.requestSubmit()">
+                <select class="govuk-select" id="tableId" name="tableId" data-app-submit-on-change>
                     <option value="">Please select</option>
                     @foreach (var table in Model.Tables)
                     {
@@ -117,7 +117,7 @@
                 <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
                     <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
                         <label class="govuk-label" for="PageSize">Items per page:</label>
-                        <select class="govuk-select" id="PageSize" name="PageSize" form="reference-values-page-size-form" onchange="this.form.requestSubmit()">
+                        <select class="govuk-select" id="PageSize" name="PageSize" form="reference-values-page-size-form" data-app-submit-on-change>
                             @foreach (var option in ReferenceDataPaging.PageSizeOptions)
                             {
                                 <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>

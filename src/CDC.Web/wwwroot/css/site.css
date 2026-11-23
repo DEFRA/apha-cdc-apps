@@ -182,6 +182,15 @@ html {
   margin-bottom: 0;
 }
 
+/* The asterisk beside the static report file input when no file is chosen; inline, beside the input, while not hidden. */
+.app-file-required-marker {
+  display: inline;
+}
+
+.app-file-required-marker[hidden] {
+  display: none;
+}
+
 /* Edit profile contributor panel (see MaintainContributors.cshtml). */
 .app-contributor-edit {
   width: 100%;

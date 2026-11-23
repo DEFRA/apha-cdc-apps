@@ -79,7 +79,7 @@ else
         }
         <div class="govuk-form-group app-label-select-inline">
             <label class="govuk-label" for="PageSize">Items per page:</label>
-            <select class="govuk-select" id="PageSize" name="PageSize" onchange="this.form.requestSubmit()">
+            <select class="govuk-select" id="PageSize" name="PageSize" data-app-submit-on-change>
                 @foreach (var option in CDC.Web.Pages.Reports.GeneralModel.PageSizeOptions)
                 {
                     <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>

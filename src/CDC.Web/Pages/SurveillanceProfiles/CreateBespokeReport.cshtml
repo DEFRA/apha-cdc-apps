@@ -59,7 +59,7 @@
             <form method="get" id="bespoke-template-form">
                 <div class="govuk-form-group app-bespoke-template-row">
                     <label class="govuk-label" for="TemplateId">Use previously created template:</label>
-                    <select class="govuk-select" id="TemplateId" name="TemplateId" onchange="this.form.requestSubmit()">
+                    <select class="govuk-select" id="TemplateId" name="TemplateId" data-app-submit-on-change>
                         <option value="">Select template (optional)</option>
                         @foreach (var template in Model.Templates)
                         {
