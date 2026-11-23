@@ -171,7 +171,7 @@ else
     }
     else
     {
-        <form method="post" asp-page="/Reports/General" asp-page-handler="Upload" enctype="multipart/form-data" novalidate>
+        <form method="post" asp-page="/Reports/General" asp-page-handler="Upload" enctype="multipart/form-data" data-base64-upload novalidate>
             @if (!string.IsNullOrEmpty(Model.UploadError))
             {
                 <div class="govuk-error-summary" data-module="govuk-error-summary">
@@ -211,4 +211,8 @@ else
             </div>
         </form>
     }
+}
+
+@section Scripts {
+    <script src="~/js/base64-file-upload.js" asp-append-version="true"></script>
 }

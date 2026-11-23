@@ -66,8 +66,11 @@ function build({ profiled = [], other = [], warningEnabled = true } = {}) {
       <input type="hidden" id="ProfileTitle" name="ProfileTitle" value="Anthrax">
       <div data-module="app-species-selector" data-species-warning-enabled="${warningEnabled}">
         <span class="app-validator-marker" data-species-required-mark aria-hidden="true" hidden>*</span>
+        <fieldset id="profiled-species-group" aria-describedby="profiled-species-status">
         ${panel('profiled', profiled)}
-        <output data-species-status="profiled">Selected: <strong data-species-selected></strong></output>
+        <output id="profiled-species-status" data-species-status="profiled">Selected: <strong data-species-selected></strong></output>
+        <p id="profiled-species-required-error" data-species-required-error hidden>You must specify at least one profiled species</p>
+        </fieldset>
         ${panel('other', other)}
         <output data-species-status="other">Selected: <strong data-species-selected></strong></output>
         <div data-species-warning hidden>Removing profiled species removes their data.</div>
@@ -91,6 +94,8 @@ function build({ profiled = [], other = [], warningEnabled = true } = {}) {
     status: (kind) => document.querySelector(`[data-species-status="${kind}"]`),
     selected: (kind) => document.querySelector(`[data-species-status="${kind}"] [data-species-selected]`).textContent,
     requiredMark: document.querySelector('[data-species-required-mark]'),
+    requiredError: document.querySelector('[data-species-required-error]'),
+    profiledGroup: document.getElementById('profiled-species-group'),
     warning: document.querySelector('[data-species-warning]'),
     announcement: document.querySelector('[data-species-announcement]'),
     editor: document.getElementById('ProfileTitleEditor'),
@@ -397,6 +402,55 @@ describe('profile-properties required profiled species', () => {
 
     expect(box('profiled', 'bulls').checked).toBe(false);
     expect(requiredMark.hidden).toBe(false);
+  });
+
+  it('shows the required message below the box with the asterisk, and adds it to the box description', () => {
+    const { box, requiredError, profiledGroup } = build({ profiled: ['sheep'] });
+
+    tick(box('profiled', 'sheep'), false);
+
+    expect(requiredError.hidden).toBe(false);
+    expect(profiledGroup.getAttribute('aria-describedby')).toBe('profiled-species-status profiled-species-required-error');
+
+    tick(box('profiled', 'sheep'));
+
+    expect(requiredError.hidden).toBe(true);
+    expect(profiledGroup.getAttribute('aria-describedby')).toBe('profiled-species-status');
+  });
+});
+
+// As legacy's title box did, typing in or leaving the title checks the profiled species too.
+describe('profile-properties title validates the profiled species', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it.each(['input', 'blur'])('shows the asterisk and message on title %s while no profiled species is ticked', (type) => {
+    const { editor, requiredMark, requiredError } = build();
+
+    editor.dispatchEvent(new Event(type));
+
+    expect(requiredMark.hidden).toBe(false);
+    expect(requiredError.hidden).toBe(false);
+  });
+
+  it('shows nothing on title input while a profiled species is ticked', () => {
+    const { editor, requiredMark, requiredError } = build({ profiled: ['sheep'] });
+
+    editor.dispatchEvent(new Event('input'));
+
+    expect(requiredMark.hidden).toBe(true);
+    expect(requiredError.hidden).toBe(true);
+  });
+
+  it('takes the message away when a profiled species is then ticked', () => {
+    const { box, editor, requiredMark, requiredError } = build();
+    editor.dispatchEvent(new Event('input'));
+
+    tick(box('profiled', 'cattle'));
+
+    expect(requiredMark.hidden).toBe(true);
+    expect(requiredError.hidden).toBe(true);
   });
 });
 

@@ -39,7 +39,7 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
     private const string DraftState = "Draft";
 
     /// <summary>
-    /// What <c>spuProfile</c> says when it refuses a title: "...is already in use for a different profile" (or scenario),
+    /// What <c>spiProfile</c> and <c>spuProfile</c> say when they refuse a title: "...is already in use for a different profile" (or scenario),
     /// and "...cannot be edited" for a title the kind of profile does not have.
     /// </summary>
     private static readonly string[] TitleRefusalMessageFragments = ["is already in use for a different", "cannot be edited"];
@@ -69,6 +69,12 @@ public sealed class ProfileManagementRepository(IDbConnectionFactory connectionF
         catch (DbException exception)
         {
             await RollbackAsync(transaction, cancellationToken);
+
+            if (IsTitleRefusal(exception))
+            {
+                throw new ProfileTitleRefusedException(exception.Message, exception);
+            }
+
             logger.StoredProcedureFailed(exception, ProfileManagementStoredProcedures.InsertProfile);
             throw;
         }

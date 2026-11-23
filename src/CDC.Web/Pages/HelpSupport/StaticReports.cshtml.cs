@@ -179,11 +179,9 @@ public class StaticReportsModel : BreadcrumbPageModelBase
         }
         else
         {
-            await using var stream = new MemoryStream();
-            await UploadedFile.CopyToAsync(stream, cancellationToken);
-            var pdfData = stream.ToArray();
+            var pdfData = await Base64FileUpload.ReadAsync(UploadedFile, cancellationToken);
 
-            if (!pdfData.AsSpan().StartsWith(PdfSignature))
+            if (pdfData is null || !pdfData.AsSpan().StartsWith(PdfSignature))
             {
                 ErrorMessage = $"Failed to upload the {fileType}: The uploaded {fileType} must be a Pdf";
             }

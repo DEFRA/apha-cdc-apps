@@ -2,7 +2,7 @@
 @using CDC.Web.Features.LoadTesting
 @model ILoadTestingStatus
 @{
-    var until = Model.ExpiresAtUtc?.UtcDateTime.ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+    var until = Model.SwitchesOffAtUtc?.UtcDateTime.ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
 }
 
 <div class="govuk-warning-text">
