@@ -1,0 +1,61 @@
+@page "/cookies"
+@model CDC.Web.Pages.CookiesModel
+@{
+    ViewData["Title"] = "Cookies";
+}
+
+<div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <h1 class="govuk-heading-l">Cookies on Disease Briefing, Decisions Support, Risk Assessment &amp; Ranking</h1>
+
+        <p class="govuk-body">Cookies are files saved on your phone, tablet or computer when you visit a website.</p>
+        <p class="govuk-body">We use cookies to make this service work.</p>
+        <p class="govuk-body">This service only uses essential cookies. We do not use cookies to measure website use or for advertising, so there are no cookie settings to change.</p>
+
+        <h2 class="govuk-heading-m">Essential cookies (strictly necessary)</h2>
+        <p class="govuk-body">Essential cookies keep your information secure and allow core service features to work.</p>
+    </div>
+</div>
+
+<table class="govuk-table">
+    <caption class="govuk-table__caption govuk-visually-hidden">Essential cookies</caption>
+    <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Name</th>
+            <th scope="col" class="govuk-table__header">Purpose</th>
+            <th scope="col" class="govuk-table__header">Expires</th>
+        </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+        <tr class="govuk-table__row">
+            <td class="govuk-table__cell">.AspNetCore.Cookies (and .AspNetCore.CookiesC1, .AspNetCore.CookiesC2)</td>
+            <td class="govuk-table__cell">Keeps you signed in while using the service as an external user, with GOV.UK One Login. Large sign-in details are split across the numbered cookies. You are signed out after @Model.IdleTimeoutMinutes minutes without activity.</td>
+            <td class="govuk-table__cell">When you sign out or close your browser</td>
+        </tr>
+        <tr class="govuk-table__row">
+            <td class="govuk-table__cell">.AspNetCore.Cookies.Entra (and .AspNetCore.Cookies.EntraC1, .AspNetCore.Cookies.EntraC2)</td>
+            <td class="govuk-table__cell">Keeps you signed in while using the service as an internal user, with Defra Credentials. Large sign-in details are split across the numbered cookies. You are signed out after @Model.IdleTimeoutMinutes minutes without activity.</td>
+            <td class="govuk-table__cell">When you sign out or close your browser</td>
+        </tr>
+        <tr class="govuk-table__row">
+            <td class="govuk-table__cell">.AspNetCore.Correlation.* and .AspNetCore.OpenIdConnect.Nonce.*</td>
+            <td class="govuk-table__cell">Protect your sign-in from being forged. They are removed once you have signed in.</td>
+            <td class="govuk-table__cell">15 minutes</td>
+        </tr>
+        <tr class="govuk-table__row">
+            <td class="govuk-table__cell">.AspNetCore.Antiforgery.*</td>
+            <td class="govuk-table__cell">Stops another website from submitting a form on your behalf.</td>
+            <td class="govuk-table__cell">When you close your browser</td>
+        </tr>
+        <tr class="govuk-table__row">
+            <td class="govuk-table__cell">.AspNetCore.Mvc.CookieTempDataProvider</td>
+            <td class="govuk-table__cell">Shows a one-off message after you save, for example 'Reference value change successfully saved'.</td>
+            <td class="govuk-table__cell">When the message has been shown</td>
+        </tr>
+        <tr class="govuk-table__row">
+            <td class="govuk-table__cell">.AspNetCore.Session</td>
+            <td class="govuk-table__cell">Remembers your profile search filters so the list reopens as you left it, and changes you have not yet saved, for example to cross-cutting issue scores or external users.</td>
+            <td class="govuk-table__cell">When you close your browser</td>
+        </tr>
+    </tbody>
+</table>
