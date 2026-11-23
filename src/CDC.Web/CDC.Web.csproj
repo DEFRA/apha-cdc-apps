@@ -9,8 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="HtmlSanitizer" Version="11.0.26" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
-    <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="11.0.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.65.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
