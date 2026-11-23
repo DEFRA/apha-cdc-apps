@@ -3,7 +3,7 @@ namespace CDC.Api.Features.Users.Dtos;
 /// <summary>
 /// Resolved external user, returned to CDC.Web after a CIDM sign-in.
 /// </summary>
-public sealed record ExternalUserDto
+public sealed record ResolvedExternalUserDto
 {
     /// <summary>Gets the user's identifier.</summary>
     public required Guid Id { get; init; }

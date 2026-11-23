@@ -40,7 +40,7 @@ public class UsersControllerTests
     [Fact]
     public async Task ResolveExternalUser_ReturnsOk_OnSuccess()
     {
-        var dto = new ExternalUserDto
+        var dto = new ResolvedExternalUserDto
         {
             Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
             FullName = "Jane External",
@@ -63,7 +63,7 @@ public class UsersControllerTests
     {
         mediator
             .Setup(sender => sender.Send(Command(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Forbidden<ExternalUserDto>("not permitted"));
+            .ReturnsAsync(Result.Forbidden<ResolvedExternalUserDto>("not permitted"));
 
         var response = await CreateController().ResolveExternalUser(Command(), CancellationToken.None);
 
