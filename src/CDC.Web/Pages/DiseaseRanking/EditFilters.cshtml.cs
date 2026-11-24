@@ -213,14 +213,20 @@ public class EditFiltersModel(
     /// <summary>Deletes a filter.</summary>
     /// <param name="filterNumber">The filter to delete.</param>
     /// <param name="cancellationToken">Cancels the request if the client disconnects.</param>
-    public async Task<IActionResult> OnPostDeleteAsync(long filterNumber, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostDeleteAsync(long? filterNumber, CancellationToken cancellationToken)
     {
         // This handler only posts the hidden filter number, not the criteria form.
         ModelState.Clear();
 
-        await diseaseRankingFiltersApiService.DeleteFilterAsync(filterNumber, cancellationToken);
+        // As in the legacy page, deleting an unsaved (new) filter does nothing.
+        if (filterNumber is not { } number)
+        {
+            return RedirectToPage();
+        }
 
-        logger.Deleted(filterNumber);
+        await diseaseRankingFiltersApiService.DeleteFilterAsync(number, cancellationToken);
+
+        logger.Deleted(number);
 
         return RedirectToPage(new { deleted = true });
     }
@@ -278,7 +284,7 @@ public class EditFiltersModel(
             {
                 IdPrefix = SpeciesFieldName,
                 FieldName = "SpeciesIds",
-                Nodes = SpeciesTreeBuilder.Build(species),
+                Nodes = SpeciesTreeBuilder.Build(species, expandAll: true),
                 ItemNameSingular = SpeciesFieldName,
                 ItemNamePlural = SpeciesFieldName,
                 AllowMultipleSelection = true,

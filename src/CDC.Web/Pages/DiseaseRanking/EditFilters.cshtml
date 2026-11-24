@@ -107,35 +107,46 @@ else
         <h2 class="govuk-heading-m">Species</h2>
         <p class="govuk-hint">Select at least one species or species group. Required.</p>
 
-        <details class="govuk-details" data-module="govuk-details">
-            <summary class="govuk-details__summary">
-                <span class="govuk-details__summary-text">Show filter by species</span>
-            </summary>
-            <div class="govuk-details__text">
-                <div class="govuk-form-group app-tree__form-group">
-                    <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
-                        <legend class="govuk-visually-hidden">Species and species groups</legend>
+        <div class="govuk-form-group app-species-filter" data-module="app-filters-toggle">
+            <p class="govuk-body govuk-!-margin-bottom-2">
+                <button type="button" class="govuk-link app-species-filter__toggle" data-app-filters-toggle-link
+                        data-app-filters-expanded-text="Hide filter by species"
+                        data-app-filters-collapsed-text="Show filter by species"
+                        aria-expanded="false" aria-controls="species-filter-content">
+                    <span data-app-filters-toggle-text>Show filter by species</span>
+                    <span class="app-species-filter__icon" aria-hidden="true">
+                        @* Points up while collapsed, as on the legacy page; the shared CSS rotates it down when expanded. *@
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                            <path d="M1 7l5-5 5 5" />
+                        </svg>
+                    </span>
+                </button>
+            </p>
+            <div id="species-filter-content" class="app-filters__content app-tree__form-group" hidden>
+                <fieldset class="govuk-fieldset" aria-describedby="species-tree-status">
+                    <legend class="govuk-visually-hidden">Species and species groups</legend>
 
-                        <div class="app-tree__panel">
-                            <div class="app-tree__controls">
-                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
-                                    <span class="app-tree__toggle-all-icon" aria-hidden="true">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
-                                            <path d="M1 1l5 5 5-5" />
-                                        </svg>
-                                    </span>
-                                    <span class="app-tree__toggle-all-text">Open all</span>
-                                </button>
-                            </div>
-                            <partial name="_TreeView" model="Model.SpeciesTree" />
+                    <div class="app-tree__panel">
+                        <div class="app-tree__controls">
+                            @* The tree starts fully expanded (see LoadSpeciesTreeAsync), so this starts as "Close all". *@
+                            <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
+                                <span class="app-tree__toggle-all-icon" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                                        <path d="M1 1l5 5 5-5" />
+                                    </svg>
+                                </span>
+                                <span class="app-tree__toggle-all-text">Close all</span>
+                            </button>
                         </div>
+                        <partial name="_TreeView" model="Model.SpeciesTree" />
+                    </div>
 
-                        <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
-                    </fieldset>
-                </div>
+                    <output class="govuk-body app-tree__status" id="species-tree-status" hidden></output>
+                </fieldset>
             </div>
-        </details>
+        </div>
 
         <div class="govuk-form-group@(ViewData.ModelState["Input.DiseaseName"]?.Errors.Count > 0 ? " govuk-form-group--error" : "")">
             <label class="govuk-label govuk-label--m" asp-for="Input.DiseaseName">Report title</label>
@@ -228,31 +239,26 @@ else
             <button type="submit" asp-page-handler="Save" class="govuk-button" data-module="govuk-button">
                 @(Model.IsNewFilter ? "Submit" : "Update")
             </button>
-            @if (!Model.IsNewFilter)
-            {
-                <button type="button" class="govuk-button govuk-button--warning" data-module="govuk-button"
-                    data-confirm-target="#delete-filter-modal">
-                    Delete filter
-                </button>
-            }
+            <button type="button" class="govuk-button govuk-button--warning" data-module="govuk-button"
+                data-confirm-target="#delete-filter-modal">
+                Delete filter
+            </button>
         </div>
     </form>
 
-    @if (!Model.IsNewFilter)
-    {
-        <dialog class="app-modal" id="delete-filter-modal" aria-labelledby="delete-filter-modal-title">
-            <h2 class="govuk-heading-m" id="delete-filter-modal-title">Confirm</h2>
-            <p class="govuk-body">Are you sure you want to delete this filter?</p>
-            <form method="post" asp-page-handler="Delete">
-                <input type="hidden" name="filterNumber" value="@Model.Input.FilterNumber" />
-                <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">OK</button>
-                <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
-            </form>
-        </dialog>
-    }
+    <dialog class="app-modal" id="delete-filter-modal" aria-labelledby="delete-filter-modal-title">
+        <h2 class="govuk-heading-m" id="delete-filter-modal-title">Confirm</h2>
+        <p class="govuk-body">Are you sure you want to delete this filter?</p>
+        <form method="post" asp-page-handler="Delete">
+            <input type="hidden" name="filterNumber" value="@Model.Input.FilterNumber" />
+            <button type="submit" class="govuk-button govuk-!-margin-bottom-0 govuk-!-margin-right-2">OK</button>
+            <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-confirm-close>Cancel</button>
+        </form>
+    </dialog>
 }
 
 @section Scripts {
     <script src="~/js/auto-submit-select.js" asp-append-version="true"></script>
     <script src="~/js/tree-view.js" asp-append-version="true"></script>
+    <script src="~/js/filters-toggle.js" asp-append-version="true"></script>
 }

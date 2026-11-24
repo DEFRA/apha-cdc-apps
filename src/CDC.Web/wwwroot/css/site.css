@@ -1976,11 +1976,16 @@ body {
 /* Radio rows share fixed-width columns so each choice lines up across rows, with space between the rows. */
 .app-radios-aligned {
   display: grid;
-  grid-template-columns: repeat(3, 14rem);
+  grid-template-columns: repeat(3, 18rem);
   column-gap: 20px;
   padding-bottom: 15px;
   border-bottom: 1px solid #b1b4b6;
   margin-bottom: 15px;
+}
+
+.app-radios-aligned .govuk-radios__label,
+.govuk-checkboxes--inline .govuk-checkboxes__label {
+  white-space: nowrap;
 }
 
 /* govuk-frontend has no inline checkboxes; lay the items out in a wrapping row. */
