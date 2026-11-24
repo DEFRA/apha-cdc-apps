@@ -52,7 +52,7 @@
             <input type="hidden" id="@(Model.IdPrefix)PageNumber" name="@Model.FieldName("pageNumber")" value="1" />
             <div class="govuk-form-group govuk-!-margin-bottom-3 app-label-select-inline">
                 <label class="govuk-label" for="@(Model.IdPrefix)PageSize">Items per page:</label>
-                <select class="govuk-select" id="@(Model.IdPrefix)PageSize" name="@Model.FieldName("pageSize")" onchange="document.getElementById('@(Model.IdPrefix)PageNumber').value = '1'; this.form.requestSubmit()">
+                <select class="govuk-select" id="@(Model.IdPrefix)PageSize" name="@Model.FieldName("pageSize")" data-app-submit-on-change data-app-reset-page="@(Model.IdPrefix)PageNumber">
                     @foreach (var option in NotesModel.PageSizeOptions)
                     {
                         <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>
@@ -142,7 +142,7 @@
                         {
                             <p id="@(ProfileNoteEditor.NoteSelectFieldId)-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> @noteSelectError.Message</p>
                         }
-                        <select class="govuk-select @(noteSelectError is null ? string.Empty : "govuk-select--error")" id="@ProfileNoteEditor.NoteSelectFieldId" name="noteId" aria-describedby="@(noteSelectError is null ? null : ProfileNoteEditor.NoteSelectFieldId + "-error")" onchange="this.form.requestSubmit()">
+                        <select class="govuk-select @(noteSelectError is null ? string.Empty : "govuk-select--error")" id="@ProfileNoteEditor.NoteSelectFieldId" name="noteId" aria-describedby="@(noteSelectError is null ? null : ProfileNoteEditor.NoteSelectFieldId + "-error")" data-app-submit-on-change>
                             <option value="">Please select...</option>
                             @foreach (var choice in Model.AvailableNoteChoices)
                             {

@@ -3,10 +3,15 @@
 @using CDC.Auth.Cidm
 @using CDC.Auth.Cidm.Options
 @using CDC.Web.Features.LoadTesting
+@using CDC.Web.Infrastructure.Security
 @using Microsoft.Extensions.Options
 @inject IOptions<CidmOptions> CidmOptionsAccessor
 @inject IUserDisplayNameService UserDisplayNameService
 @inject ILoadTestingStatus LoadTestingStatus
+@{
+    @* The Content-Security-Policy runs only the inline scripts that carry this response's nonce. *@
+    var cspNonce = Context.GetCspNonce();
+}
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -23,7 +28,7 @@
     <link rel="apple-touch-icon" href="~/assets/images/govuk-icon-180.png" />
     <link rel="manifest" href="~/assets/manifest.json" />
 
-    <script type="importmap"></script>
+    <script type="importmap" nonce="@cspNonce"></script>
     <link rel="stylesheet" href="~/css/govuk-frontend-6.5.0.min.css" asp-append-version="true" />
     <!-- Bootstrap is retained only for the not-yet-migrated External user journey; remove once that path adopts GOV.UK Frontend. -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -31,7 +36,7 @@
     <link rel="stylesheet" href="~/CDC.Web.styles.css" asp-append-version="true" />
 </head>
 <body class="govuk-template__body" id="top">
-    <script>document.body.className += ' js-enabled' + ('noModule' in HTMLScriptElement.prototype ? ' govuk-frontend-supported' : '');</script>
+    <script nonce="@cspNonce">document.body.className += ' js-enabled' + ('noModule' in HTMLScriptElement.prototype ? ' govuk-frontend-supported' : '');</script>
     <a href="#main-content" class="govuk-skip-link" data-module="govuk-skip-link">Skip to main content</a>
 
     <header class="govuk-header" data-module="govuk-header">
@@ -119,16 +124,16 @@
                 <div class="govuk-footer__meta-item govuk-footer__meta-item--grow">
                     <h2 class="govuk-visually-hidden">Support links</h2>
                     <ul class="govuk-footer__inline-list">
-                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" href="#">Cookies</a></li>
-                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" href="#">Accessibility statement</a></li>
-                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" href="#">Privacy notice</a></li>
+                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" asp-page="/Cookies">Cookies</a></li>
+                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" asp-page="/Accessibility">Accessibility statement</a></li>
+                        <li class="govuk-footer__inline-list-item"><a class="govuk-footer__link" asp-page="/PrivacyNotice">Privacy notice</a></li>
                     </ul>
                     <span class="govuk-footer__licence-description">
-                        All content is available under the <a class="govuk-footer__link" href="#" rel="license">Open Government Licence v3.0</a>, except where otherwise stated
+                        All content is available under the <a class="govuk-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>, except where otherwise stated
                     </span>
                 </div>
                 <div class="govuk-footer__meta-item">
-                    <a class="govuk-footer__link govuk-footer__copyright-logo" href="#">&copy; Crown copyright</a>
+                    <a class="govuk-footer__link govuk-footer__copyright-logo" href="https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/">&copy; Crown copyright</a>
                 </div>
             </div>
         </div>
@@ -140,6 +145,8 @@
     <script src="~/js/header-menu.js" asp-append-version="true"></script>
     <script src="~/js/confirm-modal.js" asp-append-version="true"></script>
     <script src="~/js/paged-region.js" asp-append-version="true"></script>
+    @* After paged-region.js, which has to note the changed control before the form it submits is sent. *@
+    <script src="~/js/form-behaviours.js" asp-append-version="true"></script>
     <script src="~/js/date-picker.js" asp-append-version="true"></script>
     @* Only a signed-in user has a session to warn about, and the dialogs it opens are built for it by the partial. *@
     @if (User.Identity?.IsAuthenticated == true)
@@ -148,7 +155,7 @@
         <script src="~/js/session-timeout.js" asp-append-version="true"></script>
     }
     <script type="module" src="~/js/govuk-frontend-6.5.0.min.js"></script>
-    <script type="module">
+    <script type="module" nonce="@cspNonce">
         import { initAll } from '/js/govuk-frontend-6.5.0.min.js'
         initAll()
     </script>

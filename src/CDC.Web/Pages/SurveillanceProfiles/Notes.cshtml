@@ -66,7 +66,7 @@ else
 
                     <div class="govuk-form-group app-label-select-inline">
                         <label class="govuk-label" for="ReferenceTypeId">Select a reference type:</label>
-                        <select class="govuk-select" id="ReferenceTypeId" name="referenceTypeId" onchange="this.form.requestSubmit()">
+                        <select class="govuk-select" id="ReferenceTypeId" name="referenceTypeId" data-app-submit-on-change>
                             <option value="" selected="@(Model.SelectedReferenceTypeId is null ? "selected" : null)">Please select...</option>
                             @foreach (var referenceType in Model.ReferenceTypes)
                             {
@@ -84,7 +84,7 @@ else
                             <div class="app-contributors-toolbar govuk-!-margin-bottom-3">
                                 <div class="govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline">
                                     <label class="govuk-label" for="PageSize">Items per page:</label>
-                                    <select class="govuk-select" id="PageSize" name="pageSize" onchange="document.getElementById('PageNumber').value = '1'; this.form.requestSubmit()">
+                                    <select class="govuk-select" id="PageSize" name="pageSize" data-app-submit-on-change data-app-reset-page="PageNumber">
                                         @foreach (var option in CDC.Web.Pages.SurveillanceProfiles.NotesModel.PageSizeOptions)
                                         {
                                             <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>

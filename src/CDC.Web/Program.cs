@@ -1,8 +1,10 @@
 using System.Globalization;
 using CDC.Auth.Cidm;
 using CDC.Auth.Cidm.Events;
+using CDC.Auth.Cidm.Options;
 using CDC.Auth.Entra;
 using CDC.Auth.Entra.Events;
+using CDC.Auth.Entra.Options;
 using CDC.Common.Correlation;
 using CDC.Common.Health;
 using CDC.Graph;
@@ -14,12 +16,14 @@ using CDC.Web.Features.LoadTesting;
 using CDC.Web.Infrastructure;
 using CDC.Web.Infrastructure.Pdf;
 using CDC.Web.Infrastructure.Reports;
+using CDC.Web.Infrastructure.Security;
 using CDC.Web.Infrastructure.SpellCheck;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -327,6 +331,22 @@ builder.Services.AddAuthorizationBuilder()
         .RequireAuthenticatedUser()
         .Build());
 
+// HSTS: once a browser has had this site over HTTPS it uses only HTTPS for it, and for its subdomains, for a year, so a
+// later http:// link or typed address can never be intercepted. Not preloaded, which would need the domain registering
+// with the browsers' preload list. localhost is never sent it.
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+    options.Preload = false;
+});
+
+// A deployed site's HTTPS address is permanent, so browsers may remember the redirect. Local runs are plain HTTP only.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHttpsRedirection(options => options.RedirectStatusCode = StatusCodes.Status308PermanentRedirect);
+}
+
 var app = builder.Build();
 
 // Must run before anything reads Request.Scheme/Host (including UseExceptionHandler and the OIDC
@@ -347,7 +367,20 @@ app.UseForwardedHeaders(forwardedHeadersOptions);
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Landing/Error");
+
+    // After UseForwardedHeaders, so a request the ALB received over HTTPS counts as HTTPS: the header is only sent on those.
+    app.UseHsts();
+
+    // Redirects to the public HTTPS port, https_port in appsettings.json. Not /health: the ALB and ECS call it over plain HTTP.
+    app.UseWhen(
+        context => !context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase),
+        branch => branch.UseHttpsRedirection());
 }
+
+// Before UseStaticFiles and every endpoint, so static files, pages and error responses all get the browser security headers.
+app.UseSecurityHeaders(
+    app.Services.GetRequiredService<IOptions<CidmOptions>>().Value.Address,
+    app.Services.GetRequiredService<IOptions<EntraOptions>>().Value.Authority);
 
 // Correlation ID before request logging so the one-line-per-request log carries it, and so it's
 // available on HttpContext.Items for CorrelationIdDelegatingHandler when Web calls the Api.

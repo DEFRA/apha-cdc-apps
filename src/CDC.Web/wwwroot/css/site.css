@@ -53,6 +53,13 @@ html {
   color: var(--govuk-focus-text-colour, #0b0c0c);
 }
 
+.govuk-footer__copyright-logo:link,
+.govuk-footer__copyright-logo:visited,
+.govuk-footer__copyright-logo:hover,
+.govuk-footer__copyright-logo:active {
+  color: #0b0c0c;
+}
+
 .app-search-panel {
   padding: 1.5rem 1.5rem 1rem;
   border: 1px solid var(--govuk-border-colour, #b1b4b6);
@@ -180,6 +187,15 @@ html {
 
 .app-label-select-inline > .govuk-label {
   margin-bottom: 0;
+}
+
+/* The asterisk beside the static report file input when no file is chosen; inline, beside the input, while not hidden. */
+.app-file-required-marker {
+  display: inline;
+}
+
+.app-file-required-marker[hidden] {
+  display: none;
 }
 
 /* Edit profile contributor panel (see MaintainContributors.cshtml). */
@@ -1797,6 +1813,8 @@ body {
 .app-banner-row__logo {
   height: 30px;
   width: auto;
+  /* Shows the logo, green bar included, in black: its background is transparent. */
+  filter: brightness(0);
 }
 
 .app-banner-row__account {
