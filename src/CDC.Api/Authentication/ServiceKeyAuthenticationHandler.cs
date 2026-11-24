@@ -27,8 +27,8 @@ public sealed class ServiceKeyAuthenticationHandler(
     /// <summary>Name of the authentication scheme.</summary>
     public const string SchemeName = "ServiceKey";
 
-    /// <summary>Configuration key of the expected service key (environment variable <c>ServiceAuth__ApiKey</c>).</summary>
-    public const string ConfigurationKey = "ServiceAuth:ApiKey";
+    /// <summary>Configuration key of the expected service key (environment variable <c>Api__ServiceKey</c>, from AWS Parameter Store).</summary>
+    public const string ConfigurationKey = "Api:ServiceKey";
 
     /// <summary>The name given to an authenticated caller.</summary>
     public const string CallerName = "CDC.Web";
