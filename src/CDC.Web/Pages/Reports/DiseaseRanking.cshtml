@@ -1,7 +1,7 @@
 ﻿@page
 @model CDC.Web.Pages.Reports.DiseaseRankingModel
 @{
-    ViewData["Title"] = (ViewData.ModelState.IsValid ? string.Empty : "Error: ") + "Disease ranking report";
+    ViewData["Title"] = (ViewData.ModelState.IsValid ? string.Empty : "Error: ") + "Disease ranking";
 
     var scoredError = ViewData.ModelState[nameof(Model.ScoredReportKey)]?.Errors.FirstOrDefault()?.ErrorMessage;
     var rankedError = ViewData.ModelState[nameof(Model.RankedReportKey)]?.Errors.FirstOrDefault()?.ErrorMessage;
@@ -51,7 +51,7 @@
     </div>
 }
 
-<h1 class="govuk-heading-l">Disease ranking report</h1>
+<h1 class="govuk-heading-l">Disease ranking</h1>
 
 @if (Model.CanGenerateReports)
 {
@@ -69,7 +69,7 @@
             <div class="app-select-with-actions">
                 <select class="govuk-select @(scoredError is null ? null : "govuk-select--error")" id="scored-report" name="ScoredReportKey" data-auto-submit
                         aria-describedby="scored-report-hint@(scoredError is null ? null : " scored-report-error")">
-                    <option value="">Select a report</option>
+                    <option value="">--Select Disease Ranking Report--</option>
                     @foreach (var option in Model.Options)
                     {
                         <option value="@option.Key" selected="@(option.Key == Model.ScoredReportKey)">@option.Label</option>
@@ -96,7 +96,7 @@
             <div class="app-select-with-actions">
                 <select class="govuk-select @(rankedError is null ? null : "govuk-select--error")" id="ranked-report" name="RankedReportKey" data-auto-submit
                         aria-describedby="ranked-report-hint@(rankedError is null ? null : " ranked-report-error")">
-                    <option value="">Select a report</option>
+                    <option value="">--Select Disease Ranking Report--</option>
                     @foreach (var option in Model.Options)
                     {
                         <option value="@option.Key" selected="@(option.Key == Model.RankedReportKey)">@option.Label</option>

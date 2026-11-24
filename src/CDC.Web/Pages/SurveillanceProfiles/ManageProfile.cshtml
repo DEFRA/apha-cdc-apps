@@ -121,7 +121,7 @@
                             <input type="hidden" asp-for="ProfileId" />
                             <div class="govuk-form-group govuk-!-margin-bottom-0">
                                 <label class="govuk-visually-hidden" for="ProfileStatusId">Profile status</label>
-                                <select class="govuk-select" asp-for="ProfileStatusId" asp-items="@(new SelectList(Model.ProfileStatusTypes, nameof(ProfileStatusTypeDto.Id), nameof(ProfileStatusTypeDto.Name)))" onchange="this.form.requestSubmit()">
+                                <select class="govuk-select" asp-for="ProfileStatusId" asp-items="@(new SelectList(Model.ProfileStatusTypes, nameof(ProfileStatusTypeDto.Id), nameof(ProfileStatusTypeDto.Name)))" data-app-submit-on-change>
                                     <option value="">Please select...</option>
                                 </select>
                             </div>

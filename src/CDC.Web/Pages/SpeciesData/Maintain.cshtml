@@ -62,7 +62,7 @@ else if (Model.ShowAuditTrail)
 
         <div class="govuk-form-group govuk-!-margin-bottom-3 app-audit-trail-page-size">
             <label class="govuk-label govuk-!-margin-bottom-0" for="AuditTrailPageSize">Items per page:</label>
-            <select class="govuk-select" id="AuditTrailPageSize" name="AuditTrailPageSize" form="audit-trail-page-size-form" onchange="this.form.requestSubmit()">
+            <select class="govuk-select" id="AuditTrailPageSize" name="AuditTrailPageSize" form="audit-trail-page-size-form" data-app-submit-on-change>
                 @foreach (var option in CDC.Web.Pages.SpeciesData.MaintainModel.AuditTrailPageSizeOptions)
                 {
                     <option value="@option" selected="@(option == Model.AuditTrailPageSize ? "selected" : null)">@option</option>
