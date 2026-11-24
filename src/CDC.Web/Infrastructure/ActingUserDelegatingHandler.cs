@@ -14,8 +14,8 @@ namespace CDC.Web.Infrastructure;
 /// as anonymous.
 /// </summary>
 /// <param name="httpContextAccessor">Accessor for the current request, if there is one.</param>
-/// <param name="apiOptions">CDC.Api settings, holding the service key.</param>
-public sealed class ActingUserDelegatingHandler(IHttpContextAccessor httpContextAccessor, IOptions<ApiOptions> apiOptions) : DelegatingHandler
+/// <param name="serviceAuthOptions">Service authentication settings, holding the service key.</param>
+public sealed class ActingUserDelegatingHandler(IHttpContextAccessor httpContextAccessor, IOptions<ServiceAuthOptions> serviceAuthOptions) : DelegatingHandler
 {
     /// <inheritdoc />
     protected override Task<HttpResponseMessage> SendAsync(
@@ -24,7 +24,7 @@ public sealed class ActingUserDelegatingHandler(IHttpContextAccessor httpContext
         ArgumentNullException.ThrowIfNull(request);
 
         request.Headers.Remove(ServiceKeyHeader.Name);
-        request.Headers.Add(ServiceKeyHeader.Name, apiOptions.Value.ServiceKey);
+        request.Headers.Add(ServiceKeyHeader.Name, serviceAuthOptions.Value.ApiKey);
 
         // Never let a caller-set header stand in for the signed-in user.
         request.Headers.Remove(ActingUserHeader.Name);
