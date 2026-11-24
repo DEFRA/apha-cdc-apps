@@ -245,6 +245,19 @@ public class EditFiltersModelTests
         Assert.Equal(1L, api.LastDeletedFilterNumber);
     }
 
+    [Fact]
+    public async Task OnPostDeleteAsync_ForAnUnsavedFilter_DeletesNothing()
+    {
+        var api = new FakeDiseaseRankingFiltersApiService();
+        var pageModel = CreatePageModel(api);
+
+        var result = await pageModel.OnPostDeleteAsync(null, CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Null(redirect.RouteValues);
+        Assert.Null(api.LastDeletedFilterNumber);
+    }
+
     private static EditFiltersModel CreatePageModel(
         FakeDiseaseRankingFiltersApiService diseaseRankingFiltersApiService,
         FakeSpeciesApiService? speciesApiService = null) =>
