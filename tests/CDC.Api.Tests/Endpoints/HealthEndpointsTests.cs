@@ -16,6 +16,7 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Database__User", "cdc-tests");
         Environment.SetEnvironmentVariable("Database__Password", "cdc-tests-password");
         Environment.SetEnvironmentVariable("HealthCheck__ReadinessKey", "local-dev-readiness-key");
+        TestServiceKey.Configure();
 
         _factory = factory;
     }
@@ -23,7 +24,7 @@ public class HealthEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     [Fact]
     public async Task Root_ReturnsHelloWorld()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateClient().WithServiceKey();
 
         var response = await client.GetAsync("/");
 

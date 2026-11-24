@@ -4,11 +4,13 @@ using CDC.Common.Auth;
 using CDC.Web.Features.Account;
 using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace CDC.Web.Tests.Infrastructure;
 
 public class ActingUserDelegatingHandlerTests
 {
+    private const string ServiceKey = "configured-service-key";
     private static readonly Guid UserId = Guid.Parse("88d1e0c6-7d10-427d-a82f-33fc2c1cef28");
 
     [Fact]
@@ -70,19 +72,49 @@ public class ActingUserDelegatingHandlerTests
         Assert.False(request.Headers.Contains(ActingUserHeader.Name));
     }
 
+    [Fact]
+    public async Task SendAsync_SendsTheServiceKey_ForASignedInUser()
+    {
+        var request = await SendAsync(SignedIn(UserId.ToString()));
+
+        Assert.Equal(ServiceKey, Assert.Single(request.Headers.GetValues(ServiceKeyHeader.Name)));
+    }
+
+    [Fact]
+    public async Task SendAsync_SendsTheServiceKey_EvenWithNoActingUser()
+    {
+        var request = await SendAsync(user: null);
+
+        Assert.Equal(ServiceKey, Assert.Single(request.Headers.GetValues(ServiceKeyHeader.Name)));
+    }
+
+    [Fact]
+    public async Task SendAsync_ReplacesAServiceKeyAlreadyOnTheRequest()
+    {
+        var request = await SendAsync(SignedIn(UserId.ToString()), existingServiceKey: "someone-elses-key");
+
+        Assert.Equal(ServiceKey, Assert.Single(request.Headers.GetValues(ServiceKeyHeader.Name)));
+    }
+
     private static ClaimsPrincipal SignedIn(string internalUserId) =>
         new(new ClaimsIdentity([new Claim(ExternalUserClaimTypes.InternalUserId, internalUserId)], "test"));
 
     // A null user means there is no HttpContext at all, as for a call made outside a request.
-    private static async Task<HttpRequestMessage> SendAsync(ClaimsPrincipal? user, string? existingHeader = null)
+    private static async Task<HttpRequestMessage> SendAsync(ClaimsPrincipal? user, string? existingHeader = null, string? existingServiceKey = null)
     {
         var accessor = new HttpContextAccessor { HttpContext = user is null ? null : new DefaultHttpContext { User = user } };
-        var handler = new ActingUserDelegatingHandler(accessor) { InnerHandler = new OkHandler() };
+        var options = Options.Create(new ApiOptions { BaseUrl = "https://cdc-api.test", ServiceKey = ServiceKey });
+        var handler = new ActingUserDelegatingHandler(accessor, options) { InnerHandler = new OkHandler() };
         var request = new HttpRequestMessage(HttpMethod.Get, "https://cdc-api.test/api/species");
 
         if (existingHeader is not null)
         {
             request.Headers.Add(ActingUserHeader.Name, existingHeader);
+        }
+
+        if (existingServiceKey is not null)
+        {
+            request.Headers.Add(ServiceKeyHeader.Name, existingServiceKey);
         }
 
         using var invoker = new HttpMessageInvoker(handler);

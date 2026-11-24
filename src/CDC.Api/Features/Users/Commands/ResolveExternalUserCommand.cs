@@ -8,7 +8,7 @@ namespace CDC.Api.Features.Users.Commands;
 /// Resolves (or provisions) the <c>[dbo].[User]</c> row for a CIDM-authenticated external user,
 /// from the claims CDC.Web read off the validated id_token.
 /// </summary>
-public sealed record ResolveExternalUserCommand : IRequest<Result<ExternalUserDto>>
+public sealed record ResolveExternalUserCommand : IRequest<Result<ResolvedExternalUserDto>>
 {
     /// <summary>Gets the CIDM 'sub' claim.</summary>
     public required Guid SsoUserIdExt { get; init; }

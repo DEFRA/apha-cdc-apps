@@ -25,10 +25,10 @@ public sealed class UsersController(ISender mediator) : ControllerBase
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>The resolved user, or a problem response when not permitted.</returns>
     [HttpPost("external/resolve")]
-    [ProducesResponseType(typeof(ExternalUserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResolvedExternalUserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<ExternalUserDto>> ResolveExternalUser(
+    public async Task<ActionResult<ResolvedExternalUserDto>> ResolveExternalUser(
         ResolveExternalUserCommand command,
         CancellationToken cancellationToken)
     {

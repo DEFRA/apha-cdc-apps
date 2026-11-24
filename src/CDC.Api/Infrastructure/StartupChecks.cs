@@ -1,3 +1,4 @@
+using CDC.Api.Authentication;
 using Microsoft.Extensions.Configuration;
 
 namespace CDC.Api.Infrastructure;
@@ -57,6 +58,23 @@ internal static class StartupChecks
             throw new InvalidOperationException(
                 "HealthCheck:ReadinessKey is not configured. Locally, set it in appsettings.Development.json; " +
                 "in a deployed environment, check the HealthCheck__ReadinessKey secret wiring in the ECS task definition.");
+        }
+
+        return key;
+    }
+
+    /// <summary>
+    /// Fails fast at startup if the key CDC.Web authenticates with isn't configured; without it every
+    /// call from CDC.Web would be refused with a 401.
+    /// </summary>
+    public static string RequireServiceApiKey(IConfiguration configuration)
+    {
+        var key = configuration[ServiceKeyAuthenticationHandler.ConfigurationKey];
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new InvalidOperationException(
+                "ServiceAuth:ApiKey is not configured. Locally, set it in appsettings.Development.json (the same value as " +
+                "Api:ServiceKey in CDC.Web); in a deployed environment, check the ServiceAuth__ApiKey secret wiring in the ECS task definition.");
         }
 
         return key;

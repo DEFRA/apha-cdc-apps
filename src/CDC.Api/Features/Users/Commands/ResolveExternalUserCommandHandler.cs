@@ -8,10 +8,10 @@ namespace CDC.Api.Features.Users.Commands;
 /// <summary>Handles <see cref="ResolveExternalUserCommand"/>.</summary>
 /// <param name="userService">External-user resolution application service.</param>
 public sealed class ResolveExternalUserCommandHandler(IUserService userService)
-    : IRequestHandler<ResolveExternalUserCommand, Result<ExternalUserDto>>
+    : IRequestHandler<ResolveExternalUserCommand, Result<ResolvedExternalUserDto>>
 {
     /// <inheritdoc />
-    public async Task<Result<ExternalUserDto>> Handle(ResolveExternalUserCommand request, CancellationToken cancellationToken)
+    public async Task<Result<ResolvedExternalUserDto>> Handle(ResolveExternalUserCommand request, CancellationToken cancellationToken)
     {
         var result = await userService.ResolveExternalUserAsync(request, cancellationToken);
 
@@ -19,16 +19,16 @@ public sealed class ResolveExternalUserCommandHandler(IUserService userService)
         {
             return result.Status switch
             {
-                ResultStatus.Forbidden => Result.Forbidden<ExternalUserDto>(result.Error!),
-                ResultStatus.NotFound => Result.NotFound<ExternalUserDto>(result.Error!),
-                ResultStatus.Conflict => Result.Conflict<ExternalUserDto>(result.Error!),
-                _ => Result.Forbidden<ExternalUserDto>(result.Error ?? "Unable to resolve the external user.")
+                ResultStatus.Forbidden => Result.Forbidden<ResolvedExternalUserDto>(result.Error!),
+                ResultStatus.NotFound => Result.NotFound<ResolvedExternalUserDto>(result.Error!),
+                ResultStatus.Conflict => Result.Conflict<ResolvedExternalUserDto>(result.Error!),
+                _ => Result.Forbidden<ResolvedExternalUserDto>(result.Error ?? "Unable to resolve the external user.")
             };
         }
 
         var user = result.Value;
 
-        return Result.Success(new ExternalUserDto
+        return Result.Success(new ResolvedExternalUserDto
         {
             Id = user.Id,
             FullName = user.FullName,

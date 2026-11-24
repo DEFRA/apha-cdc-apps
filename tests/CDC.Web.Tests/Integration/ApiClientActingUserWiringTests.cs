@@ -4,8 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CDC.Web.Tests.Integration;
 
-// CDC.Api records changes against, and authorises them for, the user CDC.Web forwards - so every typed client that
-// calls it must carry ActingUserDelegatingHandler. A client registered without it would reach the API as anonymous.
+// CDC.Api refuses a call without the service key, and records changes against, and authorises them for, the user CDC.Web
+// forwards - so every typed client that calls it must carry ActingUserDelegatingHandler, which sends both.
 public class ApiClientActingUserWiringTests : IClassFixture<CdcWebTestFactory>
 {
     private readonly CdcWebTestFactory _factory;

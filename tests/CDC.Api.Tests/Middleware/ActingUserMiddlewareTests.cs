@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using CDC.Api.Application;
+using CDC.Api.Authentication;
 using CDC.Api.Domain.Entities;
 using CDC.Api.Features.Users.Interfaces;
 using CDC.Api.Middleware;
@@ -118,6 +120,25 @@ public class ActingUserMiddlewareTests
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    // The strict repository mock fails the test if the user is looked up at all.
+    [Fact]
+    public async Task InvokeAsync_IgnoresTheHeader_WhenTheCallerIsNotAuthenticated()
+    {
+        var context = CreateContext(UserId.ToString());
+        context.User = new ClaimsPrincipal(new ClaimsIdentity());
+        var nextCalled = false;
+
+        await CreateMiddleware(_ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            })
+            .InvokeAsync(context, userContext, users.Object);
+
+        nextCalled.Should().BeTrue();
+        AssertAnonymous();
+    }
+
     private void AssertAnonymous()
     {
         userContext.UserId.Should().BeNull();
@@ -126,9 +147,15 @@ public class ActingUserMiddlewareTests
         users.VerifyAll();
     }
 
+    // Authenticated as CDC.Web, as the service-key handler leaves it.
     private static DefaultHttpContext CreateContext(string? actingUserHeader)
     {
-        var context = new DefaultHttpContext();
+        var context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.Name, ServiceKeyAuthenticationHandler.CallerName)],
+                ServiceKeyAuthenticationHandler.SchemeName))
+        };
 
         if (actingUserHeader is not null)
         {

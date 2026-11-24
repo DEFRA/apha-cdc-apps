@@ -70,13 +70,21 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
         $"Configuration value 'Api:BaseUrl' ('{apiBaseUrl}') must be an absolute http:// or https:// URL, e.g. 'http://cdc-api:8080'.");
 }
 
+// CDC.Api refuses every call without this key, so a missing secret must stop startup, not fail each request.
+if (string.IsNullOrWhiteSpace(builder.Configuration["Api:ServiceKey"]))
+{
+    throw new InvalidOperationException(
+        "Configuration value 'Api:ServiceKey' is required. Locally, set it in appsettings.Development.json (the same value as " +
+        "ServiceAuth:ApiKey in CDC.Api); in a deployed environment, check the Api__ServiceKey secret wiring in the ECS task definition.");
+}
+
 // Forwards this request's correlation ID to CDC.Api, so a single ID traces the action across
 // both services' CloudWatch log groups.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
-// Forwards the signed-in user's [User].Id to CDC.Api, so changes are recorded against and
-// authorised for that user rather than a placeholder. Attach it to every typed client below.
+// Authenticates CDC.Web to CDC.Api with the service key and forwards the signed-in user's [User].Id, so changes are
+// recorded against and authorised for that user rather than a placeholder. Attach it to every typed client below.
 builder.Services.AddTransient<ActingUserDelegatingHandler>();
 
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
