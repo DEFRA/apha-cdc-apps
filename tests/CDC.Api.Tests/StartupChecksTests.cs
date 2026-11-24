@@ -127,7 +127,7 @@ public class StartupChecksTests
     public void RequireServiceApiKey_Throws_WhenMissingOrBlank(string? key)
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["ServiceAuth:ApiKey"] = key })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Api:ServiceKey"] = key })
             .Build();
 
         Assert.Throws<InvalidOperationException>(() => StartupChecks.RequireServiceApiKey(configuration));
@@ -137,7 +137,7 @@ public class StartupChecksTests
     public void RequireServiceApiKey_ReturnsValue_WhenPresent()
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["ServiceAuth:ApiKey"] = "service-key" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Api:ServiceKey"] = "service-key" })
             .Build();
 
         Assert.Equal("service-key", StartupChecks.RequireServiceApiKey(configuration));
