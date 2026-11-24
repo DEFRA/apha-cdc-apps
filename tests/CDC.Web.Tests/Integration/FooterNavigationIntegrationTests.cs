@@ -122,6 +122,21 @@ public partial class FooterNavigationIntegrationTests : IClassFixture<CdcWebTest
         Assert.Contains("Open Government Licence", footer.Page);
     }
 
+    [Fact]
+    public async Task TheLicenceAndCrownCopyrightLinks_GoToTheNationalArchives()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+
+        var footer = await GetFooterAsync(client, "/");
+
+        Assert.Contains(
+            "href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Open Government Licence v3.0</a>",
+            footer.Page);
+        Assert.Contains(
+            "href=\"https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/\">&copy; Crown copyright</a>",
+            footer.Page);
+    }
+
     // The page itself opts out, not the visitor being signed out: a signed-in user opening the Landing page sees the same footer.
     [Fact]
     public async Task LandingPage_ForASignedInUser_HasNoBackToTopLinkOrFooterNavigation()
