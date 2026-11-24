@@ -17,10 +17,10 @@ public class ServiceKeyConfigurationTests : IClassFixture<CdcWebTestFactory>
     [InlineData("   ")]
     public void Startup_Fails_WhenTheServiceKeyIsBlank(string serviceKey)
     {
-        using var factory = _factory.WithWebHostBuilder(builder => builder.UseSetting("Api:ServiceKey", serviceKey));
+        using var factory = _factory.WithWebHostBuilder(builder => builder.UseSetting("ServiceAuth:ApiKey", serviceKey));
 
         var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
 
-        Assert.Contains("Api:ServiceKey", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("ServiceAuth:ApiKey", exception.Message, StringComparison.Ordinal);
     }
 }
