@@ -44,7 +44,7 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
         // this machine, apparently), so the test host there defaults to Production and has no value
         // for it at all unless supplied here.
         builder.UseSetting("Api:BaseUrl", "http://cdc-api.test");
-        builder.UseSetting("Api:ServiceKey", ServiceKey);
+        builder.UseSetting("ServiceAuth:ApiKey", ServiceKey);
 
         // The session tests assume the legacy 20 and 5 minutes, not whatever the loaded appsettings carry.
         builder.UseSetting("SessionTimeout:IdleTimeout", "00:20:00");

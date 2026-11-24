@@ -71,11 +71,11 @@ if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseUri) ||
 }
 
 // CDC.Api refuses every call without this key, so a missing secret must stop startup, not fail each request.
-if (string.IsNullOrWhiteSpace(builder.Configuration["Api:ServiceKey"]))
+if (string.IsNullOrWhiteSpace(builder.Configuration["ServiceAuth:ApiKey"]))
 {
     throw new InvalidOperationException(
-        "Configuration value 'Api:ServiceKey' is required. Locally, set it in appsettings.Development.json (the same value as " +
-        "ServiceAuth:ApiKey in CDC.Api); in a deployed environment, check the Api__ServiceKey secret wiring in the ECS task definition.");
+        "Configuration value 'ServiceAuth:ApiKey' is required. Locally, set it in appsettings.Development.json (the same value as " +
+        "Api:ServiceKey in CDC.Api); in a deployed environment, check the ServiceAuth__ApiKey secret wiring in the ECS task definition.");
 }
 
 // Forwards this request's correlation ID to CDC.Api, so a single ID traces the action across
@@ -88,6 +88,7 @@ builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 builder.Services.AddTransient<ActingUserDelegatingHandler>();
 
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
+builder.Services.Configure<ServiceAuthOptions>(builder.Configuration.GetSection(ServiceAuthOptions.SectionName));
 
 builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
 {

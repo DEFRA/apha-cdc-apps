@@ -103,7 +103,7 @@ public class ActingUserDelegatingHandlerTests
     private static async Task<HttpRequestMessage> SendAsync(ClaimsPrincipal? user, string? existingHeader = null, string? existingServiceKey = null)
     {
         var accessor = new HttpContextAccessor { HttpContext = user is null ? null : new DefaultHttpContext { User = user } };
-        var options = Options.Create(new ApiOptions { BaseUrl = "https://cdc-api.test", ServiceKey = ServiceKey });
+        var options = Options.Create(new ServiceAuthOptions { ApiKey = ServiceKey });
         var handler = new ActingUserDelegatingHandler(accessor, options) { InnerHandler = new OkHandler() };
         var request = new HttpRequestMessage(HttpMethod.Get, "https://cdc-api.test/api/species");
 

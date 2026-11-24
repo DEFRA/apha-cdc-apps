@@ -7,7 +7,7 @@ internal static class TestServiceKey
 {
     public const string Value = "test-service-key";
 
-    public static void Configure() => Environment.SetEnvironmentVariable("ServiceAuth__ApiKey", Value);
+    public static void Configure() => Environment.SetEnvironmentVariable("Api__ServiceKey", Value);
 
     public static HttpClient WithServiceKey(this HttpClient client)
     {

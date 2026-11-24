@@ -73,8 +73,8 @@ internal static class StartupChecks
         if (string.IsNullOrWhiteSpace(key))
         {
             throw new InvalidOperationException(
-                "ServiceAuth:ApiKey is not configured. Locally, set it in appsettings.Development.json (the same value as " +
-                "Api:ServiceKey in CDC.Web); in a deployed environment, check the ServiceAuth__ApiKey secret wiring in the ECS task definition.");
+                "Api:ServiceKey is not configured. Locally, set it in appsettings.Development.json (the same value as " +
+                "ServiceAuth:ApiKey in CDC.Web); in a deployed environment, check the Api__ServiceKey Parameter Store wiring in the ECS task definition.");
         }
 
         return key;
