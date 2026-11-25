@@ -16,6 +16,11 @@
             <p class="govuk-body govuk-!-margin-bottom-1">
                 <strong>@Model.CurrentVersionLabel: @($"{Model.CurrentVersion.VersionNumber}.{Model.CurrentVersion.VersionMinor}")</strong>
                 <span class="govuk-!-margin-left-2">@Model.CurrentVersion.CreatedAtUtc.ToString("dd/MM/yyyy")</span> -
+                @* As the legacy ShowPublic did, says when the version has been allowed public access. *@
+                @if (Model.CurrentVersion.IsPublic)
+                {
+                    <span>(Public)</span>
+                }
             </p>
         }
 
@@ -80,7 +85,7 @@
                                 <p class="govuk-body govuk-!-margin-bottom-0 app-profile-card__version-detail">
                                     <span class="app-profile-card__version-number">Version @($"{row.Version.VersionNumber}.{row.Version.VersionMinor}")</span>
                                     <span class="app-profile-card__version-status">@row.Status</span>
-                                    <span class="app-profile-card__version-dates">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy") - @row.Version.EffectiveToUtc?.ToString("dd/MM/yyyy")</span>
+                                    <span class="app-profile-card__version-dates">@row.Version.CreatedAtUtc.ToString("dd/MM/yyyy") - @row.Version.EffectiveToUtc?.ToString("dd/MM/yyyy")@(row.Version.IsPublic ? " (Public)" : null)</span>
                                 </p>
                                 <p class="govuk-body govuk-!-margin-bottom-0 app-profile-card__version-actions">
                                     @if (row.ShowViewReportsLink)

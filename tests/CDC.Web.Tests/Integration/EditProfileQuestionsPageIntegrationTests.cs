@@ -168,16 +168,22 @@ public partial class EditProfileQuestionsPageIntegrationTests : IClassFixture<Cd
         Assert.DoesNotContain("data-app-collapse-on-open=\"true\"", body);
     }
 
-    // Legacy right-aligned the Save and Validate buttons under the questions, as it did those above them.
+    // Legacy right-aligned the Save and Validate buttons under the questions, as it did those above them, and showed them below the
+    // questions' box rather than inside it. They stay in the form, which they submit.
     [Fact]
-    public async Task SaveAndValidate_UnderTheQuestions_AreAlignedToTheRight()
+    public async Task SaveAndValidate_UnderTheQuestions_AreAlignedToTheRight_OutsideTheQuestionsBox()
     {
         var body = await GetPageAsync(DraftProfile());
 
         var panel = body.IndexOf("id=\"profile-questions-panel\"", StringComparison.Ordinal);
+        var lowerButtons = body.IndexOf("<div class=\"govuk-button-group govuk-!-margin-top-6 app-button-group--right\">", panel, StringComparison.Ordinal);
+        var formEnd = body.IndexOf("</form>", panel, StringComparison.Ordinal);
 
-        Assert.True(panel >= 0);
-        Assert.Contains("<div class=\"govuk-button-group govuk-!-margin-top-6 app-button-group--right\">", body[panel..]);
+        Assert.True(panel >= 0 && lowerButtons > panel && lowerButtons < formEnd, "The lower Save and Validate should follow the questions, inside the form.");
+        var fromPanelToButtons = body[panel..lowerButtons];
+        Assert.True(CountOf(fromPanelToButtons, "</div>") > CountOf(fromPanelToButtons, "<div"), "The lower Save and Validate should be outside the questions' box.");
+        Assert.Contains("handler=SaveSection", body[lowerButtons..formEnd]);
+        Assert.Contains("handler=ValidateSection", body[lowerButtons..formEnd]);
     }
 
     // The help icon of each question opens its guidance in a dialog, as the legacy page showed it in a pop-up window. The dialog is

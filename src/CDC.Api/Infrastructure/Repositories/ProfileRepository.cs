@@ -262,7 +262,8 @@ public sealed class ProfileRepository(IDbConnectionFactory connectionFactory, IL
             Title = title,
             CreatedAtUtc = row.EffectiveDate,
             EffectiveToUtc = row.EffectiveDateTo,
-            IsScenario = row.ScenarioId != row.RootProfileId
+            IsScenario = row.ScenarioId != row.RootProfileId,
+            IsPublic = row.IsPublic
         };
 
         // Bucketed by (profile, scenario) - not just profile - so each "what-if" scenario keeps

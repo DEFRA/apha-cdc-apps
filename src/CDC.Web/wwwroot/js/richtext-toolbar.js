@@ -181,14 +181,207 @@
         textarea.value = hasContent ? html : '';
     }
 
+    var linkDialog = null;
+
+    function createElement(tag, className, attributes, text) {
+        var element = document.createElement(tag);
+        if (className) {
+            element.className = className;
+        }
+        Object.keys(attributes || {}).forEach(function (key) { element.setAttribute(key, attributes[key]); });
+        if (text) {
+            element.textContent = text;
+        }
+        return element;
+    }
+
+    function createLinkField(id, labelText, control) {
+        var group = createElement('div', 'govuk-form-group');
+        group.appendChild(createElement('label', 'govuk-label', { for: id }, labelText));
+        group.appendChild(control);
+        return group;
+    }
+
+    // The legacy TinyMCE "Insert/Edit Link" dialog: URL, Text to display, Title and Open link in..., then Save and Cancel. It is built once,
+    // with DOM methods only, and shared by every editor on the page; data-confirm-close lets confirm-modal.js close it on Cancel.
+    function getLinkDialog() {
+        if (linkDialog) {
+            return linkDialog;
+        }
+
+        var dialog = createElement('dialog', 'app-modal app-modal--sectioned app-link-dialog', { id: 'richtext-link-dialog', 'aria-labelledby': 'richtext-link-dialog-title' });
+        var form = createElement('form', null, { method: 'dialog', novalidate: 'novalidate' });
+
+        var header = createElement('div', 'app-modal__header');
+        header.appendChild(createElement('h2', 'govuk-heading-m govuk-!-margin-bottom-0', { id: 'richtext-link-dialog-title' }, 'Insert/Edit Link'));
+
+        var body = createElement('div', 'app-modal__body');
+        var urlGroup = createLinkField('richtext-link-url', 'URL', createElement('input', 'govuk-input', { id: 'richtext-link-url', type: 'url', autocomplete: 'off', spellcheck: 'false' }));
+        var urlError = createElement('p', 'govuk-error-message', { id: 'richtext-link-url-error', hidden: 'hidden' });
+        urlGroup.insertBefore(urlError, urlGroup.lastChild);
+        body.appendChild(urlGroup);
+        body.appendChild(createLinkField('richtext-link-text', 'Text to display', createElement('input', 'govuk-input', { id: 'richtext-link-text', type: 'text', autocomplete: 'off' })));
+        body.appendChild(createLinkField('richtext-link-title', 'Title', createElement('input', 'govuk-input', { id: 'richtext-link-title', type: 'text', autocomplete: 'off' })));
+
+        var target = createElement('select', 'govuk-select', { id: 'richtext-link-target' });
+        target.appendChild(createElement('option', null, { value: '' }, 'Current window'));
+        target.appendChild(createElement('option', null, { value: '_blank' }, 'New window'));
+        var targetGroup = createLinkField('richtext-link-target', 'Open link in...', target);
+        targetGroup.classList.add('govuk-!-margin-bottom-0');
+        body.appendChild(targetGroup);
+
+        var footer = createElement('div', 'app-modal__footer');
+        footer.appendChild(createElement('button', 'govuk-button govuk-!-margin-bottom-0', { type: 'submit', 'data-module': 'govuk-button', 'data-richtext-link-save': '' }, 'Save'));
+        footer.appendChild(createElement('button', 'govuk-button govuk-button--secondary govuk-!-margin-bottom-0', { type: 'button', 'data-module': 'govuk-button', 'data-confirm-close': '' }, 'Cancel'));
+
+        form.appendChild(header);
+        form.appendChild(body);
+        form.appendChild(footer);
+        dialog.appendChild(form);
+        document.body.appendChild(dialog);
+
+        linkDialog = {
+            dialog: dialog,
+            form: form,
+            url: dialog.querySelector('#richtext-link-url'),
+            urlGroup: urlGroup,
+            urlError: urlError,
+            text: dialog.querySelector('#richtext-link-text'),
+            title: dialog.querySelector('#richtext-link-title'),
+            target: target,
+            state: null
+        };
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            saveLink(linkDialog);
+        });
+        dialog.addEventListener('close', function () {
+            var state = linkDialog.state;
+            linkDialog.state = null;
+            if (state) {
+                state.editor.focus();
+            }
+        });
+
+        return linkDialog;
+    }
+
+    function showLinkError(parts, message) {
+        parts.urlError.replaceChildren(createElement('span', 'govuk-visually-hidden', null, 'Error:'), document.createTextNode(' ' + message));
+        parts.urlError.hidden = !message;
+        parts.urlGroup.classList.toggle('govuk-form-group--error', !!message);
+        parts.url.classList.toggle('govuk-input--error', !!message);
+        if (message) {
+            parts.url.setAttribute('aria-describedby', parts.urlError.id);
+        } else {
+            parts.url.removeAttribute('aria-describedby');
+        }
+    }
+
+    function selectionRangeIn(editor) {
+        var selection = window.getSelection();
+        if (selection.rangeCount === 0) {
+            return null;
+        }
+        var range = selection.getRangeAt(0).cloneRange();
+        return editor.contains(range.commonAncestorContainer) ? range : null;
+    }
+
+    function linkAround(range, editor) {
+        if (!range) {
+            return null;
+        }
+        var start = range.startContainer;
+        var element = start.nodeType === Node.ELEMENT_NODE ? start : start.parentNode;
+        var anchor = element.closest('a');
+        return anchor && editor.contains(anchor) ? anchor : null;
+    }
+
     function insertLink(editor) {
-        var url = window.prompt('Enter the link URL:', 'https://');
-        if (!url || !SAFE_HREF.test(url.trim())) {
+        var range = selectionRangeIn(editor);
+        var anchor = linkAround(range, editor);
+        var selectedText = range ? range.toString() : '';
+
+        var parts = getLinkDialog();
+        parts.state = { editor: editor, range: range, anchor: anchor, originalText: anchor ? anchor.textContent : '' };
+        parts.url.value = anchor ? anchor.getAttribute('href') || '' : '';
+        parts.text.value = anchor ? anchor.textContent : selectedText;
+        parts.title.value = anchor ? anchor.getAttribute('title') || '' : '';
+        parts.target.value = anchor?.getAttribute('target') === '_blank' ? '_blank' : '';
+        showLinkError(parts, '');
+
+        if (typeof parts.dialog.showModal === 'function') {
+            parts.dialog.showModal();
+        } else {
+            parts.dialog.setAttribute('open', '');
+        }
+        parts.url.focus();
+    }
+
+    // Decoding first means an address already escaped is not escaped twice; one that cannot be decoded is refused.
+    function normaliseHref(url) {
+        try {
+            return encodeURI(decodeURI(url));
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function saveLink(parts) {
+        var state = parts.state;
+        var href = normaliseHref(parts.url.value.trim());
+        if (!href || !SAFE_HREF.test(href)) {
+            showLinkError(parts, 'Enter a web address starting with http://, https:// or mailto:');
+            parts.url.focus();
             return;
         }
 
-        editor.focus();
-        document.execCommand('createLink', false, url.trim());
+        var editor = state.editor;
+        var text = parts.text.value.trim();
+        var anchor = state.anchor;
+
+        if (!anchor) {
+            var range = state.range;
+            if (!range) {
+                range = document.createRange();
+                range.selectNodeContents(editor);
+                range.collapse(false);
+            }
+            anchor = document.createElement('a');
+            anchor.textContent = text || href;
+            range.deleteContents();
+            range.insertNode(anchor);
+        } else if (text && text !== state.originalText) {
+            anchor.textContent = text;
+        }
+
+        anchor.setAttribute('href', href);
+        if (parts.title.value.trim()) {
+            anchor.setAttribute('title', parts.title.value.trim());
+        } else {
+            anchor.removeAttribute('title');
+        }
+        if (parts.target.value === '_blank') {
+            anchor.setAttribute('target', '_blank');
+        } else {
+            anchor.removeAttribute('target');
+        }
+
+        var after = document.createRange();
+        after.setStartAfter(anchor);
+        after.collapse(true);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(after);
+
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        if (typeof parts.dialog.close === 'function') {
+            parts.dialog.close();
+        } else {
+            parts.dialog.removeAttribute('open');
+            parts.dialog.dispatchEvent(new Event('close'));
+        }
     }
 
     function runCommand(command, editor) {

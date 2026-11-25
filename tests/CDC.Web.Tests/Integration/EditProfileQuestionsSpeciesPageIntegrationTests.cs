@@ -224,8 +224,9 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
         Assert.DoesNotContain("data-species-picker", welfare);
         Assert.DoesNotContain("data-species-cancel", welfare);
         Assert.Contains("data-species-can-edit=\"false\"", welfare);
-        Assert.Contains("<button type=\"button\" class=\"govuk-button govuk-button--secondary\" data-module=\"govuk-button\" data-species-ok>Close</button>", welfare);
-        Assert.Matches("<div class=\"govuk-button-group app-button-group--right\">\\s*<button type=\"button\" class=\"govuk-button govuk-button--secondary\" data-module=\"govuk-button\" data-species-ok>Close</button>", welfare);
+        // As in the legacy panel, the read-only Close is the green primary button.
+        Assert.Contains("<button type=\"button\" class=\"govuk-button\" data-module=\"govuk-button\" data-species-ok>Close</button>", welfare);
+        Assert.Matches("<div class=\"govuk-button-group app-button-group--right\">\\s*<button type=\"button\" class=\"govuk-button\" data-module=\"govuk-button\" data-species-ok>Close</button>", welfare);
     }
 
     [Fact]
