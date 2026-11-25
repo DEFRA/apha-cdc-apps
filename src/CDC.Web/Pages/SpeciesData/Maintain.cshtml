@@ -5,12 +5,26 @@
     ViewData["Title"] = Model.ShowAuditTrail
         ? "Species data audit trail"
         : "Maintain species data";
+
+    void SortableHeader(CDC.Web.Pages.SpeciesData.SpeciesAuditSortColumn column, string text)
+    {
+        <th scope="col" class="govuk-table__header app-sortable-header" aria-sort="@Model.GetAuditTrailAriaSort(column)">
+            <a class="govuk-link govuk-link--no-visited-state app-sort-link" id="audit-trail-sort-@column" data-app-region-link href="@Model.BuildAuditTrailSortUrl(column)">
+                @text
+            </a>
+        </th>
+    }
 }
 @section Breadcrumbs {
     <partial name="_Breadcrumb" model="Model.Breadcrumb" />
 }
 
 <h1 class="govuk-heading-l">@(Model.ShowAuditTrail ? "Species data audit trail" : "Maintain species data")</h1>
+
+@if (!Model.ShowAuditTrail)
+{
+    <p class="govuk-body">Use this function to maintain the hierarchical species list that is utilised by the application.</p>
+}
 
 @if (Model.SuccessMessage is not null)
 {
@@ -42,7 +56,7 @@ else if (Model.ShowAuditTrail)
         <p class="govuk-body">No species name or parent changes have been recorded.</p>
 
         <p class="govuk-body app-audit-trail-back-link">
-            <a class="govuk-link" asp-page="./Maintain">Back to Maintain species data</a>
+            <a class="govuk-link" asp-page="./Maintain">Maintain species data</a>
         </p>
     }
     else
@@ -57,7 +71,7 @@ else if (Model.ShowAuditTrail)
 
         <div id="audit-trail-region" data-app-paged-region>
         <p class="govuk-body app-audit-trail-back-link">
-            <a class="govuk-link" asp-page="./Maintain">Back to Maintain species data</a>
+            <a class="govuk-link" asp-page="./Maintain">Maintain species data</a>
         </p>
 
         <div class="govuk-form-group govuk-!-margin-bottom-3 app-audit-trail-page-size">
@@ -73,16 +87,18 @@ else if (Model.ShowAuditTrail)
             @* A GET submit discards the action's querystring, so the handler must travel as a field. *@
             <input type="hidden" name="handler" value="AuditTrail" />
             <input type="hidden" name="AuditTrailPage" value="1" />
+            <input type="hidden" name="AuditTrailSortColumn" value="@Model.AuditTrailSortColumn" />
+            <input type="hidden" name="AuditTrailSortDirection" value="@Model.AuditTrailSortDirection" />
         </form>
 
         <table class="govuk-table app-audit-trail-table">
             <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Species name/parent audit trail</caption>
             <thead class="govuk-table__head">
                 <tr class="govuk-table__row">
-                    <th scope="col" class="govuk-table__header">Old name</th>
-                    <th scope="col" class="govuk-table__header">New name</th>
-                    <th scope="col" class="govuk-table__header">User</th>
-                    <th scope="col" class="govuk-table__header">Date of change</th>
+                    @{ SortableHeader(CDC.Web.Pages.SpeciesData.SpeciesAuditSortColumn.OldName, "Old name"); }
+                    @{ SortableHeader(CDC.Web.Pages.SpeciesData.SpeciesAuditSortColumn.NewName, "New name"); }
+                    @{ SortableHeader(CDC.Web.Pages.SpeciesData.SpeciesAuditSortColumn.User, "User"); }
+                    @{ SortableHeader(CDC.Web.Pages.SpeciesData.SpeciesAuditSortColumn.DateOfChange, "Date of change"); }
                     <th scope="col" class="govuk-table__header">View details</th>
                 </tr>
             </thead>
@@ -93,9 +109,9 @@ else if (Model.ShowAuditTrail)
                         <td class="govuk-table__cell">@ProfileTitleHtmlFormatter.Format(entry.OldName)</td>
                         <td class="govuk-table__cell">@ProfileTitleHtmlFormatter.Format(entry.NewName)</td>
                         <td class="govuk-table__cell">@entry.ChangedBy</td>
-                        <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm")</td>
+                        <td class="govuk-table__cell">@entry.LogDate.ToString("d MMMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)</td>
                         <td class="govuk-table__cell">
-                            <a class="govuk-link govuk-link--no-visited-state"
+                            <a class="govuk-link govuk-link--no-visited-state" data-app-region-link
                                href="@Model.BuildAuditTrailDetailsUrl(entry.Id)">
                                 View details<span class="govuk-visually-hidden"> of the change from @SpeciesNameHtml.ToPlainText(entry.OldName) to @SpeciesNameHtml.ToPlainText(entry.NewName)</span>
                             </a>
@@ -113,42 +129,42 @@ else if (Model.ShowAuditTrail)
 
             <h2 class="govuk-heading-m">Details of change to @ProfileTitleHtmlFormatter.Format(detailsEntry.NewName)</h2>
 
-            <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l">
+            <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l app-audit-trail-details-separator">
 
             <div class="govuk-grid-row">
                 <div class="govuk-grid-column-one-half">
-                    <dl class="govuk-summary-list">
+                    <dl class="govuk-summary-list govuk-summary-list--no-border">
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Old name</dt>
+                            <dt class="govuk-summary-list__key">Old name:</dt>
                             <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.OldName)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Old parent</dt>
+                            <dt class="govuk-summary-list__key">Old parent:</dt>
                             <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.OldParent)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Changed by</dt>
+                            <dt class="govuk-summary-list__key">Changed by:</dt>
                             <dd class="govuk-summary-list__value">@detailsEntry.ChangedBy</dd>
                         </div>
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Reason for change</dt>
+                            <dt class="govuk-summary-list__key">Reason for change:</dt>
                             <dd class="govuk-summary-list__value">@detailsEntry.ReasonForChange</dd>
                         </div>
                     </dl>
                 </div>
                 <div class="govuk-grid-column-one-half">
-                    <dl class="govuk-summary-list">
+                    <dl class="govuk-summary-list govuk-summary-list--no-border">
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">New name</dt>
+                            <dt class="govuk-summary-list__key">New name:</dt>
                             <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.NewName)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">New parent</dt>
+                            <dt class="govuk-summary-list__key">New parent:</dt>
                             <dd class="govuk-summary-list__value">@ProfileTitleHtmlFormatter.Format(detailsEntry.NewParent)</dd>
                         </div>
                         <div class="govuk-summary-list__row">
-                            <dt class="govuk-summary-list__key">Date of change</dt>
-                            <dd class="govuk-summary-list__value">@detailsEntry.LogDate.ToString("d MMMM yyyy HH:mm")</dd>
+                            <dt class="govuk-summary-list__key">Date of change:</dt>
+                            <dd class="govuk-summary-list__value">@detailsEntry.LogDate.ToString("dd/MM/yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)</dd>
                         </div>
                     </dl>
                 </div>
@@ -172,14 +188,14 @@ else
                     <div class="app-tree__column">
                         <div class="app-tree__panel">
                             <div class="app-tree__controls">
-                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="false">
+                                <button type="button" class="app-tree__toggle-all" data-app-tree-action="toggle-all" aria-expanded="true">
                                     <span class="app-tree__toggle-all-icon" aria-hidden="true">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
                                             <path d="M1 1l5 5 5-5" />
                                         </svg>
                                     </span>
-                                    <span class="app-tree__toggle-all-text">Open all</span>
+                                    <span class="app-tree__toggle-all-text">Close all</span>
                                 </button>
                             </div>
                             <partial name="_TreeView" model="Model.SpeciesTree" />

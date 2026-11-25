@@ -52,6 +52,7 @@
 
             this.items = Array.from($root.querySelectorAll(ITEM));
             this.items.forEach((item, index) => this.setupItem(item, index));
+            this.lastChecked = this.items.map((item) => this.radio(item)).find((input) => input?.checked) ?? null;
 
             $root.addEventListener('click', (event) => this.onClick(event));
             $root.addEventListener('change', (event) => this.onChange(event));
@@ -242,6 +243,7 @@
                     }
                 });
 
+                this.lastChecked = null;
                 this.updateSelectedStatus();
 
                 return;
@@ -451,7 +453,24 @@
             }
         }
 
+        // Single-select trees: clicking the checked node again unselects it, as a checkbox would.
+        toggleRadio(input) {
+            if (input === this.lastChecked) {
+                input.checked = false;
+                this.lastChecked = null;
+                this.updateSelectedStatus();
+            } else {
+                this.lastChecked = input;
+            }
+        }
+
         onClick(event) {
+            if (!this.multiple && event.target instanceof HTMLInputElement && event.target.type === 'radio') {
+                this.toggleRadio(event.target);
+
+                return;
+            }
+
             const toggle = event.target.closest(TOGGLE);
 
             if (!toggle || !this.$root.contains(toggle)) {

@@ -8,6 +8,15 @@ using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace CDC.Web.Pages.SpeciesData;
 
+/// <summary>The columns of the species audit trail table that can be sorted.</summary>
+public enum SpeciesAuditSortColumn
+{
+    OldName,
+    NewName,
+    User,
+    DateOfChange
+}
+
 /// <summary>
 /// Lets a species editor select a species or species group from the hierarchy and edit its
 /// name and/or parent, recording a mandatory reason for change in the audit trail.
@@ -84,6 +93,19 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
     [BindProperty(SupportsGet = true)]
     [ValidateNever]
     public string? AuditTrailPageSize { get; set; } = AuditTrailPageSizeOptions[0];
+
+    /// <summary>Gets or sets the audit trail column sorted by, bound from the querystring.</summary>
+    [BindProperty(SupportsGet = true)]
+    public SpeciesAuditSortColumn AuditTrailSortColumn { get; set; } = SpeciesAuditSortColumn.DateOfChange;
+
+    /// <summary>Gets or sets the audit trail sort direction ("Ascending" or "Descending"), bound from the querystring.</summary>
+    [BindProperty(SupportsGet = true)]
+    [ValidateNever]
+    public string? AuditTrailSortDirection { get; set; } = "Descending";
+
+    /// <summary>Gets a value indicating whether the audit trail is sorted descending.</summary>
+    public bool IsAuditTrailSortDescending =>
+        !string.Equals(AuditTrailSortDirection, "Ascending", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Gets the static, hardcoded options for the audit trail "Items per page" dropdown.</summary>
     public static IReadOnlyList<string> AuditTrailPageSizeOptions { get; } = ["10", "25", "50", "All"];
@@ -189,11 +211,32 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
 
     /// <summary>Builds the querystring URL for an audit trail page link, preserving the page size.</summary>
     public string? BuildAuditTrailPageUrl(int page) =>
-        Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage = page, AuditTrailPageSize });
+        Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage = page, AuditTrailPageSize, AuditTrailSortColumn, AuditTrailSortDirection });
 
-    /// <summary>Builds the querystring URL for a "View details" link, preserving the page and page size.</summary>
+    /// <summary>Builds the URL for a sortable column header: ascending for a new column, otherwise toggling the direction. Resets to page 1.</summary>
+    public string? BuildAuditTrailSortUrl(SpeciesAuditSortColumn column) =>
+        Url.Page("./Maintain", "AuditTrail", new
+        {
+            AuditTrailPage = 1,
+            AuditTrailPageSize,
+            AuditTrailSortColumn = column,
+            AuditTrailSortDirection = column == AuditTrailSortColumn && !IsAuditTrailSortDescending ? "Descending" : "Ascending"
+        });
+
+    /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
+    public string GetAuditTrailAriaSort(SpeciesAuditSortColumn column)
+    {
+        if (column != AuditTrailSortColumn)
+        {
+            return "none";
+        }
+
+        return IsAuditTrailSortDescending ? "descending" : "ascending";
+    }
+
+    /// <summary>Builds the querystring URL for a "View details" link, preserving the page, page size and sort.</summary>
     public string? BuildAuditTrailDetailsUrl(Guid auditTrailDetailsId) =>
-        Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage, AuditTrailPageSize, AuditTrailDetailsId = auditTrailDetailsId });
+        Url.Page("./Maintain", "AuditTrail", new { AuditTrailPage, AuditTrailPageSize, AuditTrailSortColumn, AuditTrailSortDirection, AuditTrailDetailsId = auditTrailDetailsId });
 
     /// <summary>Slices <see cref="AuditTrail"/> into <see cref="PagedAuditTrail"/> and computes <see cref="AuditTrailTotalPages"/>.</summary>
     private void ApplyAuditTrailPaging()
@@ -203,7 +246,25 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         AuditTrailTotalPages = Math.Max(1, (int)Math.Ceiling(AuditTrail.Count / (double)pageSize));
         AuditTrailPage = Math.Clamp(AuditTrailPage, 1, AuditTrailTotalPages);
 
-        PagedAuditTrail = [.. AuditTrail.Skip((AuditTrailPage - 1) * pageSize).Take(pageSize)];
+        PagedAuditTrail = [.. SortAuditTrail().Skip((AuditTrailPage - 1) * pageSize).Take(pageSize)];
+    }
+
+    private IEnumerable<SpeciesAuditTrailEntryDto> SortAuditTrail()
+    {
+        var descending = IsAuditTrailSortDescending;
+
+        return AuditTrailSortColumn switch
+        {
+            SpeciesAuditSortColumn.OldName => OrderText(entry => SpeciesNameHtml.ToPlainText(entry.OldName)),
+            SpeciesAuditSortColumn.NewName => OrderText(entry => SpeciesNameHtml.ToPlainText(entry.NewName)),
+            SpeciesAuditSortColumn.User => OrderText(entry => entry.ChangedBy),
+            _ => descending ? AuditTrail.OrderByDescending(entry => entry.LogDate) : AuditTrail.OrderBy(entry => entry.LogDate)
+        };
+
+        IOrderedEnumerable<SpeciesAuditTrailEntryDto> OrderText(Func<SpeciesAuditTrailEntryDto, string> key) =>
+            descending
+                ? AuditTrail.OrderByDescending(key, StringComparer.OrdinalIgnoreCase)
+                : AuditTrail.OrderBy(key, StringComparer.OrdinalIgnoreCase);
     }
 
     private static int ResolveAuditTrailPageSize(string? pageSize)
@@ -868,7 +929,7 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
                 ItemNameSingular = SpeciesKey,
                 ItemNamePlural = SpeciesKey,
                 SelectedValue = SelectedSpeciesId?.ToString(),
-                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, collapseRoots: SelectedSpeciesId is null)
+                Nodes = SpeciesTreeBuilder.Build(species, includeInactive: true, expandAll: true)
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or NotSupportedException)

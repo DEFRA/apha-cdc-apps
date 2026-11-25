@@ -119,7 +119,7 @@ public partial class SpeciesDataIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("app-tree__toggle-all", body);
-        Assert.Contains("Open all", body);
+        Assert.Contains("Close all", body);
         Assert.Contains("Remove selection", body);
         Assert.Contains("app-tree__status", body);
     }
