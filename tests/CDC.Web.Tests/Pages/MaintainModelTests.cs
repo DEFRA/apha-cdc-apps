@@ -417,7 +417,7 @@ public class MaintainModelTests
                 OldParent = "Cattle",
                 NewParent = "Cattle",
                 ChangedBy = "a.user",
-                LogDate = DateTime.UtcNow,
+                LogDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(-index),
                 ReasonForChange = "Reordered"
             })
         ];
