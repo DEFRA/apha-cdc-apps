@@ -189,6 +189,12 @@ html {
   margin-bottom: 0;
 }
 
+/* "Items per page" is only as wide as its numbers, as the legacy PageSizeList set min-width: auto. */
+select.govuk-select.app-page-size-select {
+  min-width: auto;
+  width: auto;
+}
+
 /* The asterisk beside the static report file input when no file is chosen; inline, beside the input, while not hidden. */
 .app-file-required-marker {
   display: inline;
@@ -427,6 +433,25 @@ html {
 
 .app-title-toolbar[hidden] {
   display: none;
+}
+
+/* A grey bar joined to the top of its box, as the legacy TinyMCE toolbar and the User guidance toolbar are, rather than loose buttons above it. */
+.app-title-toolbar--attached {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0;
+  padding: 0.25rem;
+  border-bottom: none;
+  background-color: #f3f2f1;
+}
+
+.app-title-toolbar--attached .app-title-toolbar__button,
+.app-title-toolbar--attached .app-title-toolbar__button:last-child {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--govuk-border-colour, #b1b4b6);
+  background-color: #ffffff;
 }
 
 /* Edit profile title: contenteditable div standing in for the textbox, so formatting tags
@@ -959,6 +984,8 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   column-gap: 1.5rem;
+  /* Each item keeps its own height, so a label stays level with its box when a neighbour in the row wraps onto more lines. */
+  align-items: start;
 }
 
 @media (min-width: 40.0625em) {
@@ -1595,6 +1622,11 @@ body {
 .app-species-table .govuk-table__cell {
   vertical-align: top;
   overflow-wrap: anywhere;
+}
+
+/* The species name heads its row for screen readers but, as in the legacy table, is not bold. */
+.app-species-table .govuk-table__body .govuk-table__header {
+  font-weight: 400;
 }
 
 /* The Edit or View link takes the width it needs, and is not broken to fit a narrower column. */
@@ -2248,6 +2280,14 @@ body {
 .app-richtext-editor:focus {
   outline: 3px solid #ffdd00;
   outline-offset: 0;
+}
+
+/* A question's supporting comments keep the legacy editor's fixed height and scroll inside it, rather than growing with the text. */
+.govuk-accordion .app-richtext-editor--surface,
+.app-answer-panel .app-richtext-editor--surface {
+  height: 250px;
+  overflow-y: scroll;
+  box-sizing: border-box;
 }
 
 /* Single-line editable box beneath its formatting toolbar; scrolls sideways when the name is long. */

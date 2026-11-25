@@ -174,6 +174,33 @@ public sealed class ProfileRepositoryTests : IDisposable
         superseded.VersionMinor.Should().Be(2);
     }
 
+    // The search shows "(Public)" against each version allowed public access, as legacy did, so each keeps its own flag.
+    [Fact]
+    public async Task GetAllProfilesAsync_MapsEachVersionsOwnIsPublic()
+    {
+        var publicVersionId = Guid.NewGuid();
+        var privateVersionId = Guid.NewGuid();
+
+        connection.Script(ProfileStoredProcedures.GetAllProfiles, new FakeCommandScript
+        {
+            ResultSets =
+            [
+                new FakeResultSet(Rs1Columns, [[ProfileAId, "Bovine tuberculosis"]]),
+                FakeResultSet.Empty(Rs2Columns),
+                new FakeResultSet(Rs3Columns,
+                [
+                    [publicVersionId, ProfileAId, ProfileAId, 11, 0, "Published", Utc(2026, 3, 7), null, true, null],
+                    [privateVersionId, ProfileAId, ProfileAId, 10, 2, "Published", Utc(2025, 1, 16), Utc(2026, 3, 7), false, null]
+                ])
+            ]
+        });
+
+        var versions = (await CreateRepository().GetAllProfilesAsync(CancellationToken.None)).Should().ContainSingle().Subject.PublishedVersions;
+
+        versions.Single(version => version.VersionId == publicVersionId).IsPublic.Should().BeTrue();
+        versions.Single(version => version.VersionId == privateVersionId).IsPublic.Should().BeFalse();
+    }
+
     [Fact]
     public async Task GetAllProfilesAsync_KeepsEachScenarioLineagesVersionHistoryIndependent()
     {

@@ -52,7 +52,7 @@
             <input type="hidden" id="@(Model.IdPrefix)PageNumber" name="@Model.FieldName("pageNumber")" value="1" />
             <div class="govuk-form-group govuk-!-margin-bottom-3 app-label-select-inline">
                 <label class="govuk-label" for="@(Model.IdPrefix)PageSize">Items per page:</label>
-                <select class="govuk-select" id="@(Model.IdPrefix)PageSize" name="@Model.FieldName("pageSize")" data-app-submit-on-change data-app-reset-page="@(Model.IdPrefix)PageNumber">
+                <select class="govuk-select app-page-size-select" id="@(Model.IdPrefix)PageSize" name="@Model.FieldName("pageSize")" data-app-submit-on-change data-app-reset-page="@(Model.IdPrefix)PageNumber">
                     @foreach (var option in NotesModel.PageSizeOptions)
                     {
                         <option value="@option" selected="@(option == Model.PageSize ? "selected" : null)">@option</option>

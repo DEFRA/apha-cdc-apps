@@ -151,6 +151,32 @@ public class SurveillanceProfilesSearchIntegrationTests
         return (await GetResultsPartialAsync(results, "?DisplayPublished=true&DisplayDraft=true"), clonedVersions);
     }
 
+    // As legacy ShowPublic and ShowPublicValue did, "(Public)" follows the dates of the current version and of each previous
+    // version allowed public access, and of no other.
+    [Fact]
+    public async Task Search_ShowsPublic_AfterTheDatesOfEachVersionAllowedPublicAccess()
+    {
+        var published = SearchResults[0].PublishedVersions[0];
+        var results = new[]
+        {
+            SearchResults[0] with
+            {
+                PublishedVersions =
+                [
+                    published with { VersionNumber = 3, IsPublic = true, CreatedAtUtc = new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc) },
+                    published with { VersionId = Guid.NewGuid(), VersionNumber = 2, IsPublic = true, CreatedAtUtc = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc), EffectiveToUtc = new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc) },
+                    published with { VersionId = Guid.NewGuid(), VersionNumber = 1, IsPublic = false, EffectiveToUtc = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc) }
+                ]
+            }
+        };
+
+        var body = await GetResultsPartialAsync(results, "?DisplayPublished=true");
+
+        Assert.Matches("<strong>Published current version: 3\\.0</strong>\\s*<span class=\"govuk-!-margin-left-2\">01/03/2025</span> -\\s*<span>\\(Public\\)</span>", body);
+        Assert.Contains("<span class=\"app-profile-card__version-dates\">01/06/2024 - 01/03/2025 (Public)</span>", body);
+        Assert.Contains("<span class=\"app-profile-card__version-dates\">01/01/2024 - 01/06/2024</span>", body);
+    }
+
     [Theory]
     [InlineData(false, true)]
     [InlineData(false, false)]
@@ -253,6 +279,19 @@ public class SurveillanceProfilesSearchIntegrationTests
         Assert.Contains("rel=\"next\"", page);
         Assert.Contains("Previous<span class=\"govuk-visually-hidden\"> page</span>", page);
         Assert.Contains("Next<span class=\"govuk-visually-hidden\"> page</span>", page);
+    }
+
+    // As in the legacy page, "Sort by:" sits beside its dropdown, and "Items per page" is only as wide as its numbers.
+    [Fact]
+    public async Task Search_PutsSortByBesideItsDropdown_AndKeepsItemsPerPageCompact()
+    {
+        using var factory = CreateFactory(SearchResults);
+        var client = await factory.SignedInClientAsync();
+
+        var page = await client.GetStringAsync("/SurveillanceProfiles/Search?PageNumber=1");
+
+        Assert.Matches("<div class=\"govuk-form-group govuk-!-margin-bottom-0 app-label-select-inline\">\\s*<label class=\"govuk-label\" for=\"SortBy\">Sort by:</label>", page);
+        Assert.Contains("<select class=\"govuk-select app-page-size-select\" id=\"PageSize\" name=\"PageSize\"", page);
     }
 
     // The Design System shows no previous link on the first page and no next link on the last page.

@@ -155,18 +155,18 @@
                 else
                 {
                     <partial name="_ProfileQuestionEditAccordion" model="accordionModel" />
-
-                    if (Model.CanEditProfileSection)
-                    {
-                        @* As the legacy btnSave2 and btnValidateSection2 did, repeats the Save and Validate buttons below the questions, at the right as the ones above are. *@
-                        <div class="govuk-button-group govuk-!-margin-top-6 app-button-group--right">
-                            <button type="submit" asp-page-handler="SaveSection" class="govuk-button" data-module="govuk-button">Save</button>
-                            <button type="submit" asp-page-handler="ValidateSection" class="govuk-button" data-module="govuk-button">Validate</button>
-                        </div>
-                    }
                 }
             </div>
         </div>
+
+        @if (Model.CanEditProfileSection && !Model.HasNoVersion)
+        {
+            @* As the legacy btnSave2 and btnValidateSection2 did, repeats the Save and Validate buttons below the questions, outside their box and at the right as the ones above are. *@
+            <div class="govuk-button-group govuk-!-margin-top-6 app-button-group--right">
+                <button type="submit" asp-page-handler="SaveSection" class="govuk-button" data-module="govuk-button">Save</button>
+                <button type="submit" asp-page-handler="ValidateSection" class="govuk-button" data-module="govuk-button">Validate</button>
+            </div>
+        }
     </form>
 
     @* The help icon of each question opens its guidance here, as the legacy ProfileQuestionHelp.aspx pop-up window did; question-help.js fills it in. *@

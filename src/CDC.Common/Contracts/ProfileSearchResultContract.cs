@@ -115,5 +115,8 @@ public abstract record ProfileHistoryItemContract
 
     /// <summary>Gets a value indicating whether this is a scenario.</summary>
     public required bool IsScenario { get; init; }
+
+    /// <summary>Gets a value indicating whether this version has been allowed public access.</summary>
+    public bool IsPublic { get; init; }
 }
 

@@ -113,14 +113,22 @@ public partial class EditUserGuidanceIntegrationTests
         Assert.Contains(">OK</button>", page);
         Assert.Contains($"href=\"{PageUrl}?section={SectionId}\"", page);
 
-        // As the legacy page showed them: Spell check user guidance is a primary (green) button, and OK and Cancel sit at the right.
+        // As the legacy page showed them: Spell check user guidance is a primary (green) button, and OK and Cancel follow it at the
+        // right. All three sit below the edit box, still inside the form that OK submits.
+        var boxEnd = page.IndexOf("</section>", page.IndexOf("id=\"edit-question\"", StringComparison.Ordinal), StringComparison.Ordinal);
+        var formEnd = page.IndexOf("</form>", boxEnd, StringComparison.Ordinal);
+        var buttons = page[boxEnd..formEnd];
+        Assert.Contains("<div class=\"app-note-panel__buttons govuk-!-margin-top-4\">", buttons);
         Assert.Contains(
-            "<button type=\"button\" class=\"govuk-button govuk-!-margin-top-2\" data-spellcheck-target=\"Input_UserGuidance-editor\" data-module=\"govuk-button\">Spell check user guidance</button>",
-            page);
-        var actionsStart = page.IndexOf("<div class=\"govuk-button-group app-button-group--right\">", StringComparison.Ordinal);
-        Assert.True(actionsStart >= 0, "OK and Cancel are not in a right-aligned button group.");
-        var actions = page[actionsStart..page.IndexOf("</div>", actionsStart, StringComparison.Ordinal)];
-        Assert.True(actions.IndexOf(">OK</button>", StringComparison.Ordinal) < actions.IndexOf(">Cancel</a>", StringComparison.Ordinal));
+            "<button type=\"button\" class=\"govuk-button\" data-spellcheck-target=\"Input_UserGuidance-editor\" data-module=\"govuk-button\">Spell check user guidance</button>",
+            buttons);
+        Assert.True(buttons.IndexOf("Spell check user guidance", StringComparison.Ordinal) < buttons.IndexOf(">OK</button>", StringComparison.Ordinal));
+        Assert.True(buttons.IndexOf(">OK</button>", StringComparison.Ordinal) < buttons.IndexOf(">Cancel</a>", StringComparison.Ordinal));
+
+        // The title toolbars are joined to their boxes, like the User guidance toolbar; the section dropdown sits beside its label.
+        Assert.Contains("<div class=\"app-title-toolbar app-title-toolbar--attached\" data-app-title-toolbar=\"Input_NameEditor\"", page);
+        Assert.Contains("<div class=\"app-title-toolbar app-title-toolbar--attached\" data-app-title-toolbar=\"Input_NonTechnicalNameEditor\"", page);
+        Assert.Matches("<div class=\"app-label-select-inline\">\\s*<label class=\"govuk-label govuk-label--s\" for=\"Section\">Select a profile section</label>", page);
         Assert.Contains("/js/edit-profile-title.js", page);
         Assert.Contains("/js/richtext-toolbar.js", page);
         Assert.Contains("/js/spell-check.js", page);
