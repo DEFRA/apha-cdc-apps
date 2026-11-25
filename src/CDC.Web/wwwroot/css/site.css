@@ -950,6 +950,11 @@ body {
   text-align: right;
 }
 
+/* Separator under "Details of change", heavier than the default 1px grey section break. */
+hr.govuk-section-break.app-audit-trail-details-separator {
+  border-bottom: 3px solid #0b0c0c;
+}
+
 .app-tree__toggle-all {
   appearance: none;
   display: inline-flex;
