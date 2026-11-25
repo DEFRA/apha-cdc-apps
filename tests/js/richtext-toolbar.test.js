@@ -172,6 +172,30 @@ describe('richtext-toolbar', () => {
       expect(textarea.value).toBe('<a href="https://www.gov.uk/" target="_blank" title="Go to GOV.UK">GOV.UK</a>');
     });
 
+    it('escapes the characters an address may not hold, without escaping one that is already escaped', async () => {
+      const { button, editor } = await setupWithLink('');
+      button.click();
+      const parts = dialogParts();
+
+      parts.url.value = 'https://www.gov.uk/a b"c?q=x%20y';
+      parts.save.click();
+
+      expect(editor.querySelector('a').getAttribute('href')).toBe('https://www.gov.uk/a%20b%22c?q=x%20y');
+    });
+
+    it('does not add a link to an address that cannot be read', async () => {
+      const { button, textarea } = await setupWithLink('');
+      button.click();
+      const parts = dialogParts();
+
+      parts.url.value = 'https://www.gov.uk/%E0%A4%A';
+      parts.save.click();
+
+      expect(parts.dialog.open).toBe(true);
+      expect(parts.error.hidden).toBe(false);
+      expect(textarea.value).toBe('');
+    });
+
     it('does not add a link to an unsafe address, and says what to enter', async () => {
       const { button, textarea } = await setupWithLink('');
       button.click();

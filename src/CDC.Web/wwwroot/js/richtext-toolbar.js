@@ -319,10 +319,19 @@
         parts.url.focus();
     }
 
+    // Decoding first means an address already escaped is not escaped twice; one that cannot be decoded is refused.
+    function normaliseHref(url) {
+        try {
+            return encodeURI(decodeURI(url));
+        } catch (e) {
+            return null;
+        }
+    }
+
     function saveLink(parts) {
         var state = parts.state;
-        var url = parts.url.value.trim();
-        if (!url || !SAFE_HREF.test(url)) {
+        var href = normaliseHref(parts.url.value.trim());
+        if (!href || !SAFE_HREF.test(href)) {
             showLinkError(parts, 'Enter a web address starting with http://, https:// or mailto:');
             parts.url.focus();
             return;
@@ -340,14 +349,14 @@
                 range.collapse(false);
             }
             anchor = document.createElement('a');
-            anchor.textContent = text || url;
+            anchor.textContent = text || href;
             range.deleteContents();
             range.insertNode(anchor);
         } else if (text && text !== state.originalText) {
             anchor.textContent = text;
         }
 
-        anchor.setAttribute('href', url);
+        anchor.setAttribute('href', href);
         if (parts.title.value.trim()) {
             anchor.setAttribute('title', parts.title.value.trim());
         } else {
