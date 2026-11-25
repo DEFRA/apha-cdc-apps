@@ -224,8 +224,15 @@ public class MaintainModel(ISpeciesApiService speciesApiService, ILogger<Maintai
         });
 
     /// <summary>Gets the <c>aria-sort</c> value for a column header.</summary>
-    public string GetAuditTrailAriaSort(SpeciesAuditSortColumn column) =>
-        column != AuditTrailSortColumn ? "none" : IsAuditTrailSortDescending ? "descending" : "ascending";
+    public string GetAuditTrailAriaSort(SpeciesAuditSortColumn column)
+    {
+        if (column != AuditTrailSortColumn)
+        {
+            return "none";
+        }
+
+        return IsAuditTrailSortDescending ? "descending" : "ascending";
+    }
 
     /// <summary>Builds the querystring URL for a "View details" link, preserving the page, page size and sort.</summary>
     public string? BuildAuditTrailDetailsUrl(Guid auditTrailDetailsId) =>

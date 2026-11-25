@@ -456,6 +456,31 @@ public class MaintainModelTests
         Assert.Equal(15, pageModel.PagedAuditTrail.Count);
     }
 
+    [Theory]
+    [InlineData(SpeciesAuditSortColumn.OldName, "Ascending", "alpha")]
+    [InlineData(SpeciesAuditSortColumn.OldName, "Descending", "gamma")]
+    [InlineData(SpeciesAuditSortColumn.NewName, "Ascending", "alpha")]
+    [InlineData(SpeciesAuditSortColumn.NewName, "Descending", "gamma")]
+    [InlineData(SpeciesAuditSortColumn.User, "Ascending", "alpha")]
+    [InlineData(SpeciesAuditSortColumn.User, "Descending", "gamma")]
+    public async Task OnGetAuditTrailAsync_SortsByTextColumn_InTheRequestedDirection(
+        SpeciesAuditSortColumn column, string direction, string expectedFirst)
+    {
+        IReadOnlyList<SpeciesAuditTrailEntryDto> auditTrail =
+        [
+            new SpeciesAuditTrailEntryDto { Id = Guid.NewGuid(), OldName = "beta", NewName = "beta", ChangedBy = "beta" },
+            new SpeciesAuditTrailEntryDto { Id = Guid.NewGuid(), OldName = "gamma", NewName = "gamma", ChangedBy = "gamma" },
+            new SpeciesAuditTrailEntryDto { Id = Guid.NewGuid(), OldName = "alpha", NewName = "alpha", ChangedBy = "alpha" }
+        ];
+        var pageModel = CreatePageModel(new FakeSpeciesApiService(Species, auditTrail: auditTrail));
+        pageModel.AuditTrailSortColumn = column;
+        pageModel.AuditTrailSortDirection = direction;
+
+        await pageModel.OnGetAuditTrailAsync(CancellationToken.None);
+
+        Assert.Equal(expectedFirst, pageModel.PagedAuditTrail[0].OldName);
+    }
+
     [Fact]
     public async Task OnGetAsync_ShowsSuccessBanner_WhenASpeciesWasAdded()
     {
