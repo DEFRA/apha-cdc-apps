@@ -2292,6 +2292,33 @@ hr.govuk-section-break.app-audit-trail-details-separator {
   outline-offset: 0;
 }
 
+/* Link, Remove link and Open link, shown under a link clicked in an editor, as the legacy TinyMCE link toolbar was (richtext-toolbar.js). */
+.app-link-toolbar-host {
+  position: relative;
+}
+
+.app-link-toolbar {
+  position: absolute;
+  z-index: 10;
+  border-bottom: 1px solid var(--govuk-border-colour, #b1b4b6);
+  box-shadow: 0 2px 4px rgba(11, 12, 12, 0.2);
+}
+
+.app-link-toolbar[hidden] {
+  display: none;
+}
+
+.app-link-toolbar__button {
+  border-color: var(--govuk-border-colour, #b1b4b6);
+  background-color: #ffffff;
+  white-space: nowrap;
+}
+
+.app-link-toolbar__button:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
+}
+
 /* A question's supporting comments keep the legacy editor's fixed height and scroll inside it, rather than growing with the text. */
 .govuk-accordion .app-richtext-editor--surface,
 .app-answer-panel .app-richtext-editor--surface {
