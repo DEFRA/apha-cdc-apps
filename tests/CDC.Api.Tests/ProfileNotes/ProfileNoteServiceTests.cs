@@ -184,10 +184,10 @@ public class ProfileNoteServiceTests
     }
 
     [Fact]
-    public async Task GetNotesBySection_Throws_WhenTheUserMayNotViewTheNotes()
+    public async Task GetNotesBySection_Throws_WhenTheUserMayNotViewTheVersion()
     {
         versions
-            .Setup(guard => guard.EnsureCanViewNotesAsync(ProfileNoteTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .Setup(guard => guard.EnsureCanViewAsync(ProfileNoteTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());
 
         var act = async () => await CreateService().GetNotesBySectionAsync(
@@ -201,10 +201,10 @@ public class ProfileNoteServiceTests
     }
 
     [Fact]
-    public async Task GetNotesByVersion_Throws_WhenTheUserMayNotViewTheNotes()
+    public async Task GetNotesByVersion_Throws_WhenTheUserMayNotViewTheVersion()
     {
         versions
-            .Setup(guard => guard.EnsureCanViewNotesAsync(ProfileNoteTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
+            .Setup(guard => guard.EnsureCanViewAsync(ProfileNoteTestData.ProfileVersionId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());
 
         var act = async () => await CreateService().GetNotesByVersionAsync(

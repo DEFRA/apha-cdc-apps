@@ -37,7 +37,8 @@ public sealed class ProfileNoteService(
         Guid noteTypeId,
         CancellationToken cancellationToken)
     {
-        await versions.EnsureCanViewNotesAsync(profileVersionId, cancellationToken);
+        // As legacy NoteList.CanGetNoteList: a published version's notes are open to everyone signed in.
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
 
         var notes = await repository.GetNotesBySectionAsync(profileVersionId, profileSectionId, noteTypeId, cancellationToken);
         logger.RetrievedNotesBySection(notes.Count, profileSectionId, profileVersionId);
@@ -51,7 +52,7 @@ public sealed class ProfileNoteService(
         Guid noteTypeId,
         CancellationToken cancellationToken)
     {
-        await versions.EnsureCanViewNotesAsync(profileVersionId, cancellationToken);
+        await versions.EnsureCanViewAsync(profileVersionId, cancellationToken);
 
         var notes = await repository.GetNotesByVersionAsync(profileVersionId, noteTypeId, cancellationToken);
         logger.RetrievedNotesByVersion(notes.Count, profileVersionId);

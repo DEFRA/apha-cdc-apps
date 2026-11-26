@@ -113,10 +113,10 @@ public class ProfileReviewCommentServiceTests
     }
 
     [Fact]
-    public async Task GetAsync_Throws_WhenTheUserMayNotViewTheNotesOfTheProfile()
+    public async Task GetAsync_Throws_WhenTheUserMayNotViewTheReviewCommentsOfTheProfile()
     {
         versions
-            .Setup(guard => guard.EnsureCanViewNotesAsync(VersionId, It.IsAny<CancellationToken>()))
+            .Setup(guard => guard.EnsureCanViewReviewCommentsAsync(VersionId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());
 
         var act = () => CreateService().GetAsync(VersionId, SectionId, CancellationToken.None);

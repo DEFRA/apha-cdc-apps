@@ -199,45 +199,45 @@ public class ProfileVersionGuardTests
     }
 
     [Fact]
-    public async Task EnsureCanViewNotesAsync_Throws_ForAPublishedVersionToo_WhenTheUserHasNoRoleOnTheProfile()
+    public async Task EnsureCanViewReviewCommentsAsync_Throws_ForAPublishedVersionToo_WhenTheUserHasNoRoleOnTheProfile()
     {
         GivenVersion(isPublished: true);
 
-        var act = () => CreateGuard().EnsureCanViewNotesAsync(VersionId, CancellationToken.None);
+        var act = () => CreateGuard().EnsureCanViewReviewCommentsAsync(VersionId, CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
 
     [Fact]
-    public async Task EnsureCanViewNotesAsync_AllowsAnExternalUserWhoHoldsARoleOnTheProfile()
+    public async Task EnsureCanViewReviewCommentsAsync_AllowsAnExternalUserWhoHoldsARoleOnTheProfile()
     {
         GivenVersion(isPublished: true);
         GivenAnExternalUserWithARoleOnTheProfile();
 
-        var act = () => CreateGuard().EnsureCanViewNotesAsync(VersionId, CancellationToken.None);
+        var act = () => CreateGuard().EnsureCanViewReviewCommentsAsync(VersionId, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task EnsureCanViewNotesAsync_AllowsAPolicyProfileUser()
+    public async Task EnsureCanViewReviewCommentsAsync_AllowsAPolicyProfileUser()
     {
         GivenVersion(isPublished: false);
         userContext.SetupGet(context => context.IsPolicyProfileUser).Returns(true);
 
-        var act = () => CreateGuard().EnsureCanViewNotesAsync(VersionId, CancellationToken.None);
+        var act = () => CreateGuard().EnsureCanViewReviewCommentsAsync(VersionId, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task EnsureCanViewNotesAsync_AllowsAVersionThatDoesNotExist()
+    public async Task EnsureCanViewReviewCommentsAsync_AllowsAVersionThatDoesNotExist()
     {
         repository
             .Setup(repo => repo.GetProfileVersionHeaderAsync(VersionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProfileVersionHeader?)null);
 
-        var act = () => CreateGuard().EnsureCanViewNotesAsync(VersionId, CancellationToken.None);
+        var act = () => CreateGuard().EnsureCanViewReviewCommentsAsync(VersionId, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
     }

@@ -35,7 +35,7 @@ public sealed class ProfileReviewCommentService(
         Guid profileSectionId,
         CancellationToken cancellationToken)
     {
-        await versions.EnsureCanViewNotesAsync(profileVersionId, cancellationToken);
+        await versions.EnsureCanViewReviewCommentsAsync(profileVersionId, cancellationToken);
 
         var comments = await repository.GetProfileSectionReviewCommentsAsync(profileVersionId, profileSectionId, cancellationToken);
         var actingUser = comments.Count > 0 ? await ResolveEditingUserAsync(profileVersionId, cancellationToken) : null;
