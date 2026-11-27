@@ -150,9 +150,19 @@ builder.Services.AddHttpClient<IReferenceDataApiService, ReferenceDataApiService
 })
     .AddHttpMessageHandler<ActingUserDelegatingHandler>()
     .AddStandardResilienceHandler();
-// In-memory pending a CDC.Api endpoint for cross-cutting issue scores; singleton so edits
-// persist across requests for the lifetime of the process.
-builder.Services.AddSingleton<ICrossCuttingIssueScoreService, InMemoryCrossCuttingIssueScoreService>();
+// A save is not retried: the recalculation it triggers is long-running and replaying it would repeat the work.
+builder.Services.AddHttpClient<ICrossCuttingIssueScoreService, CrossCuttingIssueScoreApiService>(client =>
+{
+    client.BaseAddress = apiBaseUri;
+})
+    .AddHttpMessageHandler<ActingUserDelegatingHandler>()
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.DisableForUnsafeHttpMethods();
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(190);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(380);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(200);
+    });
 
 // Holds uncommitted cross-cutting issue score edits until the user selects Update.
 builder.Services.AddDistributedMemoryCache();
