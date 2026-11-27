@@ -3,6 +3,7 @@ using CDC.Auth.Cidm;
 using CDC.Auth.Entra;
 using CDC.Web.Authorization.Constants;
 using CDC.Web.Features.Account;
+using CDC.Web.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
@@ -99,6 +101,10 @@ public sealed class CdcWebTestFactory : WebApplicationFactory<Program>
 
                     options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
                 });
+
+            // The real service calls CDC.Api, which does not exist in the test host.
+            services.RemoveAll<ICrossCuttingIssueScoreService>();
+            services.AddSingleton<ICrossCuttingIssueScoreService, InMemoryCrossCuttingIssueScoreService>();
 
             services.AddSingleton<IStartupFilter, TestSignInStartupFilter>();
         });
