@@ -249,8 +249,19 @@
             text: dialog.querySelector('#richtext-link-text'),
             title: dialog.querySelector('#richtext-link-title'),
             target: target,
-            state: null
+            state: null,
+            textFollowsUrl: false
         };
+
+        // As in TinyMCE, the text to display copies the URL as it is typed, until the user types text of their own.
+        linkDialog.url.addEventListener('input', function () {
+            if (linkDialog.textFollowsUrl) {
+                linkDialog.text.value = linkDialog.url.value;
+            }
+        });
+        linkDialog.text.addEventListener('input', function () {
+            linkDialog.textFollowsUrl = linkDialog.text.value === '';
+        });
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();
@@ -309,6 +320,7 @@
         parts.text.value = anchor ? anchor.textContent : selectedText;
         parts.title.value = anchor ? anchor.getAttribute('title') || '' : '';
         parts.target.value = anchor?.getAttribute('target') === '_blank' ? '_blank' : '';
+        parts.textFollowsUrl = parts.text.value === '' || parts.text.value === parts.url.value;
         showLinkError(parts, '');
 
         if (typeof parts.dialog.showModal === 'function') {
@@ -384,6 +396,121 @@
         }
     }
 
+    // The legacy TinyMCE link_context_toolbar: clicking a link in the editor offers Link (edit it), Remove link and Open link. The toolbar
+    // follows the editor in the page, so Tab reaches it from the editor, and is placed under the link.
+    function createLinkToolbar(editor) {
+        var toolbar = createElement('div', 'app-richtext-toolbar app-link-toolbar', { role: 'toolbar', 'aria-label': 'Link options' });
+        toolbar.hidden = true;
+        [['edit', 'Link'], ['remove', 'Remove link'], ['open', 'Open link']].forEach(function (action) {
+            toolbar.appendChild(createElement('button', 'app-richtext-toolbar__button app-link-toolbar__button', { type: 'button', 'data-link-action': action[0] }, action[1]));
+        });
+        editor.parentNode.classList.add('app-link-toolbar-host');
+        editor.parentNode.insertBefore(toolbar, editor.nextSibling);
+        return toolbar;
+    }
+
+    function showLinkToolbar(toolbar, anchor) {
+        toolbar.anchor = anchor;
+        toolbar.hidden = false;
+        var host = toolbar.offsetParent || toolbar.parentNode;
+        var hostBox = host.getBoundingClientRect();
+        var linkBox = anchor.getBoundingClientRect();
+        toolbar.style.left = (linkBox.left - hostBox.left) + 'px';
+        toolbar.style.top = (linkBox.bottom - hostBox.top + 4) + 'px';
+    }
+
+    function hideLinkToolbar(toolbar) {
+        toolbar.hidden = true;
+        toolbar.anchor = null;
+    }
+
+    function removeLink(editor, anchor) {
+        var parent = anchor.parentNode;
+        while (anchor.firstChild) {
+            parent.insertBefore(anchor.firstChild, anchor);
+        }
+        anchor.remove();
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function openLink(anchor) {
+        var href = normaliseHref(anchor.getAttribute('href') || '');
+        if (href && SAFE_HREF.test(href)) {
+            window.open(href, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    function runLinkAction(action, editor, toolbar) {
+        var anchor = toolbar.anchor;
+        hideLinkToolbar(toolbar);
+        if (!anchor || !editor.contains(anchor)) {
+            return;
+        }
+
+        if (action === 'edit') {
+            editor.focus();
+            var range = document.createRange();
+            range.selectNodeContents(anchor);
+            var selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            insertLink(editor);
+        } else if (action === 'remove') {
+            removeLink(editor, anchor);
+            editor.focus();
+        } else if (action === 'open') {
+            openLink(anchor);
+        }
+    }
+
+    function attachLinkToolbar(editor, hasLinkButton) {
+        var toolbar = null;
+
+        function update(anchor) {
+            if (anchor && hasLinkButton()) {
+                toolbar = toolbar || createLinkToolbar(editor);
+                showLinkToolbar(toolbar, anchor);
+            } else if (toolbar) {
+                hideLinkToolbar(toolbar);
+            }
+        }
+
+        editor.addEventListener('click', function (event) {
+            var anchor = event.target instanceof Element ? event.target.closest('a') : null;
+            if (anchor) {
+                // A link in the text being edited is never followed by clicking it; Open link follows it.
+                event.preventDefault();
+            }
+            update(anchor && editor.contains(anchor) ? anchor : null);
+        });
+        editor.addEventListener('keyup', function (event) {
+            if (event.key === 'Escape') {
+                update(null);
+            } else if (event.key.indexOf('Arrow') === 0 || event.key === 'Home' || event.key === 'End') {
+                update(linkAround(selectionRangeIn(editor), editor));
+            }
+        });
+        editor.addEventListener('input', function () { update(null); });
+
+        document.addEventListener('mousedown', function (event) {
+            if (toolbar && !toolbar.hidden && !toolbar.contains(event.target) && !editor.contains(event.target)) {
+                hideLinkToolbar(toolbar);
+            }
+        });
+        document.addEventListener('click', function (event) {
+            var button = toolbar && event.target instanceof Element ? event.target.closest('[data-link-action]') : null;
+            if (button && toolbar.contains(button)) {
+                runLinkAction(button.dataset.linkAction, editor, toolbar);
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && toolbar && !toolbar.hidden && toolbar.contains(document.activeElement)) {
+                hideLinkToolbar(toolbar);
+                editor.focus();
+            }
+        });
+    }
+
     function runCommand(command, editor) {
         editor.focus();
 
@@ -432,6 +559,11 @@
                 textarea.dataset.richtextReady = 'true';
                 var editor = createEditor(textarea);
                 editors[targetId] = editor;
+                attachLinkToolbar(editor, function () {
+                    return Array.prototype.some.call(document.querySelectorAll('[data-richtext-command="link"]'), function (linkButton) {
+                        return linkButton.dataset.richtextTarget === targetId;
+                    });
+                });
 
                 editor.addEventListener('input', function () { syncToTextarea(editor, textarea); });
                 editor.addEventListener('paste', function (event) {

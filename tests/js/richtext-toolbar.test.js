@@ -229,5 +229,98 @@ describe('richtext-toolbar', () => {
       expect(editor.querySelectorAll('a')).toHaveLength(1);
       expect(textarea.value).toBe('<p><a href="https://new.gov.uk/">new</a></p>');
     });
+
+    function type(input, value) {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    it('fills Text to display from the URL as it is typed, until the user types text of their own', async () => {
+      const { button } = await setupWithLink('');
+      button.click();
+      const parts = dialogParts();
+
+      type(parts.url, 'https://www.gov');
+      expect(parts.text.value).toBe('https://www.gov');
+      type(parts.url, 'https://www.gov.uk/');
+      expect(parts.text.value).toBe('https://www.gov.uk/');
+
+      type(parts.text, 'GOV.UK');
+      type(parts.url, 'https://www.gov.uk/help');
+      expect(parts.text.value).toBe('GOV.UK');
+    });
+
+    it('keeps the text of the words the user selected, rather than copying the URL over them', async () => {
+      const { button, editor } = await setupWithLink('<p>see guidance</p>');
+      const range = document.createRange();
+      range.selectNodeContents(editor.querySelector('p'));
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+
+      button.click();
+      const parts = dialogParts();
+      type(parts.url, 'https://www.gov.uk/');
+
+      expect(parts.text.value).toBe('see guidance');
+    });
+
+    describe('clicking a link in the editor', () => {
+      function linkToolbar() {
+        return document.querySelector('.app-link-toolbar');
+      }
+
+      it('offers Link, Remove link and Open link, as the legacy editor did', async () => {
+        const { editor } = await setupWithLink('<p>See <a href="https://www.gov.uk/">GOV.UK</a></p>');
+
+        editor.querySelector('a').click();
+
+        const toolbar = linkToolbar();
+        expect(toolbar.hidden).toBe(false);
+        expect(toolbar.getAttribute('role')).toBe('toolbar');
+        expect([...toolbar.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Link', 'Remove link', 'Open link']);
+      });
+
+      it('offers nothing when the click is not on a link', async () => {
+        const { editor } = await setupWithLink('<p>See <a href="https://www.gov.uk/">GOV.UK</a></p>');
+
+        editor.querySelector('a').click();
+        editor.querySelector('p').click();
+
+        expect(linkToolbar().hidden).toBe(true);
+      });
+
+      it('opens the Insert/Edit Link dialog for the link with Link', async () => {
+        const { editor } = await setupWithLink('<p>See <a href="https://www.gov.uk/" title="Home">GOV.UK</a></p>');
+
+        editor.querySelector('a').click();
+        linkToolbar().querySelector('[data-link-action="edit"]').click();
+
+        const parts = dialogParts();
+        expect(parts.dialog.open).toBe(true);
+        expect([parts.url.value, parts.text.value, parts.title.value]).toEqual(['https://www.gov.uk/', 'GOV.UK', 'Home']);
+        expect(linkToolbar().hidden).toBe(true);
+      });
+
+      it('takes the link away but keeps its text with Remove link', async () => {
+        const { editor, textarea } = await setupWithLink('<p>See <a href="https://www.gov.uk/">GOV.UK</a> now</p>');
+
+        editor.querySelector('a').click();
+        linkToolbar().querySelector('[data-link-action="remove"]').click();
+
+        expect(editor.querySelector('a')).toBeNull();
+        expect(textarea.value).toBe('<p>See GOV.UK now</p>');
+      });
+
+      it('opens the link in a new tab with Open link', async () => {
+        const { editor } = await setupWithLink('<p><a href="https://www.gov.uk/">GOV.UK</a></p>');
+        const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+        editor.querySelector('a').click();
+        linkToolbar().querySelector('[data-link-action="open"]').click();
+
+        expect(open).toHaveBeenCalledWith('https://www.gov.uk/', '_blank', 'noopener,noreferrer');
+        open.mockRestore();
+      });
+    });
   });
 });

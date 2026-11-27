@@ -45,14 +45,14 @@ public interface IProfileVersionGuard
     Task EnsureCanBrowseAsync(Guid profileId, Guid profileVersionId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Refuses a request to read the notes or review comments of a version when the acting user may not view the profile's
-    /// drafts. They are working papers, so a published version's are no more open than a draft's.
+    /// Refuses a request to read the review comments of a version when the acting user may not view the profile's drafts. They
+    /// are working papers, so a published version's are no more open than a draft's.
     /// </summary>
     /// <param name="profileVersionId">The version.</param>
     /// <param name="cancellationToken">Cancels the database call.</param>
     /// <returns>A task that completes when the request is allowed.</returns>
     /// <exception cref="UnauthorizedAccessException">The user may not view the profile's drafts.</exception>
-    Task EnsureCanViewNotesAsync(Guid profileVersionId, CancellationToken cancellationToken);
+    Task EnsureCanViewReviewCommentsAsync(Guid profileVersionId, CancellationToken cancellationToken);
 }
 
 /// <summary>Default <see cref="IProfileVersionGuard"/>, reading the version through <see cref="IProfileReportRepository"/>.</summary>
@@ -98,11 +98,11 @@ public sealed class ProfileVersionGuard(IProfileReportRepository repository, IUs
     }
 
     /// <inheritdoc />
-    public async Task EnsureCanViewNotesAsync(Guid profileVersionId, CancellationToken cancellationToken)
+    public async Task EnsureCanViewReviewCommentsAsync(Guid profileVersionId, CancellationToken cancellationToken)
     {
         if (await FindAsync(profileVersionId, cancellationToken) is { } version && !ProfileAccess.CanViewDraft(userContext, version.ProfileId))
         {
-            throw new UnauthorizedAccessException("The acting user may not view the notes and review comments of this profile.");
+            throw new UnauthorizedAccessException("The acting user may not view the review comments of this profile.");
         }
     }
 }
