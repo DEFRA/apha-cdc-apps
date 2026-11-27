@@ -27,12 +27,12 @@ public class ApiClientActingUserWiringTests : IClassFixture<CdcWebTestFactory>
         return names;
     }
 
-    // Every typed client takes an HttpClient and is registered under its interface, named I + the class name.
+    // Every typed client takes an HttpClient and is registered under the CDC.Web interface it implements.
     private static List<string> DiscoverApiClientNames() =>
     [
         .. typeof(ApiClient).Assembly.GetTypes()
             .Where(type => type is { IsClass: true, IsAbstract: false } && type.GetConstructors().Any(constructor => constructor.GetParameters().Any(parameter => parameter.ParameterType == typeof(HttpClient))))
-            .Select(type => $"I{type.Name}")
+            .Select(type => type.GetInterfaces().FirstOrDefault(i => i.Assembly == type.Assembly)?.Name ?? $"I{type.Name}")
             .Order(StringComparer.Ordinal)
     ];
 
