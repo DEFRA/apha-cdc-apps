@@ -338,7 +338,7 @@ public partial class EditProfileQuestionsSpeciesPageIntegrationTests : IClassFix
         var welfare = QuestionMarkup(body, WelfareQuestionId);
         var controlId = $"species-{WelfareQuestionId}-field-{WelfareFieldId}";
 
-        Assert.Contains($"id=\"species-{WelfareQuestionId}-field-{CommentsFieldId}\" aria-labelledby=\"species-{WelfareQuestionId}-field-{CommentsFieldId}-label\" data-answer-text-view", welfare);
+        Assert.Contains($"<div class=\"govuk-body-s app-readonly-long-text\" id=\"species-{WelfareQuestionId}-field-{CommentsFieldId}\" aria-labelledby=\"species-{WelfareQuestionId}-field-{CommentsFieldId}-label\" data-answer-text-view", welfare);
         Assert.DoesNotContain("<textarea", welfare);
         Assert.DoesNotContain("data-richtext-command", welfare);
 

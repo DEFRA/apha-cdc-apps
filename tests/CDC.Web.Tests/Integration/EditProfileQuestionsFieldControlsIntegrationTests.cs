@@ -25,6 +25,7 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
     private static readonly Guid RoutesFieldId = Guid.NewGuid();
     private static readonly Guid UnnamedRoutesFieldId = Guid.NewGuid();
     private static readonly Guid SeverityReasonFieldId = Guid.NewGuid();
+    private static readonly Guid OccurrenceFieldId = Guid.NewGuid();
     private static readonly Guid SeverityTableId = Guid.NewGuid();
     private static readonly Guid RoutesTableId = Guid.NewGuid();
     private static readonly Guid LowId = Guid.NewGuid();
@@ -71,7 +72,8 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
                             new ProfileFieldMetadataDto { Id = UnnamedRoutesFieldId, QuestionId = QuestionId, Name = string.Empty, FieldNumber = 6, DataTypeName = "MultiValueList", ReferenceTableId = RoutesTableId },
 
                             // Asked only while the severity is high, as the legacy page showed such a field.
-                            new ProfileFieldMetadataDto { Id = SeverityReasonFieldId, QuestionId = QuestionId, Name = "Why is the severity high?", FieldNumber = 7, DataTypeName = "Long Text", RelevanceFieldId = SeverityFieldId, RelevanceValueId = HighId }
+                            new ProfileFieldMetadataDto { Id = SeverityReasonFieldId, QuestionId = QuestionId, Name = "Why is the severity high?", FieldNumber = 7, DataTypeName = "Long Text", RelevanceFieldId = SeverityFieldId, RelevanceValueId = HighId },
+                            new ProfileFieldMetadataDto { Id = OccurrenceFieldId, QuestionId = QuestionId, Name = string.Empty, FieldNumber = 8, DataTypeName = "Date" }
                         ]
                     }
                 ]
@@ -94,10 +96,17 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
         ListValue = list
     };
 
-    // Risk answered yes, severity high, and routes of infection by food.
+    // Risk answered yes, severity high with its reason, routes of infection by food, and the date of the last occurrence.
     private static ProfileSectionAnswersDto Answers() => new()
     {
-        FieldValues = [Value(1, boolean: true), Value(3, list: HighId), Value(5, list: FoodId)]
+        FieldValues =
+        [
+            Value(1, boolean: true),
+            Value(3, list: HighId),
+            Value(5, list: FoodId),
+            Value(7) with { TextValue = "<p>Serological evidence <em>only</em>.</p>" },
+            Value(8) with { DateValue = new DateTime(1922, 1, 1) }
+        ]
     };
 
     private async Task<string> GetPageAsync(ManageProfileViewModel profile, ProfileSectionAnswersDto? answers = null)
@@ -241,6 +250,35 @@ public partial class EditProfileQuestionsFieldControlsIntegrationTests : IClassF
         Assert.DoesNotContain($"id=\"field_{RiskFieldId}-readonly-no\" type=\"checkbox\" disabled checked", field);
         Assert.DoesNotContain("<select", field);
         Assert.DoesNotContain("name=\"field_", field);
+    }
+
+    // As the legacy page showed a long answer the user may not change: in a bordered box of a fixed height that scrolls.
+    [Fact]
+    public async Task ReadOnlyLongText_IsInABorderedBoxThatScrolls_NamedByItsLabel()
+    {
+        var body = await GetPageAsync(ProfileTabTestData.ReadOnlyDraftProfile());
+
+        var field = FieldMarkup(body, SeverityReasonFieldId);
+
+        Assert.Contains($"<h3 class=\"govuk-heading-s govuk-!-margin-bottom-1\" id=\"field_{SeverityReasonFieldId}-label\">Why is the severity high?</h3>", field);
+        Assert.Contains($"<section class=\"govuk-body-s app-readonly-long-text\" aria-labelledby=\"field_{SeverityReasonFieldId}-label\"><p>Serological evidence <em>only</em>.</p></section>", field);
+        Assert.DoesNotContain("<textarea", field);
+    }
+
+    // As the legacy page showed any other answer the user may not change, such as a date: its text in a bordered white box.
+    [Fact]
+    public async Task ReadOnlyDate_IsInABorderedBox_NamedForAScreenReaderWhenTheFieldHasNoName()
+    {
+        var body = await GetPageAsync(ProfileTabTestData.ReadOnlyDraftProfile());
+
+        var start = body.IndexOf("Answer to question 6.1: </span>", StringComparison.Ordinal);
+        Assert.True(start >= 0, "The date should be named for the question it answers.");
+        var box = body[body.LastIndexOf("<p", start, StringComparison.Ordinal)..body.IndexOf("</p>", start, StringComparison.Ordinal)];
+
+        Assert.StartsWith("<p class=\"govuk-body app-version-data-box\">", box);
+        Assert.Contains("01/01/1922", box);
+        Assert.DoesNotContain("govuk-summary-list", body);
+        Assert.DoesNotContain($"name=\"field_{OccurrenceFieldId}", body);
     }
 
     private static ProfileSectionAnswersDto AnswersWithSeverity(Guid? severity)

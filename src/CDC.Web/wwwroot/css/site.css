@@ -1723,13 +1723,6 @@ hr.govuk-section-break.app-audit-trail-details-separator {
   display: none;
 }
 
-/* A read-only answer shown as it is formatted, in place of a text area. */
-.app-answer-readonly-text {
-  max-height: 20rem;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-}
-
 /* A property of the profile version (the species it profiles) shown read-only in a bordered white box, which keeps its height when it is
    empty, as the legacy page showed it. */
 .app-version-data-box {

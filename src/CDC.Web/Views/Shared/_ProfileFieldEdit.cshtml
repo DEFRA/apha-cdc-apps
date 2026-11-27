@@ -72,22 +72,31 @@
     }
     else if (Model.IsHtml)
     {
+        @* As the legacy page showed a long answer the user may not change: in a bordered box of a fixed height that always scrolls. *@
         <div class="govuk-form-group">
-            @if (!string.IsNullOrEmpty(Model.Label))
+            @if (hasLabel)
             {
-                <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@Model.Label</h3>
+                <h3 class="govuk-heading-s govuk-!-margin-bottom-1" id="@(inputName)-label">@Model.Label</h3>
             }
-            <div class="govuk-body">@Html.Raw(Model.ValueDisplay)</div>
+            <section class="govuk-body-s app-readonly-long-text" aria-labelledby="@(hasLabel ? $"{inputName}-label" : null)" aria-label="@(hasLabel ? null : Model.LabelFallback)">@Html.Raw(Model.ValueDisplay)</section>
         </div>
     }
     else
     {
-        <dl class="govuk-summary-list">
-            <div class="govuk-summary-list__row">
-                <dt class="govuk-summary-list__key">@Model.Label</dt>
-                <dd class="govuk-summary-list__value">@Model.ValueDisplay</dd>
-            </div>
-        </dl>
+        @* As the legacy page showed any other answer the user may not change: its text in a bordered white box. *@
+        <div class="govuk-form-group">
+            @if (hasLabel)
+            {
+                <h3 class="govuk-heading-s govuk-!-margin-bottom-1">@Model.Label</h3>
+            }
+            <p class="govuk-body app-version-data-box">
+                @if (!hasLabel)
+                {
+                    <span class="govuk-visually-hidden">@(Model.LabelFallback): </span>
+                }
+                @Model.ValueDisplay
+            </p>
+        </div>
     }
 }
 else
