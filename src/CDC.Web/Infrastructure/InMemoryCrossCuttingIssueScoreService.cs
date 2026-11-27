@@ -5,11 +5,71 @@ namespace CDC.Web.Infrastructure;
 /// <summary>
 /// In-memory <see cref="ICrossCuttingIssueScoreService"/>, registered as a singleton so committed
 /// edits survive between requests. Seeded from the legacy Phase2Release3 seed data (ids, names and
-/// the flat starting score of 10). Placeholder until CDC.Api exposes prioritisation metadata.
+/// the scores applied by Phase2Release3Changes270109.sql). Placeholder until CDC.Api exposes prioritisation metadata.
 /// </summary>
 public sealed class InMemoryCrossCuttingIssueScoreService : ICrossCuttingIssueScoreService
 {
-    private const int SeedScore = 10;
+    private const int FallbackScore = 10;
+
+    private static readonly Dictionary<Guid, int> LegacyScores = new()
+    {
+        [Guid.Parse("43BFFEF6-0BE7-4C5E-908A-D81D0CFC8466")] = 0,
+        [Guid.Parse("7FFD837E-7E01-43C6-9B3A-CB8E72D6699A")] = 5,
+        [Guid.Parse("2E9BAE66-AA58-4B6E-A2B1-D349C499410E")] = 15,
+        [Guid.Parse("C5C53FE4-09CA-4D88-AFCE-D3B9A6CEF562")] = 30,
+        [Guid.Parse("334904BB-758C-4AEF-8E8C-66FEF8DA1763")] = 45,
+        [Guid.Parse("DA45A1E0-4411-4891-82DF-60BB75AB5EC0")] = 75,
+        [Guid.Parse("B87D6FE8-6031-4B03-A763-13C80BCC117E")] = 95,
+        [Guid.Parse("69F57147-149C-4F7E-8841-AF61B6D3171A")] = 100,
+        [Guid.Parse("9332C010-117C-42F9-91C2-8CC6A837C34B")] = 0,
+        [Guid.Parse("E97B64FD-AAB1-48B4-BBF5-99826B5D9EA9")] = 10,
+        [Guid.Parse("CCF031DA-630B-46FE-89AD-6826627F0A17")] = 30,
+        [Guid.Parse("AE63210A-8AA6-4C2D-8168-5620FB44A6F6")] = 45,
+        [Guid.Parse("6E1B40C5-8DE9-48D5-BB3A-4A1697780559")] = 70,
+        [Guid.Parse("CD9FF046-7535-4F1A-A750-CD2D05782A45")] = 95,
+        [Guid.Parse("1771AE1C-0033-4B9C-ACD4-18EC1D800DA2")] = 100,
+        [Guid.Parse("55F81B25-5229-4600-B614-9C8FE41B2669")] = 5,
+        [Guid.Parse("CD26F90F-0B59-4999-8B95-6929C08867C6")] = 21,
+        [Guid.Parse("4B6C25D3-7FB5-4EE9-A7D3-F39C8366AB59")] = 42,
+        [Guid.Parse("219197A1-8569-40E1-96FC-27E4C91C8A89")] = 54,
+        [Guid.Parse("4199EAA5-484D-4803-800C-CBE01C6733DF")] = 1,
+        [Guid.Parse("9015130A-ED26-4EFC-B2B4-F439F0EA9ED7")] = 6,
+        [Guid.Parse("5E5E043C-B1F7-46C2-A02F-D5EA1006856A")] = 36,
+        [Guid.Parse("3F9C1779-D361-4954-9F8D-0B7D8DE798D0")] = 40,
+        [Guid.Parse("63F569AA-05D3-4FA8-9F54-CF4831C06202")] = 0,
+        [Guid.Parse("6FC6D0CD-A27D-4379-9146-ED910B9F9F7E")] = 3,
+        [Guid.Parse("0EADE30D-EEBB-4DF8-8224-0A0D3D341A28")] = 6,
+        [Guid.Parse("88AD7510-9D77-474A-B3C5-5FC32B98F380")] = 20,
+        [Guid.Parse("1AA0FA83-85F5-40AD-9063-DB509C474FBC")] = 14,
+        [Guid.Parse("7CE33D07-215C-409E-97F8-0D887A102035")] = 8,
+        [Guid.Parse("1863F784-13CA-4776-BBB2-18C6FB37A356")] = 4,
+        [Guid.Parse("657DE796-84EA-462A-BBE0-5793B15BC3D0")] = 0,
+        [Guid.Parse("4AEA7953-2AA2-4B49-8163-7F08DF659158")] = 20,
+        [Guid.Parse("1126EE7B-DCC0-451E-B737-0A98D5228380")] = 10,
+        [Guid.Parse("55CE9EC8-6216-4E79-B530-AD85255F272F")] = 0,
+        [Guid.Parse("FE917497-6973-4A85-9864-F144B3CF604D")] = 10,
+        [Guid.Parse("8FBB4F15-0A78-49D1-9758-681300149F10")] = 5,
+        [Guid.Parse("41C85CC9-693F-40E1-8136-133C57FBA9C9")] = 0,
+        [Guid.Parse("CA4D1FD9-28E5-46F2-A61E-8F7FB1BE528B")] = 12,
+        [Guid.Parse("EC0FCFC0-9C37-4B85-B3D1-9952323202BD")] = 4,
+        [Guid.Parse("01489A5C-8832-495E-999E-55DD41FB7D50")] = 0,
+        [Guid.Parse("A3A9BB98-33A6-4941-B950-6D6E6891FE2A")] = 12,
+        [Guid.Parse("036FC533-DFDE-46E8-8DB2-0D0BAA185B5D")] = 6,
+        [Guid.Parse("9E2CB5E6-9D08-4D8B-ABC1-2F060F678F9F")] = 0,
+        [Guid.Parse("C3119628-A34D-4AA7-BC3C-34ACFBBD7277")] = 10,
+        [Guid.Parse("1254C1EC-F09E-4910-B8FE-8CE97630E63B")] = 9,
+        [Guid.Parse("7B7CAA3D-76A8-4859-97C8-5BAA3B7FF561")] = 8,
+        [Guid.Parse("37E9AE5E-CD3A-4778-9676-3C1ABC2847DE")] = 5,
+        [Guid.Parse("EEB6110A-EC25-444B-A485-F454BBC80849")] = 0,
+        [Guid.Parse("334F777F-C85B-4777-B4DC-2DB192CA7453")] = 10,
+        [Guid.Parse("BF543DAA-1E3A-4373-938B-6BBEE238C0C2")] = 4,
+        [Guid.Parse("EB02462E-DA86-4E38-BBF6-87AB1640917B")] = 8,
+        [Guid.Parse("6DE79C7E-90CE-4CBB-A2AF-A6AFD960E0C9")] = 0,
+        [Guid.Parse("EE8C079D-99B1-4A6B-B627-92ADCE59BA82")] = 6,
+        [Guid.Parse("3F7C69F7-86B2-404B-8385-BF808AF5D32E")] = 0,
+        [Guid.Parse("B3AC4488-FD5A-4C01-B7CD-FBBCF0FC00FF")] = 0,
+        [Guid.Parse("052057D4-9CF3-46D2-921B-8AFAF367A9F2")] = 0,
+    };
 
     private readonly Lock _sync = new();
     private readonly Dictionary<Guid, int> _scores = [];
@@ -19,7 +79,7 @@ public sealed class InMemoryCrossCuttingIssueScoreService : ICrossCuttingIssueSc
     {
         foreach (var value in _seed.SelectMany(c => c.Criteria).SelectMany(c => c.Values))
         {
-            _scores[value.Id] = SeedScore;
+            _scores[value.Id] = LegacyScores.GetValueOrDefault(value.Id, FallbackScore);
         }
     }
 
